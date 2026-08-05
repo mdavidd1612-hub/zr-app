@@ -1,0 +1,125 @@
+@import 'tailwindcss';
+
+/* Fuentes oficiales del manual de identidad, servidas desde el propio paquete.
+   NUNCA desde Google Fonts: el carnet tiene que dibujarse con el teléfono en
+   modo avión, y una fuente remota no cargaría. Ver spec/06 §5. */
+@import '@fontsource-variable/roboto';
+@import '@fontsource-variable/raleway';
+
+/* ===========================================================================
+   TOKENS · ÚNICO lugar donde se define color en todo el proyecto
+   Fuente: spec/06_IDENTIDAD_VISUAL.md §4 · Manual de Identidad ZR Mecademy 2025
+   Si un componente lleva un color escrito directamente, es un error. Se corrige.
+   =========================================================================== */
+:root {
+  /* Marca */
+  --zr-navy:        #21284F;
+  --zr-blue-deep:   #1E4D96;
+  --zr-blue:        #3869B1;   /* color del logo */
+  --zr-blue-mid:    #6590CB;
+  --zr-blue-light:  #98BAE3;
+  --zr-white:       #FFFFFF;
+
+  /* Capa funcional — estados, nunca decoración, nunca sobre el logo */
+  --zr-success:     #16A34A;
+  --zr-warning:     #EAB308;
+  --zr-error:       #DC2626;
+
+  /* Superficies derivadas */
+  --zr-bg:          #F5F7FB;   /* blanco azulado, descansa la vista bajo sol */
+  --zr-surface:     #FFFFFF;
+  --zr-border:      #C9D6EA;
+
+  /* Texto */
+  --zr-text:        #21284F;   /* el navy de marca ES el color de texto */
+  --zr-text-muted:  #4A5578;
+  --zr-text-on-dark:#FFFFFF;
+
+  /* Medidas — se usa de pie, en un taller, con guantes. Ver spec/04 §0. */
+  --zr-touch-min:   48px;
+  --zr-button-h:    56px;
+  --zr-button-h-lg: 64px;
+  --zr-radius:      12px;
+  --zr-gap:         16px;
+  --zr-page-pad:    16px;
+}
+
+/* Puente hacia Tailwind: expone los tokens como utilidades (bg-zr-navy,
+   text-zr-error, h-boton…) para no repetir var(--zr-*) en cada componente. */
+@theme inline {
+  --color-zr-navy:       var(--zr-navy);
+  --color-zr-blue-deep:  var(--zr-blue-deep);
+  --color-zr-blue:       var(--zr-blue);
+  --color-zr-blue-mid:   var(--zr-blue-mid);
+  --color-zr-blue-light: var(--zr-blue-light);
+  --color-zr-success:    var(--zr-success);
+  --color-zr-warning:    var(--zr-warning);
+  --color-zr-error:      var(--zr-error);
+  --color-zr-bg:         var(--zr-bg);
+  --color-zr-surface:    var(--zr-surface);
+  --color-zr-border:     var(--zr-border);
+  --color-zr-text:       var(--zr-text);
+  --color-zr-text-muted: var(--zr-text-muted);
+
+  --font-titulo: 'Raleway Variable', system-ui, sans-serif;
+  --font-texto:  'Roboto Variable', system-ui, sans-serif;
+
+  --radius-zr:        var(--zr-radius);
+  --spacing-toque:    var(--zr-touch-min);
+  --spacing-boton:    var(--zr-button-h);
+  --spacing-boton-lg: var(--zr-button-h-lg);
+}
+
+/* ===========================================================================
+   BASE
+   =========================================================================== */
+html {
+  /* Sin esto, iOS Safari agranda el texto solo al girar el teléfono. */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--zr-bg);
+  color: var(--zr-text);
+  font-family: var(--font-texto);
+  font-size: 16px;          /* mínimo de spec/04 §0. Nunca menos. */
+  line-height: 1.5;
+  /* Instalada a pantalla completa, el rebote elástico al final del scroll
+     parece que la app se rompió. */
+  overscroll-behavior-y: none;
+}
+
+h1, h2, h3, .titulo {
+  font-family: var(--font-titulo);
+  font-weight: 700;
+  color: var(--zr-text);
+}
+
+/* Raleway para lo que se lee de un vistazo; Roboto para lo que se lee de cerca.
+   Roboto distingue el 1 de la l y el 0 de la O, y en pantalla hay cédulas. */
+.cifra {
+  font-family: var(--font-titulo);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Foco siempre visible: requisito de WCAG 2.4.7, y en la sede se usan teclados
+   externos en los paneles de administración. */
+:focus-visible {
+  outline: 3px solid var(--zr-blue-deep);
+  outline-offset: 2px;
+}
+
+/* Nadie debería poder tocar algo más chico que esto. */
+button, a[role='button'], input[type='submit'] {
+  min-height: var(--zr-touch-min);
+}
+
+/* Respeta a quien pidió menos animación en su sistema (WCAG 2.3.3). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

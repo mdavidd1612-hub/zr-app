@@ -34,6 +34,7 @@ export default function Recuperar() {
     )
 
     if (fallo) {
+      console.error('Password reset error:', fallo)
       setError('No pudimos enviar el correo. Verifica que la cédula sea correcta.')
       setCargando(false)
       return

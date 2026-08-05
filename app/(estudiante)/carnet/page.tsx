@@ -119,25 +119,36 @@ export default function Carnet() {
     }
 
     cargar()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Actualizar TOTP cada segundo
   useEffect(() => {
     if (!perfil) return
 
+    let updating = false
     const interval = setInterval(async () => {
-      const secret = await getQRSecret(perfil.cedula)
-      if (secret) {
-        const nuevoTotp = generateTOTP(secret.secret, secret.label)
-        setTotp(nuevoTotp)
+      if (updating) return
+      updating = true
 
-        // Regenerar QR
-        const qrString = `ZR1|${perfil.cedula}|${nuevoTotp}`
-        const url = await QRCode.toDataURL(qrString, { width: 256 })
-        setQrUrl(url)
+      try {
+        const secret = await getQRSecret(perfil.cedula)
+        if (secret) {
+          const nuevoTotp = generateTOTP(secret.secret, secret.label)
+          setTotp(nuevoTotp)
+
+          // Regenerar QR
+          const qrString = `ZR1|${perfil.cedula}|${nuevoTotp}`
+          const url = await QRCode.toDataURL(qrString, { width: 256 })
+          setQrUrl(url)
+        }
+
+        setTiempoRestante(secondsUntilNextTOTP())
+      } catch (err) {
+        console.error('Error updating TOTP:', err)
+      } finally {
+        updating = false
       }
-
-      setTiempoRestante(secondsUntilNextTOTP())
     }, 1000)
 
     return () => clearInterval(interval)

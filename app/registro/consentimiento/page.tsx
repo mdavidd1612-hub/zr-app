@@ -56,10 +56,13 @@ export default function Consentimiento() {
         body: formData,
       })
 
-      const resultado = await res.json()
-
       if (!res.ok) {
-        setError(resultado.error || 'No se pudo guardar el consentimiento')
+        try {
+          const resultado = await res.json()
+          setError(resultado.error || 'No se pudo guardar el consentimiento')
+        } catch {
+          setError(`Error ${res.status}: No se pudo procesar la respuesta`)
+        }
         setCargando(false)
         return
       }
@@ -67,8 +70,9 @@ export default function Consentimiento() {
       // Consentimiento registrado, ir al carnet
       router.push('/carnet')
       router.refresh()
-    } catch {
+    } catch (err) {
       setError('Error de conexión. Intenta de nuevo.')
+      console.error('Consent submission error:', err)
       setCargando(false)
     }
   }

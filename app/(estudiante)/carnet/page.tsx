@@ -50,86 +50,65 @@ export default function Carnet() {
   useEffect(() => {
     async function cargar() {
       try {
-        // Perfil
-        const { data: userData, error: userError } = await supabase.auth.getUser()
-        if (userError || !userData.user) {
+        const { data: { user: authUser } } = await supabase.auth.getUser()
+        if (!authUser) {
           router.push('/login')
           return
         }
 
-        const { data: perfilData, error: profileError } = await supabase
+        // Cargar perfil (crítico)
+        const { data: perfilData } = await supabase
           .from('profiles')
           .select('full_name, cedula, avatar_url')
-          .eq('id', userData.user.id)
+          .eq('id', authUser.id)
           .single()
 
-        if (profileError || !perfilData) {
-          console.error('Error loading profile:', profileError)
+        if (!perfilData) {
           setCargando(false)
           return
         }
-
         setPerfil(perfilData)
 
-        // Cohorte y módulo actual
-        const { data: cohortData } = await supabase
-          .from('students')
-          .select('cohorts(name, current_module_id), modules(name)')
-          .eq('id', userData.user.id)
-          .single()
-
-        if (cohortData) {
-          const cohort = (cohortData.cohorts as { name: string; current_module_id: string } | null) || null
-          setCarnetData({
-            cohortName: cohort?.name || 'Cohorte no asignada',
-            moduleName: cohort?.current_module_id ? 'Módulo actual' : 'Sin módulo',
+        // Cargar datos no-críticos en background (non-blocking)
+        void supabase.from('students').select('cohorts(name, current_module_id)').eq('id', authUser.id).maybeSingle()
+          .then(({ data }) => {
+            if (data?.cohorts) {
+              const c = data.cohorts as any
+              setCarnetData({ cohortName: c.name || 'Cohorte', moduleName: 'Módulo' })
+            }
           })
-        }
 
-        // Próximo sábado
-        const { data: proximoData, error: proximoError } = await supabase
-          .from('v_proximo_sabado')
-          .select('session_date, week_number, module_name, pre_practice_description')
-          .eq('student_id', userData.user.id)
-          .single()
-
-        if (!proximoError && proximoData) {
-          setProximo({
-            sessionDate: proximoData.session_date || '',
-            weekNumber: proximoData.week_number || 0,
-            moduleName: proximoData.module_name || '',
-            prePracticeDescription: proximoData.pre_practice_description,
+        void supabase.from('v_proximo_sabado').select('session_date, week_number, module_name, pre_practice_description')
+          .eq('student_id', authUser.id).maybeSingle()
+          .then(({ data }) => {
+            if (data) setProximo({
+              sessionDate: data.session_date || '',
+              weekNumber: data.week_number || 0,
+              moduleName: data.module_name || '',
+              prePracticeDescription: data.pre_practice_description,
+            })
           })
-        }
 
-        // Progreso en módulo actual
-        const { data: moduloData } = await supabase
-          .from('mastery_map')
-          .select('status')
-          .eq('student_id', userData.user.id)
+        void supabase.from('mastery_map').select('status').eq('student_id', authUser.id)
+          .then(({ data }) => {
+            const total = data?.length ?? 0
+            const dominadas = data?.filter((m) => m.status === 'dominado').length ?? 0
+            setProgreso({ totalCompetencias: total, dominadas })
+          })
 
-        const dominadas = moduloData?.filter((m) => m.status === 'dominado').length ?? 0
-        setProgreso({ totalCompetencias: moduloData?.length ?? 0, dominadas })
+        void supabase.from('module_enrollments').select('id', { count: 'exact' })
+          .eq('student_id', authUser.id).eq('status', 'aprobado')
+          .then(({ count }) => setModulosAprobados(count ?? 0))
 
-        // Módulos aprobados
-        const { count } = await supabase
-          .from('module_enrollments')
-          .select('id', { count: 'exact' })
-          .eq('student_id', userData.user.id)
-          .eq('status', 'aprobado')
-
-        setModulosAprobados(count ?? 0)
-
-        // QR: obtener secreto y generar código
-        const secret = await getQRSecret(perfilData?.cedula || '')
-        if (secret) {
-          const codigo = generateTOTP(secret.secret, secret.label)
-          setTotp(codigo)
-
-          const qrString = `ZR1|${perfilData?.cedula}|${codigo}`
-          const url = await QRCode.toDataURL(qrString, { width: 256 })
-          setQrUrl(url)
-        }
+        // QR
+        void getQRSecret(perfilData.cedula || '').then((secret) => {
+          if (secret) {
+            const codigo = generateTOTP(secret.secret, secret.label)
+            setTotp(codigo)
+            const qrString = `ZR1|${perfilData.cedula}|${codigo}`
+            void QRCode.toDataURL(qrString, { width: 256 }).then(setQrUrl)
+          }
+        })
 
         setCargando(false)
       } catch (error) {

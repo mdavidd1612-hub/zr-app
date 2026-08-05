@@ -1,0 +1,33 @@
+# =============================================================================
+# ZR APP · Normalización de finales de línea
+# =============================================================================
+# Sin este archivo, si tú trabajas en Windows y tu técnico en Mac o Linux, git
+# marca archivos enteros como modificados solo por los saltos de línea. Eso
+# produce conflictos falsos que hacen perder horas y esconden los cambios reales.
+#
+# Regla: en el repositorio todo se guarda con LF. Cada quien lo ve como su
+# sistema operativo espera.
+# =============================================================================
+
+* text=auto eol=lf
+
+# Los .sql SIEMPRE con LF: Postgres y la CLI de Supabase los prefieren así.
+*.sql   text eol=lf
+*.md    text eol=lf
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.json  text eol=lf
+*.yml   text eol=lf
+*.css   text eol=lf
+*.svg   text eol=lf
+
+# Binarios: git no los toca.
+*.png   binary
+*.jpg   binary
+*.ico   binary
+*.pdf   binary
+*.docx  binary
+*.zip   binary
+
+# En GitHub, no contar los datos de prueba como código del proyecto.
+supabase/seed/* linguist-generated=true

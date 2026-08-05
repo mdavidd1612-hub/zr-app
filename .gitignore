@@ -1,0 +1,58 @@
+# =============================================================================
+# ZR APP · .gitignore
+# =============================================================================
+
+# --- SECRETOS · lo más importante de este archivo ---------------------------
+# Nunca, bajo ninguna circunstancia, se suben claves al repositorio.
+# Se comparten por el gestor de contraseñas (ver COLABORACION.md §2 paso 4).
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+service-account*.json
+
+# --- Dependencias y compilación ---------------------------------------------
+node_modules/
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# --- Supabase local ----------------------------------------------------------
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+
+# --- Pruebas -----------------------------------------------------------------
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# --- Sistema operativo y editores -------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+
+# --- Archivos de diseño pesados ---------------------------------------------
+# Los fuentes de Illustrator y Photoshop viven en C:\Proyectos\Marcas,
+# no en el repositorio. Aquí solo van los SVG y PNG que la app usa de verdad.
+*.ai
+*.psd
+*.eps
+*.rar
+ManualDeIdentidad*.pdf
+
+# --- Temporales --------------------------------------------------------------
+*.log
+npm-debug.log*
+.cache/
+tmp/

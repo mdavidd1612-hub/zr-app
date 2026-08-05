@@ -29,51 +29,57 @@ export default function Examenes() {
         return
       }
 
-      // Load exams that are published (habilitado, cerrado, or calificado)
-      const { data: examData, error: examError } = await supabase
-        .from('exams')
-        .select('id, title, max_points, status, close_date, modules(name)')
-        .in('status', ['habilitado', 'cerrado', 'calificado'])
-        .order('close_date', { ascending: true })
+      try {
+        // Load exams that are published (habilitado, cerrado, or calificado)
+        const { data: examData, error: examError } = await supabase
+          .from('exams')
+          .select('id, title, max_points, status, close_date, module_id')
+          .in('status', ['habilitado', 'cerrado', 'calificado'])
+          .order('close_date', { ascending: true })
 
-      if (examError) {
-        console.error('Error loading exams:', examError)
+        if (examError) {
+          console.error('Error loading exams:', examError)
+          setExams([])
+          setLoading(false)
+          return
+        }
+
+        if (!examData || examData.length === 0) {
+          setExams([])
+          setLoading(false)
+          return
+        }
+
+        // For each exam, load the student's attempt status
+        const examsWithAttempts = await Promise.all(
+          examData.map(async (exam: any) => {
+            const { data: attempt } = await supabase
+              .from('exam_attempts')
+              .select('status, total_score')
+              .eq('exam_id', exam.id)
+              .eq('student_id', user.id)
+              .single()
+
+            return {
+              id: exam.id,
+              title: exam.title,
+              module: 'Módulo',
+              status: exam.status as ExamItem['status'],
+              attemptStatus: (attempt?.status || 'no_iniciado') as ExamItem['attemptStatus'],
+              score: attempt?.total_score,
+              maxScore: exam.max_points,
+              dueDate: exam.close_date,
+            }
+          })
+        )
+
+        setExams(examsWithAttempts)
+      } catch (error) {
+        console.error('Exception loading exams:', error)
         setExams([])
+      } finally {
         setLoading(false)
-        return
       }
-
-      if (!examData || examData.length === 0) {
-        setExams([])
-        setLoading(false)
-        return
-      }
-
-      // For each exam, load the student's attempt status
-      const examsWithAttempts = await Promise.all(
-        examData.map(async (exam: any) => {
-          const { data: attempt } = await supabase
-            .from('exam_attempts')
-            .select('status, total_score')
-            .eq('exam_id', exam.id)
-            .eq('student_id', user.id)
-            .single()
-
-          return {
-            id: exam.id,
-            title: exam.title,
-            module: exam.modules?.name || 'Módulo',
-            status: exam.status as ExamItem['status'],
-            attemptStatus: (attempt?.status || 'no_iniciado') as ExamItem['attemptStatus'],
-            score: attempt?.total_score,
-            maxScore: exam.max_points,
-            dueDate: exam.close_date,
-          }
-        })
-      )
-
-      setExams(examsWithAttempts)
-      setLoading(false)
     }
 
     loadExams()

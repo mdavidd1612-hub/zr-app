@@ -15,53 +15,42 @@ const usuarios = [
   {
     cedula: "V-12345678",
     email: "v12345678@estudiante.zrmecademy.com",
-    password: "Test123!*",
     fullName: "Juan Carlos Pérez",
     phone: "+58 412 1234567",
-    dateOfBirth: "2002-03-15", // 22 años
   },
   {
     cedula: "E-87654321",
     email: "e87654321@estudiante.zrmecademy.com",
-    password: "Test123!*",
     fullName: "María José García",
     phone: "+58 414 9876543",
-    dateOfBirth: "2005-07-22", // 19 años
   },
   {
     cedula: "V-11111111",
     email: "v11111111@estudiante.zrmecademy.com",
-    password: "Test123!*",
     fullName: "Carlos Antonio López",
     phone: "+58 416 5555555",
-    dateOfBirth: "2009-01-10", // 17 años (menor)
   },
 ];
 
-async function crearUsuarios() {
-  console.log("🔄 Creando usuarios de prueba...\n");
+async function crearPerfiles() {
+  console.log("🔄 Creando perfiles de prueba...\n");
 
   for (const usuario of usuarios) {
     try {
-      // 1. Crear usuario en Auth
-      const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-        email: usuario.email,
-        password: usuario.password,
-        email_confirm: true,
-      });
+      // Buscar el usuario por email
+      const { data: users } = await supabase.auth.admin.listUsers();
+      const foundUser = users?.users.find(u => u.email === usuario.email);
 
-      if (authError) {
-        console.error(`❌ Error creando auth para ${usuario.cedula}:`, authError.message);
+      if (!foundUser) {
+        console.error(`❌ No se encontró usuario auth para ${usuario.cedula}`);
         continue;
       }
 
-      console.log(`✅ Auth creado para ${usuario.cedula}`);
-
-      // 2. Crear perfil
+      // Crear perfil
       const { error: profileError } = await supabase
         .from("profiles")
         .insert({
-          id: authUser.user.id,
+          id: foundUser.id,
           cedula: usuario.cedula,
           full_name: usuario.fullName,
           phone: usuario.phone,
@@ -72,17 +61,21 @@ async function crearUsuarios() {
         .single();
 
       if (profileError) {
-        console.error(`❌ Error creando perfil para ${usuario.cedula}:`, profileError.message);
+        if (profileError.message.includes("duplicate")) {
+          console.log(`⏭️  Perfil ya existe para ${usuario.cedula}`);
+        } else {
+          console.error(`❌ Error creando perfil para ${usuario.cedula}:`, profileError.message);
+        }
         continue;
       }
 
-      console.log(`✅ Perfil creado para ${usuario.cedula}\n`);
+      console.log(`✅ Perfil creado para ${usuario.cedula}`);
     } catch (err) {
       console.error(`❌ Error inesperado para ${usuario.cedula}:`, err.message);
     }
   }
 
-  console.log("🎉 ¡Usuarios de prueba creados!");
+  console.log("\n🎉 ¡Perfiles procesados!");
 }
 
-crearUsuarios();
+crearPerfiles();

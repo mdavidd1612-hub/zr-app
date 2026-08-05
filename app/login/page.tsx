@@ -11,7 +11,7 @@ import { Campo } from '@/components/ui/Campo'
 import { Aviso } from '@/components/ui/Aviso'
 
 const INICIO: Record<string, string> = {
-  estudiante:  '/carnet',
+  estudiante:  '/',
   profesor:    '/hoy',
   admin:       '/panel',
   super_admin: '/panel',

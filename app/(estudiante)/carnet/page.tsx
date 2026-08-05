@@ -46,28 +46,34 @@ export default function Carnet() {
     async function cargar() {
       try {
         // Perfil
-        const { data: userData } = await supabase.auth.getUser()
-        if (!userData.user) {
+        const { data: userData, error: userError } = await supabase.auth.getUser()
+        if (userError || !userData.user) {
           router.push('/login')
           return
         }
 
-        const { data: perfilData } = await supabase
+        const { data: perfilData, error: profileError } = await supabase
           .from('profiles')
           .select('full_name, cedula, avatar_url')
           .eq('id', userData.user.id)
           .single()
 
+        if (profileError || !perfilData) {
+          console.error('Error loading profile:', profileError)
+          setCargando(false)
+          return
+        }
+
         setPerfil(perfilData)
 
         // Próximo sábado
-        const { data: proximoData } = await supabase
+        const { data: proximoData, error: proximoError } = await supabase
           .from('v_proximo_sabado')
           .select('session_date, week_number, module_name, pre_practice_description')
           .eq('student_id', userData.user.id)
           .single()
 
-        if (proximoData) {
+        if (!proximoError && proximoData) {
           setProximo({
             sessionDate: proximoData.session_date || '',
             weekNumber: proximoData.week_number || 0,
@@ -113,7 +119,7 @@ export default function Carnet() {
     }
 
     cargar()
-  }, [supabase, router])
+  }, [])
 
   // Actualizar TOTP cada segundo
   useEffect(() => {
@@ -187,7 +193,7 @@ export default function Carnet() {
 
       {/* El carnet */}
       {qrUrl && (
-        <div className="glass rounded-zr border-4 border-zr-navy p-6 text-center">
+        <div className="glass rounded-xl border-4 border-zr-navy p-6 text-center">
           {/* Foto o iniciales */}
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-zr-blue text-2xl font-bold text-white">
             {perfil.avatar_url ? (

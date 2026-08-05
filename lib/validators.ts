@@ -16,7 +16,10 @@ export const registroSchema = z.object({
   cedula:       cedulaSchema,
   contactEmail: z.string().trim().email('Escribe un correo válido'),
   phone:        z.string().trim().optional(),
-  birthDate:    z.coerce.date(),
+  birthDate:    z.coerce.date().refine(
+    (date) => date < new Date(),
+    'La fecha de nacimiento debe estar en el pasado'
+  ),
   password:     passwordSchema,
 })
 

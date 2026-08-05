@@ -58,13 +58,18 @@ export default function Registro() {
         body: JSON.stringify(validado.data),
       })
 
-      const resultado = await res.json()
-
       if (!res.ok) {
-        setError(resultado.error || 'No se pudo crear la cuenta')
+        try {
+          const resultado = await res.json()
+          setError(resultado.error || 'No se pudo crear la cuenta')
+        } catch {
+          setError(`Error ${res.status}: No se pudo procesar la respuesta`)
+        }
         setCargando(false)
         return
       }
+
+      const resultado = await res.json()
 
       // Si es menor, ir a consentimiento; si no, ir al carnet
       if (resultado.isMenor) {
@@ -75,8 +80,9 @@ export default function Registro() {
         router.push('/carnet')
       }
       router.refresh()
-    } catch {
+    } catch (err) {
       setError('Error de conexión. Intenta de nuevo.')
+      console.error('Registration error:', err)
       setCargando(false)
     }
   }

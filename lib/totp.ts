@@ -1,10 +1,7 @@
 import * as OTPAuth from 'otpauth'
 
-// Genera el código TOTP actual de un secreto en base32
-// El TOTP cambia cada 30 segundos automáticamente
 export function generateTOTP(secret: string, label: string, issuer = 'ZR Mecademy'): string {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const totp = new (OTPAuth as any).TOTP({
+  const totp = new OTPAuth.TOTP({
     issuer,
     label,
     algorithm: 'SHA1',

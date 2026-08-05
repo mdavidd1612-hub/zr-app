@@ -58,7 +58,7 @@ export default function Examenes() {
               .select('status, total_score')
               .eq('exam_id', exam.id)
               .eq('student_id', user.id)
-              .single()
+              .maybeSingle()
 
             return {
               id: exam.id,

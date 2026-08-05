@@ -1,98 +1,61 @@
-import { getSessionProfile } from '@/lib/auth-server'
-import { redirect } from 'next/navigation'
+"use client"
 
-export default async function ProfesorLayout({ children }: { children: React.ReactNode }) {
-  const perfil = await getSessionProfile()
+import { useRouter, usePathname } from "next/navigation"
+import { useEffect } from "react"
+import { createClient } from "@/lib/supabase/client"
 
-  if (!perfil || perfil.role === 'estudiante') {
-    redirect('/login')
-  }
+export default function ProfesorLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const supabase = createClient()
+
+  useEffect(() => {
+    const checkRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push("/login")
+        return
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single()
+
+      if (profile?.role !== "profesor" && profile?.role !== "admin" && profile?.role !== "super_admin") {
+        router.push("/")
+      }
+    }
+
+    checkRole()
+  }, [])
 
   return (
-    <div className="flex min-h-dvh flex-col lg:flex-row">
-      {/* Navegación lateral en desktop, horizontal en mobile */}
-      <nav className="border-b border-zr-border bg-white lg:w-64 lg:border-r lg:border-b-0">
-        <div className="flex flex-col gap-1 p-4 lg:gap-2">
+    <div className="flex bg-zr-background min-h-dvh">
+      <nav className="w-64 border-r border-zr-border px-6 py-8 space-y-2">
+        <h1 className="text-2xl font-bold text-zr-text mb-8">Panel Profesor</h1>
+        {[
+          { href: "/profesor/hoy", label: "Hoy" },
+          { href: "/profesor/examenes", label: "Ex�menes" },
+          { href: "/profesor/calificar", label: "Calificar" },
+        ].map((item) => (
           <a
-            href="/hoy"
-            className="rounded-zr px-4 py-3 text-base font-medium text-zr-text hover:bg-zr-background"
+            key={item.href}
+            href={item.href}
+            className={`block px-4 py-3 rounded-lg font-medium transition-all ${"'"}{
+              pathname === item.href
+                ? "bg-zr-blue text-white"
+                : "text-zr-text hover:bg-zr-surface"
+            }${"'"}`}
           >
-            📅 Hoy
+            {item.label}
           </a>
-          <a
-            href="/escanear"
-            className="rounded-zr px-4 py-3 text-base font-medium text-zr-text hover:bg-zr-background"
-          >
-            📱 Escanear
-          </a>
-          <a
-            href="/sesiones"
-            className="rounded-zr px-4 py-3 text-base font-medium text-zr-text hover:bg-zr-background"
-          >
-            📋 Sesiones
-          </a>
-          <a
-            href="/examenes"
-            className="rounded-zr px-4 py-3 text-base font-medium text-zr-text hover:bg-zr-background"
-          >
-            ✏️ Exámenes
-          </a>
-          <a
-            href="/calificar"
-            className="rounded-zr px-4 py-3 text-base font-medium text-zr-text hover:bg-zr-background"
-          >
-            📊 Calificar
-          </a>
-          <a
-            href="/dominio"
-            className="rounded-zr px-4 py-3 text-base font-medium text-zr-text hover:bg-zr-background"
-          >
-            🎯 Dominio
-          </a>
-        </div>
-
-        {/* Seción de admin si tiene permisos */}
-        {(perfil.role === 'admin' || perfil.role === 'super_admin') && (
-          <div className="border-t border-zr-border p-4 lg:mt-4">
-            <p className="text-xs font-medium text-zr-text-muted mb-2">ADMINISTRACIÓN</p>
-            <div className="flex flex-col gap-1">
-              <a
-                href="/panel"
-                className="rounded-zr px-4 py-3 text-base font-medium text-zr-text hover:bg-zr-background"
-              >
-                🏠 Panel
-              </a>
-              <a
-                href="/estudiantes"
-                className="rounded-zr px-4 py-3 text-base font-medium text-zr-text hover:bg-zr-background"
-              >
-                👥 Estudiantes
-              </a>
-              <a
-                href="/consentimientos"
-                className="rounded-zr px-4 py-3 text-base font-medium text-zr-text hover:bg-zr-background"
-              >
-                ✅ Consentimientos
-              </a>
-              <a
-                href="/cohortes"
-                className="rounded-zr px-4 py-3 text-base font-medium text-zr-text hover:bg-zr-background"
-              >
-                👨‍🎓 Cohortes
-              </a>
-              <a
-                href="/reportes"
-                className="rounded-zr px-4 py-3 text-base font-medium text-zr-text hover:bg-zr-background"
-              >
-                📈 Reportes
-              </a>
-            </div>
-          </div>
-        )}
+        ))}
       </nav>
-
-      {/* Contenido principal */}
-      <main className="flex-1 p-4 lg:overflow-y-auto">{children}</main>
+      <main className="flex-1 overflow-y-auto">
+        {children}
+      </main>
     </div>
   )
 }

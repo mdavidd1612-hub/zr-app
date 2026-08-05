@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -15,6 +16,7 @@ interface PendingAnswer {
 }
 
 export default function ProfessorGrading() {
+  const router = useRouter()
   const supabase = createClient()
   const [pendingAnswers, setPendingAnswers] = useState<PendingAnswer[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -102,8 +104,8 @@ export default function ProfessorGrading() {
         setPoints(0)
         setFeedback('')
       } else {
-        // All done
-        alert('¡Calificación completada!')
+        // All done - redirect to exam list
+        router.push('/crear-examen')
       }
     }
 

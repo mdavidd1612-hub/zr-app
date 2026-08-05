@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { IconHome, IconClasses, IconExam, IconProfile } from '@/components/ui/NavIcons'
 
@@ -16,12 +16,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
-  const [activeIndex, setActiveIndex] = useState(0)
-
-  useEffect(() => {
-    const index = NAVBAR_ITEMS.findIndex(item => item.href === pathname)
-    if (index >= 0) setActiveIndex(index)
-  }, [pathname])
+  const touchStartX = useRef(0)
+  const touchStartY = useRef(0)
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -33,52 +29,66 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => subscription?.unsubscribe()
   }, [])
 
+  // Swipe handler
+  useEffect(() => {
+    function handleTouchStart(e: TouchEvent) {
+      touchStartX.current = e.touches[0].clientX
+      touchStartY.current = e.touches[0].clientY
+    }
+
+    function handleTouchEnd(e: TouchEvent) {
+      const touchEndX = e.changedTouches[0].clientX
+      const touchEndY = e.changedTouches[0].clientY
+      const diffX = touchStartX.current - touchEndX
+      const diffY = Math.abs(touchStartY.current - touchEndY)
+
+      if (Math.abs(diffX) > diffY && Math.abs(diffX) > 50) {
+        const currentIndex = NAVBAR_ITEMS.findIndex(item => item.href === pathname)
+
+        if (diffX > 0 && currentIndex < NAVBAR_ITEMS.length - 1) {
+          router.push(NAVBAR_ITEMS[currentIndex + 1].href)
+        } else if (diffX < 0 && currentIndex > 0) {
+          router.push(NAVBAR_ITEMS[currentIndex - 1].href)
+        }
+      }
+    }
+
+    window.addEventListener('touchstart', handleTouchStart, false)
+    window.addEventListener('touchend', handleTouchEnd, false)
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart)
+      window.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, [pathname])
+
+  const isActive = (href: string) => pathname === href
+
   return (
     <div className="fixed inset-0 bg-zr-background flex flex-col" style={{ maxWidth: '375px', margin: '0 auto' }}>
-      {/* iPhone status bar */}
-      <div className="h-12 bg-zr-background flex items-center justify-between px-4 text-xs text-zr-text-muted">
-        <span>9:41</span>
-        <span className="text-xs">📶 📡 🔋</span>
-      </div>
-
       {/* Main content */}
       <div className="flex-1 overflow-y-auto w-full pb-24 scroll-smooth">
         {children}
       </div>
 
-      {/* Floating navbar with glassmorphism - Smaller version */}
+      {/* Floating navbar with glassmorphism */}
       <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-        <div className="backdrop-blur-2xl bg-white/10 border border-white/20 rounded-full shadow-xl px-2 py-2">
-          <div className="flex gap-0.5 relative">
-            {/* Active indicator bar */}
-            <div
-              className="absolute bottom-2 h-0.5 bg-zr-blue transition-all duration-300 ease-out rounded-full"
-              style={{
-                width: `calc(100% / ${NAVBAR_ITEMS.length} - 4px)`,
-                left: `calc((100% / ${NAVBAR_ITEMS.length}) * ${activeIndex} + 2px)`,
-              }}
-            />
-
-            {NAVBAR_ITEMS.map((item, idx) => {
-              const isActive = pathname === item.href
-              return (
-                <button
-                  key={item.href}
-                  onClick={() => router.push(item.href)}
-                  className={`relative flex flex-col items-center justify-center w-12 h-12 rounded-full transition-all duration-200 ${
-                    isActive
-                      ? 'text-zr-blue'
-                      : 'text-zr-text-muted hover:text-zr-text'
-                  }`}
-                  title={item.label}
-                >
-                  <item.Icon />
-                  {isActive && (
-                    <div className="absolute inset-0 rounded-full bg-zr-blue/5 blur-md -z-10" />
-                  )}
-                </button>
-              )
-            })}
+        <div className="backdrop-blur-2xl bg-white/10 border border-white/20 rounded-full shadow-xl px-3 py-3 hover:bg-white/15 transition-all">
+          <div className="flex gap-2">
+            {NAVBAR_ITEMS.map((item) => (
+              <button
+                key={item.href}
+                onClick={() => router.push(item.href)}
+                className={`relative flex items-center justify-center w-11 h-11 rounded-full transition-all duration-300 ${
+                  isActive(item.href)
+                    ? 'text-zr-blue bg-zr-blue/10'
+                    : 'text-zr-text-muted hover:text-zr-text hover:bg-white/5'
+                }`}
+                title={item.label}
+              >
+                <item.Icon />
+              </button>
+            ))}
           </div>
         </div>
       </nav>

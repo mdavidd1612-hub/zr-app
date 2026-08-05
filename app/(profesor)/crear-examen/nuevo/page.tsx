@@ -197,30 +197,45 @@ export default function NuevoExamen() {
             </div>
 
             {/* Question Type Selector */}
-            {showQuestionEditor && !showQuestionEditor && (
+            {!showQuestionEditor && questions.length > 0 && (
               <div className="bg-zr-surface border border-zr-border rounded-lg p-5">
-                <p className="text-sm text-zr-text-muted mb-4">Selecciona el tipo de pregunta</p>
-                <div className="grid grid-cols-1 gap-2">
+                <p className="text-sm text-zr-text-muted mb-4">Selecciona el tipo de pregunta a agregar</p>
+                <div className="grid grid-cols-1 gap-3">
                   <button
                     onClick={() => setShowQuestionEditor('opcion_multiple')}
-                    className="text-left p-4 bg-zr-background border border-zr-border rounded-lg hover:border-zr-blue/50 hover:bg-zr-blue/5 transition-all"
+                    className="text-left p-4 bg-zr-background border border-zr-border rounded-lg hover:border-zr-blue/50 hover:bg-zr-blue/5 transition-all group"
                   >
-                    <p className="font-semibold text-zr-text">Opción Múltiple</p>
-                    <p className="text-xs text-zr-text-muted mt-1">2-6 opciones, marcar la correcta</p>
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl">⭕</span>
+                      <div>
+                        <p className="font-semibold text-zr-text group-hover:text-zr-blue transition-colors">Opción Múltiple</p>
+                        <p className="text-xs text-zr-text-muted mt-1">2-6 opciones, seleccionar la correcta</p>
+                      </div>
+                    </div>
                   </button>
                   <button
                     onClick={() => setShowQuestionEditor('verdadero_falso')}
-                    className="text-left p-4 bg-zr-background border border-zr-border rounded-lg hover:border-zr-blue/50 hover:bg-zr-blue/5 transition-all"
+                    className="text-left p-4 bg-zr-background border border-zr-border rounded-lg hover:border-zr-blue/50 hover:bg-zr-blue/5 transition-all group"
                   >
-                    <p className="font-semibold text-zr-text">Verdadero / Falso</p>
-                    <p className="text-xs text-zr-text-muted mt-1">Una respuesta correcta</p>
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl">✓</span>
+                      <div>
+                        <p className="font-semibold text-zr-text group-hover:text-zr-blue transition-colors">Verdadero / Falso</p>
+                        <p className="text-xs text-zr-text-muted mt-1">Dos opciones, respuesta correcta única</p>
+                      </div>
+                    </div>
                   </button>
                   <button
                     onClick={() => setShowQuestionEditor('redaccion_abierta')}
-                    className="text-left p-4 bg-zr-background border border-zr-border rounded-lg hover:border-zr-blue/50 hover:bg-zr-blue/5 transition-all"
+                    className="text-left p-4 bg-zr-background border border-zr-border rounded-lg hover:border-zr-blue/50 hover:bg-zr-blue/5 transition-all group"
                   >
-                    <p className="font-semibold text-zr-text">Redacción Abierta</p>
-                    <p className="text-xs text-zr-text-muted mt-1">El profesor califica la respuesta</p>
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl">📝</span>
+                      <div>
+                        <p className="font-semibold text-zr-text group-hover:text-zr-blue transition-colors">Redacción Abierta</p>
+                        <p className="text-xs text-zr-text-muted mt-1">Respuesta libre, el profesor califica</p>
+                      </div>
+                    </div>
                   </button>
                 </div>
               </div>
@@ -237,25 +252,54 @@ export default function NuevoExamen() {
 
             {/* Questions List */}
             {questions.length > 0 && !showQuestionEditor && (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {questions.map((q, idx) => (
-                  <div key={q.id} className="bg-zr-surface border border-zr-border rounded-lg p-4">
-                    <div className="flex justify-between items-start gap-3">
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-zr-text-muted">Pregunta {idx + 1}</p>
-                        <p className="text-base font-semibold text-zr-text mt-1 line-clamp-2">{q.statement}</p>
-                        <div className="flex gap-2 mt-2 text-xs text-zr-text-muted">
-                          <span>{q.type === 'opcion_multiple' ? '⭕ Opción múltiple' : q.type === 'verdadero_falso' ? '✓ V/F' : '📝 Redacción'}</span>
-                          <span>•</span>
-                          <span className="text-zr-blue font-semibold">{q.points} pts</span>
+                  <div
+                    key={q.id}
+                    className="bg-zr-surface border border-zr-border rounded-lg p-5 hover:border-zr-blue/30 transition-all group"
+                  >
+                    <div className="flex gap-4">
+                      {/* Question Number Badge */}
+                      <div className="flex-shrink-0 w-12 h-12 bg-zr-background border border-zr-border rounded-lg flex items-center justify-center font-bold text-zr-blue">
+                        {idx + 1}
+                      </div>
+
+                      {/* Question Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <p className="text-base font-semibold text-zr-text line-clamp-2">
+                              {q.statement}
+                            </p>
+                            <div className="flex gap-3 mt-3 flex-wrap">
+                              <span
+                                className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
+                                  q.type === 'opcion_multiple'
+                                    ? 'bg-zr-blue/10 text-zr-blue'
+                                    : q.type === 'verdadero_falso'
+                                    ? 'bg-zr-success/10 text-zr-success'
+                                    : 'bg-zr-warning/10 text-zr-warning'
+                                }`}
+                              >
+                                {q.type === 'opcion_multiple' && '⭕ Opción múltiple'}
+                                {q.type === 'verdadero_falso' && '✓ Verdadero/Falso'}
+                                {q.type === 'redaccion_abierta' && '📝 Redacción'}
+                              </span>
+                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-zr-blue/15 text-zr-blue">
+                                {q.points} puntos
+                              </span>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => handleDeleteQuestion(q.id)}
+                            className="flex-shrink-0 text-zr-error/60 hover:text-zr-error font-semibold text-lg transition-colors opacity-0 group-hover:opacity-100"
+                            title="Eliminar pregunta"
+                          >
+                            ✕
+                          </button>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleDeleteQuestion(q.id)}
-                        className="text-zr-error hover:text-zr-error/80 font-semibold text-sm"
-                      >
-                        Eliminar
-                      </button>
                     </div>
                   </div>
                 ))}

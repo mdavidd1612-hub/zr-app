@@ -58,7 +58,7 @@ async function crearUsuarios() {
       console.log(`✅ Auth creado para ${usuario.cedula}`);
 
       // 2. Crear perfil
-      const { data: profileData, error: profileError } = await supabase
+      const { error: profileError } = await supabase
         .from("profiles")
         .insert({
           id: authUser.user.id,

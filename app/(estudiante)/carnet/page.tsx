@@ -7,7 +7,6 @@ import QRCode from 'qrcode'
 import { createClient } from '@/lib/supabase/client'
 import { getQRSecret } from '@/lib/qr-secret'
 import { generateTOTP, secondsUntilNextTOTP } from '@/lib/totp'
-import { Tarjeta } from '@/components/ui/Tarjeta'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { Cargando } from '@/components/ui/Cargando'
 
@@ -80,7 +79,7 @@ export default function Carnet() {
           .single()
 
         if (cohortData) {
-          const cohort = cohortData.cohorts as any
+          const cohort = (cohortData.cohorts as { name: string; current_module_id: string } | null) || null
           setCarnetData({
             cohortName: cohort?.name || 'Cohorte no asignada',
             moduleName: cohort?.current_module_id ? 'Módulo actual' : 'Sin módulo',

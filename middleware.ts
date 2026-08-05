@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Crear cliente de Supabase
-  let response = NextResponse.next()
+  const response = NextResponse.next()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || '',
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
@@ -36,7 +36,7 @@ export async function middleware(request: NextRequest) {
   )
 
   // Refrescar sesión
-  const { data: { user }, error } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
 
   // Sin sesión: ir a login
   if (!user) {

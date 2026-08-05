@@ -1,616 +1,257 @@
-# 📋 GUÍA PASO A PASO: FLUJO COMPLETO DE ZR APP
+# Guía de prueba · flujo completo
 
-Fecha de creación: 5 de Agosto 2026  
-Versión: SPRINT_4 (MVP)
-
----
-
-## 🎯 OBJETIVO
-
-Esta guía te muestra exactamente cómo probar ZR App en su totalidad:
-1. **Profesor**: Crea un examen
-2. **Estudiante**: Presenta el examen
-3. **Profesor**: Califica el examen
-4. **Estudiante**: Ve sus notas
+Este recorrido está **verificado end-to-end** el 5 de agosto de 2026 contra la base local.
+Si algo no te funciona igual, es un error nuevo: repórtalo.
 
 ---
 
-## 📱 REQUISITOS PREVIOS
+## Antes de empezar
 
-- ✅ App corriendo en `http://localhost:3000`
-- ✅ Navegador con viewport móvil (375x812px)
-- ✅ Dos usuarios de prueba ya creados:
-  - **Profesor**: Cedula `V-30000001` | Contraseña: `Prueba123!`
-  - **Estudiante**: Cedula `V-30000002` | Contraseña: `Prueba123!`
+**1. Supabase local levantado.** Comprueba que responde:
 
-**Nota**: Si no tienes usuarios, ejecuta:
 ```bash
-npm run db:seed
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:54321/rest/v1/
+```
+
+**2. Las Edge Functions servidas.** Esto es aparte de `supabase start` y hace falta para
+entregar y calificar exámenes:
+
+```bash
+npx supabase functions serve --no-verify-jwt
+```
+
+Déjalo corriendo en su propia terminal. Si no lo levantas, el botón **Entregar** falla con
+«No se pudo entregar».
+
+**3. La app:**
+
+```bash
+npm run dev
 ```
 
 ---
 
-## PARTE 1: PROFESOR CREA UN EXAMEN
+## Usuarios de prueba
 
-### Paso 1.1: Acceder al login
+| Rol | Cédula | Contraseña | Entra en |
+|---|---|---|---|
+| Profesor | `V-10000001` | `Prueba123!` | `/hoy` |
+| Dirección (super admin) | `V-10000002` | `Prueba123!` | `/panel` |
+| Estudiante · Juan Carlos Pérez | `V-30000001` | `Prueba123!` | `/` |
+| Estudiante · María García López | `V-30000002` | `Prueba123!` | `/` |
 
-**URL**: `http://localhost:3000/login`
+Los dos estudiantes están **en la misma cohorte** a propósito: si el aislamiento de datos
+falla, se nota aquí primero.
 
-```
-Aspecto:
-- Logo ZR App en centro
-- Dos inputs: Cédula y Contraseña
-- Botón "Entrar" azul grande
-- Links de "Olvidaste tu contraseña?" y "Regístrate"
-```
+Si los usuarios no existen todavía, aplica las migraciones:
 
-### Paso 1.2: Ingresar credenciales del profesor
-
-**Campos a llenar**:
-```
-Cédula:      V-30000001
-Contraseña:  Prueba123!
-```
-
-**Qué esperar**:
-- ✅ Se muestra loading en el botón
-- ✅ Redirección automática a `/crear-examen`
-- ✅ Página muestra "Mis Exámenes" con lista de exámenes
-
-### Paso 1.3: Crear un nuevo examen
-
-**En la página `/crear-examen`**:
-- Haz clic en botón azul "✏️ Crear Examen"
-
-**Se abre la página `/crear-examen/nuevo`**:
-
-### Paso 1.4: Llenar datos del examen
-
-**Completa estos campos**:
-
-```
-┌─────────────────────────────────────┐
-│ DATOS DEL EXAMEN                    │
-├─────────────────────────────────────┤
-│ Título:      Electricidad Básica    │
-│ Módulo:      Módulo 1              │
-│ Puntos Máx:  20                     │
-│ Duración:    90 (minutos)           │
-└─────────────────────────────────────┘
-```
-
-**Qué ves**:
-- Indicador de puntos: "Puntos asignados: 0 / 20" (en rojo porque falta)
-- Botón "+ Agregar Pregunta" disponible
-
-### Paso 1.5: Agregar Pregunta 1 - OPCIÓN MÚLTIPLE
-
-Haz clic en "+ Agregar Pregunta"
-
-**Se muestran 3 opciones**:
-- ⭕ Opción Múltiple
-- ✓ Verdadero / Falso
-- 📝 Redacción Abierta
-
-**Selecciona "Opción Múltiple"**
-
-**Rellena el formulario**:
-
-```
-┌──────────────────────────────────────────────┐
-│ PREGUNTA 1: OPCIÓN MÚLTIPLE                  │
-├──────────────────────────────────────────────┤
-│ Enunciado:                                   │
-│ "¿Cuál es la función principal del          │
-│  alternador en un vehículo?"                 │
-│                                              │
-│ Opciones:                                    │
-│ A) ○ Generar electricidad                    │
-│ B) ○ Almacenar energía (RESPUESTA CORRECTA) │
-│ C) ○ Controlar la velocidad                 │
-│ D) ○ Refrigerar el motor                    │
-│                                              │
-│ Puntos: 5                                    │
-└──────────────────────────────────────────────┘
-```
-
-**Pasos exactos**:
-1. Escribe el enunciado
-2. Rellena opción A: "Generar electricidad"
-3. Rellena opción B: "Almacenar energía"
-4. **Haz clic en el radio button de B** (para marcar como correcta)
-5. Rellena opción C: "Controlar la velocidad"
-6. Rellena opción D: "Refrigerar el motor"
-7. Cambia puntos a 5
-8. Haz clic en "Guardar Pregunta" ✅
-
-**Qué pasa**:
-- ✅ Se cierra el editor
-- ✅ Aparece la pregunta en la lista con:
-  - Número: "1"
-  - Texto: "¿Cuál es la función..."
-  - Badge: "⭕ Opción múltiple" | "5 puntos"
-- ✅ Indicador: "Puntos asignados: 5 / 20" (sigue en rojo)
-
-### Paso 1.6: Agregar Pregunta 2 - VERDADERO/FALSO
-
-Haz clic en "+ Agregar Pregunta" nuevamente
-
-**Selecciona "Verdadero / Falso"**
-
-**Rellena**:
-
-```
-┌──────────────────────────────────────────────┐
-│ PREGUNTA 2: VERDADERO / FALSO                │
-├──────────────────────────────────────────────┤
-│ Enunciado:                                   │
-│ "El alternador funciona cuando el motor     │
-│  está apagado"                               │
-│                                              │
-│ Respuesta correcta: Falso (selecciona)      │
-│ Puntos: 5                                    │
-└──────────────────────────────────────────────┘
-```
-
-**Pasos**:
-1. Escribe el enunciado
-2. Haz clic en botón "Falso" (se pone rojo)
-3. Cambia puntos a 5
-4. Haz clic en "Guardar Pregunta" ✅
-
-**Qué pasa**:
-- ✅ Se agrega a la lista
-- ✅ Indicador: "Puntos asignados: 10 / 20" (sigue en rojo)
-
-### Paso 1.7: Agregar Pregunta 3 - REDACCIÓN ABIERTA
-
-Haz clic en "+ Agregar Pregunta"
-
-**Selecciona "Redacción Abierta"**
-
-**Rellena**:
-
-```
-┌──────────────────────────────────────────────┐
-│ PREGUNTA 3: REDACCIÓN ABIERTA                │
-├──────────────────────────────────────────────┤
-│ Enunciado:                                   │
-│ "Explica paso a paso cómo diagnosticar     │
-│  un problema en la batería de un auto"     │
-│                                              │
-│ Rúbrica (guía para calificar):              │
-│ - Describe 3 pasos correctos = 10 puntos   │
-│ - Usa términos técnicos = 5 puntos         │
-│ - Menciona herramientas = 5 puntos         │
-│                                              │
-│ Puntos: 10                                   │
-└──────────────────────────────────────────────┘
-```
-
-**Pasos**:
-1. Escribe el enunciado
-2. Escribe la rúbrica
-3. Cambia puntos a 10
-4. Haz clic en "Guardar Pregunta" ✅
-
-**Qué pasa**:
-- ✅ Se agrega a la lista
-- ✅ **Indicador: "Puntos asignados: 20 / 20" (SE PONE VERDE)** ✅
-- ✅ Botón "Guardar Examen" se activa
-
-### Paso 1.8: Guardar y publicar el examen
-
-**Haz clic en "Guardar Examen"** (botón azul, antes estaba gris)
-
-**Qué pasa**:
-- ✅ Se muestra loading "Guardando..."
-- ✅ Redirección a `/crear-examen`
-- ✅ El examen aparece en la lista con:
-  - Título: "Electricidad Básica"
-  - Status: "○ Borrador"
-  - Botones: Editar, Publicar, Duplicar
-
-**Haz clic en "🚀 Publicar"**
-
-**Qué pasa**:
-- ✅ Se muestra loading "Publicando..."
-- ✅ Status cambia a "✓ Publicado"
-- ✅ Desaparecen los botones Publicar y Duplicar
-- ✅ **El examen está listo para que los estudiantes lo hagan**
-
----
-
-## PARTE 2: ESTUDIANTE PRESENTA EL EXAMEN
-
-### Paso 2.1: Cerrar sesión del profesor
-
-En la barra de navegación, haz clic en el icono de perfil (debajo a la derecha) o accede a `/logout`
-
-**Qué pasa**:
-- ✅ Se cierra sesión
-- ✅ Redirección a `/login`
-
-### Paso 2.2: Ingresar como estudiante
-
-**Campos a llenar**:
-```
-Cédula:      V-30000002
-Contraseña:  Prueba123!
-```
-
-**Qué esperar**:
-- ✅ Redirección a `/` (página de inicio)
-- ✅ Se muestra "Bienvenido a ZR Academy"
-- ✅ Botones: Mi Carnet, Clases, Exámenes, Material de Estudio
-- ✅ Stats: Competencias dominadas, En progreso
-
-### Paso 2.3: Ir a la sección de exámenes
-
-**Haz clic en botón "Exámenes"** (o navega a `/examenes`)
-
-**Qué ves**:
-- Título: "Mis Exámenes"
-- Lista de exámenes disponibles:
-  - "Electricidad Básica" | "Módulo 1" | "3 preguntas" | "20 puntos"
-  - Status: "✓ Disponible"
-
-**Haz clic en el examen "Electricidad Básica"**
-
-**Qué pasa**:
-- ✅ Redirección a `/examenes/[examId]`
-- ✅ Se crea automáticamente un intento
-- ✅ Se muestra la **PRIMERA PREGUNTA**
-
-### Paso 2.4: Responder Pregunta 1 - Opción Múltiple
-
-**En pantalla ves**:
-```
-┌─────────────────────────────────────┐
-│ Pregunta 1 de 3                     │
-│ ┌─────────────────────────────────┐ │
-│ │ ¿Cuál es la función principal   │ │
-│ │ del alternador en un vehículo?  │ │
-│ │                                 │ │
-│ │ (◉) Generar electricidad        │ │
-│ │ ( ) Almacenar energía           │ │
-│ │ ( ) Controlar la velocidad      │ │
-│ │ ( ) Refrigerar el motor         │ │
-│ └─────────────────────────────────┘ │
-│                                     │
-│ [Anterior] [Siguiente]              │
-└─────────────────────────────────────┘
-```
-
-**Paso 1**: Haz clic en **"Generar electricidad"** (aunque NO es la correcta)
-
-```
-(◉) Generar electricidad ← SELECCIONADO (pero es INCORRECTA)
-```
-
-**Qué pasa**:
-- ✅ Se selecciona la opción
-- ✅ Se guarda automáticamente en la base de datos
-
-**Paso 2**: Haz clic en "Siguiente"
-
-**Qué pasa**:
-- ✅ Redirección a pregunta 2
-- ✅ Se guarda la respuesta anterior
-
-### Paso 2.5: Responder Pregunta 2 - Verdadero/Falso
-
-**En pantalla ves**:
-```
-┌─────────────────────────────────────┐
-│ Pregunta 2 de 3                     │
-│ ┌─────────────────────────────────┐ │
-│ │ El alternador funciona cuando   │ │
-│ │ el motor está apagado           │ │
-│ │                                 │ │
-│ │ [Verdadero]  [Falso] ◄ CORRECTA │ │
-│ └─────────────────────────────────┘ │
-│                                     │
-│ [Anterior] [Siguiente]              │
-└─────────────────────────────────────┘
-```
-
-**Paso 1**: Haz clic en **"Falso"** (ES LA CORRECTA)
-
-**Paso 2**: Haz clic en "Siguiente"
-
-### Paso 2.6: Responder Pregunta 3 - Redacción Abierta
-
-**En pantalla ves**:
-```
-┌──────────────────────────────────────────┐
-│ Pregunta 3 de 3                          │
-│ ┌──────────────────────────────────────┐ │
-│ │ Explica paso a paso cómo diagnosticar│ │
-│ │ un problema en la batería de un auto │ │
-│ │                                      │ │
-│ │ RÚBRICA:                             │ │
-│ │ - Describe 3 pasos correctos = 10pt  │ │
-│ │ - Usa términos técnicos = 5 puntos   │ │
-│ │ - Menciona herramientas = 5 puntos   │ │
-│ │                                      │ │
-│ │ [Textarea para escribir respuesta]   │ │
-│ │ ..............................        │ │
-│ │                                      │ │
-│ └──────────────────────────────────────┘ │
-│                                          │
-│ [Anterior] [✓ Entregar]                 │ │
-└──────────────────────────────────────────┘
-```
-
-**Paso 1**: Haz clic en el textarea y escribe:
-
-```
-Paso 1: Inspecciona los terminales de la batería
-para verificar si hay corrosión o conexiones sueltas.
-
-Paso 2: Usa un multímetro digital para medir el
-voltaje. Debe estar entre 12.6-13.2V en reposo.
-
-Paso 3: Enciende el motor y verifica que el 
-alternador cargue la batería (13.5-14.5V).
-
-Si el voltaje baja o no sube, la batería o el
-alternador están dañados.
-```
-
-**Paso 2**: Haz clic en **"✓ Entregar"** (ES LA ÚLTIMA PREGUNTA)
-
-**Qué pasa**:
-- ✅ Se muestra dialog de confirmación: "¿Seguro que entregarás el examen?"
-- ✅ Haz clic en "Sí, entregar"
-- ✅ Se llama a Edge Function `submit-attempt`
-- ✅ Se muestran resultados:
-
-```
-RESULTADOS:
-✓ Pregunta 1 (Múltiple): ✗ INCORRECTA (0 puntos)
-✓ Pregunta 2 (V/F): ✓ CORRECTA (5 puntos)
-✓ Pregunta 3 (Redacción): ⏳ PENDIENTE (sera calificada por profesor)
-
-Puntos Auto-Calificados: 5 de 20
-Respuestas Pendientes: 1
-```
-
-- ✅ Redirección a `/examenes` (con examen mostrando estado "Entregado")
-
----
-
-## PARTE 3: PROFESOR CALIFICA REDACCIONES
-
-### Paso 3.1: Volver a ingresar como profesor
-
-**Accede a `/login`**:
-```
-Cédula:      V-30000001
-Contraseña:  Prueba123!
-```
-
-- ✅ Redirección a `/crear-examen`
-
-### Paso 3.2: Ir a la cola de calificación
-
-**Navega a `/calificar`**
-
-**Qué ves**:
-```
-┌──────────────────────────────────────┐
-│ Respuesta 1 de 1 (100%)              │
-│                                      │
-│ ESTUDIANTE: María García López       │
-│ EXAMEN: Electricidad Básica          │
-│ PREGUNTA: Máx 10 puntos              │
-│                                      │
-│ RÚBRICA:                             │
-│ - Describe 3 pasos correctos = 10pt  │
-│ - Usa términos técnicos = 5 puntos   │
-│ - Menciona herramientas = 5 puntos   │
-│                                      │
-│ RESPUESTA DEL ESTUDIANTE:            │
-│ "Paso 1: Inspecciona los terminales │
-│  de la batería para verificar si    │
-│  hay corrosión o conexiones sueltas.│
-│  Paso 2: Usa un multímetro digital  │
-│  para medir el voltaje. Debe estar  │
-│  entre 12.6-13.2V en reposo.        │
-│  Paso 3: Enciende el motor y        │
-│  verifica que el alternador cargue   │
-│  la batería (13.5-14.5V)."          │
-│                                      │
-│ CALIFICACIÓN:                        │
-│ Puntuación: [8] (de 10)              │
-│ Comentario: Excelente explicación,   │
-│ faltó mencionar el fusible          │
-└──────────────────────────────────────┘
-```
-
-### Paso 3.3: Calificar la respuesta
-
-**Campos**:
-1. **Puntuación**: Cambia a `8` (0-10 máximo)
-2. **Comentario**: Escribe "Excelente explicación, faltó mencionar el fusible"
-
-**Haz clic en "Guardar y Siguiente"**
-
-**Qué pasa**:
-- ✅ Se llama a Edge Function `grade-answer`
-- ✅ Se actualiza la base de datos
-- ✅ Intento cambia a "Calificado"
-- ✅ Se muestran resultados:
-
-```
-RESULTADO FINAL:
-Pregunta 1: 0 puntos (respuesta incorrecta)
-Pregunta 2: 5 puntos (respuesta correcta)
-Pregunta 3: 8 puntos (calificado por profesor)
-
-PUNTUACIÓN TOTAL: 13 de 20 puntos
-ESTADO: ✓ APROBADO (aprueba con 10)
+```bash
+npx supabase db reset
 ```
 
 ---
 
-## PARTE 4: ESTUDIANTE VE SUS NOTAS
+## Parte 1 · El profesor arma un examen
 
-### Paso 4.1: Volver a ingresar como estudiante
+### 1.1 Entrar
 
-**Accede a `/login`**:
-```
-Cédula:      V-30000002
-Contraseña:  Prueba123!
-```
+Ve a `http://localhost:3000/login`, entra con `V-10000001` / `Prueba123!`.
 
-### Paso 4.2: Ver página de calificaciones
+Caes en el panel del profesor. Deberías ver:
 
-**Navega a `/notas`**
+- Tu nombre: **Prof. Pedro Ramírez**
+- **01 — PRÓXIMA CLASE**: el próximo sábado, Cohorte 2026-B, Semana 2, Electricidad Automotriz
+- **02 — ASISTENCIA**: 0 presentes, 2 faltan (hay 2 estudiantes inscritos)
+- **03 — PENDIENTE**: «Al día» si no hay redacciones esperando
 
-**Qué ves**:
-```
-┌─────────────────────────────────────┐
-│ MIS CALIFICACIONES                  │
-│                                     │
-│ Módulo 1 - Electricidad Básica      │
-│ ✓ APROBADO                          │
-│ Aprueba con 10                      │
-│                                     │
-│ DETALLES:                           │
-│ Teoría:  5                          │
-│ Práctica: 8                         │
-│ Participación: —                    │
-│                                     │
-│ ─────────────────────────────────   │
-│ CALIFICACIÓN FINAL: 13              │
-│ ESTADO: ✓ APROBADO                  │
-│ Mínimo requerido: 10                │
-└─────────────────────────────────────┘
-```
+### 1.2 Crear el examen
 
-**Qué sucedió**:
-- ✅ La base de datos automáticamente calculó la nota final (13)
-- ✅ Comparó con el mínimo (10) y muestra "APROBADO"
-- ✅ El estudiante ve exactamente qué calificó el profesor
+Barra lateral → **Exámenes** → botón **Crear examen**.
 
----
+Rellena:
 
-## PARTE 5: VER FEEDBACK (OPCIONAL)
+| Campo | Valor |
+|---|---|
+| Título | `Electricidad Automotriz · Semana 2` |
+| Módulo | Electricidad Automotriz |
+| Cohorte | Cohorte 2026-B · Sábado 8:00 am |
+| Puntaje máximo | `10` |
+| Duración | `90` |
 
-### Paso 5.1: Acceder al formulario de feedback
+Fíjate en el contador: dice **«Puntos asignados: 0 / 10 · Faltan 10»** en rojo.
 
-**Navega a `/feedback/[sessionId]`** (o haz clic en link si está disponible)
+### 1.3 Primera pregunta · opción múltiple
 
-**Qué ves**:
-```
-┌──────────────────────────────────┐
-│ TU OPINIÓN IMPORTA               │
-│ Pregunta 1 de 3                  │
-│                                  │
-│ ⏱️ 20s                           │
-│                                  │
-│ ¿Cuánto aprendiste hoy?          │
-│                                  │
-│ [😞] [😐] [😊] [😄] [🤩]        │
-│  1    2    3    4    5           │
-│ Muy poco      Excelente          │
-└──────────────────────────────────┘
-```
+**+ Agregar pregunta** → **Opción múltiple**.
 
-### Paso 5.2: Responder el feedback
+- Enunciado: `¿Cuál es la función principal del alternador?`
+- Opción **A**: `Generar electricidad con el motor encendido` ← deja el radio marcado aquí
+- Opción **B**: `Almacenar energía cuando el auto está apagado`
+- Puntos: `5`
 
-**Haz clic en "😊" (opción 3)**
+**Guardar Pregunta**. El contador pasa a **5 / 10** (sigue rojo).
 
-- ✅ Se selecciona y avanza a pregunta 2
+### 1.4 Segunda pregunta · redacción abierta
 
-**Pregunta 2: "¿Qué tan claro fue el profesor?"**
-- Haz clic en "😄" (opción 4)
+**+ Agregar pregunta** → **Redacción abierta**.
 
-**Pregunta 3: "¿Cuánto disfrutaste la clase?"**
-- Haz clic en "🤩" (opción 5)
+- Enunciado: `Explica paso a paso cómo diagnosticar una batería descargada.`
+- Rúbrica: `Menciona los 3 pasos (inspección visual, medición en reposo, prueba de carga) = 3 pts. Da valores de voltaje correctos = 1 pt. Nombra la herramienta = 1 pt.`
+- Puntos: `5`
 
-**Qué pasa al terminar**:
-```
-┌─────────────────────────────────┐
-│ ✨ ¡GRACIAS!                     │
-│                                 │
-│ Tu respuesta es completamente   │
-│ anónima para tu profesor.       │
-│                                 │
-│ [Volver a Inicio]               │
-└─────────────────────────────────┘
-```
+**Guardar Pregunta**. El contador pasa a **10 / 10** y **se pone verde**.
+
+> La rúbrica es tuya, no del estudiante. En la Parte 2 vas a comprobar que no le llega.
+
+### 1.5 Guardar y publicar
+
+**Guardar borrador** → vuelves a la lista, el examen aparece bajo **01 — SIN PUBLICAR**.
+
+Pulsa **Publicar**. Pasa a **01 — PUBLICADOS**.
+
+> Si los puntos no cuadraran, el botón está deshabilitado. Y aunque lo forzaras, el disparador
+> `trg_validate_exam_publish` de la base lo rechaza. Esa es la garantía real.
 
 ---
 
-## 📊 RESUMEN DEL FLUJO PROBADO
+## Parte 2 · El estudiante lo presenta
 
-| Paso | Actor | Acción | Resultado |
-|------|-------|--------|-----------|
-| 1 | Profesor | Crea examen con 3 preguntas | Examen en borrador |
-| 2 | Profesor | Publica el examen | Examen disponible |
-| 3 | Estudiante | Responde 3 preguntas | Intento "Entregado" |
-| 4 | Edge Fn | Auto-califica objetivas | 5 puntos automáticos |
-| 5 | Profesor | Califica redacción | 8 puntos adicionales |
-| 6 | DB Trigger | Calcula nota final | 13/20 = APROBADO |
-| 7 | Estudiante | Ve sus notas | 13 puntos con estado |
-| 8 | Estudiante | Da feedback | Respuestas anónimas |
+### 2.1 Entrar
 
----
+**Cerrar sesión** (abajo en la barra lateral) → entra con `V-30000002` / `Prueba123!`.
 
-## ✅ CHECKLIST DE VERIFICACIÓN
+En el inicio deberías ver:
 
-Marca cada item que hayas probado exitosamente:
+- **01 — PRÓXIMO SÁBADO** con la competencia de la semana y un bloque **TRAE INVESTIGADO**
+  («Averigua cuál es el voltaje normal de una batería de 12V…»)
+- **02 — MI PROGRESO**: 0 dominadas, 0 en progreso, 4 pendientes
+- **03 — ACCESOS**
 
-### Profesor
-- [ ] ✅ Login funciona
-- [ ] ✅ Puede crear examen
-- [ ] ✅ Puede agregar 3 tipos de preguntas
-- [ ] ✅ Indicador de puntos valida suma correcta
-- [ ] ✅ Examen se guarda y publica
-- [ ] ✅ Puede calificar respuestas abiertas
-- [ ] ✅ Ver resultados finales del estudiante
+### 2.2 Abrir el examen
 
-### Estudiante
-- [ ] ✅ Login funciona con usuario diferente
-- [ ] ✅ Ve examen disponible
-- [ ] ✅ Puede responder opción múltiple
-- [ ] ✅ Puede responder verdadero/falso
-- [ ] ✅ Puede escribir respuesta abierta
-- [ ] ✅ Examen se entrega correctamente
-- [ ] ✅ Ve resultados con puntos correctos
-- [ ] ✅ Ve notas finales
-- [ ] ✅ Da feedback anónimo
+Barra inferior → **Exámenes**. Bajo **01 — POR PRESENTAR** está tu examen. Tócalo.
 
-### Sistema
-- [ ] ✅ Auto-calificación de objetivas funciona
-- [ ] ✅ Calificación manual se guarda
-- [ ] ✅ Nota final se calcula correctamente
-- [ ] ✅ Status cambia a "APROBADO"
-- [ ] ✅ Feedback se recopila anónimamente
+Verás **PREGUNTA 1 DE 2**, el cronómetro en 89:5x y las dos opciones.
 
----
+### 2.3 Comprobación de seguridad (hazla)
 
-## 🐛 POSIBLES ERRORES Y SOLUCIONES
+Abre las herramientas del navegador (F12) → pestaña **Red** → filtra por
+`v_exam_questions_student` → mira la respuesta.
 
-| Error | Causa | Solución |
-|-------|-------|----------|
-| "Cédula o contraseña incorrecta" | Usuario no existe o dominio email mal | Ejecuta `npm run db:seed` |
-| "Examen no disponible" | Estudiante no está en la cohorte | Verifica RLS de exams en Supabase |
-| "No se puede calificar" | No hay respuesta guardada | Verifica que el estudiante haya respondido |
-| Puntos no suman bien | Formato decimal (ej: 5.5 en lugar de 5) | Usa números enteros |
-| Feedback no guarda | Base de datos sin tabla | Verifica migración 008_content_feedback.sql |
+**No debe aparecer `correct_answer` ni `rubric`.** Si aparecen, para y repórtalo: significa que
+alguien cambió la consulta para leer `exam_questions` en vez de la vista.
+
+### 2.4 Responder
+
+**Pregunta 1**: toca `Generar electricidad con el motor encendido`.
+Se guarda sola, no hay botón de guardar.
+
+**Siguiente**.
+
+**Pregunta 2**: escribe algo como
+
+> Primero reviso los bornes por si tienen sulfato o están flojos. Después mido con el
+> multímetro en reposo: debe dar cerca de 12,6 V. Por último enciendo el motor y vuelvo a
+> medir; el alternador tiene que subirla a 13,5 o 14,5 V.
+
+Fíjate en que **no ves la rúbrica**. Correcto.
+
+### 2.5 Entregar
+
+**Entregar** → sale la confirmación: *«Respondiste todas las preguntas. Una vez entregado no
+podrás cambiar tus respuestas.»* → **Sí, entregar**.
+
+Vuelves a la lista. El examen está ahora en **YA PRESENTADOS** con la etiqueta **Entregado**.
+
+> Si hubieras dejado preguntas sin responder, la confirmación te lo diría con el número exacto
+> y avisaría de que cuentan como cero.
+
+**Qué pasó por debajo:** la Edge Function `submit-attempt` calificó sola la opción múltiple
+(5/5, todo o nada) y dejó la redacción en `null` esperando al profesor. No intentó adivinar.
 
 ---
 
-## 📞 SOPORTE
+## Parte 3 · El profesor califica la redacción
 
-Si algo no funciona:
-1. Abre la consola del navegador (F12)
-2. Busca mensajes rojo en la sección "Console"
-3. Ve a `/login` y intenta de nuevo
-4. Reinicia el servidor: `npm run dev`
+### 3.1 Entrar y abrir la cola
 
-**¡Listo! Has probado el flujo completo de ZR App** 🎉
+Cierra sesión → entra con `V-10000001` → barra lateral → **Calificar**.
+
+Ves, en una sola pantalla:
+
+- **Respuesta 1 de 1 · hace minutos**
+- El estudiante: **María García López**
+- La pregunta
+- **La rúbrica** (esto es lo que hace que dos profesores califiquen parecido)
+- La respuesta del estudiante
+- Campo de puntaje y campo de comentario
+
+### 3.2 Probar la validación
+
+Escribe `9` en el puntaje (el máximo es 5) y pulsa **Guardar y terminar**.
+
+Sale: **«El puntaje tiene que estar entre 0 y 5.»** No se guarda nada.
+
+> La validación también está en la Edge Function `grade-answer`. Aunque alguien saltara la
+> interfaz, la respuesta sería `DATOS_INVALIDOS`.
+
+### 3.3 Calificar de verdad
+
+- Puntaje: `4`
+- Comentario: `Muy buena secuencia y los voltajes están correctos. Te faltó nombrar la herramienta de prueba de carga.`
+
+**Guardar y terminar** → pantalla de **Todo al día**.
+
+**Qué pasó por debajo:** al no quedar respuestas sin puntaje, el disparador
+`trg_close_attempt` cerró el intento solo y calculó el total. La Edge Function no lo cierra:
+lo lee.
+
+---
+
+## Parte 4 · El estudiante ve su nota
+
+Cierra sesión → entra con `V-30000002` → **Exámenes**.
+
+Bajo **YA PRESENTADOS**:
+
+> **Electricidad Automotriz · Semana 2**
+> **9** / 10 puntos — **Calificado**
+
+5 de la opción múltiple + 4 de la redacción. Nadie sumó eso en el navegador.
+
+En **Notas** ves el módulo con teoría, práctica y participación, la nota final y el umbral
+(*«Aprueba con 10»*), todo en gris: son columnas que mantiene la base.
+
+---
+
+## Lista de comprobación
+
+- [ ] El profesor entra y ve su próxima clase con datos reales
+- [ ] El contador de puntos está rojo mientras no cuadre y verde cuando cuadra
+- [ ] No se puede publicar un examen cuyos puntos no sumen el máximo
+- [ ] El estudiante ve «Próximo sábado» con lo que tiene que investigar
+- [ ] **En la pestaña Red no aparece `correct_answer` ni `rubric`**
+- [ ] Las respuestas se guardan solas al tocarlas
+- [ ] Entregar pide confirmación y avisa de las preguntas sin responder
+- [ ] La opción múltiple se califica sola; la redacción queda pendiente
+- [ ] Un puntaje mayor al máximo se rechaza
+- [ ] Al calificar la última respuesta, el intento se cierra solo
+- [ ] El estudiante ve su nota final
+
+---
+
+## Si algo falla
+
+| Síntoma | Causa | Qué hacer |
+|---|---|---|
+| «Cédula o contraseña incorrecta» | Los usuarios no están cargados | `npx supabase db reset` |
+| «No se pudo entregar» al dar Entregar | Las Edge Functions no están sirviéndose | `npx supabase functions serve --no-verify-jwt` |
+| La cola de calificación sale vacía con respuestas pendientes | El intento no se entregó (sigue en `en_progreso`) | Revisa la consola del navegador al entregar |
+| «permission denied for table …» en el log de una función | Falta la migración 018 | Aplícala: da los GRANT a `service_role` |
+| El examen no aparece al estudiante | Está en `oculto` | Publícalo desde la lista del profesor |
+
+### Ver el estado real de la base
+
+```bash
+docker exec -i supabase_db_ZR_App psql -U postgres -d postgres -c "select status, total_score from exam_attempts;"
+```

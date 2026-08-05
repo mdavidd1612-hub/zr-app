@@ -1,0 +1,28 @@
+# =============================================================================
+# TAREAS COMPLETADAS A MANO
+# =============================================================================
+# Algunas tareas no crean ningún archivo: son comandos, verificaciones o
+# gestiones fuera del código (crear un proyecto en Vercel, probar la app en un
+# teléfono real, medir la línea base en la sede). El tablero no puede detectarlas
+# solo, así que se marcan aquí.
+#
+# CÓMO USARLO
+#   Escribe un código de tarea por línea. Nada más.
+#   Todo lo que vaya después de # es un comentario y se ignora.
+#
+#   T-003        # aplicado el 5 de agosto, dio 13 módulos
+#
+# REGLA: solo se marca una tarea cuando su "Verifica:" del archivo de sprint se
+# cumplió de verdad. Marcarla antes es mentirle al tablero, y el tablero es lo
+# único que va a decirte si llegamos al 5 de septiembre.
+#
+# Después de editar este archivo, corre:  npm run estado
+# =============================================================================
+
+T-001    # entorno montado: Next 16, Docker, WSL2, supabase start (2026-08-01)
+T-002    # las 14 migraciones y el seed ya están en supabase/ (2026-08-01)
+T-003    # db reset aplica las 14 migraciones sin errores (2026-08-01)
+T-004    # cero tablas sin RLS; solo student_qr_secrets sin política, y es correcto
+T-005    # 13 módulos, 12 estudiantes, 4 menores, 2 bloqueados, 18 sesiones, umbrales 10 y 12
+T-006    # lib/database.types.ts generado, 2088 líneas
+T-010    # ci.yml movido a .github/workflows/ desde la ruta corrupta (2026-08-01)

@@ -28,10 +28,12 @@ export function Campo({ etiqueta, error, ayuda, className = '', ...resto }: Prop
           .filter(Boolean)
           .join(' ') || undefined}
         className={[
-          'min-h-[56px] rounded-zr border-2 bg-white/30 px-4 text-base text-zr-text backdrop-blur-md',
-          'placeholder:text-zr-text-muted/60',
-          error ? 'border-zr-error' : 'border-white/20 focus:border-zr-blue',
-          'focus:bg-white/40 transition-all',
+          'min-h-[56px] rounded-xl border border-white/15 bg-white/25 px-4 text-base text-zr-text',
+          'backdrop-blur-2xl backdrop-saturate-180',
+          'placeholder:text-zr-text-muted/50',
+          'shadow-[0_8px_32px_rgba(31,38,135,0.1),inset_0_1px_0_rgba(255,255,255,0.7)]',
+          error ? 'border-zr-error' : 'focus:border-zr-blue/50 focus:bg-white/30',
+          'focus:outline-none transition-all duration-200',
           className,
         ].join(' ')}
       />

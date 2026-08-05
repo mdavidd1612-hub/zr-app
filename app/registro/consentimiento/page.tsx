@@ -82,7 +82,7 @@ export default function Consentimiento() {
         </p>
       </header>
 
-      <form onSubmit={guardar} className="glass flex flex-col gap-3 p-6 rounded-2xl" noValidate>
+      <form onSubmit={guardar} className="glass flex flex-col gap-3 p-8 rounded-3xl" noValidate>
         <fieldset className="space-y-3 border-t border-zr-border pt-4">
           <legend className="font-medium">Datos del representante legal</legend>
 

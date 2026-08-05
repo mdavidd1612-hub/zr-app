@@ -37,10 +37,8 @@ export function Aviso({ tipo, titulo, children }: Props) {
 
   return (
     <div
-      // 'alert' interrumpe al lector de pantalla; 'status' espera su turno.
-      // Un error de asistencia sí debe interrumpir.
       role={t.rol}
-      className={['flex gap-3 rounded-zr border-l-4 p-4', t.clases].join(' ')}
+      className={['flex gap-3 rounded-xl border-l-4 border-white/10 p-4', t.clases].join(' ')}
     >
       <span aria-hidden="true" className="text-xl font-bold leading-none">{t.simbolo}</span>
       <div className="flex-1">

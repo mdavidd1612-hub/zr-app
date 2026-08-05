@@ -64,7 +64,7 @@ export default function Login() {
         <p className="text-base text-zr-text-muted mt-1">Academia ZR Mecademy</p>
       </header>
 
-      <form onSubmit={entrar} className="glass flex flex-col gap-4 p-6 rounded-2xl" noValidate>
+      <form onSubmit={entrar} className="glass flex flex-col gap-4 p-8 rounded-3xl" noValidate>
         <Campo
           etiqueta="Cédula"
           name="cedula"

@@ -16,7 +16,7 @@ const TONOS: Record<Tono, string> = {
 
 export function Tarjeta({ children, tono = 'normal', className = '' }: Props) {
   return (
-    <section className={['rounded-zr p-4', TONOS[tono], className].join(' ')}>
+    <section className={['rounded-xl p-4 border border-white/10', TONOS[tono], className].join(' ')}>
       {children}
     </section>
   )

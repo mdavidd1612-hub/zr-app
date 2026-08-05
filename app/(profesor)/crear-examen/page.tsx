@@ -155,16 +155,18 @@ export default function ProfessorExams() {
         <div className="space-y-8">
           {/* Header */}
           <div className="space-y-4">
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-start gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-zr-text">Mis Exámenes</h1>
-                <p className="text-sm text-zr-text-muted mt-2">{exams.length} exámenes creados</p>
+                <h1 className="text-4xl font-bold text-zr-text">Mis Exámenes</h1>
+                <p className="text-base text-zr-text-muted mt-2">
+                  {exams.length} {exams.length === 1 ? 'examen' : 'exámenes'} creados
+                </p>
               </div>
               <button
                 onClick={() => router.push('/crear-examen/nuevo')}
-                className="px-6 py-3 bg-zr-blue text-white rounded-lg font-semibold hover:bg-zr-blue-deep transition-all"
+                className="px-6 py-3 bg-gradient-to-r from-zr-blue to-zr-blue-deep text-white rounded-lg font-bold hover:shadow-lg hover:shadow-zr-blue/30 transition-all whitespace-nowrap"
               >
-                + Nuevo
+                ✏️ Crear Examen
               </button>
             </div>
           </div>
@@ -174,61 +176,89 @@ export default function ProfessorExams() {
 
           {/* Exams List */}
           {exams.length === 0 ? (
-            <div className="bg-zr-surface border border-zr-border rounded-lg p-8 text-center">
-              <p className="text-zr-text-muted mb-4">No has creado exámenes aún</p>
+            <div className="bg-zr-surface border border-zr-border rounded-xl p-12 text-center space-y-4">
+              <div className="text-5xl">📝</div>
+              <p className="text-lg text-zr-text font-semibold">No has creado exámenes aún</p>
+              <p className="text-sm text-zr-text-muted">
+                Comienza a crear tu primer examen para que tus estudiantes puedan practicar
+              </p>
               <button
                 onClick={() => router.push('/crear-examen/nuevo')}
-                className="px-6 py-2 bg-zr-blue text-white rounded-lg font-semibold hover:bg-zr-blue-deep transition-all inline-block"
+                className="mt-4 px-6 py-3 bg-zr-blue text-white rounded-lg font-semibold hover:bg-zr-blue-deep transition-all inline-block"
               >
-                Crear primer examen
+                Crear Primer Examen
               </button>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-5">
               {exams.map((exam) => (
                 <div
                   key={exam.id}
-                  className="group text-left bg-zr-surface border border-zr-border rounded-lg p-5 hover:border-zr-blue/50 hover:shadow-md transition-all"
+                  className="group bg-gradient-to-br from-zr-surface to-zr-background border border-zr-border rounded-xl p-6 hover:border-zr-blue/50 hover:shadow-lg transition-all"
                 >
-                  <div className="flex justify-between items-start gap-3 mb-3">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-semibold text-zr-text group-hover:text-zr-blue transition-colors cursor-pointer" onClick={() => router.push(`/crear-examen/${exam.id}/editar`)}>
+                  {/* Header */}
+                  <div className="flex justify-between items-start gap-4 mb-4">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-zr-text group-hover:text-zr-blue transition-colors">
                         {exam.title}
                       </h3>
-                      <div className="flex gap-3 mt-2 text-xs text-zr-text-muted">
-                        <span>{exam.module}</span>
-                        <span>•</span>
-                        <span>{exam.questionCount} preguntas</span>
-                        <span>•</span>
-                        <span>{exam.points} puntos</span>
-                      </div>
+                      <p className="text-sm text-zr-text-muted mt-1">{exam.module}</p>
                     </div>
 
-                    <div className="flex-shrink-0">
-                      <div
-                        className={`inline-flex items-center px-3 py-1 rounded-full border font-semibold text-xs ${
-                          exam.status === 'habilitado'
-                            ? 'bg-zr-success/10 border-zr-success/30 text-zr-success'
-                            : exam.status === 'oculto'
-                            ? 'bg-zr-text-muted/10 border-zr-text-muted/30 text-zr-text-muted'
-                            : 'bg-zr-blue/10 border-zr-blue/30 text-zr-blue'
-                        }`}
-                      >
-                        {exam.status === 'habilitado' && '✓ Publicado'}
-                        {exam.status === 'oculto' && '○ Borrador'}
-                        {exam.status === 'cerrado' && '🔒 Cerrado'}
-                        {exam.status === 'calificado' && '✓ Calificado'}
+                    <div
+                      className={`flex-shrink-0 px-4 py-2 rounded-full font-semibold text-sm border ${
+                        exam.status === 'habilitado'
+                          ? 'bg-zr-success/15 border-zr-success/30 text-zr-success'
+                          : exam.status === 'oculto'
+                          ? 'bg-zr-text-muted/10 border-zr-text-muted/30 text-zr-text-muted'
+                          : 'bg-zr-blue/10 border-zr-blue/30 text-zr-blue'
+                      }`}
+                    >
+                      {exam.status === 'habilitado' && '✓ Publicado'}
+                      {exam.status === 'oculto' && '○ Borrador'}
+                      {exam.status === 'cerrado' && '🔒 Cerrado'}
+                      {exam.status === 'calificado' && '✓ Calificado'}
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-3 gap-4 mb-5 pb-5 border-b border-zr-border/30">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">📋</span>
+                      <div className="min-w-0">
+                        <p className="text-xs text-zr-text-muted font-semibold uppercase tracking-wide">
+                          Preguntas
+                        </p>
+                        <p className="text-lg font-bold text-zr-text">{exam.questionCount}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">⭐</span>
+                      <div className="min-w-0">
+                        <p className="text-xs text-zr-text-muted font-semibold uppercase tracking-wide">
+                          Puntos
+                        </p>
+                        <p className="text-lg font-bold text-zr-blue">{exam.points}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">📅</span>
+                      <div className="min-w-0">
+                        <p className="text-xs text-zr-text-muted font-semibold uppercase tracking-wide">
+                          Creado
+                        </p>
+                        <p className="text-lg font-bold text-zr-text">{exam.createdAt}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-2 pt-3 border-t border-zr-border">
+                  <div className="flex gap-3 flex-wrap">
                     <button
                       onClick={() => router.push(`/crear-examen/${exam.id}/editar`)}
-                      className="flex-1 px-3 py-2 text-sm bg-zr-background border border-zr-border text-zr-text rounded-lg hover:border-zr-blue/50 transition-all"
+                      className="flex-1 min-w-32 px-4 py-3 text-sm bg-zr-blue text-white rounded-lg font-bold hover:bg-zr-blue-deep transition-all"
                     >
-                      Editar
+                      ✏️ Editar
                     </button>
 
                     {exam.status === 'oculto' && (
@@ -236,17 +266,17 @@ export default function ProfessorExams() {
                         <button
                           onClick={() => handlePublishExam(exam.id)}
                           disabled={publishing === exam.id}
-                          className="flex-1 px-3 py-2 text-sm bg-zr-success/10 border border-zr-success/30 text-zr-success rounded-lg hover:bg-zr-success/20 transition-all disabled:opacity-50"
+                          className="flex-1 min-w-32 px-4 py-3 text-sm bg-zr-success/15 border border-zr-success/30 text-zr-success rounded-lg font-bold hover:bg-zr-success/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {publishing === exam.id ? 'Publicando...' : 'Publicar'}
+                          {publishing === exam.id ? '⏳ Publicando...' : '🚀 Publicar'}
                         </button>
 
                         <button
                           onClick={() => handleDuplicateExam(exam.id)}
                           disabled={duplicating === exam.id}
-                          className="flex-1 px-3 py-2 text-sm bg-zr-blue/10 border border-zr-blue/30 text-zr-blue rounded-lg hover:bg-zr-blue/20 transition-all disabled:opacity-50"
+                          className="flex-1 min-w-32 px-4 py-3 text-sm bg-zr-blue/15 border border-zr-blue/30 text-zr-blue rounded-lg font-bold hover:bg-zr-blue/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {duplicating === exam.id ? 'Duplicando...' : 'Duplicar'}
+                          {duplicating === exam.id ? '⏳ Duplicando...' : '📋 Duplicar'}
                         </button>
                       </>
                     )}

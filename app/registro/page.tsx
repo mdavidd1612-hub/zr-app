@@ -75,7 +75,7 @@ export default function Registro() {
         router.push('/carnet')
       }
       router.refresh()
-    } catch (err) {
+    } catch {
       setError('Error de conexión. Intenta de nuevo.')
       setCargando(false)
     }
@@ -84,11 +84,11 @@ export default function Registro() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-4 p-4">
       <header className="text-center">
-        <h1 className="text-2xl">Regístrate</h1>
-        <p className="text-base text-zr-text-muted">Crea tu cuenta en ZR App</p>
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-zr-blue to-zr-blue-deep bg-clip-text text-transparent">Regístrate</h1>
+        <p className="text-base text-zr-text-muted mt-1">Crea tu cuenta en ZR App</p>
       </header>
 
-      <form onSubmit={registrar} className="flex flex-col gap-3" noValidate>
+      <form onSubmit={registrar} className="glass flex flex-col gap-3 p-6 rounded-2xl" noValidate>
         <Campo
           etiqueta="Nombre completo"
           name="fullName"

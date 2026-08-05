@@ -43,6 +43,7 @@ export async function POST(req: Request) {
       birth_date: new Date(birthDate).toISOString().split('T')[0],
       phone: phone || null,
       onboarding_status: esMenor ? 'en_curso' : 'completo',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
 
   if (studentError) {

@@ -14,10 +14,10 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
 // Altura mínima 56 px y texto de 16 px, de spec/04 §0. No se bajan: la app se
 // usa de pie, en un taller, con las manos sucias o con guantes.
 const VARIANTES: Record<Variante, string> = {
-  principal:  'bg-zr-blue text-white hover:bg-zr-blue-deep active:bg-zr-blue-deep',
-  secundario: 'bg-white text-zr-navy border-2 border-zr-border hover:border-zr-blue',
-  peligro:    'bg-zr-error text-white hover:brightness-90',
-  texto:      'bg-transparent text-zr-blue-deep underline underline-offset-4',
+  principal:  'bg-zr-blue text-white hover:bg-zr-blue-deep active:bg-zr-blue-deep shadow-lg',
+  secundario: 'glass text-zr-text hover:border-zr-blue transition-all',
+  peligro:    'bg-zr-error text-white hover:brightness-90 shadow-lg',
+  texto:      'bg-transparent text-zr-blue-deep underline underline-offset-4 hover:opacity-80',
 }
 
 const TAMANOS: Record<Tamano, string> = {

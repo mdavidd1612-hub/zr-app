@@ -13,19 +13,19 @@ type Props = {
 // rojo de verde. Requisito de WCAG 1.4.1.
 const TIPOS: Record<Tipo, { clases: string; simbolo: string; etiqueta: string; rol: 'status' | 'alert' }> = {
   exito: {
-    clases: 'bg-white border-zr-success text-zr-text',
+    clases: 'glass border-zr-success text-zr-text',
     simbolo: '✓',
     etiqueta: 'Listo',
     rol: 'status',
   },
   advertencia: {
-    clases: 'bg-white border-zr-warning text-zr-text',
+    clases: 'glass border-zr-warning text-zr-text',
     simbolo: '!',
     etiqueta: 'Atención',
     rol: 'status',
   },
   error: {
-    clases: 'bg-white border-zr-error text-zr-text',
+    clases: 'glass border-zr-error text-zr-text',
     simbolo: '✕',
     etiqueta: 'Error',
     rol: 'alert',

@@ -53,6 +53,7 @@ export default function Consentimientos() {
         if (e1) throw e1
 
         const formateados = (estudiantesPendientes || [])
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .map((s: any) => {
             const consent = s.parental_consents?.[0]
             return {

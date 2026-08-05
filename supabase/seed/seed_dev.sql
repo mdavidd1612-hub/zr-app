@@ -20,7 +20,7 @@ create or replace function public.seed_user(
   p_cedula    text,
   p_full_name text,
   p_email     text,
-  p_role      public.user_role
+  p_role      text
 ) returns uuid
 language plpgsql
 as $$
@@ -61,7 +61,7 @@ begin
 
   -- El disparador handle_new_user ya creó el perfil como 'estudiante'.
   -- Aquí ajustamos el rol real, que solo el servidor puede hacer.
-  update public.profiles set role = p_role where id = p_id;
+  update public.profiles set role = p_role::public.user_role where id = p_id;
 
   return p_id;
 end;

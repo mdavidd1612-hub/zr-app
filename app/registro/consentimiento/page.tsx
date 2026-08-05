@@ -67,7 +67,7 @@ export default function Consentimiento() {
       // Consentimiento registrado, ir al carnet
       router.push('/carnet')
       router.refresh()
-    } catch (err) {
+    } catch {
       setError('Error de conexión. Intenta de nuevo.')
       setCargando(false)
     }
@@ -76,13 +76,13 @@ export default function Consentimiento() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-4 p-4">
       <header className="text-center">
-        <h1 className="text-2xl">Autorización</h1>
-        <p className="text-sm text-zr-text-muted">
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-zr-blue to-zr-blue-deep bg-clip-text text-transparent">Autorización</h1>
+        <p className="text-sm text-zr-text-muted mt-1">
           Como eres menor de edad, la ley exige que tu representante legal autorice tu cuenta
         </p>
       </header>
 
-      <form onSubmit={guardar} className="flex flex-col gap-3" noValidate>
+      <form onSubmit={guardar} className="glass flex flex-col gap-3 p-6 rounded-2xl" noValidate>
         <fieldset className="space-y-3 border-t border-zr-border pt-4">
           <legend className="font-medium">Datos del representante legal</legend>
 

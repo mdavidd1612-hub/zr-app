@@ -71,11 +71,11 @@ export default function Recuperar() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 p-4">
       <header className="text-center">
-        <h1 className="text-2xl">Recuperar contraseña</h1>
-        <p className="text-sm text-zr-text-muted">Te enviaremos un enlace por correo</p>
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-zr-blue to-zr-blue-deep bg-clip-text text-transparent">Recuperar contraseña</h1>
+        <p className="text-sm text-zr-text-muted mt-1">Te enviaremos un enlace por correo</p>
       </header>
 
-      <form onSubmit={recuperar} className="flex flex-col gap-4" noValidate>
+      <form onSubmit={recuperar} className="glass flex flex-col gap-4 p-6 rounded-2xl" noValidate>
         <Campo
           etiqueta="Cédula"
           name="cedula"

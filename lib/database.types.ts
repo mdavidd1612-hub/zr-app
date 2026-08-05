@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -1895,16 +1895,6 @@ export type Database = {
       is_super: { Args: never; Returns: boolean }
       my_cohort_id: { Args: never; Returns: string }
       my_module_id: { Args: never; Returns: string }
-      seed_user: {
-        Args: {
-          p_cedula: string
-          p_email: string
-          p_full_name: string
-          p_id: string
-          p_role: Database["public"]["Enums"]["user_role"]
-        }
-        Returns: string
-      }
       teaches_cohort: { Args: { p_cohort: string }; Returns: boolean }
     }
     Enums: {

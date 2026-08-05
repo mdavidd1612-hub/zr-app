@@ -12,15 +12,14 @@
 -- Ejecutar:  supabase db reset      (aplica migraciones + este seed)
 -- =============================================================================
 
--- -----------------------------------------------------------------------------
 -- Función de apoyo para crear usuarios de prueba
--- -----------------------------------------------------------------------------
+-- -----------------------------------------------
 create or replace function public.seed_user(
   p_id        uuid,
   p_cedula    text,
   p_full_name text,
   p_email     text,
-  p_role      public.user_role
+  p_role      text
 ) returns uuid
 language plpgsql
 as $$
@@ -28,12 +27,6 @@ begin
   insert into auth.users (
     instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
     raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
-    -- Estas ocho columnas DEBEN ir en cadena vacía, nunca NULL.
-    -- GoTrue (el servicio de Auth, escrito en Go) las lee como string no
-    -- anulable: si encuentra NULL, todo intento de inicio de sesión devuelve
-    -- 500 "Database error querying schema" y el usuario nunca puede entrar.
-    -- El fallo no aparece al sembrar, sino al hacer login, que es lo que lo
-    -- hace difícil de rastrear.
     confirmation_token, recovery_token, email_change, email_change_token_new,
     email_change_token_current, phone_change, phone_change_token,
     reauthentication_token
@@ -59,17 +52,13 @@ begin
     'email', now(), now(), now()
   );
 
-  -- El disparador handle_new_user ya creó el perfil como 'estudiante'.
-  -- Aquí ajustamos el rol real, que solo el servidor puede hacer.
-  update public.profiles set role = p_role where id = p_id;
+  update public.profiles set role = p_role::public.user_role where id = p_id;
 
   return p_id;
 end;
 $$;
 
--- -----------------------------------------------------------------------------
--- 1. Personal
--- -----------------------------------------------------------------------------
+-- Personal
 select public.seed_user('00000000-0000-0000-0000-0000000000a1','V-10000001','Dirección Académica','direccion@zrmecademy.com','super_admin');
 select public.seed_user('00000000-0000-0000-0000-0000000000a2','V-10000002','María Administración','admin@zrmecademy.com','admin');
 select public.seed_user('00000000-0000-0000-0000-0000000000b1','V-10000003','Prof. Carlos Rivas','crivas@zrmecademy.com','profesor');
@@ -83,9 +72,7 @@ insert into public.teachers (id, specialties) values
   ('00000000-0000-0000-0000-0000000000b1', '{electricidad,transmision}'),
   ('00000000-0000-0000-0000-0000000000b2', '{frenos,suspension}');
 
--- -----------------------------------------------------------------------------
--- 2. Programa y 13 módulos
--- -----------------------------------------------------------------------------
+-- Programa y módulos
 insert into public.programs (id, name) values
   ('00000000-0000-0000-0000-00000000c001', 'Técnico Automotriz');
 
@@ -104,17 +91,13 @@ insert into public.modules (id, program_id, order_index, name, duration_weeks, i
   ('00000000-0000-0000-0000-00000000d012','00000000-0000-0000-0000-00000000c001',12,'Mantenimiento Preventivo',4,false),
   ('00000000-0000-0000-0000-00000000d013','00000000-0000-0000-0000-00000000c001',13,'Taller Integrador',4,false);
 
--- -----------------------------------------------------------------------------
--- 3. Cohortes
--- -----------------------------------------------------------------------------
+-- Cohortes
 insert into public.cohorts (id, program_id, name, current_module_id, teacher_id, location, start_date) values
   ('00000000-0000-0000-0000-00000000e001','00000000-0000-0000-0000-00000000c001','Cohorte 2026-A · Sábado 8am','00000000-0000-0000-0000-00000000d003','00000000-0000-0000-0000-0000000000b1','Taller 1','2026-01-11'),
   ('00000000-0000-0000-0000-00000000e002','00000000-0000-0000-0000-00000000c001','Cohorte 2026-B · Sábado 8am','00000000-0000-0000-0000-00000000d001','00000000-0000-0000-0000-0000000000b2','Taller 2','2026-07-04'),
   ('00000000-0000-0000-0000-00000000e003','00000000-0000-0000-0000-00000000c001','Cohorte 2026-C · Sábado 1pm','00000000-0000-0000-0000-00000000d006','00000000-0000-0000-0000-0000000000b1','Taller 1','2025-10-05');
 
--- -----------------------------------------------------------------------------
--- 4. Guías de aprendizaje (muestra de los módulos 1 y 3)
--- -----------------------------------------------------------------------------
+-- Guías de aprendizaje
 insert into public.learning_guides (module_id, week_number, order_in_week, sub_competency_name, pre_practice_description, practice_description, digitized) values
   ('00000000-0000-0000-0000-00000000d001',1,1,'Identificación de herramientas manuales','Investigar tipos de llaves y su uso','Reconocer y clasificar 20 herramientas del taller',true),
   ('00000000-0000-0000-0000-00000000d001',2,1,'Normas de seguridad en taller','Leer el reglamento de seguridad','Aplicar el protocolo de izado de vehículo',true),
@@ -125,12 +108,9 @@ insert into public.learning_guides (module_id, week_number, order_in_week, sub_c
   ('00000000-0000-0000-0000-00000000d003',3,1,'Sistema de carga: alternador','Estudiar el funcionamiento del alternador','Medir salida del alternador en marcha',true),
   ('00000000-0000-0000-0000-00000000d003',4,1,'Lectura de diagramas eléctricos','Estudiar simbología eléctrica','Trazar un circuito de luces en el diagrama',true);
 
--- -----------------------------------------------------------------------------
--- 5. Estudiantes (4 menores de edad para probar el bloqueo LOPNNA)
--- -----------------------------------------------------------------------------
+-- Estudiantes
 do $$
 declare
-  v_id uuid;
   v_data record;
 begin
   for v_data in
@@ -157,8 +137,7 @@ begin
   end loop;
 end $$;
 
--- Consentimiento para 3 de los 4 menores. Andrea Salas (f004) queda SIN
--- consentimiento a propósito, para poder probar que el bloqueo funciona.
+-- Consentimientos
 insert into public.parental_consents
   (student_id, consent_type, representative_name, representative_cedula, representative_email, method, verified_at)
 values
@@ -166,40 +145,26 @@ values
   ('00000000-0000-0000-0000-00000000f007','account_creation','Luis Guillén','V-8000007','lguillen@correo.test','digital', now()),
   ('00000000-0000-0000-0000-00000000f009','account_creation','Nelly Contreras','V-8000009','ncontreras@correo.test','fisico', null);
 
--- Marcar como completo a los mayores de edad y a los menores con consentimiento.
 update public.students set onboarding_status = 'completo'
 where id not in ('00000000-0000-0000-0000-00000000f004');
 
--- -----------------------------------------------------------------------------
--- 6. Secretos QR
--- -----------------------------------------------------------------------------
--- Secreto FIJO y en base32 válido, a propósito: así las pruebas automatizadas
--- pueden generar un código TOTP real y verificar que validate-scan lo acepta.
--- En producción cada estudiante recibe uno aleatorio desde la Edge Function
--- provision-qr. Este valor NUNCA debe llegar a producción.
+-- Secretos QR
 insert into public.student_qr_secrets (student_id, secret)
 select id, 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP' from public.students;
 
--- -----------------------------------------------------------------------------
--- 7. Sesiones de clase (los sábados de agosto de 2026)
--- -----------------------------------------------------------------------------
+-- Sesiones de clase
 insert into public.class_sessions (cohort_id, module_id, teacher_id, session_date, week_number, status)
 select c.id, c.current_module_id, c.teacher_id, d.fecha, row_number() over (partition by c.id order by d.fecha), 'programada'
 from public.cohorts c
 cross join (values ('2026-08-01'::date),('2026-08-08'),('2026-08-15'),('2026-08-22'),('2026-08-29'),('2026-09-05')) as d(fecha);
 
--- -----------------------------------------------------------------------------
--- 8. Inscripciones al módulo en curso
--- -----------------------------------------------------------------------------
+-- Inscripciones
 insert into public.module_enrollments (student_id, module_id, cohort_id, passing_threshold)
 select s.id, c.current_module_id, c.id, 0
 from public.students s
 join public.cohorts c on c.id = s.cohort_id;
--- passing_threshold = 0 dispara el cálculo automático en el trigger.
 
--- -----------------------------------------------------------------------------
--- 9. Un examen de ejemplo, con los tres tipos de pregunta
--- -----------------------------------------------------------------------------
+-- Examen de ejemplo
 insert into public.exams (id, module_id, cohort_id, teacher_id, title, status, max_score)
 values ('00000000-0000-0000-0000-000000009001',
         '00000000-0000-0000-0000-00000000d003',
@@ -220,12 +185,7 @@ insert into public.exam_questions (exam_id, order_index, type, statement, option
    null, null, 6,
    '6 pts: menciona medición de voltaje, prueba de carga y revisión del alternador. 3 pts: menciona solo una. 0 pts: no responde.');
 
--- -----------------------------------------------------------------------------
--- 10. Mapa de dominio (migración 014)
--- -----------------------------------------------------------------------------
--- A los estudiantes de la Cohorte 2026-A (módulo 3, Electricidad) se les marcan
--- las 2 primeras competencias como dominadas y la tercera en progreso.
--- Así la pantalla /progreso tiene los tres estados visibles desde el arranque.
+-- Mapa de dominio
 insert into public.mastery_map (student_id, learning_guide_id, status, dominated_via, marked_by)
 select s.id, lg.id,
        case lg.week_number when 1 then 'dominado'
@@ -239,16 +199,3 @@ join public.cohorts c          on c.id = s.cohort_id
 join public.learning_guides lg on lg.module_id = c.current_module_id
 where c.id = '00000000-0000-0000-0000-00000000e001'
 on conflict (student_id, learning_guide_id) do nothing;
-
--- =============================================================================
--- VERIFICACIÓN RÁPIDA — todas estas consultas deben devolver lo indicado
--- =============================================================================
--- select count(*) from public.modules;                      -- 13
--- select count(*) from public.students;                     -- 12
--- select count(*) from public.v_students where is_minor;    -- 4
--- select count(*) from public.v_students_blocked;           -- 2 (f004 sin consentimiento, f009 sin verificar)
--- select count(*) from public.class_sessions;               -- 18
--- select count(*) from public.module_enrollments;           -- 12
--- select distinct passing_threshold from public.module_enrollments; -- 10 y 12
--- select count(*) from public.mastery_map where status='dominado';  -- 8 (4 estudiantes x 2)
--- select count(*) from public.v_proximo_sabado;             -- 12 (uno por estudiante)

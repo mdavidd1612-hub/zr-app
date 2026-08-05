@@ -43,7 +43,7 @@ create policy "admin-lee-consentimientos" on storage.objects for select
 create policy "estudiante-escribe-su-consentimiento" on storage.objects for insert
   with check (
     bucket_id = 'consentimientos'
-    and auth.uid()::text = (string_to_array(name, '/')[1])
+    and auth.uid()::text = split_part(name, '/', 1)
   );
 
 -- No permitir delete de consentimientos (auditoría)

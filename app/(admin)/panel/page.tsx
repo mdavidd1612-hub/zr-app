@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Tarjeta } from '@/components/ui/Tarjeta'
-import { Boton } from '@/components/ui/Boton'
 import { Cargando } from '@/components/ui/Cargando'
 
 interface Estadisticas {
@@ -75,8 +74,8 @@ export default function Panel() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-3xl font-bold text-zr-navy">Panel administrativo</h1>
-        <p className="text-base text-zr-text-muted">Gestión de la Academia ZR Mecademy</p>
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-zr-blue to-zr-blue-deep bg-clip-text text-transparent">Panel administrativo</h1>
+        <p className="text-base text-zr-text-muted mt-2">Gestión de la Academia ZR Mecademy</p>
       </header>
 
       {/* Estadísticas */}
@@ -150,15 +149,15 @@ function StatCard({
   color?: 'blue' | 'green' | 'warning'
 }) {
   const colorClass = {
-    blue: 'bg-zr-blue-light text-zr-navy',
-    green: 'bg-zr-success text-white',
-    warning: 'bg-zr-warning text-zr-navy',
+    blue: 'border-zr-blue text-zr-navy',
+    green: 'border-zr-success text-zr-success',
+    warning: 'border-zr-warning text-zr-warning',
   }[color]
 
   return (
-    <div className={`rounded-zr p-4 text-center ${colorClass}`}>
+    <div className={`glass rounded-zr border-l-4 p-4 text-center ${colorClass}`}>
       <p className="text-sm font-medium opacity-90">{titulo}</p>
-      <p className="text-3xl font-bold">{valor}</p>
+      <p className="text-3xl font-bold mt-2">{valor}</p>
     </div>
   )
 }

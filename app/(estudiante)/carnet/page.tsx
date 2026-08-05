@@ -186,7 +186,7 @@ export default function Carnet() {
 
       {/* El carnet */}
       {qrUrl && (
-        <div className="rounded-zr border-4 border-zr-navy bg-white p-6 text-center">
+        <div className="glass rounded-zr border-4 border-zr-navy p-6 text-center">
           {/* Foto o iniciales */}
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-zr-blue text-2xl font-bold text-white">
             {perfil.avatar_url ? (

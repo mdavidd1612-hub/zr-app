@@ -47,6 +47,7 @@ export default function Hoy() {
 
         if (error) throw error
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const sesionesFormateadas = (data || []).map((s: any) => ({
           id: s.id,
           cohort_name: s.cohort?.name || 'Cohorte desconocida',
@@ -56,7 +57,7 @@ export default function Hoy() {
         }))
 
         setSesiones(sesionesFormateadas)
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Error cargando sesiones:', err)
       } finally {
         setCargando(false)
@@ -79,7 +80,7 @@ export default function Hoy() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-zr-navy">Sesiones de hoy</h1>
+      <h1 className="text-3xl font-bold bg-gradient-to-r from-zr-blue to-zr-blue-deep bg-clip-text text-transparent">Sesiones de hoy</h1>
 
       {sesiones.map((sesion) => (
         <Tarjeta key={sesion.id}>

@@ -23,16 +23,15 @@ export function Campo({ etiqueta, error, ayuda, className = '', ...resto }: Prop
       <input
         {...resto}
         id={id}
-        // El error se anuncia al lector de pantalla, no solo se pinta de rojo.
-        // Requisito de WCAG 3.3.1: el color nunca es el único indicador.
         aria-invalid={error ? true : undefined}
         aria-describedby={[error ? idError : null, ayuda ? idAyuda : null]
           .filter(Boolean)
           .join(' ') || undefined}
         className={[
-          'min-h-[56px] rounded-zr border-2 bg-white px-4 text-base text-zr-text',
-          'placeholder:text-zr-text-muted',
-          error ? 'border-zr-error' : 'border-zr-border focus:border-zr-blue',
+          'min-h-[56px] rounded-zr border-2 bg-white/30 px-4 text-base text-zr-text backdrop-blur-md',
+          'placeholder:text-zr-text-muted/60',
+          error ? 'border-zr-error' : 'border-white/20 focus:border-zr-blue',
+          'focus:bg-white/40 transition-all',
           className,
         ].join(' ')}
       />

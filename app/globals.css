@@ -42,6 +42,11 @@
   --zr-radius:      12px;
   --zr-gap:         16px;
   --zr-page-pad:    16px;
+
+  /* Glassmorphism · Liquid Glass (tipo iPhone) */
+  --zr-glass-blur:  12px;
+  --zr-glass-opacity: 0.85;
+  --zr-glass-border: rgba(255, 255, 255, 0.2);
 }
 
 /* Puente hacia Tailwind: expone los tokens como utilidades (bg-zr-navy,
@@ -113,6 +118,27 @@ h1, h2, h3, .titulo {
 /* Nadie debería poder tocar algo más chico que esto. */
 button, a[role='button'], input[type='submit'] {
   min-height: var(--zr-touch-min);
+}
+
+/* ===========================================================================
+   GLASSMORPHISM · Liquid Glass (tipo iPhone)
+   =========================================================================== */
+.glass {
+  background: rgba(255, 255, 255, var(--zr-glass-opacity));
+  backdrop-filter: blur(var(--zr-glass-blur));
+  border: 1px solid var(--zr-glass-border);
+  box-shadow:
+    0 8px 32px rgba(31, 38, 135, 0.08),
+    inset 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+
+.glass-dark {
+  background: rgba(30, 45, 75, 0.75);
+  backdrop-filter: blur(var(--zr-glass-blur));
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.15),
+    inset 0 1px 2px rgba(255, 255, 255, 0.1);
 }
 
 /* Respeta a quien pidió menos animación en su sistema (WCAG 2.3.3). */

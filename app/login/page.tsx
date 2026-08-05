@@ -60,11 +60,11 @@ export default function Login() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 p-4">
       <header className="text-center">
-        <h1 className="text-2xl">ZR App</h1>
-        <p className="text-base text-zr-text-muted">Academia ZR Mecademy</p>
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-zr-blue to-zr-blue-deep bg-clip-text text-transparent">ZR App</h1>
+        <p className="text-base text-zr-text-muted mt-1">Academia ZR Mecademy</p>
       </header>
 
-      <form onSubmit={entrar} className="flex flex-col gap-4" noValidate>
+      <form onSubmit={entrar} className="glass flex flex-col gap-4 p-6 rounded-2xl" noValidate>
         <Campo
           etiqueta="Cédula"
           name="cedula"

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import ServiceWorkerInit from './service-worker-init'
 
 export const metadata: Metadata = {
   title: 'ZR App',
@@ -19,12 +20,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </body>
     </html>
   )
-}
-
-// Componente que inicializa el Service Worker
-function ServiceWorkerInit() {
-  'use client'
-  const { useServiceWorker } = require('@/lib/use-service-worker')
-  useServiceWorker()
-  return null
 }

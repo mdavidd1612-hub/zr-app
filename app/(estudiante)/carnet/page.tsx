@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import QRCode from 'qrcode'
 import { createClient } from '@/lib/supabase/client'
 import { getQRSecret } from '@/lib/qr-secret'
@@ -190,7 +191,7 @@ export default function Carnet() {
           {/* Foto o iniciales */}
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-zr-blue text-2xl font-bold text-white">
             {perfil.avatar_url ? (
-              <img src={perfil.avatar_url} alt={perfil.full_name} className="h-full w-full rounded-full object-cover" />
+              <Image src={perfil.avatar_url} alt={perfil.full_name} width={64} height={64} className="h-full w-full rounded-full object-cover" />
             ) : (
               perfil.full_name
                 .split(' ')
@@ -207,7 +208,7 @@ export default function Carnet() {
 
           {/* QR */}
           <div className="my-4 flex justify-center">
-            <img src={qrUrl} alt="QR Code" className="h-48 w-48 border-2 border-zr-navy" />
+            <Image src={qrUrl} alt="QR Code" width={192} height={192} className="h-48 w-48 border-2 border-zr-navy" />
           </div>
 
           {/* Código actual y barra de progreso */}

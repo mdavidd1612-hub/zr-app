@@ -29,10 +29,16 @@ interface Perfil {
   avatar_url: string | null
 }
 
+interface CarnetData {
+  cohortName: string
+  moduleName: string
+}
+
 export default function Carnet() {
   const router = useRouter()
   const [cargando, setCargando] = useState(true)
   const [perfil, setPerfil] = useState<Perfil | null>(null)
+  const [carnetData, setCarnetData] = useState<CarnetData | null>(null)
   const [proximo, setProximo] = useState<ProximoSabado | null>(null)
   const [progreso, setProgreso] = useState<Progreso | null>(null)
   const [modulosAprobados, setModulosAprobados] = useState(0)
@@ -65,6 +71,21 @@ export default function Carnet() {
         }
 
         setPerfil(perfilData)
+
+        // Cohorte y módulo actual
+        const { data: cohortData } = await supabase
+          .from('students')
+          .select('cohorts(name, current_module_id), modules(name)')
+          .eq('id', userData.user.id)
+          .single()
+
+        if (cohortData) {
+          const cohort = cohortData.cohorts as any
+          setCarnetData({
+            cohortName: cohort?.name || 'Cohorte no asignada',
+            moduleName: cohort?.current_module_id ? 'Módulo actual' : 'Sin módulo',
+          })
+        }
 
         // Próximo sábado
         const { data: proximoData, error: proximoError } = await supabase
@@ -158,91 +179,142 @@ export default function Carnet() {
 
   if (!perfil) return <EstadoVacio titulo="Error" explicacion="No se pudo cargar tu perfil" />
 
+  if (cargando) return <Cargando texto="Cargando tu carnet..." />
+
   return (
-    <div className="space-y-4">
-      {/* Próximo sábado */}
-      {proximo ? (
-        <Tarjeta tono="informativa">
-          <div className="space-y-2">
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-lg font-bold">🗓️ PRÓXIMO SÁBADO</h2>
-              <span className="text-sm text-zr-navy">{proximo.sessionDate}</span>
+    <div className="space-y-5 pb-24">
+      {/* 🎫 CARNET DIGITAL · Sección principal */}
+      {qrUrl && perfil && carnetData ? (
+        <div className="glass rounded-3xl overflow-hidden backdrop-blur-xl border border-white/20 shadow-2xl">
+          {/* Encabezado: gradiente + overlay */}
+          <div className="relative bg-gradient-to-br from-zr-blue via-zr-blue-deep to-zr-navy p-8 text-center">
+            <div className="absolute inset-0 bg-black/10 backdrop-blur-sm" />
+            <div className="relative space-y-1">
+              <h1 className="text-2xl font-bold text-white">🎫 MI CARNET DIGITAL</h1>
+              <p className="text-sm text-white/70">{carnetData.cohortName}</p>
             </div>
-            <p className="text-sm text-zr-navy">
-              Semana {proximo.weekNumber} · {proximo.moduleName}
-            </p>
-            {proximo.prePracticeDescription && (
-              <div className="mt-3 rounded bg-white bg-opacity-50 p-2 text-sm text-zr-navy">
-                <p className="font-medium">Para llegar preparado:</p>
-                <p>{proximo.prePracticeDescription}</p>
-              </div>
-            )}
           </div>
-        </Tarjeta>
+
+          {/* Contenido: glassmorphism extremo */}
+          <div className="p-6 space-y-5 bg-gradient-to-b from-white/20 via-white/10 to-transparent">
+            {/* Estudiante */}
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative group">
+                <div className="absolute inset-0 bg-gradient-to-br from-zr-blue-mid to-zr-blue rounded-full blur-xl opacity-50 group-hover:opacity-75 transition" />
+                <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-zr-blue-mid to-zr-blue text-4xl font-bold text-white shadow-2xl ring-4 ring-white/40 backdrop-blur-sm">
+                  {perfil.avatar_url ? (
+                    <Image src={perfil.avatar_url} alt={perfil.full_name} width={96} height={96} className="h-full w-full rounded-full object-cover" />
+                  ) : (
+                    perfil.full_name
+                      .split(' ')
+                      .map((w) => w[0])
+                      .join('')
+                      .toUpperCase()
+                      .slice(0, 2)
+                  )}
+                </div>
+              </div>
+              <div className="text-center space-y-1">
+                <h2 className="text-2xl font-bold text-zr-navy">{perfil.full_name}</h2>
+                <p className="text-sm font-mono text-zr-text-muted bg-zr-blue/10 px-3 py-1 rounded-full inline-block">{perfil.cedula}</p>
+              </div>
+            </div>
+
+            {/* Módulo actual */}
+            <div className="glass rounded-2xl p-4 bg-gradient-to-r from-zr-blue-light/20 to-zr-blue/10 border border-zr-blue/20 text-center">
+              <p className="text-xs text-zr-text-muted mb-1">MÓDULO ACTUAL</p>
+              <p className="text-lg font-bold text-zr-navy">{carnetData.moduleName}</p>
+            </div>
+
+            {/* Divisor */}
+            <div className="h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+
+            {/* QR · El corazón del carnet */}
+            <div className="flex justify-center py-3">
+              <div className="glass rounded-3xl p-6 bg-gradient-to-br from-white/60 to-white/30 border-4 border-zr-navy/40 shadow-2xl backdrop-blur-xl">
+                <Image src={qrUrl} alt="QR Asistencia" width={180} height={180} className="h-44 w-44" priority />
+              </div>
+            </div>
+
+            {/* TOTP · Código rotativo */}
+            <div className="space-y-3 glass rounded-2xl p-6 bg-gradient-to-br from-zr-blue-light/20 via-white/20 to-zr-blue/10 border border-zr-blue-light/30 backdrop-blur-xl">
+              <p className="text-xs text-zr-text-muted font-bold uppercase tracking-widest">Código verificación</p>
+              <p className="font-mono text-5xl font-bold text-zr-blue-deep tracking-[0.2em] text-center">{totp}</p>
+              <div className="space-y-2">
+                <div className="h-2 overflow-hidden rounded-full bg-gradient-to-r from-white/20 to-zr-blue/20 backdrop-blur">
+                  <div
+                    className="h-full bg-gradient-to-r from-zr-blue via-zr-blue-deep to-zr-navy transition-all duration-1000 shadow-lg rounded-full"
+                    style={{ width: `${(tiempoRestante / 30) * 100}%` }}
+                  />
+                </div>
+                <p className="text-xs text-center text-zr-text-muted">Actualiza en <span className="font-bold text-zr-blue">{tiempoRestante}s</span></p>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="glass rounded-2xl p-4 text-center bg-gradient-to-br from-zr-success/20 to-zr-success/10 border border-zr-success/30 backdrop-blur-lg">
+                <p className="text-3xl font-bold text-zr-success">{modulosAprobados}</p>
+                <p className="text-xs text-zr-text-muted mt-1">Módulos aprobados</p>
+              </div>
+              <div className="glass rounded-2xl p-4 text-center bg-gradient-to-br from-zr-blue/20 to-zr-blue-light/10 border border-zr-blue/30 backdrop-blur-lg">
+                <p className="text-3xl font-bold text-zr-blue">{progreso?.dominadas || 0}</p>
+                <p className="text-xs text-zr-text-muted mt-1">Competencias dominadas</p>
+              </div>
+            </div>
+          </div>
+        </div>
       ) : (
-        <Tarjeta tono="informativa">
-          <p className="text-sm text-zr-navy">No tienes clase programada por ahora.</p>
-        </Tarjeta>
+        <div className="glass rounded-3xl p-12 text-center backdrop-blur-xl border border-white/20">
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <div className="h-16 w-16 animate-pulse rounded-full bg-gradient-to-br from-zr-blue/40 to-zr-blue-deep/40 backdrop-blur" />
+            </div>
+            <p className="text-sm text-zr-text-muted">Preparando tu carnet...</p>
+          </div>
+        </div>
       )}
 
-      {/* Mi progreso */}
-      {progreso && (
-        <Tarjeta>
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium text-zr-text">📊 MI PROGRESO</h3>
+      {/* PRÓXIMO SÁBADO */}
+      <div className="space-y-3">
+        {proximo ? (
+          <div className="glass rounded-2xl p-5 backdrop-blur-lg border border-white/20">
+            <div className="space-y-2">
+              <div className="flex items-baseline justify-between gap-2">
+                <h3 className="text-lg font-bold text-zr-navy">🗓️ PRÓXIMO SÁBADO</h3>
+                <span className="text-sm font-mono text-zr-blue font-bold">{proximo.sessionDate}</span>
+              </div>
               <p className="text-sm text-zr-text-muted">
-                Dominas {progreso.dominadas} de {progreso.totalCompetencias}
+                Semana {proximo.weekNumber} · <span className="font-medium text-zr-navy">{proximo.moduleName}</span>
+              </p>
+              {proximo.prePracticeDescription && (
+                <div className="mt-3 glass rounded-xl p-3 bg-gradient-to-br from-zr-blue-light/20 to-zr-blue/10 border border-zr-blue/20">
+                  <p className="font-bold text-sm text-zr-navy mb-1">📚 Para llegar preparado:</p>
+                  <p className="text-sm text-zr-text-muted leading-relaxed">{proximo.prePracticeDescription}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="glass rounded-2xl p-5 backdrop-blur-lg border border-white/20 text-center">
+            <p className="text-sm text-zr-text-muted">No tienes clase programada por ahora.</p>
+          </div>
+        )}
+      </div>
+
+      {/* MI PROGRESO */}
+      {progreso && (
+        <div className="glass rounded-2xl p-5 backdrop-blur-lg border border-white/20">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="font-bold text-zr-navy">📊 MI PROGRESO</h3>
+              <p className="text-sm text-zr-text-muted">
+                Dominas <span className="font-bold text-zr-blue">{progreso.dominadas}</span> de {progreso.totalCompetencias}
               </p>
             </div>
-            <a href="/progreso" className="text-sm text-zr-blue-deep underline">
+            <a href="/progreso" className="flex items-center gap-1 whitespace-nowrap px-3 py-2 rounded-lg bg-zr-blue/10 text-zr-blue font-medium text-sm hover:bg-zr-blue/20 transition-colors">
               Ver todas →
             </a>
-          </div>
-        </Tarjeta>
-      )}
-
-      {/* El carnet */}
-      {qrUrl && (
-        <div className="glass rounded-xl border-4 border-zr-navy p-6 text-center">
-          {/* Foto o iniciales */}
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-zr-blue text-2xl font-bold text-white">
-            {perfil.avatar_url ? (
-              <Image src={perfil.avatar_url} alt={perfil.full_name} width={64} height={64} className="h-full w-full rounded-full object-cover" />
-            ) : (
-              perfil.full_name
-                .split(' ')
-                .map((w) => w[0])
-                .join('')
-                .toUpperCase()
-                .slice(0, 2)
-            )}
-          </div>
-
-          {/* Datos del estudiante */}
-          <h2 className="text-lg font-bold text-zr-navy">{perfil.full_name}</h2>
-          <p className="font-mono text-sm text-zr-text-muted">{perfil.cedula}</p>
-
-          {/* QR */}
-          <div className="my-4 flex justify-center">
-            <Image src={qrUrl} alt="QR Code" width={192} height={192} className="h-48 w-48 border-2 border-zr-navy" />
-          </div>
-
-          {/* Código actual y barra de progreso */}
-          <div className="space-y-2 text-center">
-            <p className="font-mono text-2xl font-bold text-zr-blue-deep">{totp}</p>
-            <div className="h-1 overflow-hidden rounded-full bg-zr-border">
-              <div
-                className="h-full bg-zr-blue transition-all duration-1000"
-                style={{ width: `${(tiempoRestante / 30) * 100}%` }}
-              />
-            </div>
-            <p className="text-xs text-zr-text-muted">Se actualiza en {tiempoRestante}s</p>
-          </div>
-
-          {/* Contador de módulos */}
-          <div className="border-t border-zr-border pt-3 mt-3">
-            <p className="text-xs text-zr-text-muted">Módulos aprobados: {modulosAprobados} de 13</p>
           </div>
         </div>
       )}

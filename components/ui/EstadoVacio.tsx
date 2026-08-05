@@ -1,21 +1,17 @@
-import type { ReactNode } from 'react'
+'use client'
 
-type Props = {
+interface EstadoVacioProps {
   titulo: string
-  /** Por qué está vacío. Nunca dejes al usuario adivinando. */
   explicacion: string
-  /** Qué puede hacer al respecto, si puede hacer algo. */
-  accion?: ReactNode
+  icono?: string
 }
 
-// Regla de spec/04 §0: un estado vacío siempre explica POR QUÉ está vacío y QUÉ
-// hacer. "No hay datos" no es un estado vacío, es una respuesta incompleta.
-export function EstadoVacio({ titulo, explicacion, accion }: Props) {
+export function EstadoVacio({ titulo, explicacion, icono = '📭' }: EstadoVacioProps) {
   return (
-    <div className="flex flex-col items-center gap-3 p-8 text-center">
-      <h2 className="text-xl">{titulo}</h2>
-      <p className="max-w-prose text-base text-zr-text-muted">{explicacion}</p>
-      {accion}
+    <div className="glass rounded-3xl p-8 text-center space-y-4 backdrop-blur-lg border border-white/20">
+      <div className="text-6xl mb-4">{icono}</div>
+      <h2 className="text-lg font-bold text-zr-navy">{titulo}</h2>
+      <p className="text-sm text-zr-text-muted leading-relaxed max-w-sm mx-auto">{explicacion}</p>
     </div>
   )
 }

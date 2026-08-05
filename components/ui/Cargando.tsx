@@ -1,17 +1,18 @@
-type Props = {
+'use client'
+
+interface CargandoProps {
   texto?: string
 }
 
-// Toda acción con red muestra un indicador. Nunca una pantalla congelada:
-// en el taller la señal es mala y sin esto el profesor vuelve a tocar el botón.
-export function Cargando({ texto = 'Cargando…' }: Props) {
+export function Cargando({ texto = 'Cargando...' }: CargandoProps) {
   return (
-    <div role="status" className="flex flex-col items-center justify-center gap-3 p-8">
-      <span
-        aria-hidden="true"
-        className="size-10 animate-spin rounded-full border-4 border-zr-border border-t-zr-blue"
-      />
-      <p className="text-base text-zr-text-muted">{texto}</p>
+    <div className="flex min-h-dvh items-center justify-center bg-zr-background">
+      <div className="glass rounded-3xl p-12 text-center space-y-6 backdrop-blur-lg border border-white/20 max-w-sm">
+        <div className="flex justify-center">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/30 border-t-zr-blue" />
+        </div>
+        <p className="text-sm text-zr-text-muted font-medium">{texto}</p>
+      </div>
     </div>
   )
 }

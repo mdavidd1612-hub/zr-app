@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useParams } from 'next/navigation'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 interface Question {
@@ -10,12 +10,33 @@ interface Question {
   enunciado: string
   options?: Array<{ key: string; text: string }>
   points: number
-  rubric?: string
 }
+
+/**
+ * Las tres formas que puede tomar una respuesta. Son las de
+ * spec/02_CONTRATOS.md §1 y las que espera la Edge Function submit-attempt
+ * al comparar contra correct_answer: si aquí se guardara otra forma, la
+ * autocalificación daría cero a todo el mundo sin avisar.
+ */
+type RespuestaValor =
+  | { key: string }      // opción múltiple
+  | { value: boolean }   // verdadero / falso
+  | { text: string }     // redacción abierta
 
 interface Answer {
   questionId: string
-  value: any
+  value: RespuestaValor
+}
+
+// Lectores que estrechan la unión. Evitan tener que repetir el `in` en cada
+// sitio del JSX y dejan claro qué forma espera cada tipo de pregunta.
+const opcionElegida = (v?: RespuestaValor) => (v && 'key' in v ? v.key : null)
+const valorElegido  = (v?: RespuestaValor) => (v && 'value' in v ? v.value : null)
+const textoEscrito  = (v?: RespuestaValor) => (v && 'text' in v ? v.text : '')
+
+interface Examen {
+  title: string
+  duration_minutes: number | null
 }
 
 export default function ExamenPage() {
@@ -24,7 +45,7 @@ export default function ExamenPage() {
   const examId = params.examId as string
   const supabase = createClient()
 
-  const [exam, setExam] = useState<any>(null)
+  const [exam, setExam] = useState<Examen | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
   const [attemptId, setAttemptId] = useState<string>('')
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
@@ -67,15 +88,16 @@ export default function ExamenPage() {
         .order('order_index', { ascending: true })
 
       if (questionsData) {
-        const parsedQuestions = questionsData.map((q: any) => ({
-          id: q.id,
-          type: q.type,
-          enunciado: q.statement,
-          points: Number(q.points),
-          // options es jsonb: llega ya como objeto, no como texto.
-          options: q.options ?? undefined,
-        }))
-        setQuestions(parsedQuestions)
+        setQuestions(
+          questionsData.map((q) => ({
+            id: q.id!,
+            type: q.type as Question['type'],
+            enunciado: q.statement!,
+            points: Number(q.points),
+            // options es jsonb: llega ya como objeto, no como texto.
+            options: (q.options as Question['options']) ?? undefined,
+          })),
+        )
       }
 
       // Get or create attempt
@@ -112,10 +134,12 @@ export default function ExamenPage() {
 
         if (existingAnswers) {
           setAnswers(
-            existingAnswers.map((a: any) => ({
-              questionId: a.question_id,
-              value: typeof a.answer === 'string' ? JSON.parse(a.answer) : a.answer,
-            }))
+            existingAnswers
+              .filter((a) => a.answer !== null)
+              .map((a) => ({
+                questionId: a.question_id,
+                value: a.answer as RespuestaValor,
+              })),
           )
         }
       }
@@ -152,40 +176,42 @@ export default function ExamenPage() {
   const currentQuestion = questions[currentQuestionIndex]
   const currentAnswer = answers.find((a) => a.questionId === currentQuestion?.id)
 
-  const handleAnswerChange = useCallback(
-    (value: any) => {
-      const newAnswers = answers.filter((a) => a.questionId !== currentQuestion.id)
-      newAnswers.push({ questionId: currentQuestion.id, value })
-      setAnswers(newAnswers)
+  function handleAnswerChange(value: RespuestaValor) {
+    setAnswers((prev) => [
+      ...prev.filter((a) => a.questionId !== currentQuestion.id),
+      { questionId: currentQuestion.id, value },
+    ])
 
-      // Auto-save answer
-      saveAnswer(currentQuestion.id, value)
-    },
-    [answers, currentQuestion]
-  )
+    // Se guarda al vuelo, no al cambiar de pregunta: si el teléfono se apaga
+    // o el estudiante cierra la pestaña, lo respondido ya está en la base.
+    saveAnswer(currentQuestion.id, value)
+  }
 
-  async function saveAnswer(questionId: string, value: any) {
+  async function saveAnswer(questionId: string, value: RespuestaValor) {
     if (!attemptId) return
 
-    const { data: existing } = await supabase
+    // Un upsert, no un select + insert/update. La tabla tiene la restricción
+    // única (attempt_id, question_id), así que la base resuelve el conflicto:
+    // dos toques rápidos en la misma opción no crean dos filas ni pierden la
+    // segunda respuesta por carrera entre el select y el insert.
+    //
+    // Y se ESPERA el resultado. Un `void supabase.from(...)` no envía nada:
+    // el constructor de consultas de supabase-js solo dispara la petición
+    // cuando alguien llama a .then(). Así se perdían todas las respuestas.
+    const { error } = await supabase
       .from('exam_answers')
-      .select('id')
-      .eq('attempt_id', attemptId)
-      .eq('question_id', questionId)
-      .maybeSingle()
+      .upsert(
+        { attempt_id: attemptId, question_id: questionId, answer: value },
+        { onConflict: 'attempt_id,question_id' },
+      )
 
-    if (existing) {
-      void supabase
-        .from('exam_answers')
-        .update({ answer: value })
-        .eq('id', existing.id)
-    } else {
-      void supabase.from('exam_answers').insert({
-        attempt_id: attemptId,
-        question_id: questionId,
-        answer: value,
-      })
+    if (error) {
+      console.error('No se pudo guardar la respuesta:', error.message)
+      setSubmitError('No se pudo guardar tu última respuesta. Revisa tu conexión.')
+      return
     }
+
+    setSubmitError(null)
   }
 
   async function handleSubmit() {
@@ -271,7 +297,7 @@ export default function ExamenPage() {
                   key={option.key}
                   onClick={() => handleAnswerChange({ key: option.key })}
                   className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                    currentAnswer?.value?.key === option.key
+                    opcionElegida(currentAnswer?.value) === option.key
                       ? 'border-zr-blue bg-zr-blue/10'
                       : 'border-zr-border bg-zr-surface hover:border-zr-blue/50'
                   }`}
@@ -279,12 +305,12 @@ export default function ExamenPage() {
                   <div className="flex items-center gap-3">
                     <div
                       className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                        currentAnswer?.value?.key === option.key
+                        opcionElegida(currentAnswer?.value) === option.key
                           ? 'border-zr-blue bg-zr-blue'
                           : 'border-zr-text-muted'
                       }`}
                     >
-                      {currentAnswer?.value?.key === option.key && (
+                      {opcionElegida(currentAnswer?.value) === option.key && (
                         <span className="text-white text-sm font-bold">✓</span>
                       )}
                     </div>
@@ -305,7 +331,7 @@ export default function ExamenPage() {
                   key={String(option.value)}
                   onClick={() => handleAnswerChange({ value: option.value })}
                   className={`p-4 rounded-lg border-2 font-semibold transition-all ${
-                    currentAnswer?.value?.value === option.value
+                    valorElegido(currentAnswer?.value) === option.value
                       ? 'border-zr-blue bg-zr-blue text-white'
                       : 'border-zr-border bg-zr-surface text-zr-text hover:border-zr-blue/50'
                   }`}
@@ -322,7 +348,7 @@ export default function ExamenPage() {
           {currentQuestion.type === 'redaccion_abierta' && (
             <div className="space-y-2">
               <textarea
-                value={currentAnswer?.value?.text || ''}
+                value={textoEscrito(currentAnswer?.value)}
                 onChange={(e) => handleAnswerChange({ text: e.target.value })}
                 placeholder="Escribe tu respuesta aquí..."
                 className="w-full min-h-40 p-4 rounded-lg bg-zr-surface border border-zr-border text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none resize-none"

@@ -17,6 +17,18 @@ interface Examen {
   puntajeMaximo: number
 }
 
+/** Forma que devuelve el select de arriba. Las relaciones anidadas de
+ *  PostgREST no quedan bien tipadas por los tipos generados, así que se
+ *  declara aquí lo que de verdad llega. */
+interface FilaExamen {
+  id: string
+  title: string
+  status: EstadoExamen
+  max_score: number
+  modules: { name: string } | null
+  exam_questions: { points: number }[] | null
+}
+
 const ESTADO: Record<EstadoExamen, { texto: string; tono: 'exito' | 'neutro' | 'info' | 'aviso' }> = {
   oculto:     { texto: 'Borrador',   tono: 'neutro' },
   habilitado: { texto: 'Publicado',  tono: 'exito'  },
@@ -31,37 +43,49 @@ export default function ExamenesProfesor() {
   const [ocupado, setOcupado] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  async function cargar() {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      router.replace('/login')
-      return
+  // Se incrementa para volver a pedir la lista después de publicar o duplicar,
+  // en vez de llamar a la carga desde el manejador: así el efecto sigue siendo
+  // el único sitio que escribe el estado y React no encadena renders.
+  const [version, setVersion] = useState(0)
+
+  useEffect(() => {
+    let vigente = true
+
+    async function cargar() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.replace('/login')
+        return
+      }
+
+      const { data } = await supabase
+        .from('exams')
+        .select('id, title, status, max_score, module_id, modules(name), exam_questions(points)')
+        .eq('teacher_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (!vigente) return
+
+      const filas = (data ?? []) as unknown as FilaExamen[]
+
+      setExamenes(
+        filas.map((e) => ({
+          id: e.id,
+          titulo: e.title,
+          estado: e.status,
+          modulo: e.modules?.name ?? 'Módulo',
+          preguntas: e.exam_questions?.length ?? 0,
+          puntosAsignados: (e.exam_questions ?? []).reduce((s, q) => s + Number(q.points), 0),
+          puntajeMaximo: Number(e.max_score),
+        })),
+      )
+      setCargando(false)
     }
 
-    const { data } = await supabase
-      .from('exams')
-      .select('id, title, status, max_score, module_id, modules(name), exam_questions(points)')
-      .eq('teacher_id', user.id)
-      .order('created_at', { ascending: false })
-
-    setExamenes(
-      (data ?? []).map((e: any) => ({
-        id: e.id,
-        titulo: e.title,
-        estado: e.status,
-        modulo: e.modules?.name ?? 'Módulo',
-        preguntas: e.exam_questions?.length ?? 0,
-        puntosAsignados: (e.exam_questions ?? []).reduce(
-          (s: number, q: any) => s + Number(q.points), 0,
-        ),
-        puntajeMaximo: Number(e.max_score),
-      })),
-    )
-    setCargando(false)
-  }
-
-  useEffect(() => { cargar() }, [])
+    cargar()
+    return () => { vigente = false }
+  }, [router, version])
 
   async function publicar(examen: Examen) {
     setOcupado(examen.id)
@@ -144,7 +168,7 @@ export default function ExamenesProfesor() {
       )
     }
 
-    await cargar()
+    setVersion((v) => v + 1)
     setOcupado(null)
   }
 

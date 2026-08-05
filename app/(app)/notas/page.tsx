@@ -3,173 +3,164 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
 
-interface GradeData {
-  moduleId: string
-  moduleName: string
-  theory: number | null
-  practice: number | null
-  participation: number | null
-  finalScore: number | null
-  status: 'aprobado' | 'reprobado' | 'pendiente'
-  passingScore: number
+/**
+ * T-311 · Vista de notas del estudiante.
+ *
+ * Todo lo que se muestra aquí lo calcula la base (final_score y status son
+ * columnas que mantiene un disparador). El navegador no suma nada: si sumara,
+ * dos pantallas podrían mostrar notas distintas del mismo estudiante.
+ */
+
+type Estado = 'en_curso' | 'aprobado' | 'reprobado' | 'retirado'
+
+interface Nota {
+  id: string
+  modulo: string
+  teoria: number | null
+  practica: number | null
+  participacion: number | null
+  final: number | null
+  umbral: number
+  estado: Estado
 }
 
-export default function StudentGrades() {
+const ETIQUETA: Record<Estado, { texto: string; tono: 'exito' | 'error' | 'info' | 'neutro' }> = {
+  aprobado:  { texto: 'Aprobado',  tono: 'exito'  },
+  reprobado: { texto: 'Reprobado', tono: 'error'  },
+  en_curso:  { texto: 'En curso',  tono: 'info'   },
+  retirado:  { texto: 'Retirado',  tono: 'neutro' },
+}
+
+export default function Notas() {
   const router = useRouter()
-  const supabase = createClient()
-  const [grades, setGrades] = useState<GradeData[]>([])
-  const [loading, setLoading] = useState(true)
+  const [notas, setNotas] = useState<Nota[]>([])
+  const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
-    async function loadGrades() {
+    const supabase = createClient()
+
+    async function cargar() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        router.push('/login')
+        router.replace('/login')
         return
       }
 
-      // Mock data for now
-      setGrades([
-        {
-          moduleId: '1',
-          moduleName: 'Módulo 1 - Electricidad Básica',
-          theory: 15,
-          practice: 14,
-          participation: 9,
-          finalScore: 14.5,
-          status: 'aprobado',
-          passingScore: 10,
-        },
-        {
-          moduleId: '2',
-          moduleName: 'Módulo 2 - Diagnóstico',
-          theory: 12,
-          practice: null,
-          participation: 8,
-          finalScore: null,
-          status: 'pendiente',
-          passingScore: 12,
-        },
-        {
-          moduleId: '3',
-          moduleName: 'Módulo 3 - Sistemas',
-          theory: 9,
-          practice: 8,
-          participation: 7,
-          finalScore: 8,
-          status: 'reprobado',
-          passingScore: 12,
-        },
-      ])
+      const { data } = await supabase
+        .from('module_enrollments')
+        .select('id, theory_score, practice_score, participation_score, final_score, passing_threshold, status, modules(name, order_index)')
+        .eq('student_id', user.id)
 
-      setLoading(false)
+      const filas = data as unknown as {
+        id: string
+        theory_score: number | null
+        practice_score: number | null
+        participation_score: number | null
+        final_score: number | null
+        passing_threshold: number
+        status: Estado
+        modules: { name: string; order_index: number } | null
+      }[] | null
+
+      if (filas) {
+        setNotas(
+          filas
+            .map((n) => ({
+              id: n.id,
+              modulo: n.modules?.name ?? 'Módulo',
+              orden: n.modules?.order_index ?? 0,
+              teoria: n.theory_score === null ? null : Number(n.theory_score),
+              practica: n.practice_score === null ? null : Number(n.practice_score),
+              participacion: n.participation_score === null ? null : Number(n.participation_score),
+              final: n.final_score === null ? null : Number(n.final_score),
+              umbral: Number(n.passing_threshold),
+              estado: n.status,
+            }))
+            .sort((a, b) => a.orden - b.orden),
+        )
+      }
+
+      setCargando(false)
     }
 
-    loadGrades()
-  }, [])
+    cargar()
+  }, [router])
 
-  if (loading) {
+  if (cargando) {
     return (
-      <div className="h-dvh bg-zr-background flex items-center justify-center">
-        <div className="text-zr-text-muted">Cargando calificaciones...</div>
+      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
+        <p className="text-sm text-zr-text-muted">Cargando notas…</p>
       </div>
     )
   }
 
+  const cifra = (v: number | null) => (v === null ? '—' : v.toFixed(v % 1 === 0 ? 0 : 1))
+
   return (
-    <div className="flex flex-col bg-zr-background min-h-dvh">
-      <div className="flex-1 overflow-y-auto px-5 py-8 pb-24">
-        <div className="space-y-8">
-          {/* Header */}
-          <div className="space-y-1">
-            <h1 className="text-3xl font-bold text-zr-text">Mis Calificaciones</h1>
-            <p className="text-sm text-zr-text-muted mt-2">Estado por módulo</p>
+    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
+      <div className="space-y-11">
+        <header className="animate-rise">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
+            Académico
+          </p>
+          <h1 className="zr-display mt-3 text-4xl text-zr-text">Mis notas</h1>
+        </header>
+
+        <Regla delay={60} />
+
+        {notas.length === 0 ? (
+          <div className="zr-card animate-rise p-8" style={{ animationDelay: '120ms' }}>
+            <p className="text-base font-semibold text-zr-text">Todavía no tienes notas</p>
+            <p className="mt-2 text-sm text-zr-text-muted">
+              Aparecerán cuando tu profesor cargue las calificaciones del módulo que estás
+              cursando.
+            </p>
           </div>
-
-          {/* Divider */}
-          <div className="h-px bg-zr-border" />
-
-          {/* Grades by Module */}
-          <div className="space-y-6">
-            {grades.map((grade) => (
-              <div key={grade.moduleId} className="space-y-4">
-                {/* Module Header */}
-                <div className="space-y-2">
-                  <h2 className="text-lg font-bold text-zr-text">{grade.moduleName}</h2>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`inline-flex items-center px-3 py-1 rounded-full border text-xs font-semibold ${
-                        grade.status === 'aprobado'
-                          ? 'bg-zr-success/10 border-zr-success/30 text-zr-success'
-                          : grade.status === 'reprobado'
-                          ? 'bg-zr-error/10 border-zr-error/30 text-zr-error'
-                          : 'bg-zr-text-muted/10 border-zr-text-muted/30 text-zr-text-muted'
-                      }`}
-                    >
-                      {grade.status === 'aprobado' && '✓ Aprobado'}
-                      {grade.status === 'reprobado' && '✗ Reprobado'}
-                      {grade.status === 'pendiente' && '○ Pendiente'}
-                    </div>
-                    <span className="text-xs text-zr-text-muted">
-                      Aprueba con {grade.passingScore}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Grade Components Grid */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-zr-surface border border-zr-border rounded-lg p-4">
-                    <p className="text-xs text-zr-text-muted font-semibold uppercase tracking-widest mb-2">
-                      Teoría
-                    </p>
-                    <p className="text-3xl font-bold text-zr-blue">
-                      {grade.theory !== null ? grade.theory : '—'}
-                    </p>
-                  </div>
-
-                  <div className="bg-zr-surface border border-zr-border rounded-lg p-4">
-                    <p className="text-xs text-zr-text-muted font-semibold uppercase tracking-widest mb-2">
-                      Práctica
-                    </p>
-                    <p className="text-3xl font-bold text-zr-blue-mid">
-                      {grade.practice !== null ? grade.practice : '—'}
-                    </p>
-                  </div>
-
-                  <div className="bg-zr-surface border border-zr-border rounded-lg p-4">
-                    <p className="text-xs text-zr-text-muted font-semibold uppercase tracking-widest mb-2">
-                      Participación
-                    </p>
-                    <p className="text-3xl font-bold text-zr-blue-light">
-                      {grade.participation !== null ? grade.participation : '—'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Final Grade */}
-                {grade.finalScore !== null && (
-                  <div className="bg-gradient-to-r from-zr-blue-deep via-zr-blue to-zr-blue-mid rounded-lg p-5 space-y-2">
-                    <p className="text-xs text-white/60 font-bold uppercase tracking-widest">
-                      Calificación Final
-                    </p>
-                    <div className="flex justify-between items-center">
-                      <p className="text-4xl font-bold text-white">{grade.finalScore}</p>
-                      <div className="text-right">
-                        <p className="text-sm text-white/80">
-                          {grade.finalScore >= grade.passingScore ? '✓ Aprobado' : '✗ Reprobado'}
-                        </p>
-                        <p className="text-xs text-white/60 mt-1">
-                          Mínimo requerido: {grade.passingScore}
+        ) : (
+          notas.map((n, i) => {
+            const e = ETIQUETA[n.estado]
+            return (
+              <Seccion key={n.id} numero={i + 1} titulo={n.modulo} delay={120 + i * 80}>
+                <div className="zr-card overflow-hidden">
+                  {/* Las tres notas parciales */}
+                  <div className="grid grid-cols-3 divide-x divide-zr-border">
+                    {[
+                      { etiqueta: 'Teoría', valor: n.teoria },
+                      { etiqueta: 'Práctica', valor: n.practica },
+                      { etiqueta: 'Participación', valor: n.participacion },
+                    ].map((p) => (
+                      <div key={p.etiqueta} className="px-4 py-5 text-center">
+                        <p className="zr-metric text-2xl text-zr-text">{cifra(p.valor)}</p>
+                        <p className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-zr-text-muted">
+                          {p.etiqueta}
                         </p>
                       </div>
-                    </div>
+                    ))}
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+
+                  {/* Nota final: la calcula la base, aquí solo se muestra */}
+                  <div className="flex items-center justify-between gap-4 border-t border-zr-border bg-zr-bg/50 px-6 py-5">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-text-muted">
+                        Nota final
+                      </p>
+                      <p className="zr-metric mt-1 text-4xl text-zr-blue">{cifra(n.final)}</p>
+                      {/* El umbral siempre visible: cambia por módulo. */}
+                      <p className="mt-2 text-sm text-zr-text-muted">Aprueba con {n.umbral}</p>
+                    </div>
+                    <Etiqueta tono={e.tono}>{e.texto}</Etiqueta>
+                  </div>
+                </div>
+              </Seccion>
+            )
+          })
+        )}
+
+        <p className="pb-4 text-center text-xs leading-relaxed text-zr-text-muted">
+          Las faltas no reprueban. Si algo no cuadra, háblalo con tu profesor.
+        </p>
       </div>
     </div>
   )

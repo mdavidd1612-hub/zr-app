@@ -60,8 +60,13 @@ export default function Examenes() {
         return
       }
 
+      const filas = datos as unknown as {
+        id: string; title: string; max_score: number; status: string
+        closes_at: string | null; modules: { name: string } | null
+      }[]
+
       const conIntento = await Promise.all(
-        datos.map(async (e: any) => {
+        filas.map(async (e) => {
           const { data: intento } = await supabase
             .from('exam_attempts')
             .select('status, total_score')

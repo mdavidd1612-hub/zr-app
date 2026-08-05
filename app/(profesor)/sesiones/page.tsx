@@ -7,6 +7,16 @@ import { Boton } from '@/components/ui/Boton'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { Cargando } from '@/components/ui/Cargando'
 
+/** Forma real que devuelve el select con relaciones anidadas. */
+interface FilaSesion {
+  id: string
+  session_date: string
+  week_number: number
+  status: Sesion['status']
+  modules: { name: string } | null
+  cohorts: { name: string } | null
+}
+
 interface Sesion {
   id: string
   sessionDate: string
@@ -39,7 +49,7 @@ export default function Sesiones() {
 
         if (data) {
           setSesiones(
-            data.map((s: any) => ({
+            (data as unknown as FilaSesion[]).map((s) => ({
               id: s.id,
               sessionDate: new Date(s.session_date).toLocaleDateString('es-VE'),
               weekNumber: s.week_number,

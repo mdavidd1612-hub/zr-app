@@ -71,7 +71,7 @@ export default function NuevoExamen() {
   const puntosCuadran = puntosAsignados === puntajeMaximo
   const sePuedeGuardar = titulo.trim() !== '' && moduloId !== '' && preguntas.length > 0
 
-  function agregarPregunta(datos: any) {
+  function agregarPregunta(datos: Omit<Pregunta, 'id'>) {
     setPreguntas((qs) => [...qs, { id: `q${Date.now()}`, ...datos }])
     setEditorAbierto(null)
   }

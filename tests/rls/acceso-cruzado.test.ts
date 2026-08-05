@@ -6,24 +6,37 @@ const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 // Estudiantes del seed. A y B están en la MISMA cohorte a propósito:
 // si el aislamiento falla, falla aquí primero.
-const A = { cedula: 'V-30000001', id: '00000000-0000-0000-0000-00000000f001' }
-const B = { cedula: 'V-30000002', id: '00000000-0000-0000-0000-00000000f002' }
+//
+// Los ids NO se escriben a mano. Antes estaban fijos
+// ('00000000-…-f001') y no correspondían a ningún usuario real, así que los
+// UPDATE de escalada de privilegios afectaban CERO filas, no devolvían error
+// y la prueba pasaba por la razón equivocada: parecía que RLS bloqueaba algo
+// cuando en realidad no había nada que bloquear. Se resuelven al iniciar
+// sesión, contra el usuario que de verdad existe.
+const A = { cedula: 'V-30000001', id: '' }
+const B = { cedula: 'V-30000002', id: '' }
 const PASS = 'Prueba123!'
 
 async function entrar(cedula: string) {
   const c = createClient(URL, ANON)
-  const { error } = await c.auth.signInWithPassword({
+  const { data, error } = await c.auth.signInWithPassword({
     email: `${cedula}@estudiante.zrmecademy.com`,
     password: PASS,
   })
   if (error) throw error
-  return c
+  return { cliente: c, id: data.user!.id }
 }
 
 describe('Aislamiento entre estudiantes', () => {
-  let cliA: Awaited<ReturnType<typeof entrar>>
+  let cliA: Awaited<ReturnType<typeof entrar>>['cliente']
 
-  beforeAll(async () => { cliA = await entrar(A.cedula) })
+  beforeAll(async () => {
+    const a = await entrar(A.cedula)
+    const b = await entrar(B.cedula)
+    cliA = a.cliente
+    A.id = a.id
+    B.id = b.id
+  })
 
   it('no puede leer el perfil de otro estudiante', async () => {
     const { data } = await cliA.from('profiles').select('*').eq('id', B.id)
@@ -82,9 +95,23 @@ describe('Aislamiento entre estudiantes', () => {
   })
 
   it('no puede escribir sus propias notas', async () => {
-    const { error } = await cliA.from('module_enrollments')
+    // No se comprueba que devuelva error: cuando RLS filtra las filas de un
+    // UPDATE, PostgREST responde 204 sin error y con cero filas afectadas.
+    // Pedirle un error a esa respuesta hace que la prueba pase incluso si la
+    // política desaparece. Lo que importa es si la nota cambió.
+    const { data: antes } = await cliA.from('module_enrollments')
+      .select('id, theory_score').eq('student_id', A.id).maybeSingle()
+
+    expect(antes, 'el seed tiene que dejar una inscripción, si no la prueba no prueba nada')
+      .not.toBeNull()
+
+    await cliA.from('module_enrollments')
       .update({ theory_score: 20 }).eq('student_id', A.id)
-    expect(error).not.toBeNull()
+
+    const { data: despues } = await cliA.from('module_enrollments')
+      .select('theory_score').eq('id', antes!.id).single()
+
+    expect(despues!.theory_score).toBe(antes!.theory_score)
   })
 
   it('no puede registrar su propia asistencia', async () => {

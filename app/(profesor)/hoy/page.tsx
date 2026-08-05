@@ -52,7 +52,11 @@ export default function Hoy() {
         .order('session_date', { ascending: true })
         .limit(1)
 
-      const s = sesiones?.[0] as any
+      const s = sesiones?.[0] as unknown as {
+        id: string; session_date: string; week_number: number; status: string
+        cohort_id: string; cohorts: { name: string } | null; modules: { name: string } | null
+      } | undefined
+
       if (s) {
         setSesion({
           id: s.id,

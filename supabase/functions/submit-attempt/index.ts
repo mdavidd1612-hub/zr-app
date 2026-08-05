@@ -99,43 +99,66 @@ Deno.serve(async (req: Request) => {
     let pendingManualQuestions = 0
 
     for (const question of questionsWithAnswers) {
-      const studentAnswer = studentAnswers?.find(a => a.question_id === question.id)
+      const studentAnswer = studentAnswers?.find((a) => a.question_id === question.id)
 
-      // Parse JSON fields
+      // Las columnas son jsonb: supabase-js las devuelve ya deserializadas.
+      // El typeof está por si alguna fila vieja guardó una cadena.
       const correctAnswer = typeof question.correct_answer === 'string'
         ? JSON.parse(question.correct_answer)
         : question.correct_answer
-      const answerData = studentAnswer?.answer
-        ? (typeof studentAnswer.answer === 'string' ? JSON.parse(studentAnswer.answer) : studentAnswer.answer)
-        : null
+      const answerData = typeof studentAnswer?.answer === 'string'
+        ? JSON.parse(studentAnswer.answer)
+        : studentAnswer?.answer ?? null
 
-      let awardedPoints = 0
+      let awardedPoints: number | null = 0
       let autoGraded = false
 
-      if (question.question_type === 'opcion_multiple') {
-        autoGraded = true
-        if (answerData?.key === correctAnswer?.key) {
-          awardedPoints = question.points
-        }
-      } else if (question.question_type === 'verdadero_falso') {
-        autoGraded = true
-        if (answerData?.value === correctAnswer?.value) {
-          awardedPoints = question.points
-        }
-      } else if (question.question_type === 'redaccion_abierta') {
-        pendingManualQuestions++
-        awardedPoints = null
+      // La columna del tipo se llama `type`, no `question_type`.
+      switch (question.type) {
+        case 'opcion_multiple':
+          // Todo o nada: no hay crédito parcial en una opción múltiple.
+          autoGraded = true
+          awardedPoints = answerData?.key === correctAnswer?.key ? Number(question.points) : 0
+          break
+
+        case 'verdadero_falso':
+          autoGraded = true
+          awardedPoints = answerData?.value === correctAnswer?.value ? Number(question.points) : 0
+          break
+
+        case 'redaccion_abierta':
+          // No se intenta calificar. La deja esperando al profesor.
+          pendingManualQuestions++
+          awardedPoints = null
+          break
       }
 
-      // Update answer record
       if (studentAnswer) {
         await adminSupabase
           .from('exam_answers')
-          .update({
-            awarded_points: awardedPoints,
-            auto_graded: autoGraded,
-          })
+          .update({ awarded_points: awardedPoints, auto_graded: autoGraded })
           .eq('id', studentAnswer.id)
+      } else if (question.type !== 'redaccion_abierta') {
+        // Objetiva sin responder: cero, con su fila. Si no se crea la fila, el
+        // disparador trg_close_attempt nunca ve el examen completo y el intento
+        // se queda en 'entregado' para siempre.
+        await adminSupabase.from('exam_answers').insert({
+          attempt_id: attemptId,
+          question_id: question.id,
+          answer: null,
+          awarded_points: 0,
+          auto_graded: true,
+        })
+      } else {
+        // Redacción sin responder: también necesita fila, o el profesor no la
+        // ve en la cola y el intento no se puede cerrar.
+        await adminSupabase.from('exam_answers').insert({
+          attempt_id: attemptId,
+          question_id: question.id,
+          answer: null,
+          awarded_points: null,
+          auto_graded: false,
+        })
       }
 
       if (autoGraded && awardedPoints !== null) {

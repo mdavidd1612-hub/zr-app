@@ -7,9 +7,20 @@ interface Option {
   text: string
 }
 
-interface QuestionEditorProps {
+/** Lo que devuelve el editor. Los formatos de `options` y `correct_answer`
+ *  son los de spec/02_CONTRATOS.md §1 y no se inventan aquí. */
+export interface PreguntaNueva {
   type: 'opcion_multiple' | 'verdadero_falso' | 'redaccion_abierta'
-  onSave: (data: any) => void
+  statement: string
+  points: number
+  options?: Option[]
+  correct_answer: { key: string } | { value: boolean } | null
+  rubric?: string | null
+}
+
+interface QuestionEditorProps {
+  type: PreguntaNueva['type']
+  onSave: (data: PreguntaNueva) => void
   onCancel: () => void
 }
 

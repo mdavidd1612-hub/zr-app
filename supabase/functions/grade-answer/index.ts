@@ -56,21 +56,34 @@ Deno.serve(async (req: Request) => {
       return errorResponse('DATOS_INVALIDOS', 'answerId y awardedPoints requeridos')
     }
 
-    // Get the answer with exam info
-    const { data: answer, error: answerErr } = await adminSupabase
+    // Solo personal. Un estudiante con el token en la mano no califica nada.
+    const { data: perfil } = await adminSupabase
+      .from('profiles').select('role').eq('id', user.id).single()
+
+    if (!perfil || !['profesor', 'admin', 'super_admin'].includes(perfil.role)) {
+      return errorResponse('NO_AUTORIZADO', 'Solo el personal docente califica', 403)
+    }
+
+    const { data: respuesta, error: answerErr } = await adminSupabase
       .from('exam_answers')
-      .select('*, exam_questions(points), exam_attempts(exam_id, exams(id))')
+      .select('id, attempt_id, exam_questions(points), exam_attempts(id, exam_id)')
       .eq('id', answerId)
       .single()
 
-    if (answerErr || !answer) {
+    if (answerErr || !respuesta) {
       return errorResponse('NO_AUTORIZADO', 'Respuesta no encontrada', 403)
     }
 
-    // Verify teacher teaches this cohort
+    const answer = respuesta as unknown as {
+      id: string
+      attempt_id: string
+      exam_questions: { points: number } | null
+      exam_attempts: { id: string; exam_id: string } | null
+    }
+
     const { data: exam, error: examErr } = await adminSupabase
       .from('exams')
-      .select('cohort_id')
+      .select('cohort_id, teacher_id')
       .eq('id', answer.exam_attempts?.exam_id)
       .single()
 
@@ -78,20 +91,28 @@ Deno.serve(async (req: Request) => {
       return errorResponse('NO_AUTORIZADO', 'Examen no encontrado', 403)
     }
 
-    const { data: teacherCohorts } = await adminSupabase
-      .from('teacher_cohorts')
-      .select('cohort_id')
-      .eq('teacher_id', user.id)
+    // No existe una tabla teacher_cohorts: el vínculo docente-cohorte vive en
+    // cohorts.teacher_id y en class_sessions.teacher_id. La función
+    // teaches_cohort() de la migración 011 ya resuelve las dos, y es la misma
+    // que usan las políticas de RLS — así la Edge Function y la base no pueden
+    // discrepar sobre quién enseña dónde.
+    let autorizado = exam.teacher_id === user.id || perfil.role !== 'profesor'
 
-    const teacherHasCohort = teacherCohorts?.some(tc => tc.cohort_id === exam.cohort_id)
-    if (!teacherHasCohort) {
-      return errorResponse('NO_AUTORIZADO', 'No enseñas en esta cohorte', 403)
+    if (!autorizado && exam.cohort_id) {
+      const { data: ensena } = await userSupabase.rpc('teaches_cohort', {
+        p_cohort: exam.cohort_id,
+      })
+      autorizado = ensena === true
     }
 
-    // Validate points within question max
-    const maxPoints = answer.exam_questions?.points || 0
-    if (awardedPoints < 0 || awardedPoints > maxPoints) {
-      return errorResponse('DATOS_INVALIDOS', `Puntos debe estar entre 0 y ${maxPoints}`)
+    if (!autorizado) {
+      return errorResponse('NO_AUTORIZADO', 'No das clase en esta cohorte', 403)
+    }
+
+    // El puntaje no puede pasarse del máximo de la pregunta.
+    const maxPoints = Number(answer.exam_questions?.points ?? 0)
+    if (typeof awardedPoints !== 'number' || awardedPoints < 0 || awardedPoints > maxPoints) {
+      return errorResponse('DATOS_INVALIDOS', `El puntaje debe estar entre 0 y ${maxPoints}`)
     }
 
     // Update the answer
@@ -110,29 +131,18 @@ Deno.serve(async (req: Request) => {
       return errorResponse('ERROR_INTERNO', 'No se pudo calificar la respuesta')
     }
 
-    // Check if attempt is now closed (all answers graded)
-    const { data: allAnswers } = await adminSupabase
-      .from('exam_answers')
-      .select('awarded_points')
-      .eq('attempt_id', answer.exam_attempts?.id)
-
-    const allGraded = allAnswers?.every(a => a.awarded_points !== null) || false
-
-    // Calculate total score if all graded
-    let totalScore = 0
-    if (allGraded) {
-      const { data: gradedAnswers } = await adminSupabase
-        .from('exam_answers')
-        .select('awarded_points')
-        .eq('attempt_id', answer.exam_attempts?.id)
-
-      totalScore = gradedAnswers?.reduce((sum, a) => sum + (a.awarded_points || 0), 0) || 0
-    }
+    // Quien cierra el intento es el disparador trg_close_attempt, no esta
+    // función. Aquí solo se lee cómo quedó, para poder decírselo al profesor.
+    const { data: intento } = await adminSupabase
+      .from('exam_attempts')
+      .select('status, total_score')
+      .eq('id', answer.attempt_id)
+      .single()
 
     return okResponse({
       ok: true,
-      attemptClosed: allGraded,
-      totalScore: allGraded ? totalScore : null,
+      attemptClosed: intento?.status === 'calificado',
+      totalScore: intento?.total_score ?? null,
     })
   } catch (error) {
     console.error('grade-answer error:', error)

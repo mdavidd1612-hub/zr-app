@@ -186,6 +186,22 @@ begin
   end loop;
 
   -- ---------------------------------------------------------------------------
+  -- 6b. INSCRIPCIÓN AL MÓDULO
+  -- ---------------------------------------------------------------------------
+  -- Sin esta fila la pantalla de notas está vacía y, peor, la prueba de RLS
+  -- «un estudiante no puede escribir sus propias notas» pasa por la razón
+  -- equivocada: el UPDATE no encuentra filas, así que no da error aunque no
+  -- exista ninguna política que lo impida.
+  for v_student_id in
+    select id from public.profiles where cedula in ('V-30000001', 'V-30000002')
+  loop
+    insert into public.module_enrollments
+      (student_id, module_id, cohort_id, passing_threshold, participation_weight, status)
+    values (v_student_id, v_module1_id, v_cohort_id, 10, 0.15, 'en_curso')
+    on conflict (student_id, module_id) do nothing;
+  end loop;
+
+  -- ---------------------------------------------------------------------------
   -- 7. SESIÓN DE CLASE (el próximo sábado)
   -- ---------------------------------------------------------------------------
   -- El sábado que viene: current_date + días que faltan para el sábado (6 = sábado en ISO... dow 6).

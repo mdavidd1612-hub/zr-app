@@ -49,7 +49,9 @@ export default function Calificar() {
     async function cargar() {
       // Solo redacciones abiertas sin puntaje. Las objetivas ya las calificó
       // la Edge Function submit-attempt al entregar.
-      const { data } = await supabase
+      // El nombre no cuelga del intento: exam_attempts.student_id apunta a
+      // students, y students.id apunta a profiles. Hay que pasar por las dos.
+      const { data, error } = await supabase
         .from('exam_answers')
         .select(`
           id, answer, created_at,
@@ -57,22 +59,38 @@ export default function Calificar() {
           exam_attempts!inner(
             submitted_at,
             exams(title),
-            profiles(full_name)
+            students(profiles(full_name))
           )
         `)
         .is('awarded_points', null)
         .eq('exam_questions.type', 'redaccion_abierta')
         .order('created_at', { ascending: true })
 
-      if (data) {
+      if (error) {
+        console.error('No se pudo cargar la cola:', error.message)
+      }
+
+      const filas = data as unknown as {
+        id: string
+        answer: { text?: string } | null
+        created_at: string
+        exam_questions: { statement: string; rubric: string | null; points: number } | null
+        exam_attempts: {
+          submitted_at: string | null
+          exams: { title: string } | null
+          students: { profiles: { full_name: string } | null } | null
+        } | null
+      }[] | null
+
+      if (filas) {
         setCola(
-          data.map((a: any) => ({
+          filas.map((a) => ({
             answerId: a.id,
-            estudiante: a.exam_attempts?.profiles?.full_name ?? 'Estudiante',
+            estudiante: a.exam_attempts?.students?.profiles?.full_name ?? 'Estudiante',
             examen: a.exam_attempts?.exams?.title ?? 'Examen',
             enunciado: a.exam_questions?.statement ?? '',
             rubrica: a.exam_questions?.rubric ?? null,
-            respuesta: a.answer?.text ?? '(sin respuesta)',
+            respuesta: a.answer?.text ?? '(sin responder)',
             puntosMaximos: Number(a.exam_questions?.points ?? 0),
             entregadoHace: hace(a.exam_attempts?.submitted_at ?? a.created_at),
           })),

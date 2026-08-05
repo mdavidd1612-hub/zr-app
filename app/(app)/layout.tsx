@@ -36,31 +36,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 overflow-y-auto w-full pb-28">
+      <div className="flex-1 overflow-y-auto w-full pb-20">
         {children}
       </div>
 
-      {/* Floating navbar with glassmorphism */}
-      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-2 py-2">
-        {/* Glassmorphism container */}
-        <div className="backdrop-blur-2xl bg-white/10 border border-white/20 rounded-full shadow-2xl flex gap-1 px-2 py-2">
+      {/* Floating navbar - Standard size like Instagram */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-zr-background border-t border-zr-border z-50">
+        <div className="flex justify-around">
           {NAVBAR_ITEMS.map((item) => {
             const isActive = pathname === item.href
             return (
               <button
                 key={item.href}
                 onClick={() => router.push(item.href)}
-                className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-full transition-all duration-200 ${
+                className={`flex-1 flex flex-col items-center justify-center py-3 px-2 transition-colors duration-200 ${
                   isActive
-                    ? 'bg-zr-blue/30 text-zr-blue shadow-lg'
+                    ? 'text-zr-blue border-t-2 border-zr-blue'
                     : 'text-zr-text-muted hover:text-zr-text'
                 }`}
                 title={item.label}
               >
-                <item.Icon />
-                {isActive && (
-                  <div className="absolute inset-0 rounded-full bg-zr-blue/10 blur-md -z-10" />
-                )}
+                <div className="w-6 h-6">
+                  <item.Icon />
+                </div>
+                <span className="text-xs font-medium mt-1">{item.label}</span>
               </button>
             )
           })}

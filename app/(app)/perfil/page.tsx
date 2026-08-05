@@ -66,17 +66,22 @@ export default function Perfil() {
     <div className="flex flex-col bg-zr-background min-h-dvh">
       <div className="h-12" />
 
-      <div className="flex-1 overflow-y-auto px-4 pb-32">
-        <div className="space-y-6 pt-4">
+      <div className="flex-1 overflow-y-auto px-5 pb-24">
+        <div className="space-y-8 pt-6">
           {/* Header */}
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-zr-text">{profile?.full_name || 'Estudiante'}</h1>
-            <p className="text-sm text-zr-text-muted mt-1">{profile?.cedula}</p>
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold text-zr-text tracking-tight">
+              {profile?.full_name || 'Estudiante'}
+            </h1>
+            <p className="text-sm text-zr-text-muted font-medium">{profile?.cedula}</p>
           </div>
+
+          {/* Divider */}
+          <div className="h-px bg-zr-border" />
 
           {/* Carnet Horizontal - Modern Digital Card */}
           <div className="perspective">
-            <div className="bg-gradient-to-r from-zr-blue-deep via-zr-blue to-zr-blue-mid rounded-3xl p-6 shadow-2xl overflow-hidden relative">
+            <div className="bg-gradient-to-r from-zr-blue-deep via-zr-blue to-zr-blue-mid rounded-2xl p-6 shadow-xl overflow-hidden relative">
               {/* Background accent */}
               <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20" />
 
@@ -84,20 +89,20 @@ export default function Perfil() {
               <div className="relative z-10 flex justify-between items-center gap-6">
                 {/* Left side - Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-white/60 uppercase tracking-widest mb-3">ZR Academy</p>
-                  <h2 className="text-white font-bold text-lg mb-2 truncate">{profile?.full_name}</h2>
+                  <p className="text-xs text-white/60 uppercase tracking-widest font-semibold mb-3">ZR Academy</p>
+                  <h2 className="text-white font-bold text-lg mb-1 truncate">{profile?.full_name}</h2>
                   <p className="text-white/80 text-sm mb-4">{profile?.cedula}</p>
 
                   {/* Badge */}
-                  <div className="inline-block px-3 py-1 rounded-full bg-white/20 border border-white/30 backdrop-blur-sm">
-                    <p className="text-xs text-white font-medium">Estudiante Activo</p>
+                  <div className="inline-block px-3 py-1.5 rounded-full bg-white/15 border border-white/25 backdrop-blur-sm hover:bg-white/20 transition-colors">
+                    <p className="text-xs text-white font-semibold">Estudiante Activo</p>
                   </div>
                 </div>
 
                 {/* Right side - QR */}
                 {qrUrl && (
                   <div className="flex-shrink-0">
-                    <div className="bg-white rounded-xl p-2 shadow-lg">
+                    <div className="bg-white rounded-lg p-2 shadow-lg">
                       <img src={qrUrl} alt="QR" className="w-28 h-28" />
                     </div>
                   </div>
@@ -105,23 +110,32 @@ export default function Perfil() {
               </div>
 
               {/* Bottom stripe */}
-              <div className="mt-6 pt-4 border-t border-white/20 text-xs text-white/70">
-                Código: <span className="font-mono text-white">{totp}</span>
+              <div className="mt-6 pt-4 border-t border-white/20 text-xs text-white/70 font-medium">
+                Código: <span className="font-mono text-white/90 ml-1">{totp}</span>
               </div>
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-zr-surface border border-zr-border rounded-2xl p-4 text-center">
-              <p className="text-2xl font-bold text-zr-blue">0</p>
-              <p className="text-xs text-zr-text-muted mt-2">Dominadas</p>
+          {/* Stats Section */}
+          <div className="space-y-4">
+            <div className="flex items-baseline gap-2">
+              <span className="text-xs text-zr-blue-mid font-bold tracking-widest">02 — COMPETENCIAS</span>
             </div>
-            <div className="bg-zr-surface border border-zr-border rounded-2xl p-4 text-center">
-              <p className="text-2xl font-bold text-zr-blue-mid">0</p>
-              <p className="text-xs text-zr-text-muted mt-2">En progreso</p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-zr-surface border border-zr-border rounded-lg p-5 text-center hover:border-zr-blue/30 transition-all">
+                <p className="text-3xl font-bold text-zr-blue">0</p>
+                <p className="text-xs text-zr-text-muted mt-3 font-medium">Dominadas</p>
+              </div>
+              <div className="bg-zr-surface border border-zr-border rounded-lg p-5 text-center hover:border-zr-blue/30 transition-all">
+                <p className="text-3xl font-bold text-zr-blue-mid">0</p>
+                <p className="text-xs text-zr-text-muted mt-3 font-medium">En Progreso</p>
+              </div>
             </div>
           </div>
+
+          {/* Divider */}
+          <div className="h-px bg-zr-border" />
 
           {/* Logout */}
           <button
@@ -129,7 +143,7 @@ export default function Perfil() {
               await supabase.auth.signOut()
               router.push('/login')
             }}
-            className="w-full bg-zr-error/20 text-zr-error rounded-2xl p-4 font-semibold border border-zr-error/30 hover:bg-zr-error/30 transition-colors"
+            className="w-full bg-zr-error/15 text-zr-error rounded-lg p-4 font-semibold border border-zr-error/30 hover:bg-zr-error/25 transition-all duration-200"
           >
             Cerrar sesión
           </button>

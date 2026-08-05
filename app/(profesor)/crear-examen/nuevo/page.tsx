@@ -3,15 +3,16 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { QuestionEditor } from '@/components/QuestionEditor'
 
 interface Question {
   id: string
   type: 'opcion_multiple' | 'verdadero_falso' | 'redaccion_abierta'
-  enunciado: string
+  statement: string
   points: number
   options?: Array<{ key: string; text: string }>
-  correctAnswer?: any
-  rubric?: string
+  correct_answer?: any
+  rubric?: string | null
 }
 
 export default function NuevoExamen() {
@@ -22,12 +23,32 @@ export default function NuevoExamen() {
   const [maxPoints, setMaxPoints] = useState(20)
   const [duration, setDuration] = useState(90)
   const [questions, setQuestions] = useState<Question[]>([])
-  const [showQuestionForm, setShowQuestionForm] = useState(false)
+  const [showQuestionEditor, setShowQuestionEditor] = useState<
+    'opcion_multiple' | 'verdadero_falso' | 'redaccion_abierta' | null
+  >(null)
   const [submitting, setSubmitting] = useState(false)
 
   const totalPoints = questions.reduce((sum, q) => sum + q.points, 0)
   const pointsMatch = totalPoints === maxPoints
   const canPublish = questions.length > 0 && pointsMatch && title.trim() !== ''
+
+  function handleAddQuestion(questionData: any) {
+    const newQuestion: Question = {
+      id: `q${Date.now()}`,
+      type: questionData.type,
+      statement: questionData.statement,
+      points: questionData.points,
+      options: questionData.options,
+      correct_answer: questionData.correct_answer,
+      rubric: questionData.rubric,
+    }
+    setQuestions([...questions, newQuestion])
+    setShowQuestionEditor(null)
+  }
+
+  function handleDeleteQuestion(id: string) {
+    setQuestions(questions.filter((q) => q.id !== id))
+  }
 
   async function handleCreateExam() {
     if (!canPublish) return
@@ -35,7 +56,10 @@ export default function NuevoExamen() {
     setSubmitting(true)
 
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) {
+      setSubmitting(false)
+      return
+    }
 
     const { data: newExam, error: examError } = await supabase
       .from('exams')
@@ -52,6 +76,7 @@ export default function NuevoExamen() {
 
     if (examError || !newExam) {
       console.error('Error creating exam:', examError)
+      alert('Error al crear el examen')
       setSubmitting(false)
       return
     }
@@ -60,11 +85,11 @@ export default function NuevoExamen() {
     const questionInserts = questions.map((q, idx) => ({
       exam_id: newExam.id,
       type: q.type,
-      statement: q.enunciado,
+      statement: q.statement,
       points: q.points,
       order_index: idx,
       options: q.options ? JSON.stringify(q.options) : null,
-      correct_answer: q.correctAnswer ? JSON.stringify(q.correctAnswer) : null,
+      correct_answer: q.correct_answer ? JSON.stringify(q.correct_answer) : null,
       rubric: q.rubric || null,
     }))
 
@@ -72,11 +97,12 @@ export default function NuevoExamen() {
 
     if (questionsError) {
       console.error('Error inserting questions:', questionsError)
+      alert('Error al guardar las preguntas')
       setSubmitting(false)
       return
     }
 
-    router.push('/profesor/examenes')
+    router.push('/crear-examen')
   }
 
   return (
@@ -160,36 +186,37 @@ export default function NuevoExamen() {
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-bold text-zr-text">Preguntas ({questions.length})</h2>
-              <button
-                onClick={() => setShowQuestionForm(!showQuestionForm)}
-                className="px-4 py-2 bg-zr-blue text-white rounded-lg font-semibold hover:bg-zr-blue-deep transition-all text-sm"
-              >
-                {showQuestionForm ? 'Cancelar' : '+ Agregar Pregunta'}
-              </button>
+              {!showQuestionEditor && (
+                <button
+                  onClick={() => setShowQuestionEditor('opcion_multiple')}
+                  className="px-4 py-2 bg-zr-blue text-white rounded-lg font-semibold hover:bg-zr-blue-deep transition-all text-sm"
+                >
+                  + Agregar Pregunta
+                </button>
+              )}
             </div>
 
-            {showQuestionForm && (
+            {/* Question Type Selector */}
+            {showQuestionEditor && !showQuestionEditor && (
               <div className="bg-zr-surface border border-zr-border rounded-lg p-5">
-                <p className="text-sm text-zr-text-muted mb-4">
-                  Selecciona el tipo de pregunta para continuar
-                </p>
+                <p className="text-sm text-zr-text-muted mb-4">Selecciona el tipo de pregunta</p>
                 <div className="grid grid-cols-1 gap-2">
                   <button
-                    onClick={() => router.push(`/profesor/examenes/nuevo?tipo=opcion_multiple`)}
+                    onClick={() => setShowQuestionEditor('opcion_multiple')}
                     className="text-left p-4 bg-zr-background border border-zr-border rounded-lg hover:border-zr-blue/50 hover:bg-zr-blue/5 transition-all"
                   >
                     <p className="font-semibold text-zr-text">Opción Múltiple</p>
                     <p className="text-xs text-zr-text-muted mt-1">2-6 opciones, marcar la correcta</p>
                   </button>
                   <button
-                    onClick={() => router.push(`/profesor/examenes/nuevo?tipo=verdadero_falso`)}
+                    onClick={() => setShowQuestionEditor('verdadero_falso')}
                     className="text-left p-4 bg-zr-background border border-zr-border rounded-lg hover:border-zr-blue/50 hover:bg-zr-blue/5 transition-all"
                   >
                     <p className="font-semibold text-zr-text">Verdadero / Falso</p>
                     <p className="text-xs text-zr-text-muted mt-1">Una respuesta correcta</p>
                   </button>
                   <button
-                    onClick={() => router.push(`/profesor/examenes/nuevo?tipo=redaccion_abierta`)}
+                    onClick={() => setShowQuestionEditor('redaccion_abierta')}
                     className="text-left p-4 bg-zr-background border border-zr-border rounded-lg hover:border-zr-blue/50 hover:bg-zr-blue/5 transition-all"
                   >
                     <p className="font-semibold text-zr-text">Redacción Abierta</p>
@@ -199,21 +226,32 @@ export default function NuevoExamen() {
               </div>
             )}
 
+            {/* Question Editor */}
+            {showQuestionEditor && (
+              <QuestionEditor
+                type={showQuestionEditor}
+                onSave={handleAddQuestion}
+                onCancel={() => setShowQuestionEditor(null)}
+              />
+            )}
+
             {/* Questions List */}
-            {questions.length > 0 && (
+            {questions.length > 0 && !showQuestionEditor && (
               <div className="space-y-2">
                 {questions.map((q, idx) => (
                   <div key={q.id} className="bg-zr-surface border border-zr-border rounded-lg p-4">
                     <div className="flex justify-between items-start gap-3">
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-zr-text-muted">Pregunta {idx + 1}</p>
-                        <p className="text-base font-semibold text-zr-text mt-1 line-clamp-2">
-                          {q.enunciado}
-                        </p>
-                        <p className="text-xs text-zr-blue font-semibold mt-2">{q.points} puntos</p>
+                        <p className="text-base font-semibold text-zr-text mt-1 line-clamp-2">{q.statement}</p>
+                        <div className="flex gap-2 mt-2 text-xs text-zr-text-muted">
+                          <span>{q.type === 'opcion_multiple' ? '⭕ Opción múltiple' : q.type === 'verdadero_falso' ? '✓ V/F' : '📝 Redacción'}</span>
+                          <span>•</span>
+                          <span className="text-zr-blue font-semibold">{q.points} pts</span>
+                        </div>
                       </div>
                       <button
-                        onClick={() => setQuestions(questions.filter((_, i) => i !== idx))}
+                        onClick={() => handleDeleteQuestion(q.id)}
                         className="text-zr-error hover:text-zr-error/80 font-semibold text-sm"
                       >
                         Eliminar

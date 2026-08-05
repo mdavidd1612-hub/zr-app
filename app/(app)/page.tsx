@@ -30,92 +30,66 @@ export default function Home() {
   }, [])
 
   return (
-    <div className="flex flex-col h-dvh bg-zr-background">
+    <div className="flex flex-col bg-zr-background min-h-dvh">
       {/* Status bar spacing */}
-      <div className="h-12 bg-zr-background" />
+      <div className="h-12" />
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-4 pb-24">
-        <div className="space-y-6 pt-6">
+      <div className="flex-1 overflow-y-auto px-4 pb-32">
+        <div className="space-y-6 pt-4">
+          {/* Greeting */}
           <div>
-            <h1 className="text-2xl font-bold text-zr-text">Hola, {nombre || 'Estudiante'} 👋</h1>
-            <p className="text-sm text-zr-text-muted mt-1">Bienvenido a ZR App</p>
+            <h1 className="text-3xl font-bold text-zr-text">
+              Hola, {nombre || 'Estudiante'}
+            </h1>
+            <p className="text-sm text-zr-text-muted mt-2">Bienvenido a ZR Academy</p>
           </div>
 
-          {/* Quick actions */}
+          {/* Quick actions - Card style */}
           <div className="space-y-3">
             <button
-              onClick={() => router.push('/carnet')}
-              className="w-full bg-gradient-to-r from-zr-blue to-zr-blue-deep text-white rounded-2xl p-4 text-left font-semibold shadow-lg"
+              onClick={() => router.push('/perfil')}
+              className="w-full bg-gradient-to-r from-zr-blue-deep to-zr-blue text-white rounded-2xl p-4 text-left font-semibold hover:shadow-lg transition-all"
             >
-              📱 Mi Carnet
+              <span className="block text-sm">Mi Carnet</span>
+              <span className="text-xs text-white/70">Ver código QR</span>
             </button>
             <button
               onClick={() => router.push('/clases')}
-              className="w-full bg-white/10 backdrop-blur-xl border border-white/20 text-zr-text rounded-2xl p-4 text-left font-semibold"
+              className="w-full bg-zr-surface border border-zr-border text-zr-text rounded-2xl p-4 text-left font-semibold hover:border-zr-blue/50 transition-all"
             >
-              📚 Mis Clases
+              <span className="block text-sm">Mis Clases</span>
+              <span className="text-xs text-zr-text-muted">Próximas sesiones</span>
             </button>
             <button
               onClick={() => router.push('/examenes')}
-              className="w-full bg-white/10 backdrop-blur-xl border border-white/20 text-zr-text rounded-2xl p-4 text-left font-semibold"
+              className="w-full bg-zr-surface border border-zr-border text-zr-text rounded-2xl p-4 text-left font-semibold hover:border-zr-blue/50 transition-all"
             >
-              ✅ Exámenes
+              <span className="block text-sm">Exámenes</span>
+              <span className="text-xs text-zr-text-muted">Mis evaluaciones</span>
             </button>
             <button
               onClick={() => router.push('/contenido')}
-              className="w-full bg-white/10 backdrop-blur-xl border border-white/20 text-zr-text rounded-2xl p-4 text-left font-semibold"
+              className="w-full bg-zr-surface border border-zr-border text-zr-text rounded-2xl p-4 text-left font-semibold hover:border-zr-blue/50 transition-all"
             >
-              📖 Material
+              <span className="block text-sm">Material</span>
+              <span className="text-xs text-zr-text-muted">Recursos de estudio</span>
             </button>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 gap-3 pt-4">
-            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 text-center">
-              <p className="text-2xl font-bold text-zr-blue">0</p>
-              <p className="text-xs text-zr-text-muted mt-1">Competencias dominadas</p>
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <div className="bg-zr-surface border border-zr-border rounded-2xl p-4 text-center">
+              <p className="text-3xl font-bold text-zr-blue">0</p>
+              <p className="text-xs text-zr-text-muted mt-2">Dominadas</p>
             </div>
-            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 text-center">
-              <p className="text-2xl font-bold text-zr-warning">0</p>
-              <p className="text-xs text-zr-text-muted mt-1">En progreso</p>
+            <div className="bg-zr-surface border border-zr-border rounded-2xl p-4 text-center">
+              <p className="text-3xl font-bold text-zr-blue-mid">0</p>
+              <p className="text-xs text-zr-text-muted mt-2">En progreso</p>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Bottom navbar - Instagram style */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-zr-background border-t border-white/10 px-4 py-3 flex justify-around">
-        <NavIcon label="Inicio" icon="🏠" active href="/" />
-        <NavIcon label="Clases" icon="📚" href="/clases" />
-        <NavIcon label="Examen" icon="✅" href="/examenes" />
-        <NavIcon label="Perfil" icon="👤" href="/perfil" />
-      </nav>
     </div>
-  )
-}
-
-function NavIcon({
-  label,
-  icon,
-  active,
-  href,
-}: {
-  label: string
-  icon: string
-  active?: boolean
-  href: string
-}) {
-  const router = useRouter()
-  return (
-    <button
-      onClick={() => router.push(href)}
-      className={`flex flex-col items-center gap-1 py-2 ${
-        active ? 'text-zr-blue' : 'text-zr-text-muted'
-      }`}
-    >
-      <span className="text-xl">{icon}</span>
-      <span className="text-xs font-medium">{label}</span>
-    </button>
   )
 }

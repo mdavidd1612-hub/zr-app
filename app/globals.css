@@ -12,8 +12,8 @@
    Si un componente lleva un color escrito directamente, es un error. Se corrige.
    =========================================================================== */
 :root {
-  /* Marca */
-  --zr-navy:        #21284F;
+  /* Dark theme: oscuro con azul y blanco */
+  --zr-navy:        #0F1419;   /* fondo casi negro */
   --zr-blue-deep:   #1E4D96;
   --zr-blue:        #3869B1;   /* color del logo */
   --zr-blue-mid:    #6590CB;
@@ -25,14 +25,14 @@
   --zr-warning:     #EAB308;
   --zr-error:       #DC2626;
 
-  /* Superficies derivadas */
-  --zr-bg:          #F5F7FB;   /* blanco azulado, descansa la vista bajo sol */
-  --zr-surface:     #FFFFFF;
-  --zr-border:      #C9D6EA;
+  /* Superficies derivadas - tema oscuro */
+  --zr-bg:          #0F1419;   /* fondo oscuro */
+  --zr-surface:     #1A1F2E;   /* cards/surfaces ligeramente más claras */
+  --zr-border:      #2A3347;   /* bordes sutiles en oscuro */
 
   /* Texto */
-  --zr-text:        #21284F;   /* el navy de marca ES el color de texto */
-  --zr-text-muted:  #4A5578;
+  --zr-text:        #FFFFFF;   /* texto blanco en fondo oscuro */
+  --zr-text-muted:  #A0A8B8;   /* gris claro para texto muted */
   --zr-text-on-dark:#FFFFFF;
 
   /* Medidas — se usa de pie, en un taller, con guantes. Ver spec/04 §0. */

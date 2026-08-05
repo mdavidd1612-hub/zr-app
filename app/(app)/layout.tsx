@@ -3,13 +3,16 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { IconHome, IconClasses, IconExam, IconProfile } from '@/components/ui/NavIcons'
+import { IconHome, IconExam, IconProgress, IconProfile } from '@/components/ui/NavIcons'
 
+// Cuatro botones, ni uno más: spec/04 §1. Clases, Material y Notas se alcanzan
+// desde la rejilla de accesos del inicio — están a un toque igual, y meterlos
+// aquí dejaría cada botón por debajo del área táctil mínima de 48 px.
 const NAVBAR_ITEMS = [
-  { href: '/', label: 'Inicio', Icon: IconHome },
-  { href: '/clases', label: 'Clases', Icon: IconClasses },
-  { href: '/examenes', label: 'Examen', Icon: IconExam },
-  { href: '/perfil', label: 'Perfil', Icon: IconProfile },
+  { href: '/',          label: 'Inicio',   Icon: IconHome },
+  { href: '/examenes',  label: 'Exámenes', Icon: IconExam },
+  { href: '/progreso',  label: 'Progreso', Icon: IconProgress },
+  { href: '/perfil',    label: 'Perfil',   Icon: IconProfile },
 ]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

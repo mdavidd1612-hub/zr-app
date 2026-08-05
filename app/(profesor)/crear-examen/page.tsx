@@ -3,290 +3,292 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 
-interface ExamData {
+type EstadoExamen = 'oculto' | 'habilitado' | 'cerrado' | 'calificado'
+
+interface Examen {
   id: string
-  title: string
-  status: 'oculto' | 'habilitado' | 'cerrado' | 'calificado'
-  module: string
-  questionCount: number
-  points: number
-  createdAt: string
+  titulo: string
+  estado: EstadoExamen
+  modulo: string
+  preguntas: number
+  puntosAsignados: number
+  puntajeMaximo: number
 }
 
-export default function ProfessorExams() {
+const ESTADO: Record<EstadoExamen, { texto: string; tono: 'exito' | 'neutro' | 'info' | 'aviso' }> = {
+  oculto:     { texto: 'Borrador',   tono: 'neutro' },
+  habilitado: { texto: 'Publicado',  tono: 'exito'  },
+  cerrado:    { texto: 'Cerrado',    tono: 'aviso'  },
+  calificado: { texto: 'Calificado', tono: 'info'   },
+}
+
+export default function ExamenesProfesor() {
   const router = useRouter()
-  const supabase = createClient()
-  const [exams, setExams] = useState<ExamData[]>([])
-  const [loading, setLoading] = useState(true)
-  const [publishing, setPublishing] = useState<string | null>(null)
-  const [duplicating, setDuplicating] = useState<string | null>(null)
+  const [examenes, setExamenes] = useState<Examen[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [ocupado, setOcupado] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function loadExams() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/login')
-        return
-      }
-
-      // Mock data for now - professor exams list
-      setExams([
-        {
-          id: '1',
-          title: 'Electricidad Automotriz Básica',
-          status: 'habilitado',
-          module: 'Módulo 1',
-          questionCount: 8,
-          points: 20,
-          createdAt: '2026-08-01',
-        },
-        {
-          id: '2',
-          title: 'Diagnóstico de Sistemas',
-          status: 'oculto',
-          module: 'Módulo 2',
-          questionCount: 10,
-          points: 20,
-          createdAt: '2026-08-03',
-        },
-      ])
-
-      setLoading(false)
+  async function cargar() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      router.replace('/login')
+      return
     }
 
-    loadExams()
-  }, [])
-
-  async function handlePublishExam(examId: string) {
-    setPublishing(examId)
-
-    const { error } = await supabase
+    const { data } = await supabase
       .from('exams')
-      .update({ status: 'habilitado', published_at: new Date().toISOString() })
-      .eq('id', examId)
+      .select('id, title, status, max_score, module_id, modules(name), exam_questions(points)')
+      .eq('teacher_id', user.id)
+      .order('created_at', { ascending: false })
 
-    if (error) {
-      alert('Error al publicar: ' + error.message)
-    } else {
-      setExams(exams.map((e) => (e.id === examId ? { ...e, status: 'habilitado' } : e)))
-    }
-
-    setPublishing(null)
+    setExamenes(
+      (data ?? []).map((e: any) => ({
+        id: e.id,
+        titulo: e.title,
+        estado: e.status,
+        modulo: e.modules?.name ?? 'Módulo',
+        preguntas: e.exam_questions?.length ?? 0,
+        puntosAsignados: (e.exam_questions ?? []).reduce(
+          (s: number, q: any) => s + Number(q.points), 0,
+        ),
+        puntajeMaximo: Number(e.max_score),
+      })),
+    )
+    setCargando(false)
   }
 
-  async function handleDuplicateExam(examId: string) {
-    setDuplicating(examId)
+  useEffect(() => { cargar() }, [])
 
-    const sourceExam = exams.find((e) => e.id === examId)
-    if (!sourceExam) return
+  async function publicar(examen: Examen) {
+    setOcupado(examen.id)
+    setError(null)
 
+    // La interfaz también valida, pero la garantía real es el disparador
+    // trg_validate_exam_publish. Si la base dice que no, se muestra su mensaje.
+    const { error: fallo } = await createClient()
+      .from('exams')
+      .update({ status: 'habilitado', published_at: new Date().toISOString() })
+      .eq('id', examen.id)
+
+    if (fallo) {
+      setError(fallo.message)
+    } else {
+      setExamenes((xs) => xs.map((x) => (x.id === examen.id ? { ...x, estado: 'habilitado' } : x)))
+    }
+    setOcupado(null)
+  }
+
+  async function duplicar(examen: Examen) {
+    setOcupado(examen.id)
+    setError(null)
+
+    const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    // Create new exam
-    const { data: newExam, error: examError } = await supabase
+    const { data: original } = await supabase
+      .from('exams')
+      .select('*')
+      .eq('id', examen.id)
+      .single()
+
+    if (!original) {
+      setOcupado(null)
+      return
+    }
+
+    const { data: copia, error: falloExamen } = await supabase
       .from('exams')
       .insert({
-        title: `${sourceExam.title} (copia)`,
-        module_id: sourceExam.module,
+        title: `${original.title} (copia)`,
+        module_id: original.module_id,
+        cohort_id: original.cohort_id,
         teacher_id: user.id,
-        max_score: sourceExam.points,
+        instructions: original.instructions,
+        max_score: original.max_score,
+        passing_score: original.passing_score,
+        duration_minutes: original.duration_minutes,
         status: 'oculto',
       })
       .select()
       .single()
 
-    if (examError || !newExam) {
-      alert('Error al duplicar examen')
-      setDuplicating(null)
+    if (falloExamen || !copia) {
+      setError(falloExamen?.message ?? 'No se pudo duplicar el examen.')
+      setOcupado(null)
       return
     }
 
-    // Copy questions
-    const { data: sourceQuestions } = await supabase
+    const { data: preguntas } = await supabase
       .from('exam_questions')
       .select('*')
-      .eq('exam_id', examId)
+      .eq('exam_id', examen.id)
 
-    if (sourceQuestions && sourceQuestions.length > 0) {
-      const questionInserts = sourceQuestions.map((q: any) => ({
-        exam_id: newExam.id,
-        type: q.type,
-        statement: q.statement,
-        points: q.points,
-        order_index: q.order_index,
-        options: q.options,
-        correct_answer: q.correct_answer,
-        rubric: q.rubric,
-      }))
-
-      await supabase.from('exam_questions').insert(questionInserts)
+    if (preguntas?.length) {
+      await supabase.from('exam_questions').insert(
+        preguntas.map((q) => ({
+          exam_id: copia.id,
+          order_index: q.order_index,
+          type: q.type,
+          statement: q.statement,
+          options: q.options,
+          correct_answer: q.correct_answer,
+          points: q.points,
+          rubric: q.rubric,
+          learning_guide_id: q.learning_guide_id,
+        })),
+      )
     }
 
-    // Add to list
-    setExams([
-      ...exams,
-      {
-        id: newExam.id,
-        title: newExam.title,
-        status: 'oculto',
-        module: sourceExam.module,
-        questionCount: sourceQuestions?.length || 0,
-        points: newExam.max_score,
-        createdAt: new Date().toISOString().split('T')[0],
-      },
-    ])
-
-    setDuplicating(null)
+    await cargar()
+    setOcupado(null)
   }
 
-  if (loading) {
+  if (cargando) {
     return (
-      <div className="h-dvh bg-zr-background flex items-center justify-center">
-        <div className="text-zr-text-muted">Cargando exámenes...</div>
+      <div className="flex min-h-dvh items-center justify-center">
+        <p className="text-sm text-zr-text-muted">Cargando exámenes…</p>
+      </div>
+    )
+  }
+
+  const borradores = examenes.filter((e) => e.estado === 'oculto')
+  const publicados = examenes.filter((e) => e.estado !== 'oculto')
+
+  const Tarjeta = ({ e, i }: { e: Examen; i: number }) => {
+    const cuadran = e.puntosAsignados === e.puntajeMaximo
+    return (
+      <div
+        className="zr-card zr-card-interactive animate-rise overflow-hidden"
+        style={{ animationDelay: `${60 * i}ms` }}
+      >
+        <div className="p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h3 className="text-lg font-bold text-zr-text">{e.titulo}</h3>
+              <p className="mt-1 text-sm text-zr-text-muted">{e.modulo}</p>
+            </div>
+            <Etiqueta tono={ESTADO[e.estado].tono}>{ESTADO[e.estado].texto}</Etiqueta>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-6 border-t border-zr-border/60 pt-5">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">
+                Preguntas
+              </p>
+              <p className="zr-metric mt-1 text-xl text-zr-text">{e.preguntas}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">
+                Puntos
+              </p>
+              <p className={`zr-metric mt-1 text-xl ${cuadran ? 'text-zr-success' : 'text-zr-error'}`}>
+                {e.puntosAsignados} / {e.puntajeMaximo}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {e.estado === 'oculto' && (
+          <div className="flex gap-2 border-t border-zr-border bg-zr-bg/40 p-4">
+            <button
+              onClick={() => publicar(e)}
+              disabled={ocupado === e.id || !cuadran || e.preguntas === 0}
+              title={!cuadran ? 'Los puntos de las preguntas tienen que sumar el puntaje máximo' : undefined}
+              className="flex-1 rounded-lg bg-zr-success px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-zr-success/90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {ocupado === e.id ? 'Trabajando…' : 'Publicar'}
+            </button>
+            <button
+              onClick={() => duplicar(e)}
+              disabled={ocupado === e.id}
+              className="flex-1 rounded-lg border border-zr-border px-4 py-3 text-sm font-semibold text-zr-text transition-colors hover:border-zr-blue/45 disabled:opacity-40"
+            >
+              Duplicar
+            </button>
+          </div>
+        )}
+
+        {e.estado !== 'oculto' && (
+          <div className="border-t border-zr-border bg-zr-bg/40 p-4">
+            <button
+              onClick={() => duplicar(e)}
+              disabled={ocupado === e.id}
+              className="w-full rounded-lg border border-zr-border px-4 py-3 text-sm font-semibold text-zr-text transition-colors hover:border-zr-blue/45 disabled:opacity-40"
+            >
+              {ocupado === e.id ? 'Duplicando…' : 'Duplicar para otra cohorte'}
+            </button>
+          </div>
+        )}
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col bg-zr-background min-h-dvh">
-      <div className="flex-1 overflow-y-auto px-5 py-8">
-        <div className="space-y-8">
-          {/* Header */}
-          <div className="space-y-4">
-            <div className="flex justify-between items-start gap-4">
-              <div>
-                <h1 className="text-4xl font-bold text-zr-text">Mis Exámenes</h1>
-                <p className="text-base text-zr-text-muted mt-2">
-                  {exams.length} {exams.length === 1 ? 'examen' : 'exámenes'} creados
-                </p>
-              </div>
-              <button
-                onClick={() => router.push('/crear-examen/nuevo')}
-                className="px-6 py-3 bg-gradient-to-r from-zr-blue to-zr-blue-deep text-white rounded-lg font-bold hover:shadow-lg hover:shadow-zr-blue/30 transition-all whitespace-nowrap"
-              >
-                ✏️ Crear Examen
-              </button>
-            </div>
-          </div>
+    <div className="mx-auto max-w-4xl space-y-12 px-6 py-12 lg:px-10 lg:py-16">
+      <Encabezado
+        sobretitulo="Docencia"
+        titulo="Exámenes"
+        descripcion={`${examenes.length} en total · ${borradores.length} sin publicar`}
+        accion={
+          <button
+            onClick={() => router.push('/crear-examen/nuevo')}
+            className="rounded-lg bg-zr-blue px-6 py-3.5 text-sm font-bold text-white transition-colors hover:bg-zr-blue-deep"
+          >
+            Crear examen
+          </button>
+        }
+      />
 
-          {/* Divider */}
-          <div className="h-px bg-zr-border" />
+      <Regla delay={60} />
 
-          {/* Exams List */}
-          {exams.length === 0 ? (
-            <div className="bg-zr-surface border border-zr-border rounded-xl p-12 text-center space-y-4">
-              <div className="text-5xl">📝</div>
-              <p className="text-lg text-zr-text font-semibold">No has creado exámenes aún</p>
-              <p className="text-sm text-zr-text-muted">
-                Comienza a crear tu primer examen para que tus estudiantes puedan practicar
-              </p>
-              <button
-                onClick={() => router.push('/crear-examen/nuevo')}
-                className="mt-4 px-6 py-3 bg-zr-blue text-white rounded-lg font-semibold hover:bg-zr-blue-deep transition-all inline-block"
-              >
-                Crear Primer Examen
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-5">
-              {exams.map((exam) => (
-                <div
-                  key={exam.id}
-                  className="group bg-gradient-to-br from-zr-surface to-zr-background border border-zr-border rounded-xl p-6 hover:border-zr-blue/50 hover:shadow-lg transition-all"
-                >
-                  {/* Header */}
-                  <div className="flex justify-between items-start gap-4 mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold text-zr-text group-hover:text-zr-blue transition-colors">
-                        {exam.title}
-                      </h3>
-                      <p className="text-sm text-zr-text-muted mt-1">{exam.module}</p>
-                    </div>
+      {error && (
+        <p className="rounded-lg border border-zr-error/30 bg-zr-error/12 px-4 py-3 text-sm font-medium text-zr-error">
+          {error}
+        </p>
+      )}
 
-                    <div
-                      className={`flex-shrink-0 px-4 py-2 rounded-full font-semibold text-sm border ${
-                        exam.status === 'habilitado'
-                          ? 'bg-zr-success/15 border-zr-success/30 text-zr-success'
-                          : exam.status === 'oculto'
-                          ? 'bg-zr-text-muted/10 border-zr-text-muted/30 text-zr-text-muted'
-                          : 'bg-zr-blue/10 border-zr-blue/30 text-zr-blue'
-                      }`}
-                    >
-                      {exam.status === 'habilitado' && '✓ Publicado'}
-                      {exam.status === 'oculto' && '○ Borrador'}
-                      {exam.status === 'cerrado' && '🔒 Cerrado'}
-                      {exam.status === 'calificado' && '✓ Calificado'}
-                    </div>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="grid grid-cols-3 gap-4 mb-5 pb-5 border-b border-zr-border/30">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">📋</span>
-                      <div className="min-w-0">
-                        <p className="text-xs text-zr-text-muted font-semibold uppercase tracking-wide">
-                          Preguntas
-                        </p>
-                        <p className="text-lg font-bold text-zr-text">{exam.questionCount}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">⭐</span>
-                      <div className="min-w-0">
-                        <p className="text-xs text-zr-text-muted font-semibold uppercase tracking-wide">
-                          Puntos
-                        </p>
-                        <p className="text-lg font-bold text-zr-blue">{exam.points}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">📅</span>
-                      <div className="min-w-0">
-                        <p className="text-xs text-zr-text-muted font-semibold uppercase tracking-wide">
-                          Creado
-                        </p>
-                        <p className="text-lg font-bold text-zr-text">{exam.createdAt}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-3 flex-wrap">
-                    <button
-                      onClick={() => router.push(`/crear-examen/${exam.id}/editar`)}
-                      className="flex-1 min-w-32 px-4 py-3 text-sm bg-zr-blue text-white rounded-lg font-bold hover:bg-zr-blue-deep transition-all"
-                    >
-                      ✏️ Editar
-                    </button>
-
-                    {exam.status === 'oculto' && (
-                      <>
-                        <button
-                          onClick={() => handlePublishExam(exam.id)}
-                          disabled={publishing === exam.id}
-                          className="flex-1 min-w-32 px-4 py-3 text-sm bg-zr-success/15 border border-zr-success/30 text-zr-success rounded-lg font-bold hover:bg-zr-success/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {publishing === exam.id ? '⏳ Publicando...' : '🚀 Publicar'}
-                        </button>
-
-                        <button
-                          onClick={() => handleDuplicateExam(exam.id)}
-                          disabled={duplicating === exam.id}
-                          className="flex-1 min-w-32 px-4 py-3 text-sm bg-zr-blue/15 border border-zr-blue/30 text-zr-blue rounded-lg font-bold hover:bg-zr-blue/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {duplicating === exam.id ? '⏳ Duplicando...' : '📋 Duplicar'}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+      {examenes.length === 0 ? (
+        <div className="zr-card animate-rise p-12 text-center" style={{ animationDelay: '120ms' }}>
+          <p className="text-lg font-semibold text-zr-text">Todavía no has creado exámenes</p>
+          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-zr-text-muted">
+            Un examen se arma una vez y se duplica para cada cohorte. Las preguntas de opción
+            múltiple y verdadero/falso se califican solas; tú solo revisas las redacciones.
+          </p>
+          <button
+            onClick={() => router.push('/crear-examen/nuevo')}
+            className="mt-8 rounded-lg bg-zr-blue px-6 py-3.5 text-sm font-bold text-white transition-colors hover:bg-zr-blue-deep"
+          >
+            Crear el primero
+          </button>
         </div>
-      </div>
+      ) : (
+        <>
+          {borradores.length > 0 && (
+            <Seccion numero={1} titulo="Sin publicar" delay={120}>
+              <div className="space-y-4">
+                {borradores.map((e, i) => <Tarjeta key={e.id} e={e} i={i} />)}
+              </div>
+            </Seccion>
+          )}
+
+          {publicados.length > 0 && (
+            <Seccion
+              numero={borradores.length > 0 ? 2 : 1}
+              titulo="Publicados"
+              delay={borradores.length > 0 ? 220 : 120}
+            >
+              <div className="space-y-4">
+                {publicados.map((e, i) => <Tarjeta key={e.id} e={e} i={i} />)}
+              </div>
+            </Seccion>
+          )}
+        </>
+      )}
     </div>
   )
 }

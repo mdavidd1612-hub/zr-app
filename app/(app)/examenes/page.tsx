@@ -3,200 +3,199 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
 
-interface ExamItem {
+/**
+ * T-305 · Lista de exámenes del estudiante.
+ *
+ * Un examen `oculto` NO aparece aquí. No se filtra en el cliente por cortesía:
+ * las políticas de RLS de la migración 012 devuelven cero filas. El `.in(...)`
+ * de abajo es solo para no traer los cerrados de hace tres meses.
+ */
+
+type EstadoIntento = 'no_iniciado' | 'en_progreso' | 'entregado' | 'calificado'
+
+interface Examen {
   id: string
-  title: string
-  module: string
-  status: 'habilitado' | 'cerrado' | 'calificado'
-  attemptStatus?: 'no_iniciado' | 'en_progreso' | 'entregado' | 'calificado'
-  score?: number | null
-  maxScore: number
-  dueDate?: string
+  titulo: string
+  modulo: string
+  estadoExamen: string
+  estadoIntento: EstadoIntento
+  puntaje: number | null
+  puntajeMaximo: number
+  cierra: string | null
+}
+
+const ESTADO: Record<EstadoIntento, { texto: string; tono: 'exito' | 'aviso' | 'info' | 'neutro' }> = {
+  no_iniciado: { texto: 'Sin presentar', tono: 'info'   },
+  en_progreso: { texto: 'A medias',      tono: 'aviso'  },
+  entregado:   { texto: 'Entregado',     tono: 'aviso'  },
+  calificado:  { texto: 'Calificado',    tono: 'exito'  },
 }
 
 export default function Examenes() {
   const router = useRouter()
-  const supabase = createClient()
-  const [exams, setExams] = useState<ExamItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const [examenes, setExamenes] = useState<Examen[]>([])
+  const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
-    async function loadExams() {
+    const supabase = createClient()
+
+    async function cargar() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        router.push('/login')
+        router.replace('/login')
         return
       }
 
-      try {
-        // Load exams that are published (habilitado, cerrado, or calificado)
-        const { data: examData, error: examError } = await supabase
-          .from('exams')
-          .select('id, title, max_points, status, close_date, module_id')
-          .in('status', ['habilitado', 'cerrado', 'calificado'])
-          .order('close_date', { ascending: true })
+      const { data: datos, error } = await supabase
+        .from('exams')
+        .select('id, title, max_score, status, closes_at, modules(name)')
+        .in('status', ['habilitado', 'cerrado', 'calificado'])
+        .order('closes_at', { ascending: true, nullsFirst: false })
 
-        if (examError) {
-          console.error('Error loading exams:', examError)
-          setExams([])
-          setLoading(false)
-          return
-        }
-
-        if (!examData || examData.length === 0) {
-          setExams([])
-          setLoading(false)
-          return
-        }
-
-        // For each exam, load the student's attempt status
-        const examsWithAttempts = await Promise.all(
-          examData.map(async (exam: any) => {
-            const { data: attempt } = await supabase
-              .from('exam_attempts')
-              .select('status, total_score')
-              .eq('exam_id', exam.id)
-              .eq('student_id', user.id)
-              .maybeSingle()
-
-            return {
-              id: exam.id,
-              title: exam.title,
-              module: 'Módulo',
-              status: exam.status as ExamItem['status'],
-              attemptStatus: (attempt?.status || 'no_iniciado') as ExamItem['attemptStatus'],
-              score: attempt?.total_score,
-              maxScore: exam.max_points,
-              dueDate: exam.close_date,
-            }
-          })
-        )
-
-        setExams(examsWithAttempts)
-      } catch (error) {
-        console.error('Exception loading exams:', error)
-        setExams([])
-      } finally {
-        setLoading(false)
+      if (error || !datos) {
+        setExamenes([])
+        setCargando(false)
+        return
       }
+
+      const conIntento = await Promise.all(
+        datos.map(async (e: any) => {
+          const { data: intento } = await supabase
+            .from('exam_attempts')
+            .select('status, total_score')
+            .eq('exam_id', e.id)
+            .eq('student_id', user.id)
+            .maybeSingle()
+
+          return {
+            id: e.id,
+            titulo: e.title,
+            modulo: e.modules?.name ?? 'Módulo',
+            estadoExamen: e.status,
+            estadoIntento: (intento?.status ?? 'no_iniciado') as EstadoIntento,
+            puntaje: intento?.total_score ?? null,
+            puntajeMaximo: Number(e.max_score),
+            cierra: e.closes_at,
+          }
+        }),
+      )
+
+      setExamenes(conIntento)
+      setCargando(false)
     }
 
-    loadExams()
-  }, [])
+    cargar()
+  }, [router])
 
-  if (loading) {
+  if (cargando) {
     return (
-      <div className="h-dvh bg-zr-background flex items-center justify-center">
-        <div className="text-zr-text-muted">Cargando exámenes...</div>
+      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
+        <p className="text-sm text-zr-text-muted">Cargando exámenes…</p>
       </div>
     )
   }
 
-  const canTakeExam = (exam: ExamItem) => {
-    return exam.status === 'habilitado' && exam.attemptStatus !== 'entregado' && exam.attemptStatus !== 'calificado'
-  }
+  // Presentable solo si el examen sigue habilitado y no lo ha entregado.
+  const sePuedePresentar = (e: Examen) =>
+    e.estadoExamen === 'habilitado' &&
+    e.estadoIntento !== 'entregado' &&
+    e.estadoIntento !== 'calificado'
 
-  const getAttemptStatusBadge = (attemptStatus?: string) => {
-    switch (attemptStatus) {
-      case 'no_iniciado':
-        return { label: 'Sin iniciar', color: 'bg-zr-text-muted/10 border-zr-text-muted/30 text-zr-text-muted' }
-      case 'en_progreso':
-        return { label: 'En progreso', color: 'bg-zr-blue/10 border-zr-blue/30 text-zr-blue' }
-      case 'entregado':
-        return { label: 'Entregado', color: 'bg-zr-warning/10 border-zr-warning/30 text-zr-warning' }
-      case 'calificado':
-        return { label: 'Calificado', color: 'bg-zr-success/10 border-zr-success/30 text-zr-success' }
-      default:
-        return { label: 'Sin iniciar', color: 'bg-zr-text-muted/10 border-zr-text-muted/30 text-zr-text-muted' }
-    }
-  }
+  const pendientes = examenes.filter(sePuedePresentar)
+  const cerrados = examenes.filter((e) => !sePuedePresentar(e))
 
   return (
-    <div className="flex flex-col bg-zr-background min-h-dvh">
-      <div className="flex-1 overflow-y-auto px-5 pb-24">
-        <div className="space-y-8 pt-12">
-          {/* Header */}
-          <div className="space-y-1 animate-fade-in" style={{ animationDelay: '0ms' }}>
-            <h1 className="text-3xl font-bold text-zr-text tracking-tight">Mis Exámenes</h1>
-            <p className="text-sm text-zr-text-muted font-medium">{exams.length} evaluaciones</p>
-          </div>
+    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
+      <div className="space-y-11">
+        <header className="animate-rise">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
+            Evaluaciones
+          </p>
+          <h1 className="zr-display mt-3 text-4xl text-zr-text">Exámenes</h1>
+          <p className="mt-3 text-base text-zr-text-muted">
+            {pendientes.length === 0
+              ? 'No tienes exámenes por presentar.'
+              : `Tienes ${pendientes.length} por presentar.`}
+          </p>
+        </header>
 
-          {/* Divider */}
-          <div className="h-px bg-zr-border animate-fade-in" style={{ animationDelay: '100ms' }} />
+        <Regla delay={60} />
 
-          {/* Exams Section */}
-          <div className="space-y-4 animate-fade-in" style={{ animationDelay: '150ms' }}>
-            <div className="flex items-baseline gap-2">
-              <span className="text-xs text-zr-blue-mid font-bold tracking-widest">01 — EVALUACIONES</span>
-            </div>
-
-            {exams.length === 0 ? (
-              <div className="bg-zr-surface border border-zr-border rounded-lg p-8 text-center">
-                <p className="text-zr-text-muted text-sm">No hay exámenes disponibles en este momento.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {exams.map((exam, idx) => {
-                  const canTake = canTakeExam(exam)
-                  const badge = getAttemptStatusBadge(exam.attemptStatus)
-
-                  return (
-                    <button
-                      key={exam.id}
-                      onClick={() => {
-                        if (canTake) {
-                          router.push(`/examenes/${exam.id}`)
-                        }
-                      }}
-                      className={`w-full group text-left transition-all duration-300 animate-fade-in ${
-                        canTake ? 'cursor-pointer' : 'cursor-not-allowed'
-                      }`}
-                      style={{ animationDelay: `${200 + idx * 100}ms` }}
-                      disabled={!canTake}
-                    >
-                      <div
-                        className={`bg-zr-surface border border-zr-border rounded-lg p-5 transition-all ${
-                          canTake
-                            ? 'hover:border-zr-blue/50 group-hover:shadow-md group-hover:translate-y-[-2px]'
-                            : 'opacity-60'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start gap-3">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-base font-semibold text-zr-text group-hover:text-zr-blue transition-colors">
-                              {exam.title}
-                            </h3>
-                            <p className="text-xs text-zr-text-muted mt-2">{exam.module}</p>
-                            {exam.score !== undefined && exam.attemptStatus === 'calificado' && (
-                              <p className="text-sm text-zr-blue font-semibold mt-2">
-                                Puntuación: {exam.score}/{exam.maxScore}
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="flex-shrink-0">
-                            <div className={`inline-flex items-center px-3 py-1 rounded-full border font-semibold text-xs ${badge.color}`}>
-                              {badge.label}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Info Card */}
-          <div className="bg-zr-blue/10 border border-zr-blue/30 rounded-lg p-5 space-y-2 animate-fade-in" style={{ animationDelay: '250ms' }}>
-            <p className="text-sm font-semibold text-zr-text">📝 Recuerda</p>
-            <p className="text-sm text-zr-text-muted">
-              Consulta el material de apoyo antes de cada examen. Las preguntas abiertas serán calificadas por tu profesor.
+        {examenes.length === 0 && (
+          <div className="zr-card animate-rise p-8" style={{ animationDelay: '120ms' }}>
+            <p className="text-base font-semibold text-zr-text">Todavía no hay exámenes</p>
+            <p className="mt-2 text-sm text-zr-text-muted">
+              Tu profesor publica los exámenes cuando la cohorte llega a esa parte del módulo.
+              Aparecerán aquí en cuanto lo haga.
             </p>
           </div>
-        </div>
+        )}
+
+        {pendientes.length > 0 && (
+          <Seccion numero={1} titulo="Por presentar" delay={120}>
+            <div className="space-y-3">
+              {pendientes.map((e, i) => (
+                <button
+                  key={e.id}
+                  onClick={() => router.push(`/examenes/${e.id}`)}
+                  className="zr-card zr-card-interactive w-full animate-rise p-5 text-left"
+                  style={{ animationDelay: `${160 + i * 60}ms` }}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-base font-semibold text-zr-text">{e.titulo}</p>
+                      <p className="mt-1.5 text-sm text-zr-text-muted">
+                        {e.modulo} · {e.puntajeMaximo} puntos
+                      </p>
+                    </div>
+                    <Etiqueta tono={ESTADO[e.estadoIntento].tono}>
+                      {ESTADO[e.estadoIntento].texto}
+                    </Etiqueta>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </Seccion>
+        )}
+
+        {cerrados.length > 0 && (
+          <Seccion
+            numero={pendientes.length > 0 ? 2 : 1}
+            titulo="Ya presentados"
+            delay={pendientes.length > 0 ? 240 : 120}
+          >
+            <div className="space-y-3">
+              {cerrados.map((e) => (
+                <div key={e.id} className="zr-card p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-base font-semibold text-zr-text">{e.titulo}</p>
+                      <p className="mt-1.5 text-sm text-zr-text-muted">{e.modulo}</p>
+                      {e.estadoIntento === 'calificado' && e.puntaje !== null && (
+                        <p className="mt-3">
+                          <span className="zr-metric text-2xl text-zr-blue">{e.puntaje}</span>
+                          <span className="ml-1 text-sm text-zr-text-muted">
+                            / {e.puntajeMaximo} puntos
+                          </span>
+                        </p>
+                      )}
+                      {e.estadoIntento === 'entregado' && (
+                        <p className="mt-2 text-xs text-zr-text-muted">
+                          Tu profesor todavía tiene que calificar las redacciones.
+                        </p>
+                      )}
+                    </div>
+                    <Etiqueta tono={ESTADO[e.estadoIntento].tono}>
+                      {ESTADO[e.estadoIntento].texto}
+                    </Etiqueta>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Seccion>
+        )}
       </div>
     </div>
   )

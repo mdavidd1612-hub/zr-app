@@ -1,150 +1,212 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Tarjeta } from '@/components/ui/Tarjeta'
-import { Boton } from '@/components/ui/Boton'
-import { EstadoVacio } from '@/components/ui/EstadoVacio'
-import { Cargando } from '@/components/ui/Cargando'
+import { Encabezado, Seccion, Regla, Dato, Etiqueta } from '@/components/ui/Editorial'
 
-interface SesionHoy {
+interface Sesion {
   id: string
-  cohortName: string
-  weekNumber: number
-  moduleName: string
-  studentCount: number
-  status: string
+  fecha: string
+  cohorte: string
+  modulo: string
+  semana: number
+  estado: string
+  esHoy: boolean
+}
+
+interface Resumen {
+  presentes: number
+  inscritos: number
+  refrigerios: number
+  porCalificar: number
 }
 
 export default function Hoy() {
+  const router = useRouter()
   const [cargando, setCargando] = useState(true)
-  const [sesion, setSesion] = useState<SesionHoy | null>(null)
-  const supabase = createClient()
+  const [sesion, setSesion] = useState<Sesion | null>(null)
+  const [resumen, setResumen] = useState<Resumen>({ presentes: 0, inscritos: 0, refrigerios: 0, porCalificar: 0 })
+  const [nombre, setNombre] = useState('')
 
   useEffect(() => {
+    const supabase = createClient()
+
     async function cargar() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
 
-        const hoy = new Date().toISOString().split('T')[0]
+      const { data: perfil } = await supabase
+        .from('profiles').select('full_name').eq('id', user.id).single()
+      if (perfil) setNombre(perfil.full_name)
 
-        const { data } = await supabase
-          .from('class_sessions')
-          .select(`
-            id, week_number, status,
-            cohorts(name),
-            modules(name)
-          `)
-          .eq('teacher_id', user.id)
-          .eq('session_date', hoy)
-          .order('session_date', { ascending: false })
-          .limit(1)
-          .single()
+      const hoy = new Date().toISOString().split('T')[0]
 
-        if (data) {
-          setSesion({
-            id: data.id,
-            cohortName: (data.cohorts as any)?.name || 'Cohorte',
-            weekNumber: data.week_number,
-            moduleName: (data.modules as any)?.name || 'Módulo',
-            studentCount: 0,
-            status: data.status,
-          })
-        }
+      // La sesión de hoy si existe; si no, la próxima. El profesor abre esta
+      // pantalla el sábado a las 7:50 am y también el miércoles para preparar.
+      const { data: sesiones } = await supabase
+        .from('class_sessions')
+        .select('id, session_date, week_number, status, cohort_id, cohorts(name), modules(name)')
+        .eq('teacher_id', user.id)
+        .gte('session_date', hoy)
+        .order('session_date', { ascending: true })
+        .limit(1)
 
-        setCargando(false)
-      } catch (error) {
-        console.error('Error cargando sesión:', error)
-        setCargando(false)
+      const s = sesiones?.[0] as any
+      if (s) {
+        setSesion({
+          id: s.id,
+          fecha: s.session_date,
+          cohorte: s.cohorts?.name ?? 'Cohorte',
+          modulo: s.modules?.name ?? 'Módulo',
+          semana: s.week_number,
+          estado: s.status,
+          esHoy: s.session_date === hoy,
+        })
+
+        const [{ count: presentes }, { count: inscritos }, { count: refrigerios }] = await Promise.all([
+          supabase.from('attendance_events').select('id', { count: 'exact', head: true }).eq('session_id', s.id),
+          supabase.from('students').select('id', { count: 'exact', head: true }).eq('cohort_id', s.cohort_id),
+          supabase.from('attendance_events').select('id', { count: 'exact', head: true })
+            .eq('session_id', s.id).not('snack_claimed_at', 'is', null),
+        ])
+
+        setResumen((r) => ({
+          ...r,
+          presentes: presentes ?? 0,
+          inscritos: inscritos ?? 0,
+          refrigerios: refrigerios ?? 0,
+        }))
       }
+
+      // Redacciones esperando calificación. Es el número que decide si el
+      // profesor tiene trabajo pendiente o puede cerrar el portátil.
+      const { count: porCalificar } = await supabase
+        .from('exam_answers')
+        .select('id', { count: 'exact', head: true })
+        .is('awarded_points', null)
+
+      setResumen((r) => ({ ...r, porCalificar: porCalificar ?? 0 }))
+      setCargando(false)
     }
 
     cargar()
   }, [])
 
-  if (cargando) return <Cargando texto="Preparando la clase..." />
+  if (cargando) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center">
+        <p className="text-sm text-zr-text-muted">Preparando la clase…</p>
+      </div>
+    )
+  }
+
+  const fechaLarga = sesion
+    ? new Date(sesion.fecha + 'T12:00:00').toLocaleDateString('es-VE', {
+        weekday: 'long', day: 'numeric', month: 'long',
+      })
+    : ''
 
   return (
-    <div className="space-y-6 pb-24">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-bold text-zr-navy">👋 Bienvenido</h1>
-        <p className="text-sm text-zr-text-muted">Gestión de asistencia y operación del sábado</p>
-      </header>
+    <div className="mx-auto max-w-4xl space-y-12 px-6 py-12 lg:px-10 lg:py-16">
+      <Encabezado
+        sobretitulo="Panel del profesor"
+        titulo={nombre || 'Hoy'}
+        descripcion="Todo lo que necesitas para el sábado, en una pantalla."
+      />
 
-      {!sesion ? (
-        <EstadoVacio
-          titulo="Sin clase hoy"
-          explicacion="No tienes una sesión programada para hoy. Ve a Sesiones para gestionar tu horario."
-          icono="📭"
-        />
-      ) : (
-        <div className="space-y-4">
-          {/* Tarjeta principal: sesión de hoy */}
-          <div className="glass rounded-3xl overflow-hidden backdrop-blur-xl border border-white/20 shadow-2xl">
-            <div className="bg-gradient-to-br from-zr-blue via-zr-blue-deep to-zr-navy p-8 text-center">
-              <p className="text-white/70 text-sm mb-2">SESIÓN DE HOY</p>
-              <h2 className="text-2xl font-bold text-white mb-1">{sesion.cohortName}</h2>
-              <p className="text-white/80">Semana {sesion.weekNumber} · {sesion.moduleName}</p>
-            </div>
+      <Regla delay={80} />
 
-            <div className="p-6 space-y-6">
-              {/* Estado */}
-              <div className="text-center">
-                <span className={`text-sm font-bold px-4 py-2 rounded-full inline-block ${
-                  sesion.status === 'abierta'
-                    ? 'bg-zr-success/20 text-zr-success'
-                    : sesion.status === 'programada'
-                    ? 'bg-zr-warning/20 text-zr-warning'
-                    : 'bg-zr-border text-zr-text-muted'
-                }`}>
-                  Estado: {sesion.status}
+      {/* 01 — LA CLASE */}
+      <Seccion numero={1} titulo={sesion?.esHoy ? 'Clase de hoy' : 'Próxima clase'} delay={140}>
+        {!sesion ? (
+          <div className="zr-card p-10 text-center">
+            <p className="text-lg font-semibold text-zr-text">No tienes clases programadas</p>
+            <p className="mx-auto mt-2 max-w-sm text-sm text-zr-text-muted">
+              Cuando administración programe la próxima sesión de tu cohorte, aparecerá aquí con
+              el botón para pasar asistencia.
+            </p>
+          </div>
+        ) : (
+          <div className="zr-card overflow-hidden">
+            <div className="border-b border-zr-border bg-gradient-to-br from-zr-blue-deep to-zr-blue px-7 py-8">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">
+                    {fechaLarga}
+                  </p>
+                  <h2 className="zr-display mt-2 text-2xl text-white">{sesion.cohorte}</h2>
+                  <p className="mt-1 text-sm text-white/75">
+                    Semana {sesion.semana} · {sesion.modulo}
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full border border-white/25 bg-white/15 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white">
+                  {sesion.estado}
                 </span>
               </div>
+            </div>
 
-              {/* Botón principal: Abrir clase y escanear */}
-              <div className="min-h-32">
-                <Link href={`/escanear/${sesion.id}`}>
-                  <Boton variante="principal" tamano="grande" anchoCompleto>
-                    🔍 Abrir clase y pasar asistencia
-                  </Boton>
-                </Link>
-              </div>
+            <div className="space-y-3 p-7">
+              <button
+                onClick={() => router.push(`/escanear/${sesion.id}`)}
+                className="w-full rounded-lg bg-zr-blue px-6 py-4 text-base font-bold text-white transition-all hover:bg-zr-blue-deep hover:shadow-lg hover:shadow-zr-blue/25"
+              >
+                Abrir clase y pasar asistencia
+              </button>
 
-              {/* Acciones secundarias */}
               <div className="grid grid-cols-2 gap-3">
-                <Link href="/sesiones">
-                  <Boton variante="secundario" anchoCompleto>
-                    📋 Mis sesiones
-                  </Boton>
-                </Link>
-                <Boton variante="texto">
-                  ⚙️ Configuración
-                </Boton>
+                <button
+                  onClick={() => router.push('/sesiones')}
+                  className="rounded-lg border border-zr-border px-4 py-3.5 text-sm font-semibold text-zr-text transition-colors hover:border-zr-blue/45"
+                >
+                  Mis sesiones
+                </button>
+                <button
+                  onClick={() => router.push('/crear-examen')}
+                  className="rounded-lg border border-zr-border px-4 py-3.5 text-sm font-semibold text-zr-text transition-colors hover:border-zr-blue/45"
+                >
+                  Exámenes
+                </button>
               </div>
             </div>
           </div>
+        )}
+      </Seccion>
 
-          {/* Quick stats */}
-          <Tarjeta>
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div>
-                <p className="text-2xl font-bold text-zr-blue">0</p>
-                <p className="text-xs text-zr-text-muted">Presentes</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-zr-warning">0</p>
-                <p className="text-xs text-zr-text-muted">Pendientes</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-zr-success">0</p>
-                <p className="text-xs text-zr-text-muted">Refrigerios</p>
-              </div>
-            </div>
-          </Tarjeta>
-        </div>
+      {/* 02 — ASISTENCIA */}
+      {sesion && (
+        <Seccion numero={2} titulo="Asistencia" delay={220}>
+          <div className="grid grid-cols-3 gap-3">
+            <Dato valor={resumen.presentes} etiqueta="Presentes" tono="exito" />
+            <Dato valor={Math.max(resumen.inscritos - resumen.presentes, 0)} etiqueta="Faltan" tono="medio" />
+            <Dato valor={resumen.refrigerios} etiqueta="Refrigerios" tono="azul" />
+          </div>
+          <p className="text-sm text-zr-text-muted">
+            {resumen.inscritos} estudiantes inscritos en esta cohorte. La asistencia no reprueba a
+            nadie: es para saber quién necesita ponerse al día.
+          </p>
+        </Seccion>
       )}
+
+      {/* 03 — PENDIENTE */}
+      <Seccion numero={sesion ? 3 : 2} titulo="Pendiente" delay={300}>
+        <button
+          onClick={() => router.push('/calificar')}
+          className="zr-card zr-card-interactive flex w-full items-center justify-between gap-4 p-6 text-left"
+        >
+          <div className="min-w-0">
+            <p className="text-base font-semibold text-zr-text">Redacciones por calificar</p>
+            <p className="mt-1 text-sm text-zr-text-muted">
+              {resumen.porCalificar === 0
+                ? 'Nada esperando. Las objetivas se calificaron solas.'
+                : 'Las objetivas ya se calificaron solas. Estas necesitan tu criterio.'}
+            </p>
+          </div>
+          <Etiqueta tono={resumen.porCalificar > 0 ? 'aviso' : 'exito'}>
+            {resumen.porCalificar > 0 ? `${resumen.porCalificar} pendientes` : 'Al día'}
+          </Etiqueta>
+        </button>
+      </Seccion>
     </div>
   )
 }

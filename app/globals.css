@@ -95,16 +95,26 @@ body {
   overscroll-behavior-y: none;
 }
 
-/* Animations */
+/* ===========================================================================
+   MOVIMIENTO
+   Una sola curva para todo. Si cada componente inventa la suya, la app se
+   siente hecha por cinco personas distintas.
+   =========================================================================== */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* La línea que separa secciones se dibuja sola, de izquierda a derecha.
+   Es el único adorno de la página de «Nosotros» y vale la pena copiarlo. */
+@keyframes drawLine {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
 }
 
 .animate-fade-in {
@@ -112,10 +122,83 @@ body {
   opacity: 0;
 }
 
+.animate-rise {
+  animation: riseIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
 h1, h2, h3, .titulo {
   font-family: var(--font-titulo);
   font-weight: 700;
   color: var(--zr-text);
+}
+
+/* ===========================================================================
+   SISTEMA EDITORIAL · tomado de zrmecademy.com/zr-mecademy-nosotros
+   Ahí cada sección se anuncia con «01 — FILOSOFÍA» y una regla horizontal.
+   Es lo que hace que la web se lea como un documento y no como un panel.
+   =========================================================================== */
+
+/* Rótulo de sección: 01 — PROGRESO */
+.zr-eyebrow {
+  font-family: var(--font-texto);
+  font-size: 0.6875rem;          /* 11px: es una etiqueta, no texto de lectura */
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--zr-blue-mid);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* La regla que sale del rótulo y llega al borde. */
+.zr-eyebrow::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, var(--zr-border), transparent);
+  transform-origin: left;
+  animation: drawLine 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Titular editorial. Apretado, como en la web. */
+.zr-display {
+  font-family: var(--font-titulo);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+/* Regla horizontal entre bloques. */
+.zr-rule {
+  height: 1px;
+  background: var(--zr-border);
+  border: 0;
+}
+
+/* Superficie base de tarjeta. Un solo lugar donde se decide cómo se ve
+   una tarjeta, para que no haya doce variantes de gris. */
+.zr-card {
+  background: var(--zr-surface);
+  border: 1px solid var(--zr-border);
+  border-radius: var(--zr-radius);
+  transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.zr-card-interactive:hover {
+  border-color: color-mix(in srgb, var(--zr-blue) 45%, transparent);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.55);
+}
+
+/* Cifra grande de dato duro (competencias, puntos, notas). */
+.zr-metric {
+  font-family: var(--font-titulo);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
 }
 
 /* Raleway para lo que se lee de un vistazo; Roboto para lo que se lee de cerca.

@@ -1,224 +1,267 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { Encabezado, Regla } from '@/components/ui/Editorial'
 
-interface PendingAnswer {
-  id: string
-  studentName: string
-  examTitle: string
-  questionText: string
-  studentAnswer: string
-  rubric?: string
-  maxPoints: number
+/**
+ * T-308 · Cola de calificación de redacciones abiertas.
+ *
+ * La rúbrica va SIEMPRE a la vista, junto a la respuesta. Es lo único que hace
+ * que dos profesores distintos pongan notas parecidas a la misma respuesta.
+ * La más antigua primero: si se calificara la más reciente, la primera entrega
+ * del sábado sería la última en salir.
+ */
+
+interface Pendiente {
   answerId: string
+  estudiante: string
+  examen: string
+  enunciado: string
+  rubrica: string | null
+  respuesta: string
+  puntosMaximos: number
+  entregadoHace: string
 }
 
-export default function ProfessorGrading() {
+function hace(iso: string): string {
+  const horas = Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000)
+  if (horas < 1) return 'hace minutos'
+  if (horas < 24) return `hace ${horas} h`
+  const dias = Math.floor(horas / 24)
+  return `hace ${dias} día${dias > 1 ? 's' : ''}`
+}
+
+export default function Calificar() {
   const router = useRouter()
-  const supabase = createClient()
-  const [pendingAnswers, setPendingAnswers] = useState<PendingAnswer[]>([])
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [points, setPoints] = useState(0)
-  const [feedback, setFeedback] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [cola, setCola] = useState<Pendiente[]>([])
+  const [indice, setIndice] = useState(0)
+  const [puntos, setPuntos] = useState<string>('')
+  const [comentario, setComentario] = useState('')
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
-    async function loadPendingAnswers() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+    const supabase = createClient()
 
-      // Load pending answers (redaccion_abierta type with awarded_points = null)
-      // This is simplified - normally would join with exam_questions and exams
-      const { data: answers } = await supabase
+    async function cargar() {
+      // Solo redacciones abiertas sin puntaje. Las objetivas ya las calificó
+      // la Edge Function submit-attempt al entregar.
+      const { data } = await supabase
         .from('exam_answers')
         .select(`
-          id,
-          answer,
-          exam_attempts(
-            id,
-            exams(title, max_points),
+          id, answer, created_at,
+          exam_questions!inner(statement, rubric, points, type),
+          exam_attempts!inner(
+            submitted_at,
+            exams(title),
             profiles(full_name)
-          ),
-          exam_questions(points, enunciado, rubric)
+          )
         `)
         .is('awarded_points', null)
-        .eq('exam_questions.question_type', 'redaccion_abierta')
+        .eq('exam_questions.type', 'redaccion_abierta')
         .order('created_at', { ascending: true })
 
-      if (answers) {
-        // Mock data for now
-        setPendingAnswers([
-          {
-            id: '1',
-            studentName: 'Juan Carlos Pérez',
-            examTitle: 'Electricidad Automotriz Básica',
-            questionText: '¿Cuál es el rol del alternador en un vehículo?',
-            studentAnswer:
-              'El alternador es un dispositivo que convierte la energía mecánica del motor en energía eléctrica...',
-            rubric: 'Debe mencionar la conversión de energía, el mantenimiento de carga y el funcionamiento básico',
-            maxPoints: 5,
-            answerId: '1',
-          },
-          {
-            id: '2',
-            studentName: 'María García López',
-            examTitle: 'Electricidad Automotriz Básica',
-            questionText: '¿Cuál es el rol del alternador en un vehículo?',
-            studentAnswer: 'Es lo que produce electricidad para el carro',
-            rubric: 'Debe mencionar la conversión de energía, el mantenimiento de carga y el funcionamiento básico',
-            maxPoints: 5,
-            answerId: '2',
-          },
-        ])
+      if (data) {
+        setCola(
+          data.map((a: any) => ({
+            answerId: a.id,
+            estudiante: a.exam_attempts?.profiles?.full_name ?? 'Estudiante',
+            examen: a.exam_attempts?.exams?.title ?? 'Examen',
+            enunciado: a.exam_questions?.statement ?? '',
+            rubrica: a.exam_questions?.rubric ?? null,
+            respuesta: a.answer?.text ?? '(sin respuesta)',
+            puntosMaximos: Number(a.exam_questions?.points ?? 0),
+            entregadoHace: hace(a.exam_attempts?.submitted_at ?? a.created_at),
+          })),
+        )
       }
 
-      setLoading(false)
+      setCargando(false)
     }
 
-    loadPendingAnswers()
+    cargar()
   }, [])
 
-  const currentAnswer = pendingAnswers[currentIndex]
+  const actual = cola[indice]
 
-  async function handleGradeAnswer() {
-    if (!currentAnswer) return
+  async function guardar() {
+    if (!actual) return
 
-    setSaving(true)
-
-    const response = await fetch('/api/exam/grade-answer', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        answerId: currentAnswer.answerId,
-        awardedPoints: points,
-        feedback,
-      }),
-    })
-
-    if (response.ok) {
-      if (currentIndex < pendingAnswers.length - 1) {
-        setCurrentIndex(currentIndex + 1)
-        setPoints(0)
-        setFeedback('')
-      } else {
-        // All done - redirect to exam list
-        router.push('/crear-examen')
-      }
+    const valor = Number(puntos)
+    if (puntos === '' || Number.isNaN(valor) || valor < 0 || valor > actual.puntosMaximos) {
+      setError(`El puntaje tiene que estar entre 0 y ${actual.puntosMaximos}.`)
+      return
     }
 
-    setSaving(false)
+    setError(null)
+    setGuardando(true)
+
+    // La validación real vive en la Edge Function: el navegador no decide notas.
+    const { error: fallo } = await createClient().functions.invoke('grade-answer', {
+      body: { answerId: actual.answerId, awardedPoints: valor, feedback: comentario || null },
+    })
+
+    if (fallo) {
+      setError('No se pudo guardar. Revisa tu conexión e inténtalo otra vez.')
+      setGuardando(false)
+      return
+    }
+
+    setPuntos('')
+    setComentario('')
+    setIndice((i) => i + 1)
+    setGuardando(false)
   }
 
-  if (loading) {
+  if (cargando) {
     return (
-      <div className="h-dvh bg-zr-background flex items-center justify-center">
-        <div className="text-zr-text-muted">Cargando preguntas...</div>
+      <div className="flex min-h-dvh items-center justify-center">
+        <p className="text-sm text-zr-text-muted">Cargando la cola…</p>
       </div>
     )
   }
 
-  if (pendingAnswers.length === 0) {
+  if (!actual) {
     return (
-      <div className="h-dvh bg-zr-background flex items-center justify-center px-5">
-        <div className="text-center space-y-4">
-          <p className="text-2xl font-bold text-zr-text">✓ ¡Todo calificado!</p>
-          <p className="text-zr-text-muted">No hay respuestas pendientes de calificar</p>
+      <div className="mx-auto max-w-2xl px-6 py-16 lg:px-10">
+        <Encabezado sobretitulo="Calificación" titulo="Todo al día" />
+        <Regla delay={60} />
+        <div className="zr-card mt-10 animate-rise p-10 text-center" style={{ animationDelay: '120ms' }}>
+          <p className="text-lg font-semibold text-zr-text">
+            {cola.length === 0
+              ? 'No hay redacciones esperando'
+              : `Calificaste ${cola.length} respuesta${cola.length > 1 ? 's' : ''}`}
+          </p>
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-zr-text-muted">
+            Las preguntas de opción múltiple y verdadero/falso se califican solas al momento de
+            entregar. Aquí solo llega lo que necesita tu criterio.
+          </p>
+          <button
+            onClick={() => router.push('/hoy')}
+            className="mt-8 rounded-lg bg-zr-blue px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-zr-blue-deep"
+          >
+            Volver al panel
+          </button>
         </div>
       </div>
     )
   }
+
+  const avance = Math.round((indice / cola.length) * 100)
 
   return (
-    <div className="flex flex-col bg-zr-background min-h-dvh">
-      {/* Progress */}
-      <div className="bg-zr-surface border-b border-zr-border px-5 py-4">
-        <div className="flex justify-between items-center mb-3">
-          <p className="text-sm text-zr-text-muted font-semibold">
-            Respuesta {currentIndex + 1} de {pendingAnswers.length}
-          </p>
-          <p className="text-sm text-zr-blue font-semibold">
-            {Math.round(((currentIndex + 1) / pendingAnswers.length) * 100)}%
-          </p>
-        </div>
-        <div className="w-full bg-zr-border rounded-full h-2">
-          <div
-            className="bg-zr-blue h-2 rounded-full transition-all"
-            style={{ width: `${((currentIndex + 1) / pendingAnswers.length) * 100}%` }}
-          />
-        </div>
+    <div className="mx-auto max-w-3xl px-6 py-12 lg:px-10 lg:py-16">
+      <Encabezado
+        sobretitulo="Calificación"
+        titulo="Redacciones"
+        descripcion={`Respuesta ${indice + 1} de ${cola.length} · ${actual.entregadoHace}`}
+      />
+
+      <div className="mt-8 h-1 w-full overflow-hidden rounded-full bg-zr-border">
+        <div
+          className="h-full rounded-full bg-zr-blue transition-all duration-500"
+          style={{ width: `${avance}%` }}
+        />
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-5 py-8">
-        <div className="space-y-8">
-          {/* Exam & Student Info */}
-          <div className="bg-zr-surface border border-zr-border rounded-lg p-5">
-            <p className="text-xs text-zr-blue-mid font-bold uppercase tracking-widest mb-2">Estudiante</p>
-            <p className="text-lg font-bold text-zr-text">{currentAnswer.studentName}</p>
-            <p className="text-sm text-zr-text-muted mt-3">{currentAnswer.examTitle}</p>
+      <div className="mt-10 space-y-6">
+        {/* Quién y de qué examen */}
+        <div className="zr-card animate-rise p-6" style={{ animationDelay: '80ms' }}>
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
+            Estudiante
+          </p>
+          <p className="zr-display mt-2 text-2xl text-zr-text">{actual.estudiante}</p>
+          <p className="mt-2 text-sm text-zr-text-muted">{actual.examen}</p>
+        </div>
+
+        {/* Pregunta */}
+        <div className="animate-rise" style={{ animationDelay: '140ms' }}>
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-text-muted">
+            Pregunta · {actual.puntosMaximos} puntos
+          </p>
+          <p className="mt-3 text-lg font-semibold leading-relaxed text-zr-text">
+            {actual.enunciado}
+          </p>
+        </div>
+
+        {/* Rúbrica */}
+        {actual.rubrica && (
+          <div
+            className="animate-rise rounded-lg border border-zr-blue/25 bg-zr-blue/10 p-5"
+            style={{ animationDelay: '180ms' }}
+          >
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
+              Rúbrica
+            </p>
+            <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-zr-text">
+              {actual.rubrica}
+            </p>
+          </div>
+        )}
+
+        {/* Respuesta */}
+        <div className="zr-card animate-rise p-6" style={{ animationDelay: '220ms' }}>
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-text-muted">
+            Respuesta del estudiante
+          </p>
+          <p className="mt-3 whitespace-pre-line text-base leading-relaxed text-zr-text">
+            {actual.respuesta}
+          </p>
+        </div>
+
+        {/* Calificación */}
+        <div className="zr-card animate-rise space-y-5 p-6" style={{ animationDelay: '260ms' }}>
+          <div>
+            <label htmlFor="puntos" className="mb-2 block text-sm font-semibold text-zr-text">
+              Puntaje (0 – {actual.puntosMaximos})
+            </label>
+            <input
+              id="puntos"
+              type="number"
+              inputMode="decimal"
+              min={0}
+              max={actual.puntosMaximos}
+              step={0.5}
+              value={puntos}
+              onChange={(e) => setPuntos(e.target.value)}
+              className="w-full rounded-lg border border-zr-border bg-zr-bg px-5 py-4 text-2xl font-bold tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+            />
           </div>
 
-          {/* Question */}
-          <div className="space-y-3">
-            <h2 className="text-lg font-bold text-zr-text">{currentAnswer.questionText}</h2>
-            <p className="text-sm text-zr-blue font-semibold">{currentAnswer.maxPoints} puntos</p>
+          <div>
+            <label htmlFor="comentario" className="mb-2 block text-sm font-semibold text-zr-text">
+              Comentario para el estudiante
+            </label>
+            <textarea
+              id="comentario"
+              value={comentario}
+              onChange={(e) => setComentario(e.target.value)}
+              placeholder="Qué estuvo bien y qué le faltó…"
+              className="min-h-28 w-full resize-none rounded-lg border border-zr-border bg-zr-bg px-4 py-3 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
+            />
           </div>
 
-          {/* Rubric */}
-          {currentAnswer.rubric && (
-            <div className="bg-zr-blue/10 border border-zr-blue/30 rounded-lg p-4">
-              <p className="text-xs text-zr-blue-mid font-bold uppercase tracking-widest mb-2">Rúbrica</p>
-              <p className="text-sm text-zr-text">{currentAnswer.rubric}</p>
-            </div>
+          {error && (
+            <p className="rounded-lg border border-zr-error/30 bg-zr-error/12 px-4 py-3 text-sm font-medium text-zr-error">
+              {error}
+            </p>
           )}
 
-          {/* Student Answer */}
-          <div className="bg-zr-surface border border-zr-border rounded-lg p-5">
-            <p className="text-xs text-zr-text-muted font-bold uppercase tracking-widest mb-3">Respuesta del estudiante</p>
-            <p className="text-zr-text leading-relaxed">{currentAnswer.studentAnswer}</p>
-          </div>
-
-          {/* Grading Form */}
-          <div className="space-y-4 bg-zr-surface border border-zr-border rounded-lg p-5">
-            <div>
-              <label className="block text-sm font-semibold text-zr-text mb-2">
-                Puntuación (0 - {currentAnswer.maxPoints})
-              </label>
-              <input
-                type="number"
-                value={points}
-                onChange={(e) => setPoints(Math.min(currentAnswer.maxPoints, Math.max(0, parseInt(e.target.value) || 0)))}
-                min="0"
-                max={currentAnswer.maxPoints}
-                className="w-full px-4 py-3 bg-zr-background border border-zr-border rounded-lg text-zr-text focus:border-zr-blue focus:outline-none text-lg font-semibold"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-zr-text mb-2">Comentario (opcional)</label>
-              <textarea
-                value={feedback}
-                onChange={(e) => setFeedback(e.target.value)}
-                placeholder="Escribe retroalimentación para el estudiante..."
-                className="w-full min-h-24 px-4 py-3 bg-zr-background border border-zr-border rounded-lg text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none resize-none"
-              />
-            </div>
-          </div>
+          <button
+            onClick={guardar}
+            disabled={guardando}
+            className="w-full rounded-lg bg-zr-success px-6 py-4 text-base font-bold text-white transition-all hover:bg-zr-success/90 disabled:opacity-50"
+          >
+            {guardando
+              ? 'Guardando…'
+              : indice < cola.length - 1
+                ? 'Guardar y siguiente'
+                : 'Guardar y terminar'}
+          </button>
         </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="bg-zr-surface border-t border-zr-border px-5 py-4">
-        <button
-          onClick={handleGradeAnswer}
-          disabled={saving}
-          className="w-full px-4 py-3 bg-zr-success text-white rounded-lg font-semibold disabled:opacity-50 hover:bg-zr-success/90 transition-all"
-        >
-          {saving ? 'Guardando...' : currentIndex < pendingAnswers.length - 1 ? 'Guardar y Siguiente' : 'Finalizar Calificación'}
-        </button>
       </div>
     </div>
   )

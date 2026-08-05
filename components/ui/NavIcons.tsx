@@ -25,6 +25,18 @@ export function IconExam() {
   )
 }
 
+/** Mapa de dominio: tres marcas, una cumplida. */
+export function IconProgress() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 6h11M9 12h11M9 18h11" />
+      <path d="m3 6 1.5 1.5L7 5" />
+      <circle cx="4.5" cy="12" r="1.5" />
+      <circle cx="4.5" cy="18" r="1.5" />
+    </svg>
+  )
+}
+
 export function IconProfile() {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

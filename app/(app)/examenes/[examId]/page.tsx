@@ -32,6 +32,8 @@ export default function ExamenPage() {
   const [loading, setLoading] = useState(true)
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [confirmando, setConfirmando] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   useEffect(() => {
     async function initExam() {
@@ -55,21 +57,23 @@ export default function ExamenPage() {
 
       setExam(examData)
 
-      // Load questions using v_exam_questions_student (NEVER the base table)
+      // Las preguntas SIEMPRE salen de v_exam_questions_student. Esa vista no
+      // tiene correct_answer ni rubric: si se consultara exam_questions, la
+      // respuesta correcta viajaría al navegador y se vería en la pestaña Red.
       const { data: questionsData } = await supabase
         .from('v_exam_questions_student')
         .select('*')
         .eq('exam_id', examId)
-        .order('order', { ascending: true })
+        .order('order_index', { ascending: true })
 
       if (questionsData) {
         const parsedQuestions = questionsData.map((q: any) => ({
           id: q.id,
-          type: q.question_type,
-          enunciado: q.enunciado,
-          points: q.points,
-          rubric: q.rubric,
-          options: q.options ? JSON.parse(q.options) : undefined,
+          type: q.type,
+          enunciado: q.statement,
+          points: Number(q.points),
+          // options es jsonb: llega ya como objeto, no como texto.
+          options: q.options ?? undefined,
         }))
         setQuestions(parsedQuestions)
       }
@@ -80,7 +84,7 @@ export default function ExamenPage() {
         .select('id, status')
         .eq('exam_id', examId)
         .eq('student_id', user.id)
-        .single()
+        .maybeSingle()
 
       if (!attempt) {
         const { data: newAttempt } = await supabase
@@ -168,7 +172,7 @@ export default function ExamenPage() {
       .select('id')
       .eq('attempt_id', attemptId)
       .eq('question_id', questionId)
-      .single()
+      .maybeSingle()
 
     if (existing) {
       void supabase
@@ -185,19 +189,23 @@ export default function ExamenPage() {
   }
 
   async function handleSubmit() {
+    if (!attemptId || submitting) return
     setSubmitting(true)
 
-    const response = await fetch('/api/exam/submit-attempt', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ attemptId }),
+    // La calificación NUNCA se calcula aquí. La Edge Function es la única que
+    // ve correct_answer, y el disparador trg_close_attempt es el que cierra el
+    // intento cuando ya no quedan respuestas sin puntaje.
+    const { error } = await supabase.functions.invoke('submit-attempt', {
+      body: { attemptId },
     })
 
-    if (response.ok) {
-      router.push('/examenes')
-    } else {
+    if (error) {
+      setSubmitError('No se pudo entregar. Revisa tu conexión e inténtalo otra vez.')
       setSubmitting(false)
+      return
     }
+
+    router.push('/examenes')
   }
 
   if (loading || !currentQuestion) {
@@ -210,6 +218,9 @@ export default function ExamenPage() {
 
   const isLastQuestion = currentQuestionIndex === questions.length - 1
   const progress = Math.round(((currentQuestionIndex + 1) / questions.length) * 100)
+  const sinResponder = questions.filter(
+    (q) => !answers.some((a) => a.questionId === q.id),
+  ).length
 
   return (
     <div className="flex flex-col bg-zr-background min-h-dvh">
@@ -305,14 +316,11 @@ export default function ExamenPage() {
             </div>
           )}
 
+          {/* Sin bloque de rúbrica: la vista v_exam_questions_student no la
+              expone a propósito. La rúbrica es la guía de corrección del
+              profesor; enseñársela al estudiante es darle el patrón de respuesta. */}
           {currentQuestion.type === 'redaccion_abierta' && (
             <div className="space-y-2">
-              {currentQuestion.rubric && (
-                <div className="bg-zr-blue/10 border border-zr-blue/30 rounded-lg p-4">
-                  <p className="text-xs text-zr-blue-mid font-semibold uppercase tracking-widest mb-2">Rúbrica</p>
-                  <p className="text-sm text-zr-text">{currentQuestion.rubric}</p>
-                </div>
-              )}
               <textarea
                 value={currentAnswer?.value?.text || ''}
                 onChange={(e) => handleAnswerChange({ text: e.target.value })}
@@ -324,8 +332,44 @@ export default function ExamenPage() {
         </div>
       </div>
 
+      {/* Confirmación de entrega. Entregar es irreversible: el intento pasa a
+          'entregado' y ya no se puede volver a abrir. */}
+      {confirmando && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-5 sm:items-center">
+          <div className="zr-card w-full max-w-sm animate-rise p-6">
+            <p className="zr-display text-xl text-zr-text">¿Entregar el examen?</p>
+            <p className="mt-3 text-sm leading-relaxed text-zr-text-muted">
+              {sinResponder > 0
+                ? `Te quedan ${sinResponder} pregunta${sinResponder > 1 ? 's' : ''} sin responder. Cuentan como cero.`
+                : 'Respondiste todas las preguntas.'}{' '}
+              Una vez entregado no podrás cambiar tus respuestas.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setConfirmando(false)}
+                className="flex-1 rounded-lg border border-zr-border px-4 py-3 text-sm font-semibold text-zr-text"
+              >
+                Seguir revisando
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="flex-1 rounded-lg bg-zr-success px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {submitting ? 'Entregando…' : 'Sí, entregar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-zr-surface border-t border-zr-border px-5 py-4 space-y-3">
+        {submitError && (
+          <p className="rounded-lg border border-zr-error/30 bg-zr-error/12 px-4 py-3 text-sm font-medium text-zr-error">
+            {submitError}
+          </p>
+        )}
         <div className="flex gap-3">
           <button
             onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
@@ -344,7 +388,7 @@ export default function ExamenPage() {
             </button>
           ) : (
             <button
-              onClick={handleSubmit}
+              onClick={() => setConfirmando(true)}
               disabled={submitting}
               className="flex-1 px-4 py-3 bg-zr-success text-white rounded-lg font-semibold disabled:opacity-50 hover:bg-zr-success/90 transition-all"
             >

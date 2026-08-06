@@ -4,6 +4,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { IconoCheck, IconoReloj } from '@/components/ui/Iconos'
+import { BotonVolver } from '@/components/ui/BotonVolver'
 
 const ETIQUETA_ESCALA = ['Muy poco', 'Poco', 'Regular', 'Bastante', 'Mucho']
 
@@ -111,6 +112,8 @@ export default function FeedbackPage() {
   return (
     <div className="min-h-dvh bg-zr-background flex flex-col items-center justify-center p-5">
       <div className="w-full max-w-md space-y-8">
+        <BotonVolver href="/" />
+
         {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold text-zr-text">Tu Opinión Importa</h1>

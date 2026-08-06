@@ -3,6 +3,7 @@
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { BotonVolver } from '@/components/ui/BotonVolver'
 
 interface StudentGrade {
   studentId: string
@@ -107,8 +108,10 @@ export default function CohortGrades() {
 
   return (
     <div className="flex flex-col bg-zr-background min-h-dvh">
-      <div className="flex-1 overflow-x-auto overflow-y-auto px-5 py-8">
+      <div className="flex-1 overflow-x-auto overflow-y-auto px-5 pt-14 pb-8">
         <div className="space-y-8">
+          <BotonVolver href="/sesiones" />
+
           {/* Header */}
           <div className="space-y-4">
             <h1 className="text-3xl font-bold text-zr-text">Registro de Calificaciones</h1>

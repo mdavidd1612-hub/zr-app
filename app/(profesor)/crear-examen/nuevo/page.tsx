@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { QuestionEditor } from '@/components/QuestionEditor'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
+import { BotonVolver } from '@/components/ui/BotonVolver'
 
 type TipoPregunta = 'opcion_multiple' | 'verdadero_falso' | 'redaccion_abierta'
 
@@ -133,6 +134,8 @@ export default function NuevoExamen() {
 
   return (
     <div className="space-y-11 px-5 pt-14">
+      <BotonVolver href="/crear-examen" />
+
       <Encabezado
         sobretitulo="Docencia"
         titulo="Nuevo examen"

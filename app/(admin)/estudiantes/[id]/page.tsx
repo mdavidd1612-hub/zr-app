@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
+import { BotonVolver } from '@/components/ui/BotonVolver'
 
 interface Ficha {
   nombre: string
@@ -98,6 +99,8 @@ export default function FichaEstudiante() {
 
   return (
     <div className="space-y-11 px-5 pt-14">
+      <BotonVolver href="/estudiantes" />
+
       <Encabezado sobretitulo="Administración · Estudiantes" titulo={ficha.nombre} />
 
       <Regla delay={60} />

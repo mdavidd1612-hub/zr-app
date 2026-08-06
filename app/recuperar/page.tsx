@@ -7,6 +7,7 @@ import { cedulaSchema } from '@/lib/validators'
 import { Boton } from '@/components/ui/Boton'
 import { Campo } from '@/components/ui/Campo'
 import { Aviso } from '@/components/ui/Aviso'
+import { BotonVolver } from '@/components/ui/BotonVolver'
 
 export default function Recuperar() {
   const [cedula, setCedula] = useState('')
@@ -71,6 +72,8 @@ export default function Recuperar() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 p-4">
+      <BotonVolver href="/login" />
+
       <header className="text-center">
         <h1 className="text-3xl font-bold bg-gradient-to-r from-zr-blue to-zr-blue-deep bg-clip-text text-transparent">Recuperar contraseña</h1>
         <p className="text-sm text-zr-text-muted mt-1">Te enviaremos un enlace por correo</p>

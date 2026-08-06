@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla } from '@/components/ui/Editorial'
+import { BotonVolver } from '@/components/ui/BotonVolver'
 
 /**
  * T-113 · Alta de estudiante, a mano o por CSV.
@@ -178,6 +179,8 @@ export default function NuevoEstudiante() {
 
   return (
     <div className="space-y-11 px-5 pt-14">
+      <BotonVolver href="/estudiantes" />
+
       <Encabezado sobretitulo="Administración · Estudiantes" titulo="Nuevo estudiante" />
 
       <Regla delay={60} />

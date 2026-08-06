@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
+import { BotonVolver } from '@/components/ui/BotonVolver'
 
 /**
  * T-411 · Panel de configuración. Solo super_admin — la RLS de la migración
@@ -156,7 +157,7 @@ export default function Configuracion() {
 
   if (esSuperAdmin === false) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg px-5">
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-zr-bg px-5">
         <div className="zr-card max-w-sm p-8 text-center">
           <p className="text-base font-semibold text-zr-text">Solo dirección académica</p>
           <p className="mt-2 text-sm text-zr-text-muted">
@@ -164,12 +165,15 @@ export default function Configuracion() {
             puede entrar.
           </p>
         </div>
+        <BotonVolver href="/panel" />
       </div>
     )
   }
 
   return (
     <div className="space-y-11 px-5 pt-14">
+      <BotonVolver href="/panel" />
+
       <Encabezado
         sobretitulo="Dirección académica"
         titulo="Configuración"

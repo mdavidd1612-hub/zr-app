@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { IconoAviso } from '@/components/ui/Iconos'
+import { BotonVolver } from '@/components/ui/BotonVolver'
 
 interface Clase {
   id: string
@@ -70,6 +71,8 @@ export default function Clases() {
     <div className="flex flex-col bg-zr-background min-h-dvh">
       <div className="flex-1 overflow-y-auto px-5 pb-24">
         <div className="space-y-8 pt-14 animate-fade-in">
+          <BotonVolver href="/" />
+
           {/* Header */}
           <div className="space-y-1">
             <h1 className="text-3xl font-bold text-zr-text tracking-tight">Mis Clases</h1>

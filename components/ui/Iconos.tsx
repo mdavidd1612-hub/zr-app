@@ -229,6 +229,32 @@ export function IconoCandado(p: IconoProps) {
   )
 }
 
+/** Tres rayas: el menú con todas las secciones, no solo las cuatro visibles. */
+export function IconoMenu(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <path d="M4 6.5h16M4 12h16M4 17.5h16" />
+    </Base>
+  )
+}
+
+export function IconoFlechaAtras(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <path d="M19 12H5" />
+      <path d="m11 18-6-6 6-6" />
+    </Base>
+  )
+}
+
+export function IconoCerrar(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </Base>
+  )
+}
+
 /* --------------------------------------------------------------------------
    Marca
    -------------------------------------------------------------------------- */

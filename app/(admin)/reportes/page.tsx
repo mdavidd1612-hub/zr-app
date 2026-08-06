@@ -4,13 +4,16 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
-import { exportarCSV } from '@/lib/csv'
+import { exportarExcel, exportarPDF } from '@/lib/exportar'
+import { BotonVolver } from '@/components/ui/BotonVolver'
 
 /**
- * T-410 · Cuatro reportes de administración, cada uno exportable a CSV.
+ * T-410 · Cuatro reportes de administración, cada uno exportable a Excel y
+ * a PDF (no CSV — Excel/PDF es lo que administración puede abrir y archivar
+ * directamente sin pasos intermedios).
  *
  * Se calculan en el cliente a partir de lo que ya trae RLS (nada de esto es
- * sensible fuera de personal/admin), pero el CSV nunca lleva más que lo que
+ * sensible fuera de personal/admin), y el archivo nunca lleva más que lo que
  * ya está en pantalla — no se agregan columnas "por si acaso" al exportar.
  */
 
@@ -171,7 +174,9 @@ export default function Reportes() {
 
   return (
     <div className="space-y-11 px-5 pt-14">
-      <Encabezado sobretitulo="Administración" titulo="Reportes" descripcion="Cada tarjeta se exporta a CSV." />
+      <BotonVolver />
+
+      <Encabezado sobretitulo="Administración" titulo="Reportes" descripcion="Cada tarjeta se exporta a Excel o PDF." />
 
       <Regla delay={60} />
 
@@ -195,17 +200,26 @@ export default function Reportes() {
                 </div>
               ))}
               {asistencia.length > 6 && (
-                <p className="px-5 py-3 text-xs text-zr-text-muted">+ {asistencia.length - 6} más en el CSV</p>
+                <p className="px-5 py-3 text-xs text-zr-text-muted">+ {asistencia.length - 6} más en el archivo</p>
               )}
             </div>
           )}
-          <BotonExportar
+          <BotonesExportar
             disabled={asistencia.length === 0}
-            onClick={() =>
-              exportarCSV(
+            alExcel={() =>
+              exportarExcel(
+                'asistencia_por_sesion',
+                [{ encabezado: 'Cohorte', ancho: 28 }, { encabezado: 'Fecha' }, { encabezado: 'Presentes' }, { encabezado: 'Inscritos' }],
+                asistencia.map((f) => [f.cohorte, f.fecha, f.presentes, f.inscritos]),
+              )
+            }
+            alPDF={() =>
+              exportarPDF(
+                'Asistencia por sesión',
                 'asistencia_por_sesion',
                 ['Cohorte', 'Fecha', 'Presentes', 'Inscritos'],
                 asistencia.map((f) => [f.cohorte, f.fecha, f.presentes, f.inscritos]),
+                `Generado el ${new Date().toLocaleDateString('es-VE')}`,
               )
             }
           />
@@ -228,13 +242,22 @@ export default function Reportes() {
               ))}
             </div>
           )}
-          <BotonExportar
+          <BotonesExportar
             disabled={avance.length === 0}
-            onClick={() =>
-              exportarCSV(
+            alExcel={() =>
+              exportarExcel(
+                'avance_academico',
+                [{ encabezado: 'Módulo', ancho: 28 }, { encabezado: 'Aprobados' }, { encabezado: 'Reprobados' }, { encabezado: 'En curso' }],
+                avance.map((f) => [f.modulo, f.aprobados, f.reprobados, f.enCurso]),
+              )
+            }
+            alPDF={() =>
+              exportarPDF(
+                'Avance académico',
                 'avance_academico',
                 ['Módulo', 'Aprobados', 'Reprobados', 'En curso'],
                 avance.map((f) => [f.modulo, f.aprobados, f.reprobados, f.enCurso]),
+                `Generado el ${new Date().toLocaleDateString('es-VE')}`,
               )
             }
           />
@@ -253,16 +276,25 @@ export default function Reportes() {
                   <p className="shrink-0 text-sm tabular-nums text-zr-text-muted">{f.vistas} vistas</p>
                 </div>
               ))}
-              {uso.length > 6 && <p className="px-5 py-3 text-xs text-zr-text-muted">+ {uso.length - 6} más en el CSV</p>}
+              {uso.length > 6 && <p className="px-5 py-3 text-xs text-zr-text-muted">+ {uso.length - 6} más en el archivo</p>}
             </div>
           )}
-          <BotonExportar
+          <BotonesExportar
             disabled={uso.length === 0}
-            onClick={() =>
-              exportarCSV(
+            alExcel={() =>
+              exportarExcel(
+                'uso_del_repositorio',
+                [{ encabezado: 'Material', ancho: 32 }, { encabezado: 'Módulo', ancho: 24 }, { encabezado: 'Vistas' }],
+                uso.map((f) => [f.material, f.modulo, f.vistas]),
+              )
+            }
+            alPDF={() =>
+              exportarPDF(
+                'Uso del repositorio',
                 'uso_del_repositorio',
                 ['Material', 'Módulo', 'Vistas'],
                 uso.map((f) => [f.material, f.modulo, f.vistas]),
+                `Generado el ${new Date().toLocaleDateString('es-VE')}`,
               )
             }
           />
@@ -286,16 +318,25 @@ export default function Reportes() {
                   </p>
                 </div>
               ))}
-              {pendientes.length > 6 && <p className="px-5 py-3 text-xs text-zr-text-muted">+ {pendientes.length - 6} más en el CSV</p>}
+              {pendientes.length > 6 && <p className="px-5 py-3 text-xs text-zr-text-muted">+ {pendientes.length - 6} más en el archivo</p>}
             </div>
           )}
-          <BotonExportar
+          <BotonesExportar
             disabled={pendientes.length === 0}
-            onClick={() =>
-              exportarCSV(
+            alExcel={() =>
+              exportarExcel(
+                'examenes_pendientes',
+                [{ encabezado: 'Estudiante', ancho: 28 }, { encabezado: 'Examen', ancho: 28 }, { encabezado: 'Antigüedad (horas)', ancho: 16 }],
+                pendientes.map((f) => [f.estudiante, f.examen, f.antiguedadHoras]),
+              )
+            }
+            alPDF={() =>
+              exportarPDF(
+                'Exámenes pendientes de calificar',
                 'examenes_pendientes',
                 ['Estudiante', 'Examen', 'Antigüedad (horas)'],
                 pendientes.map((f) => [f.estudiante, f.examen, f.antiguedadHoras]),
+                `Generado el ${new Date().toLocaleDateString('es-VE')}`,
               )
             }
           />
@@ -305,14 +346,25 @@ export default function Reportes() {
   )
 }
 
-function BotonExportar({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
+function BotonesExportar({
+  alExcel, alPDF, disabled,
+}: { alExcel: () => void; alPDF: () => void; disabled: boolean }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="min-h-12 w-full border-t border-zr-border text-sm font-bold text-zr-blue disabled:cursor-not-allowed disabled:text-zr-text-muted"
-    >
-      Exportar a CSV
-    </button>
+    <div className="flex border-t border-zr-border">
+      <button
+        onClick={alExcel}
+        disabled={disabled}
+        className="min-h-12 flex-1 border-r border-zr-border text-sm font-bold text-zr-blue disabled:cursor-not-allowed disabled:text-zr-text-muted"
+      >
+        Exportar a Excel
+      </button>
+      <button
+        onClick={alPDF}
+        disabled={disabled}
+        className="min-h-12 flex-1 text-sm font-bold text-zr-blue disabled:cursor-not-allowed disabled:text-zr-text-muted"
+      >
+        Exportar a PDF
+      </button>
+    </div>
   )
 }

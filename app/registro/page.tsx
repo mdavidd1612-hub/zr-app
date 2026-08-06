@@ -7,6 +7,7 @@ import { registroSchema } from '@/lib/validators'
 import { Boton } from '@/components/ui/Boton'
 import { Campo } from '@/components/ui/Campo'
 import { Aviso } from '@/components/ui/Aviso'
+import { BotonVolver } from '@/components/ui/BotonVolver'
 
 export default function Registro() {
   const router = useRouter()
@@ -89,6 +90,8 @@ export default function Registro() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-4 p-4">
+      <BotonVolver href="/login" />
+
       <header className="text-center">
         <h1 className="text-3xl font-bold bg-gradient-to-r from-zr-blue to-zr-blue-deep bg-clip-text text-transparent">Regístrate</h1>
         <p className="text-base text-zr-text-muted mt-1">Crea tu cuenta en ZR App</p>

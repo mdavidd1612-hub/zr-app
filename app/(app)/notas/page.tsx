@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
+import { BotonVolver } from '@/components/ui/BotonVolver'
 
 /**
  * T-311 · Vista de notas del estudiante.
@@ -101,6 +102,8 @@ export default function Notas() {
   return (
     <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
       <div className="space-y-11">
+        <BotonVolver href="/" />
+
         <header className="animate-rise">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
             Académico

@@ -54,6 +54,7 @@ export default function ExamenPage() {
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [confirmando, setConfirmando] = useState(false)
+  const [confirmandoSalir, setConfirmandoSalir] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -250,15 +251,49 @@ export default function ExamenPage() {
 
   return (
     <div className="flex flex-col bg-zr-background min-h-dvh">
+      {/* Salir a medias es seguro: cada respuesta ya se guardó al tocarla. Se
+          pide confirmación solo para que no se salga por un toque accidental. */}
+      {confirmandoSalir && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-5 sm:items-center">
+          <div className="zr-card w-full max-w-sm animate-rise p-6">
+            <p className="zr-display text-xl text-zr-text">¿Salir del examen?</p>
+            <p className="mt-3 text-sm text-zr-text-muted">
+              Tus respuestas ya están guardadas. Puedes volver a entrar más tarde y seguir
+              donde lo dejaste.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setConfirmandoSalir(false)}
+                className="flex-1 rounded-lg border border-zr-border px-4 py-3 text-sm font-semibold text-zr-text"
+              >
+                Seguir presentando
+              </button>
+              <button
+                onClick={() => router.push('/examenes')}
+                className="flex-1 rounded-lg bg-zr-blue px-4 py-3 text-sm font-bold text-white"
+              >
+                Salir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-zr-surface border-b border-zr-border px-5 py-4">
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <div>
+            <div className="min-w-0">
+              <button
+                onClick={() => setConfirmandoSalir(true)}
+                className="mb-1 text-xs font-semibold text-zr-text-muted active:text-zr-text"
+              >
+                ← Salir
+              </button>
               <p className="text-xs text-zr-text-muted font-semibold uppercase tracking-widest">
                 Pregunta {currentQuestionIndex + 1} de {questions.length}
               </p>
-              <h1 className="text-2xl font-bold text-zr-text mt-1">{exam?.title}</h1>
+              <h1 className="text-2xl font-bold text-zr-text mt-1 truncate">{exam?.title}</h1>
             </div>
             {timeLeft !== null && (
               <div className={`text-right ${timeLeft < 300 ? 'text-zr-error' : 'text-zr-text'}`}>

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
+import { BotonVolver } from '@/components/ui/BotonVolver'
 
 /**
  * T-211 · Gestión de cohortes.
@@ -149,6 +150,8 @@ export default function Cohortes() {
 
   return (
     <div className="space-y-11 px-5 pt-14">
+      <BotonVolver href="/panel" />
+
       <Encabezado
         sobretitulo="Administración"
         titulo="Cohortes"

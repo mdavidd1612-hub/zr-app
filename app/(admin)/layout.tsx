@@ -5,11 +5,15 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { esAdmin } from '@/lib/auth-helpers'
 import { BarraFlotante } from '@/components/ui/BarraFlotante'
-import { IconoPanel, IconoCandado, IconoPerfil } from '@/components/ui/Iconos'
+import { IconoPanel, IconoEstudiantes, IconoCandado, IconoPerfil } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
+// Cuatro botones, igual que en los otros dos roles: spec/04 §0 pide que toda
+// acción principal quede a un toque del pulgar. Cohortes, Reportes y
+// Configuración se alcanzan desde la rejilla de accesos de /panel.
 const NAV = [
   { href: '/panel',            label: 'Panel',          Icono: IconoPanel },
+  { href: '/estudiantes',      label: 'Estudiantes',    Icono: IconoEstudiantes },
   { href: '/consentimientos',  label: 'Consentimientos', Icono: IconoCandado },
   { href: '/perfil-admin',     label: 'Perfil',          Icono: IconoPerfil },
 ]

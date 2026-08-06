@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Dato } from '@/components/ui/Editorial'
-import { IconoEstudiantes, IconoCandado, IconoCalendario, IconoNotas } from '@/components/ui/Iconos'
+import { IconoEstudiantes, IconoCandado, IconoCalendario, IconoNotas, IconoPanel } from '@/components/ui/Iconos'
+import type { UserRole } from '@/lib/types'
 
 interface Estadisticas {
   totalEstudiantes: number
@@ -21,9 +22,12 @@ const ACCESOS = [
   { href: '/reportes',        titulo: 'Reportes',         sub: 'Asistencia, notas, uso',      Icono: IconoNotas },
 ]
 
+const ACCESO_CONFIG = { href: '/configuracion', titulo: 'Configuración', sub: 'Umbrales y reglas de negocio', Icono: IconoPanel }
+
 export default function Panel() {
   const router = useRouter()
   const [stats, setStats] = useState<Estadisticas | null>(null)
+  const [rol, setRol] = useState<UserRole | null>(null)
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
@@ -36,6 +40,9 @@ export default function Panel() {
         return
       }
 
+      const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      setRol((perfil?.role as UserRole) ?? null)
+
       const [
         { count: totalEst },
         { count: activos },
@@ -45,7 +52,10 @@ export default function Panel() {
       ] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'estudiante'),
         supabase.from('students').select('id', { count: 'exact', head: true }).eq('onboarding_status', 'completo'),
-        supabase.from('students').select('id', { count: 'exact', head: true }).eq('onboarding_status', 'en_curso'),
+        // v_students_blocked ya filtra por "menor de edad Y (sin consentimiento
+        // O sin verificar)". Contar por onboarding_status daría un número que
+        // no corresponde a lo que /consentimientos realmente muestra.
+        supabase.from('v_students_blocked').select('id', { count: 'exact', head: true }),
         supabase.from('cohorts').select('id', { count: 'exact', head: true }),
         supabase.from('module_enrollments').select('id', { count: 'exact', head: true }).eq('status', 'aprobado'),
       ])
@@ -112,7 +122,7 @@ export default function Panel() {
 
       <Seccion numero={3} titulo="Accesos" delay={280}>
         <div className="space-y-3">
-          {ACCESOS.map((a) => (
+          {(rol === 'super_admin' ? [...ACCESOS, ACCESO_CONFIG] : ACCESOS).map((a) => (
             <button
               key={a.href}
               onClick={() => router.push(a.href)}

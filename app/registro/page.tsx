@@ -77,7 +77,7 @@ export default function Registro() {
       } else {
         // TODO: cuando exista provision-qr, llamarlo aquí
         // const qrSecret = await fetch('/api/auth/provision-qr', { method: 'POST' })
-        router.push('/carnet')
+        router.push('/')
       }
       router.refresh()
     } catch (err) {

@@ -144,7 +144,7 @@ export default function Calificar() {
 
   if (!actual) {
     return (
-      <div className="mx-auto max-w-2xl px-6 py-16 lg:px-10">
+      <div className="px-5 pt-14">
         <Encabezado sobretitulo="Calificación" titulo="Todo al día" />
         <Regla delay={60} />
         <div className="zr-card mt-10 animate-rise p-10 text-center" style={{ animationDelay: '120ms' }}>
@@ -171,7 +171,7 @@ export default function Calificar() {
   const avance = Math.round((indice / cola.length) * 100)
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-12 lg:px-10 lg:py-16">
+    <div className="px-5 pt-14">
       <Encabezado
         sobretitulo="Calificación"
         titulo="Redacciones"

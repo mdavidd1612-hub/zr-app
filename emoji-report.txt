@@ -1,0 +1,28 @@
+app\(admin)\consentimientos\page.tsx:144  ? '[E] Firmó en papel en la sede'
+app\(admin)\consentimientos\page.tsx:145  : '[E] Documento digital'}
+app\(admin)\panel\page.tsx:101  <h3 className="text-lg font-bold text-zr-navy">[E] Estudiantes</h3>
+app\(admin)\panel\page.tsx:113  [E] Consentimientos {stats?.consentimientosPendientes ? `(${stats.consentimientosPendientes})` 
+app\(admin)\panel\page.tsx:123  <h3 className="text-lg font-bold text-zr-navy">[E]‍[E] Cohortes</h3>
+app\(admin)\panel\page.tsx:132  <h3 className="text-lg font-bold text-zr-navy">[E] Reportes</h3>
+app\(app)\carnet\page.tsx:68  <div className="animate-spin text-4xl mb-4">[E]</div>
+app\(app)\clases\page.tsx:119  <p className="text-sm font-semibold text-zr-text">[E] Tip</p>
+app\(app)\contenido\page.tsx:82  return '[E]'
+app\(app)\contenido\page.tsx:84  return '[E]'
+app\(app)\contenido\page.tsx:86  return '[E]'
+app\(app)\contenido\page.tsx:88  return '[E]'
+app\(app)\contenido\page.tsx:185  <p className="text-sm font-semibold text-zr-text">[E] Consejo</p>
+app\(app)\examenes\[examId]\page.tsx:314  <span className="text-white text-sm font-bold">[E]</span>
+app\(app)\feedback\[sessionId]\page.tsx:83  <div className="text-6xl">[E]</div>
+app\(app)\feedback\[sessionId]\page.tsx:130  [E][E] {timeLeft}s
+app\(app)\feedback\[sessionId]\page.tsx:149  [E]
+app\(app)\feedback\[sessionId]\page.tsx:159  [E]
+app\(app)\feedback\[sessionId]\page.tsx:169  [E]
+app\(app)\feedback\[sessionId]\page.tsx:179  [E]
+app\(app)\feedback\[sessionId]\page.tsx:189  [E]
+app\(profesor)\notas\[cohortId]\page.tsx:217  {student.status === 'aprobado' ? '[E] Aprobado' : '[E] Reprobado'}
+app\login\page.tsx:70  <span className="text-3xl">[E][E]</span>
+components\QuestionEditor.tsx:153  [E]
+components\ui\Aviso.tsx:17  simbolo: '[E]',
+components\ui\Aviso.tsx:29  simbolo: '[E]',
+components\ui\EstadoVacio.tsx:9  export function EstadoVacio({ titulo, explicacion, icono = '[E]' }: EstadoVacioProps) {
+components\ui\Iconos.tsx:8  * 20 px un [E] y un [E] no se distinguen. Un trazo de 1.75 px sí.

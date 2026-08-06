@@ -6,9 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { cedulaAEmail } from '@/lib/auth-helpers'
 import { cedulaSchema } from '@/lib/validators'
-import { Boton } from '@/components/ui/Boton'
-import { Campo } from '@/components/ui/Campo'
-import { Aviso } from '@/components/ui/Aviso'
+import { MarcaZR } from '@/components/ui/Iconos'
 
 const INICIO: Record<string, string> = {
   estudiante:  '/',
@@ -53,24 +51,20 @@ export default function Login() {
     const { data: perfil } = await supabase
       .from('profiles').select('role').eq('id', data.user.id).single()
 
-    router.push(INICIO[perfil?.role ?? 'estudiante'] ?? '/carnet')
+    router.push(INICIO[perfil?.role ?? 'estudiante'] ?? '/')
     router.refresh()
   }
 
   return (
-    <main className="min-h-dvh bg-zr-background flex flex-col justify-center items-center p-5">
-      {/* Background decoration */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-zr-blue/5 rounded-full blur-3xl -z-10" />
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-zr-blue-deep/5 rounded-full blur-3xl -z-10" />
-
-      <div className="w-full max-w-md space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-3 pt-8">
-          <div className="inline-block p-4 bg-gradient-to-br from-zr-blue to-zr-blue-deep rounded-xl">
-            <span className="text-3xl">⚙️</span>
+    <main className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col justify-center bg-zr-bg px-5">
+      <div className="w-full space-y-9">
+        {/* Cabecera */}
+        <div className="space-y-3 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-zr-border bg-zr-surface text-zr-blue">
+            <MarcaZR size={30} />
           </div>
-          <h1 className="text-4xl font-bold text-zr-text tracking-tight">ZR App</h1>
-          <p className="text-lg text-zr-text-muted font-medium">Academia ZR Mecademy</p>
+          <h1 className="zr-display text-4xl text-zr-text">ZR App</h1>
+          <p className="text-base font-medium text-zr-text-muted">Academia ZR Mecademy</p>
         </div>
 
         {/* Login Form */}

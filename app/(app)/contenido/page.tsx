@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { IconoDocumento, IconoVideo, IconoAviso } from '@/components/ui/Iconos'
 
 interface Material {
   id: string
@@ -76,16 +77,14 @@ export default function Contenido() {
     loadMateriales()
   }, [])
 
-  const getMaterialIcon = (tipo: string) => {
+  const IconoMaterial = (tipo: string) => {
     switch (tipo) {
       case 'pdf':
-        return '📄'
+        return IconoDocumento
       case 'video':
-        return '🎬'
-      case 'documento':
-        return '📋'
+        return IconoVideo
       default:
-        return '📎'
+        return IconoDocumento
     }
   }
 
@@ -119,10 +118,8 @@ export default function Contenido() {
 
   return (
     <div className="flex flex-col bg-zr-background min-h-dvh">
-      <div className="h-12" />
-
       <div className="flex-1 overflow-y-auto px-5 pb-24">
-        <div className="space-y-8 pt-6 animate-fade-in">
+        <div className="space-y-8 pt-14 animate-fade-in">
           {/* Header */}
           <div className="space-y-1">
             <h1 className="text-3xl font-bold text-zr-text tracking-tight">Material de Estudio</h1>
@@ -156,8 +153,8 @@ export default function Contenido() {
                       style={{ animationDelay: `${(sectionIdx * 5 + idx) * 50}ms` }}
                     >
                       <div className="flex items-start gap-3">
-                        <div className={`text-2xl flex-shrink-0 group-hover:scale-110 transition-transform`}>
-                          {getMaterialIcon(material.tipo)}
+                        <div className={`flex-shrink-0 mt-0.5 ${getMaterialColor(material.tipo)}`}>
+                          {(() => { const Icono = IconoMaterial(material.tipo); return <Icono size={22} /> })()}
                         </div>
 
                         <div className="flex-1 min-w-0">
@@ -182,7 +179,10 @@ export default function Contenido() {
 
           {/* Info Card */}
           <div className="bg-zr-blue/10 border border-zr-blue/30 rounded-lg p-5 space-y-2">
-            <p className="text-sm font-semibold text-zr-text">📚 Consejo</p>
+            <p className="flex items-center gap-2 text-sm font-semibold text-zr-text">
+              <IconoAviso size={18} className="text-zr-blue" />
+              Consejo
+            </p>
             <p className="text-sm text-zr-text-muted">
               Descarga los materiales antes de cada clase para consultarlos sin conexión. Todos los recursos están disponibles por semana.
             </p>

@@ -3,29 +3,18 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { esPersonal } from '@/lib/auth-helpers'
+import { esAdmin } from '@/lib/auth-helpers'
 import { BarraFlotante } from '@/components/ui/BarraFlotante'
-import {
-  IconoPanel, IconoCalendario, IconoExamen, IconoCalificar, IconoPerfil,
-} from '@/components/ui/Iconos'
+import { IconoPanel, IconoCandado, IconoPerfil } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
-/**
- * El profesor también usa el teléfono. Revisa la cola de calificación el
- * domingo desde el sofá y abre la asistencia el sábado de pie en el taller.
- * Mismo ancho de referencia y misma barra flotante que el estudiante: son la
- * misma aplicación, no dos.
- */
-
 const NAV = [
-  { href: '/hoy',          label: 'Hoy',       Icono: IconoPanel },
-  { href: '/sesiones',     label: 'Sesiones',  Icono: IconoCalendario },
-  { href: '/crear-examen', label: 'Exámenes',  Icono: IconoExamen },
-  { href: '/calificar',    label: 'Calificar', Icono: IconoCalificar },
-  { href: '/perfil-docente', label: 'Perfil',  Icono: IconoPerfil },
+  { href: '/panel',            label: 'Panel',          Icono: IconoPanel },
+  { href: '/consentimientos',  label: 'Consentimientos', Icono: IconoCandado },
+  { href: '/perfil-admin',     label: 'Perfil',          Icono: IconoPerfil },
 ]
 
-export default function ProfesorLayout({ children }: { children: React.ReactNode }) {
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [verificando, setVerificando] = useState(true)
 
@@ -42,10 +31,7 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
       const { data: perfil } = await supabase
         .from('profiles').select('role').eq('id', user.id).single()
 
-      // Un estudiante que escriba /calificar en la barra de direcciones se va a
-      // su pantalla. La RLS ya lo bloquea en la base; esto solo evita que vea
-      // un panel vacío y crea que la app está rota.
-      if (!esPersonal(perfil?.role as UserRole | undefined)) {
+      if (!esAdmin(perfil?.role as UserRole | undefined)) {
         router.replace('/')
         return
       }

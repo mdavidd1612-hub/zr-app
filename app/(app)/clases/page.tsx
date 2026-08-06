@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { IconoAviso } from '@/components/ui/Iconos'
 
 interface Clase {
   id: string
@@ -67,10 +68,8 @@ export default function Clases() {
 
   return (
     <div className="flex flex-col bg-zr-background min-h-dvh">
-      <div className="h-12" />
-
       <div className="flex-1 overflow-y-auto px-5 pb-24">
-        <div className="space-y-8 pt-6 animate-fade-in">
+        <div className="space-y-8 pt-14 animate-fade-in">
           {/* Header */}
           <div className="space-y-1">
             <h1 className="text-3xl font-bold text-zr-text tracking-tight">Mis Clases</h1>
@@ -116,7 +115,10 @@ export default function Clases() {
 
           {/* Info Card */}
           <div className="bg-zr-blue/10 border border-zr-blue/30 rounded-lg p-5 space-y-2">
-            <p className="text-sm font-semibold text-zr-text">💡 Tip</p>
+            <p className="flex items-center gap-2 text-sm font-semibold text-zr-text">
+              <IconoAviso size={18} className="text-zr-blue" />
+              Antes de venir
+            </p>
             <p className="text-sm text-zr-text-muted">
               Prepárate con el material de estudio disponible en la sección de Material. Revisa los temas a tratar cada semana.
             </p>

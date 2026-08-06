@@ -68,7 +68,7 @@ export default function Consentimiento() {
       }
 
       // Consentimiento registrado, ir al carnet
-      router.push('/carnet')
+      router.push('/')
       router.refresh()
     } catch (err) {
       setError('Error de conexión. Intenta de nuevo.')

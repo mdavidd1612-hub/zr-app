@@ -112,7 +112,7 @@ export default function Hoy() {
     : ''
 
   return (
-    <div className="mx-auto max-w-4xl space-y-12 px-6 py-12 lg:px-10 lg:py-16">
+    <div className="space-y-11 px-5 pt-14">
       <Encabezado
         sobretitulo="Panel del profesor"
         titulo={nombre || 'Hoy'}

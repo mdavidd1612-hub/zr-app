@@ -9,6 +9,7 @@ type EstadoSesion = 'programada' | 'abierta' | 'cerrada' | 'reprogramada' | 'can
 
 interface Sesion {
   id: string
+  cohorteId: string
   fecha: string
   semana: number
   estado: EstadoSesion
@@ -45,14 +46,14 @@ export default function Sesiones() {
 
       const { data } = await supabase
         .from('class_sessions')
-        .select('id, session_date, week_number, status, cohorts(name), modules(name), attendance_events(id)')
+        .select('id, cohort_id, session_date, week_number, status, cohorts(name), modules(name), attendance_events(id)')
         .eq('teacher_id', user.id)
         .order('session_date', { ascending: false })
 
       if (!vigente) return
 
       const filas = data as unknown as {
-        id: string; session_date: string; week_number: number; status: EstadoSesion
+        id: string; cohort_id: string; session_date: string; week_number: number; status: EstadoSesion
         cohorts: { name: string } | null
         modules: { name: string } | null
         attendance_events: { id: string }[] | null
@@ -61,6 +62,7 @@ export default function Sesiones() {
       setSesiones(
         (filas ?? []).map((s) => ({
           id: s.id,
+          cohorteId: s.cohort_id,
           fecha: s.session_date,
           semana: s.week_number,
           estado: s.status,
@@ -124,7 +126,7 @@ export default function Sesiones() {
 
       {/* Una sesión cancelada o reprogramada no tiene acción: se arregla desde
           administración, no aquí. */}
-      {(s.estado === 'programada' || s.estado === 'abierta') && (
+      {(s.estado === 'programada' || s.estado === 'abierta' || s.estado === 'cerrada') && (
         <div className="flex flex-col gap-2 border-t border-zr-border bg-zr-bg/40 p-4">
           {s.estado === 'programada' && (
             <button
@@ -152,6 +154,17 @@ export default function Sesiones() {
                 {ocupada === s.id ? 'Cerrando…' : 'Cerrar clase'}
               </button>
             </>
+          )}
+
+          {/* Se marca dominio después de la práctica: tiene sentido tanto en
+              una clase que sigue abierta como en una ya cerrada. */}
+          {(s.estado === 'abierta' || s.estado === 'cerrada') && (
+            <button
+              onClick={() => router.push(`/dominio/${s.cohorteId}`)}
+              className="min-h-14 w-full rounded-lg border border-zr-border px-4 text-base font-semibold text-zr-text disabled:opacity-50"
+            >
+              Marcar dominio
+            </button>
           )}
         </div>
       )}

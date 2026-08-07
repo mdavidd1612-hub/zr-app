@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const PUBLIC_ROUTES = ['/login', '/registro', '/recuperar', '/api/auth/callback']
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Rutas públicas: pasar sin validar

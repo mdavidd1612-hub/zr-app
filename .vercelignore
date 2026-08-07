@@ -1,4 +1,4 @@
-supabase/
+/supabase/
 .git/
 node_modules/
 .env*

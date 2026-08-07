@@ -166,6 +166,15 @@ export default function Sesiones() {
               Marcar dominio
             </button>
           )}
+
+          {s.estado === 'cerrada' && (
+            <button
+              onClick={() => router.push(`/feedback-clase/${s.id}`)}
+              className="min-h-14 w-full rounded-lg border border-zr-border px-4 text-base font-semibold text-zr-text disabled:opacity-50"
+            >
+              Ver feedback
+            </button>
+          )}
         </div>
       )}
     </div>

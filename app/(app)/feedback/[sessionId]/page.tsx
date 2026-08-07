@@ -32,6 +32,7 @@ export default function FeedbackPage() {
   const [timeLeft, setTimeLeft] = useState(TIME_LIMIT)
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Timer effect
   useEffect(() => {
@@ -40,6 +41,13 @@ export default function FeedbackPage() {
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
+          // Se agotó el tiempo de esta pregunta: cuenta como "no respondió"
+          // (0) y avanza, igual que si el estudiante hubiera tocado una
+          // opción. Solo la última pregunta dispara el envío real.
+          if (currentQuestion < QUESTIONS.length - 1) {
+            setCurrentQuestion((q) => q + 1)
+            return TIME_LIMIT
+          }
           handleSubmit()
           return 0
         }
@@ -52,17 +60,34 @@ export default function FeedbackPage() {
 
   async function handleSubmit() {
     setSubmitting(true)
+    setError(null)
 
-    // Format answers as JSON array
     const feedbackAnswers = QUESTIONS.map((q) => ({
       q: q.question,
       a: answers[q.id] || 0,
     }))
 
-    // In a real app, this would save to the database
-    // For now, just show confirmation
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setSubmitting(false)
+      return
+    }
 
+    // unique(session_id, student_id): si ya dio feedback en esta sesión, no
+    // es un error — simplemente se muestra el mismo agradecimiento.
+    const { error: fallo } = await supabase.from('feedback_micro').insert({
+      student_id: user.id,
+      session_id: sessionId,
+      answers: feedbackAnswers,
+    })
+
+    if (fallo && fallo.code !== '23505') {
+      setError('No se pudo enviar. Revisa tu conexión e inténtalo otra vez.')
+      setSubmitting(false)
+      return
+    }
+
+    setSubmitting(false)
     setSubmitted(true)
   }
 
@@ -151,7 +176,8 @@ export default function FeedbackPage() {
                 <button
                   key={valor}
                   onClick={() => handleSelectRating(valor)}
-                  className={`flex-1 aspect-square rounded-lg text-xl font-bold tabular-nums transition-all ${
+                  disabled={submitting}
+                  className={`flex-1 aspect-square rounded-lg text-xl font-bold tabular-nums transition-all disabled:opacity-50 ${
                     answers[question.id] === valor
                       ? 'scale-105 border-2 border-zr-blue bg-zr-blue/15 text-zr-blue'
                       : 'border-2 border-zr-border bg-zr-background text-zr-text-muted active:border-zr-blue/50'
@@ -169,9 +195,15 @@ export default function FeedbackPage() {
           </div>
         </div>
 
+        {error && (
+          <p className="rounded-lg border border-zr-error/30 bg-zr-error/12 px-4 py-3 text-center text-sm font-medium text-zr-error">
+            {error}
+          </p>
+        )}
+
         {/* Skip/Next Info */}
         <p className="text-center text-xs text-zr-text-muted">
-          Responde rápido — tienes {TIME_LIMIT} segundos por pregunta
+          {submitting ? 'Enviando…' : `Responde rápido — tienes ${TIME_LIMIT} segundos por pregunta`}
         </p>
       </div>
     </div>

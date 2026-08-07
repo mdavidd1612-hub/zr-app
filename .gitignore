@@ -56,3 +56,6 @@ ManualDeIdentidad*.pdf
 npm-debug.log*
 .cache/
 tmp/
+
+.vercel
+.env*

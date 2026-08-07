@@ -8,6 +8,7 @@ import { generateTOTP } from '@/lib/totp'
 import { getQRSecret } from '@/lib/qr-secret'
 import { Seccion, Regla, Dato } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
+import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
 
 interface Perfil {
   fullName: string
@@ -146,6 +147,7 @@ export default function PerfilEstudiante() {
           correo={perfil.contactEmail}
         />
         <p className="text-xs text-zr-text-muted">{perfil.cohorte}</p>
+        <BotonActivarPush />
       </Seccion>
     </div>
   )

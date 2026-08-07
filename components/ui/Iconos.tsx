@@ -210,6 +210,15 @@ export function IconoCheck(p: IconoProps) {
   )
 }
 
+export function IconoCampana(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <path d="M6 10a6 6 0 0 1 12 0c0 3.2 1 4.6 1.8 5.4H4.2C5 14.6 6 13.2 6 10Z" />
+      <path d="M10 18.5a2 2 0 0 0 4 0" />
+    </Base>
+  )
+}
+
 export function IconoAviso(p: IconoProps) {
   return (
     <Base {...p}>

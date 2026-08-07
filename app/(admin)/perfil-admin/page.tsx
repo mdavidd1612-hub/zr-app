@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
+import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
 import type { UserRole } from '@/lib/types'
 
 /** Ruta /perfil-admin: (app), (profesor) y (admin) son grupos del mismo
@@ -79,6 +80,7 @@ export default function PerfilAdmin() {
           rol={perfil.rol}
           correo={perfil.correo}
         />
+        <BotonActivarPush />
       </Seccion>
     </div>
   )

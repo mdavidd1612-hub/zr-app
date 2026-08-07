@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
+import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
 import type { UserRole } from '@/lib/types'
 
 /**
@@ -136,6 +137,7 @@ export default function PerfilDocente() {
           rol={perfil.rol}
           correo={perfil.correo}
         />
+        <BotonActivarPush />
       </Seccion>
     </div>
   )

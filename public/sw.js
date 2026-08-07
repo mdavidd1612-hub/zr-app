@@ -110,3 +110,48 @@ self.addEventListener('message', (event) => {
     self.skipWaiting()
   }
 })
+
+// Web Push: send-push (Edge Function, corre cada 5 min por pg_cron) manda el
+// payload como JSON con { title, body, payload }. payload trae los datos para
+// saber a dónde navegar al tocar la notificación (ej. exam_id).
+self.addEventListener('push', (event) => {
+  if (!event.data) return
+
+  let datos
+  try {
+    datos = event.data.json()
+  } catch {
+    datos = { title: 'ZR App', body: event.data.text() }
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(datos.title || 'ZR App', {
+      body: datos.body || '',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data: datos.payload || {},
+    }),
+  )
+})
+
+// Al tocar la notificación: si ya hay una pestaña abierta, la enfoca en vez
+// de abrir una nueva — en un teléfono, dos pestañas de la misma app confunden.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+
+  const destino = event.notification.data?.exam_id
+    ? `/examenes/${event.notification.data.exam_id}`
+    : '/'
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((lista) => {
+      for (const cliente of lista) {
+        if ('focus' in cliente) {
+          cliente.navigate(destino)
+          return cliente.focus()
+        }
+      }
+      return self.clients.openWindow(destino)
+    }),
+  )
+})

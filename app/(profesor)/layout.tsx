@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { esPersonal } from '@/lib/auth-helpers'
 import { BarraFlotante } from '@/components/ui/BarraFlotante'
 import {
-  IconoPanel, IconoCalendario, IconoExamen, IconoCalificar, IconoPerfil,
+  IconoPanel, IconoCalendario, IconoExamen, IconoCalificar, IconoPerfil, IconoDocumento,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -23,6 +23,12 @@ const NAV = [
   { href: '/crear-examen', label: 'Exámenes',  Icono: IconoExamen },
   { href: '/calificar',    label: 'Calificar', Icono: IconoCalificar },
   { href: '/perfil-docente', label: 'Perfil',  Icono: IconoPerfil },
+]
+
+const TODAS = [
+  ...NAV.slice(0, 4),
+  { href: '/contenido-docente', label: 'Material', Icono: IconoDocumento },
+  NAV[4],
 ]
 
 export default function ProfesorLayout({ children }: { children: React.ReactNode }) {
@@ -67,7 +73,7 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
   return (
     <div className="mx-auto min-h-dvh w-full max-w-[430px] bg-zr-bg">
       <div className="pb-28">{children}</div>
-      <BarraFlotante items={NAV} />
+      <BarraFlotante items={NAV} todasLasSecciones={TODAS} />
     </div>
   )
 }

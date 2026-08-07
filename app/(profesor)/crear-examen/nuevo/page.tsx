@@ -54,9 +54,15 @@ export default function NuevoExamen() {
     const supabase = createClient()
 
     async function cargar() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Solo las cohortes que este profesor dicta. Sin este filtro, el
+      // selector mostraba TODAS las cohortes de la academia y el profesor
+      // podía terminar publicando un examen en la clase de otro profesor.
       const [{ data: mods }, { data: cohs }] = await Promise.all([
         supabase.from('modules').select('id, name').order('order_index'),
-        supabase.from('cohorts').select('id, name').eq('status', 'activa'),
+        supabase.from('cohorts').select('id, name').eq('status', 'activa').eq('teacher_id', user.id),
       ])
 
       setModulos(mods ?? [])

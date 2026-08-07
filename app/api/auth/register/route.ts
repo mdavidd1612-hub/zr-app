@@ -18,11 +18,13 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient()
 
-  // 1. Crear usuario en Auth
+  // 1. Crear usuario en Auth. El teléfono va en user_metadata porque
+  // handle_new_user() (migración 003) lo lee de ahí para profiles.phone —
+  // students no tiene columna phone, vive únicamente en profiles.
   const { data: authData, error: authError } = await admin.auth.admin.createUser({
     email,
     password,
-    user_metadata: { full_name: fullName, cedula, contact_email: contactEmail },
+    user_metadata: { full_name: fullName, cedula, contact_email: contactEmail, phone },
     email_confirm: true, // No requiere confirmación porque es cuentas de prueba/registro escolar
   })
 
@@ -41,13 +43,12 @@ export async function POST(req: Request) {
     .insert({
       id: authData.user.id,
       birth_date: new Date(birthDate).toISOString().split('T')[0],
-      phone: phone || null,
       onboarding_status: esMenor ? 'en_curso' : 'completo',
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any)
+    })
 
   if (studentError) {
     // Rollback: eliminar el usuario que acabamos de crear
+    console.error('register: fallo al crear student', studentError.code, studentError.message)
     await admin.auth.admin.deleteUser(authData.user.id)
     return Response.json(
       { error: 'Error al registrar. Intenta de nuevo.' },

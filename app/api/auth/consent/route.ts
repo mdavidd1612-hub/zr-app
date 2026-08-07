@@ -67,6 +67,7 @@ export async function POST(req: Request) {
   })
 
   if (insertError) {
+    console.error('consent: fallo al insertar parental_consents', insertError.code, insertError.message)
     return Response.json(
       { error: 'Error al registrar consentimiento' },
       { status: 400 }

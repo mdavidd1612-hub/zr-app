@@ -8,6 +8,8 @@ import { Boton } from '@/components/ui/Boton'
 import { Campo } from '@/components/ui/Campo'
 import { Aviso } from '@/components/ui/Aviso'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { createClient } from '@/lib/supabase/client'
+import { cedulaAEmail } from '@/lib/auth-helpers'
 
 export default function Registro() {
   const router = useRouter()
@@ -71,6 +73,24 @@ export default function Registro() {
       }
 
       const resultado = await res.json()
+
+      // El registro crea la cuenta con la API de administración de Supabase,
+      // que NO deja al navegador con una sesión — sin este paso, el
+      // siguiente fetch (guardar el consentimiento, o cualquier pantalla
+      // protegida) se hace sin usuario autenticado y falla.
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      const { error: falloLogin } = await supabase.auth.signInWithPassword({
+        email: cedulaAEmail(validado.data.cedula),
+        password: validado.data.password,
+      })
+
+      if (falloLogin) {
+        setError('La cuenta se creó, pero no se pudo iniciar sesión. Entra con tu cédula y contraseña.')
+        setCargando(false)
+        router.push('/login')
+        return
+      }
 
       // Si es menor, ir a consentimiento; si no, ir al carnet
       if (resultado.isMenor) {

@@ -22,6 +22,7 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const admin = createClient(URL, SERVICE_KEY)
 
 const idsACrear: string[] = []
+const cohortesACrear: string[] = []
 
 function cedulaAlAzar(prefijo: string) {
   return `V-${prefijo}${Math.floor(Math.random() * 10_000_000).toString().padStart(7, '0')}`
@@ -67,13 +68,30 @@ async function crearCohorte(moduloId: string, teacherId?: string) {
     })
     .select('id')
     .single()
+  cohortesACrear.push(cohorte!.id as string)
   return cohorte!.id as string
 }
 
 afterAll(async () => {
+  // Los estudiantes de prueba tienen que dejar de apuntar a la cohorte
+  // ANTES de borrarla — students.cohort_id no tiene on delete cascade
+  // porque perder a un estudiante nunca debe borrar la cohorte de otros.
+  for (const id of idsACrear) {
+    try { await admin.from('students').update({ cohort_id: null }).eq('id', id) } catch { /* ya no existe */ }
+  }
   // Borrar auth.users arrastra profiles/students/enrollments/etc. por cascade.
   for (const id of idsACrear) {
-    await admin.auth.admin.deleteUser(id).catch(() => {})
+    try { await admin.auth.admin.deleteUser(id) } catch { /* ya no existe */ }
+  }
+  // class_sessions referencia cohorts. Si alguna sesión tiene asistencia
+  // registrada, este delete falla a propósito — attendance_events es
+  // de solo-inserción incluso vía cascada — y esa cohorte queda huérfana.
+  // Es aceptable: son filas de desarrollo local, no de producción.
+  for (const id of cohortesACrear) {
+    try { await admin.from('class_sessions').delete().eq('cohort_id', id) } catch { /* tiene asistencia: se queda */ }
+  }
+  for (const id of cohortesACrear) {
+    try { await admin.from('cohorts').delete().eq('id', id) } catch { /* referenciada por algo con asistencia */ }
   }
 })
 
@@ -407,13 +425,8 @@ describe('Reglas de negocio — auditoría', () => {
     let idFila = fila?.id
     if (!idFila) {
       const modulo1 = await moduloPorOrden(1)
-      const { data: programa } = await admin.from('programs').select('id').limit(1).single()
-      const { data: cohorte } = await admin
-        .from('cohorts')
-        .insert({ program_id: programa!.id, name: `Cohorte Audit ${randomUUID()}`, current_module_id: modulo1 })
-        .select('id')
-        .single()
-      const { data: otraFila } = await admin.from('audit_log').select('id').eq('entity_id', cohorte!.id).single()
+      const cohorteId = await crearCohorte(modulo1)
+      const { data: otraFila } = await admin.from('audit_log').select('id').eq('entity_id', cohorteId).single()
       idFila = otraFila!.id
     }
 
@@ -440,14 +453,9 @@ describe('Reglas de negocio — exámenes y feedback', () => {
     await admin.from('teachers').insert({ id: idProfesor, is_active: true })
 
     const modulo1 = await moduloPorOrden(1)
-    const { data: programa } = await admin.from('programs').select('id').limit(1).single()
-    const { data: cohorte } = await admin
-      .from('cohorts')
-      .insert({ program_id: programa!.id, name: `Cohorte Examen ${randomUUID()}`, current_module_id: modulo1, teacher_id: idProfesor })
-      .select('id')
-      .single()
+    const cohorteId = await crearCohorte(modulo1, idProfesor)
 
-    return { idProfesor, cohorteId: cohorte!.id as string, moduloId: modulo1 }
+    return { idProfesor, cohorteId, moduloId: modulo1 }
   }
 
   it('rechaza publicar un examen cuyas preguntas no suman el puntaje máximo', async () => {

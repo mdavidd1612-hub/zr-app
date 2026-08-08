@@ -60,8 +60,11 @@ Deno.serve(async (req) => {
     .eq('id', userData.user.id)
     .single()
 
-  if (profile?.role !== 'super_admin') {
-    return errorResponse('NO_AUTORIZADO', 'Solo super_admin', 403)
+  // Spec FUNCIÓN 6: admin O super_admin pueden llamar esta función. Antes
+  // solo dejaba pasar a super_admin, así que un admin normal no podía dar
+  // de alta ni siquiera a un profesor.
+  if (!['admin', 'super_admin'].includes(profile?.role ?? '')) {
+    return errorResponse('NO_AUTORIZADO', 'Solo admin o super_admin', 403)
   }
 
   // 2. Parsear el body
@@ -80,6 +83,11 @@ Deno.serve(async (req) => {
 
   if (!['profesor', 'admin', 'super_admin'].includes(role)) {
     return errorResponse('INVALID_ROLE', 'Rol inválido', 400)
+  }
+
+  // Solo un super_admin puede crear otro admin o super_admin.
+  if (['admin', 'super_admin'].includes(role) && profile?.role !== 'super_admin') {
+    return errorResponse('NO_AUTORIZADO', 'Solo super_admin puede crear administradores', 403)
   }
 
   const admin = adminClient()
@@ -109,8 +117,21 @@ Deno.serve(async (req) => {
     return errorResponse('UPDATE_ERROR', 'No se pudo asignar el rol', 400)
   }
 
-  // 5. Si es admin o super_admin, crear fila en admins table
-  if (role === 'admin' || role === 'super_admin') {
+  // 5. Insertar en teachers o en admins según corresponda (spec FUNCIÓN 6
+  // paso 5). Faltaba la rama de 'profesor': un profesor sin fila en
+  // teachers no se puede asignar a ninguna cohorte después —
+  // cohorts.teacher_id referencia teachers(id), no profiles(id).
+  if (role === 'profesor') {
+    const { error: teacherInsertError } = await admin.from('teachers').insert({
+      id: authData.user.id,
+      is_active: true,
+    })
+
+    if (teacherInsertError) {
+      await admin.auth.admin.deleteUser(authData.user.id)
+      return errorResponse('TEACHER_ERROR', 'No se pudo crear registro de profesor', 400)
+    }
+  } else if (role === 'admin' || role === 'super_admin') {
     const { error: adminInsertError } = await admin.from('admins').insert({
       id: authData.user.id,
       can_issue_certificates: role === 'super_admin',

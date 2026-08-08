@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Dato } from '@/components/ui/Editorial'
-import { IconoEstudiantes, IconoCandado, IconoCalendario, IconoNotas, IconoPanel } from '@/components/ui/Iconos'
+import { IconoEstudiantes, IconoCandado, IconoCalendario, IconoNotas, IconoPanel, IconoPersonal } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
 interface Estadisticas {
@@ -19,6 +19,7 @@ const ACCESOS = [
   { href: '/consentimientos', titulo: 'Consentimientos', sub: 'Revisar permisos pendientes', Icono: IconoCandado },
   { href: '/cohortes',        titulo: 'Cohortes',         sub: 'Grupos y módulos',           Icono: IconoCalendario },
   { href: '/estudiantes',     titulo: 'Estudiantes',      sub: 'Ver y gestionar registros',  Icono: IconoEstudiantes },
+  { href: '/personal',        titulo: 'Personal',         sub: 'Profesores y administradores', Icono: IconoPersonal },
   { href: '/reportes',        titulo: 'Reportes',         sub: 'Asistencia, notas, uso',      Icono: IconoNotas },
 ]
 

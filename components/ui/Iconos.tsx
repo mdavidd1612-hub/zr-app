@@ -141,6 +141,17 @@ export function IconoEstudiantes(p: IconoProps) {
   )
 }
 
+export function IconoPersonal(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <circle cx="10" cy="8" r="3.5" />
+      <path d="M3 20a7 7 0 0 1 14 0" />
+      <path d="M18 8v6" />
+      <path d="M15 11h6" />
+    </Base>
+  )
+}
+
 /* --------------------------------------------------------------------------
    Contenido y estados
    -------------------------------------------------------------------------- */

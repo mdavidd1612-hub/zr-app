@@ -7,7 +7,7 @@ import { esAdmin } from '@/lib/auth-helpers'
 import { BarraFlotante, type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Campanita } from '@/components/ui/Campanita'
 import {
-  IconoPanel, IconoEstudiantes, IconoCandado, IconoPerfil, IconoCalendario, IconoNotas,
+  IconoPanel, IconoEstudiantes, IconoCandado, IconoPerfil, IconoCalendario, IconoNotas, IconoPersonal,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -27,14 +27,15 @@ const NAV: ItemBarra[] = [
 const TODAS: ItemBarra[] = [
   ...NAV.slice(0, 3),
   { href: '/cohortes',   label: 'Cohortes', Icono: IconoCalendario },
+  { href: '/personal',   label: 'Personal', Icono: IconoPersonal },
   { href: '/reportes',   label: 'Reportes', Icono: IconoNotas },
   NAV[3],
 ]
 
 const TODAS_SUPER: ItemBarra[] = [
-  ...TODAS.slice(0, 5),
+  ...TODAS.slice(0, 6),
   { href: '/configuracion', label: 'Configuración', Icono: IconoPanel },
-  TODAS[5],
+  TODAS[6],
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

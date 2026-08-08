@@ -166,11 +166,22 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Update attempt status to entregado
+    // Si todas las preguntas ya tienen puntaje (examen sin redacciones), el
+    // disparador trg_close_attempt ya puso el intento en 'calificado' al
+    // actualizar cada exam_answers de arriba. Sobreescribir con 'entregado'
+    // aquí SIEMPRE regresaba ese estado, y el estudiante se quedaba viendo
+    // "esperando calificación" en un examen que ya estaba calificado del
+    // todo. Se relee cuántas respuestas siguen sin puntaje antes de decidir.
+    const { count: pendientesRestantes } = await adminSupabase
+      .from('exam_answers')
+      .select('id', { count: 'exact', head: true })
+      .eq('attempt_id', attemptId)
+      .is('awarded_points', null)
+
     const { error: updateErr } = await adminSupabase
       .from('exam_attempts')
       .update({
-        status: 'entregado',
+        status: (pendientesRestantes ?? 0) > 0 ? 'entregado' : 'calificado',
         submitted_at: new Date().toISOString(),
       })
       .eq('id', attemptId)

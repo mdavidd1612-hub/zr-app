@@ -104,7 +104,7 @@ export default function ExamenPage() {
       // Get or create attempt
       let { data: attempt } = await supabase
         .from('exam_attempts')
-        .select('id, status')
+        .select('id, status, started_at')
         .eq('exam_id', examId)
         .eq('student_id', user.id)
         .maybeSingle()
@@ -145,9 +145,15 @@ export default function ExamenPage() {
         }
       }
 
-      // Set timer if exam has duration
-      if (examData.duration_minutes) {
-        setTimeLeft(examData.duration_minutes * 60)
+      // El tiempo restante se calcula contra started_at, NUNCA se reinicia a
+      // la duración completa. Antes se ponía siempre `duration_minutes * 60`
+      // sin importar cuánto tiempo ya había pasado: salir del examen y
+      // volver a entrar (por ejemplo desde el enlace de una notificación)
+      // le regalaba al estudiante un cronómetro nuevo cada vez.
+      if (examData.duration_minutes && attempt?.started_at) {
+        const finLimite = new Date(attempt.started_at).getTime() + examData.duration_minutes * 60_000
+        const restante = Math.max(0, Math.round((finLimite - Date.now()) / 1000))
+        setTimeLeft(restante)
       }
 
       setLoading(false)
@@ -218,21 +224,48 @@ export default function ExamenPage() {
   async function handleSubmit() {
     if (!attemptId || submitting) return
     setSubmitting(true)
+    setSubmitError(null)
 
     // La calificación NUNCA se calcula aquí. La Edge Function es la única que
     // ve correct_answer, y el disparador trg_close_attempt es el que cierra el
     // intento cuando ya no quedan respuestas sin puntaje.
-    const { error } = await supabase.functions.invoke('submit-attempt', {
+    const { data, error } = await supabase.functions.invoke('submit-attempt', {
       body: { attemptId },
     })
 
     if (error) {
-      setSubmitError('No se pudo entregar. Revisa tu conexión e inténtalo otra vez.')
+      // El mensaje genérico ("revisa tu conexión") culpaba a la red incluso
+      // cuando el problema era otro — un examen ya entregado, un permiso,
+      // un fallo real del servidor. El cuerpo del error viaja en
+      // error.context (FunctionsHttpError) con el {code, message} real que
+      // manda la Edge Function; se muestra ese en vez de inventar uno.
+      let mensaje = 'No se pudo entregar. Inténtalo otra vez.'
+      const contexto = (error as { context?: Response }).context
+      if (contexto) {
+        try {
+          const cuerpo = await contexto.json()
+          if (cuerpo?.error?.message) mensaje = cuerpo.error.message
+        } catch {
+          // sin cuerpo legible: se queda el mensaje genérico
+        }
+      }
+
+      // Se cierra el modal de confirmación: si se queda abierto, el aviso
+      // de error (que vive en la barra de abajo) queda tapado detrás y
+      // parece que el botón "no hizo nada" hasta que el estudiante sale.
+      setConfirmando(false)
+      setSubmitError(mensaje)
       setSubmitting(false)
       return
     }
 
-    router.push('/examenes')
+    if (data?.status === 'entregado' || data?.status === 'calificado') {
+      router.push('/examenes')
+      return
+    }
+
+    setConfirmando(false)
+    setSubmitting(false)
   }
 
   if (loading || !currentQuestion) {

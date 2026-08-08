@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { IconoCampana, IconoCerrar } from '@/components/ui/Iconos'
@@ -99,7 +100,13 @@ export function Campanita() {
         )}
       </button>
 
-      {abierta && (
+      {/* Portal a document.body: si el panel se quedara dentro del
+          contenedor del botón, el backdrop-blur de ese contenedor crea un
+          "contexto de contención" para descendientes position:fixed y el
+          panel aparecía encogido detrás de la campanita en vez de cubrir
+          la pantalla. abierta solo puede ser true tras un clic, así que
+          document ya existe en ese punto. */}
+      {abierta && createPortal(
         <div className="fixed inset-0 z-50 flex items-end bg-black/60" onClick={() => setAbierta(false)}>
           <div
             onClick={(e) => e.stopPropagation()}
@@ -147,7 +154,8 @@ export function Campanita() {
               ))}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   )

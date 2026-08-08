@@ -1,0 +1,784 @@
+<title>ZR App — Checklist de pruebas</title>
+<style>
+  @font-face {
+    font-family: 'Space Mono';
+    font-weight: 400;
+    src: local('Space Mono');
+  }
+
+  :root {
+    --bg: #f4f5f3;
+    --surface: #ffffff;
+    --surface-2: #eceeea;
+    --ink: #171b1a;
+    --ink-muted: #565f5c;
+    --line: #dbdfd9;
+    --accent: #2a6f5e;
+    --accent-ink: #ffffff;
+    --accent-soft: #e3efe9;
+    --warn: #a3630b;
+    --warn-soft: #fbeed9;
+    --danger: #ad3838;
+    --danger-soft: #f8e4e2;
+    --ok: #2a6f5e;
+    --ok-soft: #e3efe9;
+    --mono-tint: #eef1ec;
+    --shadow: 0 1px 2px rgba(20, 24, 22, 0.06), 0 8px 24px -12px rgba(20, 24, 22, 0.12);
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #12100e;
+    --surface: #1a1815;
+    --surface-2: #221f1b;
+    --ink: #efece5;
+    --ink-muted: #a49d90;
+    --line: #35312b;
+    --accent: #5fb79b;
+    --accent-ink: #0c1512;
+    --accent-soft: #1c2e28;
+    --warn: #dba552;
+    --warn-soft: #2e2515;
+    --danger: #e08b83;
+    --danger-soft: #2f1e1c;
+    --ok: #5fb79b;
+    --ok-soft: #1c2e28;
+    --mono-tint: #201d19;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12100e;
+      --surface: #1a1815;
+      --surface-2: #221f1b;
+      --ink: #efece5;
+      --ink-muted: #a49d90;
+      --line: #35312b;
+      --accent: #5fb79b;
+      --accent-ink: #0c1512;
+      --accent-soft: #1c2e28;
+      --warn: #dba552;
+      --warn-soft: #2e2515;
+      --danger: #e08b83;
+      --danger-soft: #2f1e1c;
+      --ok: #5fb79b;
+      --ok-soft: #1c2e28;
+      --mono-tint: #201d19;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Iowan Old Style', 'Georgia', 'Charter', serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .sans {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  code, .mono, .credential {
+    font-family: 'SFMono-Regular', ui-monospace, 'Space Mono', 'Courier New', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 20px 120px;
+  }
+
+  /* ---------- Header ---------- */
+
+  header.top {
+    padding: 40px 0 28px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 28px;
+  }
+
+  .eyebrow {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 10px;
+  }
+
+  h1 {
+    font-family: 'Iowan Old Style', Georgia, serif;
+    font-weight: 700;
+    font-size: clamp(28px, 6vw, 38px);
+    line-height: 1.08;
+    letter-spacing: -0.01em;
+    margin: 0 0 10px;
+    text-wrap: balance;
+  }
+
+  .sub {
+    color: var(--ink-muted);
+    font-size: 15.5px;
+    max-width: 58ch;
+  }
+
+  /* ---------- Sticky progress ---------- */
+
+  .progress-bar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+    padding: 10px 20px;
+    margin: 0 calc(-1 * max(20px, (100% - 760px) / 2));
+  }
+
+  .progress-inner {
+    max-width: 760px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  .progress-track {
+    flex: 1;
+    height: 6px;
+    background: var(--surface-2);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.25s ease;
+  }
+
+  .progress-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+
+  .progress-label strong { color: var(--ink); }
+
+  .reset-btn {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-muted);
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 5px 9px;
+    cursor: pointer;
+  }
+  .reset-btn:hover { border-color: var(--ink-muted); color: var(--ink); }
+  .reset-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- Credentials panel ---------- */
+
+  .creds {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 18px 20px;
+    margin-bottom: 32px;
+  }
+
+  .creds h2 {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin: 0 0 12px;
+  }
+
+  .creds table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  .creds th {
+    text-align: left;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    font-weight: 600;
+    padding: 4px 10px 8px 0;
+  }
+
+  .creds td {
+    padding: 7px 10px 7px 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .creds .role {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-weight: 600;
+  }
+
+  .creds-scroll { overflow-x: auto; }
+
+  .pw-note {
+    margin-top: 10px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 13px;
+    color: var(--ink-muted);
+  }
+
+  .url-line {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 13.5px;
+    color: var(--ink-muted);
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    flex-wrap: wrap;
+  }
+
+  /* ---------- Sections ---------- */
+
+  section.block {
+    margin-bottom: 34px;
+  }
+
+  .block-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+
+  .block-title {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-weight: 700;
+    font-size: 19px;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+  }
+
+  .block-num {
+    font-family: 'SFMono-Regular', ui-monospace, monospace;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .block-count {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+
+  .block-desc {
+    font-size: 14.5px;
+    color: var(--ink-muted);
+    margin: 4px 0 14px;
+    max-width: 62ch;
+  }
+
+  .role-tag {
+    display: inline-flex;
+    align-items: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 5px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  .role-tag.admin { background: var(--warn-soft); color: var(--warn); }
+
+  /* ---------- Checklist items ---------- */
+
+  ul.items {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+
+  ul.items li {
+    border-top: 1px solid var(--line);
+  }
+  ul.items li:first-child { border-top: none; }
+
+  .item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 13px 16px;
+    cursor: pointer;
+  }
+
+  .item:hover { background: var(--surface-2); }
+
+  .item input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    border-radius: 6px;
+    border: 1.5px solid var(--line);
+    background: var(--surface);
+    margin-top: 2px;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .item input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .item input[type="checkbox"]:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .item input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: 2px;
+    width: 5px;
+    height: 10px;
+    border: solid var(--accent-ink);
+    border-width: 0 2px 2px 0;
+    transform: rotate(40deg);
+  }
+
+  .item-body { flex: 1; min-width: 0; }
+
+  .item-title {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.4;
+  }
+
+  .item.done .item-title {
+    color: var(--ink-muted);
+    text-decoration: line-through;
+    text-decoration-color: var(--line);
+  }
+
+  .item-expect {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 13px;
+    color: var(--ink-muted);
+    margin-top: 3px;
+    line-height: 1.45;
+  }
+
+  .item-expect strong { color: var(--ink); font-weight: 600; }
+
+  .item-expect code {
+    background: var(--mono-tint);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  /* ---------- Callouts ---------- */
+
+  .callout {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 13.5px;
+    line-height: 1.5;
+    margin: 12px 0 0;
+  }
+
+  .callout.critical {
+    background: var(--danger-soft);
+    color: var(--danger);
+    border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  }
+
+  .callout.critical strong { color: inherit; }
+
+  .callout-icon { font-weight: 800; line-height: 1.4; }
+
+  /* ---------- Known gaps ---------- */
+
+  .gaps {
+    background: var(--warn-soft);
+    border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 32px;
+  }
+
+  .gaps h2 {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--warn);
+    margin: 0 0 8px;
+  }
+
+  .gaps ul {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  .gaps li { margin-bottom: 6px; }
+  .gaps li:last-child { margin-bottom: 0; }
+
+  /* ---------- Footer ---------- */
+
+  footer {
+    margin-top: 50px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 480px) {
+    .wrap { padding: 0 14px 120px; }
+    header.top { padding: 28px 0 20px; }
+    .progress-bar { margin: 0 -14px; padding: 10px 14px; }
+    .creds table { font-size: 12.5px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .progress-fill { transition: none; }
+  }
+</style>
+
+<div class="wrap">
+
+  <div class="progress-bar">
+    <div class="progress-inner">
+      <span class="progress-label"><strong id="doneCount">0</strong>/<span id="totalCount">0</span></span>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <button class="reset-btn" id="resetBtn" type="button">Reiniciar</button>
+    </div>
+  </div>
+
+  <header class="top">
+    <p class="eyebrow">ZR App · Sesión de prueba en equipo</p>
+    <h1>Checklist antes de la presentación</h1>
+    <p class="sub sans">Todo lo que hay que probar con las manos, en orden, contra <strong>producción real</strong> (no local). Marca cada casilla al confirmarla — queda guardado en este dispositivo.</p>
+  </header>
+
+  <div class="creds">
+    <h2>Accesos de prueba</h2>
+    <div class="url-line">🔗 <code>zr-app-ebon.vercel.app</code> — la app en vivo</div>
+    <div class="creds-scroll">
+      <table>
+        <thead>
+          <tr><th>Rol</th><th>Cédula</th><th>Nombre</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="role">Super admin</td><td class="mono">V-10000001</td><td>Dirección Académica</td></tr>
+          <tr><td class="role">Admin</td><td class="mono">V-10000002</td><td>María Administración</td></tr>
+          <tr><td class="role">Profesor</td><td class="mono">V-10000003</td><td>Prof. Carlos Rivas</td></tr>
+          <tr><td class="role">Profesor</td><td class="mono">V-10000004</td><td>Prof. Ana Peña</td></tr>
+          <tr><td class="role">Estudiante</td><td class="mono">V-30000001</td><td>Luis Hernández</td></tr>
+          <tr><td class="role">Estudiante</td><td class="mono">V-30000002</td><td>Daniela Ríos</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="pw-note">Contraseña para todas: <code>Prueba123!</code> — cédula con letra y guion, tal cual aparece arriba.</p>
+  </div>
+
+  <!-- 1. Registro y consentimiento -->
+  <section class="block" data-section>
+    <div class="block-head">
+      <div class="block-title">Registro y consentimiento<span class="role-tag">Visitante nuevo</span></div>
+      <div class="block-count" data-count></div>
+    </div>
+    <p class="block-desc">Usa una cédula que no exista todavía (inventa una: <code>V-9XXXXXXX</code>). Abre en una ventana de incógnito para no arrastrar sesión de otra cuenta.</p>
+    <ul class="items">
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Registrar un estudiante MENOR de edad (fecha de nacimiento de 15-17 años)</span><span class="item-expect">Al enviar, <strong>redirige solo a la pantalla de Autorización</strong> — no debe dejar pasar directo al carnet.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Llenar el consentimiento del representante y guardar</span><span class="item-expect">Llega al carnet con el <strong>código QR visible</strong>. No queda ningún mensaje de error en pantalla.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Cerrar sesión, volver a entrar con la misma cédula y contraseña</span><span class="item-expect">Entra directo a la home del estudiante, sin volver a pedir consentimiento.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Registrar un estudiante MAYOR de edad (fecha de nacimiento de hace 20+ años)</span><span class="item-expect">Va <strong>directo al carnet</strong>, nunca pasa por la pantalla de Autorización. Todo el trámite en menos de un minuto.</span></span></label></li>
+    </ul>
+  </section>
+
+  <!-- 2. Carnet del estudiante -->
+  <section class="block" data-section>
+    <div class="block-head">
+      <div class="block-title">Carnet e inicio del estudiante<span class="role-tag">Estudiante</span></div>
+      <div class="block-count" data-count></div>
+    </div>
+    <p class="block-desc">Entra con <code>V-30000001</code> (Luis Hernández).</p>
+    <ul class="items">
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">La home muestra "Próximo sábado" con fecha, módulo y qué preparar</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">"Mi progreso" muestra dominadas / en progreso / pendientes</span><span class="item-expect">Sin porcentajes, sin puntos, sin comparación con otros — solo estado por competencia.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Abrir "Mi carnet": el código QR se ve y cambia solo cada 30 segundos</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Poner el teléfono en modo avión: el QR sigue visible</span><span class="item-expect">El carnet no depende de internet para mostrarse.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Entrar a "Clases": si hay una sesión cerrada sin feedback, aparece el aviso "Danos tu opinión"</span></span></label></li>
+    </ul>
+  </section>
+
+  <!-- 3. Asistencia -->
+  <section class="block" data-section>
+    <div class="block-head">
+      <div class="block-title">Asistencia por escaneo<span class="role-tag">Profesor</span></div>
+      <div class="block-count" data-count></div>
+    </div>
+    <p class="block-desc">Entra con <code>V-10000003</code> (Prof. Carlos Rivas). Necesitas dos teléfonos o un teléfono + una laptop: uno hace de profesor escaneando, otro muestra el carnet del estudiante.</p>
+    <ul class="items">
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Ir a "Sesiones" y abrir una clase programada</span><span class="item-expect">Cambia a estado <strong>Abierta</strong> y aparece el botón para escanear.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Entrar a "Pasar asistencia" y permitir el acceso a la cámara</span><span class="item-expect">La cámara se ve arriba, ocupando la mayor parte de la pantalla, sin la barra de navegación estorbando.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Escanear el QR de un estudiante real</span><span class="item-expect">Franja <strong>verde</strong> con el nombre, contador de asistencia sube, y a los 2s vuelve a escanear solo.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Escanear el mismo QR otra vez</span><span class="item-expect">Franja <strong>amarilla</strong>: "Ya registrado" — no cuenta como error.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Activar el interruptor "Refrigerio" y escanear al mismo estudiante</span><span class="item-expect">Marca el refrigerio entregado; si se repite, avisa que ya se entregó.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Tocar "Buscar por cédula", elegir un estudiante y registrar con un motivo</span><span class="item-expect">Queda registrado como asistencia <strong>manual</strong>, con el motivo guardado.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Apagar el wifi del teléfono un momento y escanear otro QR</span><span class="item-expect">Aparece <strong>"N sin sincronizar"</strong>; al volver la conexión, se sincroniza solo sin que hagas nada.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Cerrar la clase desde "Sesiones"</span></span></label></li>
+    </ul>
+  </section>
+
+  <!-- 4. Exámenes -->
+  <section class="block" data-section>
+    <div class="block-head">
+      <div class="block-title">Exámenes, de punta a punta<span class="role-tag">Profesor</span><span class="role-tag">Estudiante</span></div>
+      <div class="block-count" data-count></div>
+    </div>
+    <ul class="items">
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Como profesor: crear un examen con los 3 tipos de pregunta (opción múltiple, verdadero/falso, redacción)</span><span class="item-expect">El indicador "Puntos asignados: X / Y" se pone <strong>verde</strong> solo cuando suman exacto.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Intentar publicar con los puntos descuadrados</span><span class="item-expect">El botón Publicar está <strong>deshabilitado</strong> hasta que cuadre.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Elegir la cohorte correcta al crear el examen</span><span class="item-expect">El selector solo muestra <strong>las cohortes de ese profesor</strong>, no las de otros profesores.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Publicar el examen</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Como estudiante (V-30000001): entrar a "Exámenes" y presentarlo</span><span class="item-expect">Una pregunta por pantalla, con barra de progreso.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Responder las tres preguntas y tocar "Entregar"</span><span class="item-expect">Pide confirmación, y al confirmar <strong>sí entrega de verdad</strong> — no se queda pegado ni regresa al examen.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Ver el estado tras entregar</span><span class="item-expect">Dice "Entregado" y que falta calificar la redacción — las de opción múltiple y V/F ya tienen puntaje.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Como profesor: ir a "Calificar" y puntuar la redacción pendiente</span><span class="item-expect">La rúbrica se ve junto a la respuesta del estudiante.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Como estudiante: revisar "Notas" o el examen calificado</span><span class="item-expect">Aparece la nota final ya sumada, sin que nadie la calcule a mano.</span></span></label></li>
+    </ul>
+  </section>
+
+  <!-- 5. Contenido -->
+  <section class="block" data-section>
+    <div class="block-head">
+      <div class="block-title">Material de estudio<span class="role-tag">Profesor</span><span class="role-tag">Estudiante</span></div>
+      <div class="block-count" data-count></div>
+    </div>
+    <ul class="items">
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Como profesor: subir un PDF con título, módulo y semana, publicado de inmediato</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Como estudiante: abrir "Material" y ver el PDF agrupado por semana</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Tocar el PDF y confirmar que abre y se lee</span></span></label></li>
+    </ul>
+  </section>
+
+  <!-- 6. Feedback -->
+  <section class="block" data-section>
+    <div class="block-head">
+      <div class="block-title">Feedback de clase<span class="role-tag">Estudiante</span><span class="role-tag">Profesor</span></div>
+      <div class="block-count" data-count></div>
+    </div>
+    <p class="block-desc">Necesita una sesión ya <strong>cerrada</strong> con asistencia registrada para ese estudiante.</p>
+    <ul class="items">
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Como estudiante: tocar "Danos tu opinión" en Clases y responder las 3 preguntas</span><span class="item-expect">Debe poder completarse en <strong>menos de 20 segundos</strong> por pregunta.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Repetir con 2 estudiantes más de la misma sesión (3 respuestas en total)</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Como profesor: ir a Sesiones → "Ver feedback" de esa clase</span><span class="item-expect">Con 3+ respuestas muestra el <strong>promedio</strong>. Con menos de 3, dice que no hay suficientes — nunca muestra una respuesta individual.</span></span></label></li>
+    </ul>
+  </section>
+
+  <!-- 7. Notificaciones -->
+  <section class="block" data-section>
+    <div class="block-head">
+      <div class="block-title">Notificaciones<span class="role-tag">Cualquier rol</span></div>
+      <div class="block-count" data-count></div>
+    </div>
+    <ul class="items">
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Tocar la campanita arriba a la derecha</span><span class="item-expect">Abre la lista de notificaciones (aunque esté vacía, no debe dar error).</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">En el perfil, tocar "Activar notificaciones" y aceptar el permiso del navegador</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Publicar un examen nuevo y revisar si le llega la notificación al estudiante</span><span class="item-expect">Puede tardar hasta 5 minutos (el envío corre por lote). Si no llega a tiempo para la demo, no es grave — está documentado como pendiente de confirmar en vivo.</span></span></label></li>
+    </ul>
+  </section>
+
+  <!-- 8. Admin -->
+  <section class="block" data-section>
+    <div class="block-head">
+      <div class="block-title">Panel de administración<span class="role-tag admin">Admin / Super admin</span></div>
+      <div class="block-count" data-count></div>
+    </div>
+    <p class="block-desc">Entra con <code>V-10000002</code> (admin) y luego con <code>V-10000001</code> (super admin) para lo que es exclusivo de ese rol.</p>
+    <ul class="items">
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Panel principal: números de estudiantes activos, consentimientos pendientes, asistencia y exámenes sin calificar</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Buscar un estudiante por nombre y por cédula</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Ver la cola de "Consentimientos" y verificar uno pendiente</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Crear una cohorte nueva y asignarle profesor</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Entrar a "Reportes" y exportar uno a Excel y a PDF</span><span class="item-expect">Los acentos y letras en español se ven bien, no salen caracteres rotos.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">(Solo super admin) Entrar a "Configuración" y confirmar que un admin normal no puede</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Como profesor: marcar una competencia como dominada para varios estudiantes de una cohorte a la vez</span></span></label></li>
+    </ul>
+  </section>
+
+  <!-- 9. Seguridad -->
+  <section class="block" data-section>
+    <div class="block-head">
+      <div class="block-title">Seguridad — lo que NUNCA debe pasar<span class="role-tag">Estudiante</span></div>
+      <div class="block-count" data-count></div>
+    </div>
+    <p class="block-desc">Con <code>V-30000001</code> logueado, intenta esto a propósito.</p>
+    <ul class="items">
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Escribir en la barra de direcciones una ruta de profesor, como <code>/hoy</code> o <code>/calificar</code></span><span class="item-expect">Redirige de vuelta a la pantalla del estudiante — no debe dejarlo pasar.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Igual con una ruta de administración, como <code>/panel</code> o <code>/estudiantes</code></span><span class="item-expect">Mismo resultado: redirige, nunca muestra el panel de admin.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Entrar a un examen que todavía no ha sido publicado (pídele el enlace a un profesor)</span><span class="item-expect">No debe poder verlo ni presentarlo.</span></span></label></li>
+    </ul>
+    <div class="callout critical">
+      <span class="callout-icon">!</span>
+      <span>Si <strong>cualquiera</strong> de estos tres falla — un estudiante ve datos o pantallas que no le corresponden — es motivo para detener la demo y avisar antes de mostrarlo a nadie más. No es un detalle cosmético.</span>
+    </div>
+  </section>
+
+  <!-- 10. A mano / dispositivo real -->
+  <section class="block" data-section>
+    <div class="block-head">
+      <div class="block-title">En un teléfono real, no en la laptop</div>
+      <div class="block-count" data-count></div>
+    </div>
+    <ul class="items">
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Abrir la app en el navegador del teléfono y "Agregar a pantalla de inicio"</span><span class="item-expect">Abre sin la barra de direcciones, como una app instalada.</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Todos los botones se alcanzan con el pulgar, sin tener que estirar la mano</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">Nada se corta ni se desborda a los lados de la pantalla</span></span></label></li>
+      <li><label class="item"><input type="checkbox" data-item><span class="item-body"><span class="item-title">El texto se lee bien bajo luz fuerte o sol directo</span></span></label></li>
+    </ul>
+  </section>
+
+  <div class="gaps">
+    <h2 class="sans">Lo que ya sabemos que falta (no lo busquen, ya está anotado)</h2>
+    <ul class="sans">
+      <li>Reforzar Fase 2: pagos, cuotas y saldos — explícitamente fuera de esta fase, no debe existir en ningún menú.</li>
+      <li>Notificación push puede tardar hasta 5 minutos en llegar (corre por lote cada 5 min, no es instantánea).</li>
+      <li>Prueba de carga con 100 usuarios simultáneos y segunda restauración de respaldo — programadas para la semana del 31 de agosto, no aplica todavía.</li>
+    </ul>
+  </div>
+
+  <footer class="sans">
+    <span>ZR Mecademy — SPRINT_3 y SPRINT_4 completos</span>
+    <span>Probado contra producción, no local</span>
+  </footer>
+
+</div>
+
+<script>
+  (function () {
+    var STORAGE_KEY = 'zr-checklist-v1';
+    var items = Array.prototype.slice.call(document.querySelectorAll('[data-item]'));
+    var sections = Array.prototype.slice.call(document.querySelectorAll('[data-section]'));
+
+    function loadState() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      } catch (e) { return {}; }
+    }
+
+    function saveState(state) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+    }
+
+    function indexItems() {
+      items.forEach(function (el, i) { el.dataset.idx = i; });
+    }
+
+    function updateSectionCounts() {
+      sections.forEach(function (sec) {
+        var secItems = Array.prototype.slice.call(sec.querySelectorAll('[data-item]'));
+        var done = secItems.filter(function (el) { return el.checked; }).length;
+        var countEl = sec.querySelector('[data-count]');
+        if (countEl) countEl.textContent = done + ' / ' + secItems.length;
+      });
+    }
+
+    function updateProgress() {
+      var done = items.filter(function (el) { return el.checked; }).length;
+      var total = items.length;
+      document.getElementById('doneCount').textContent = done;
+      document.getElementById('totalCount').textContent = total;
+      document.getElementById('progressFill').style.width = (total ? (done / total * 100) : 0) + '%';
+      updateSectionCounts();
+    }
+
+    function applyState() {
+      var state = loadState();
+      items.forEach(function (el) {
+        var checked = !!state[el.dataset.idx];
+        el.checked = checked;
+        el.closest('.item').classList.toggle('done', checked);
+      });
+      updateProgress();
+    }
+
+    indexItems();
+    applyState();
+
+    items.forEach(function (el) {
+      el.addEventListener('change', function () {
+        var state = loadState();
+        state[el.dataset.idx] = el.checked;
+        saveState(state);
+        el.closest('.item').classList.toggle('done', el.checked);
+        updateProgress();
+      });
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', function () {
+      if (!confirm('¿Desmarcar todo el checklist?')) return;
+      saveState({});
+      items.forEach(function (el) {
+        el.checked = false;
+        el.closest('.item').classList.remove('done');
+      });
+      updateProgress();
+    });
+  })();
+</script>

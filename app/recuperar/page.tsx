@@ -79,7 +79,7 @@ export default function Recuperar() {
         <p className="text-sm text-zr-text-muted mt-1">Te enviaremos un enlace por correo</p>
       </header>
 
-      <form onSubmit={recuperar} className="glass flex flex-col gap-4 p-8 rounded-3xl" noValidate>
+      <form onSubmit={recuperar} className="space-y-4" noValidate>
         <Campo
           etiqueta="Cédula"
           name="cedula"

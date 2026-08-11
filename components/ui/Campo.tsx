@@ -15,8 +15,8 @@ export function Campo({ etiqueta, error, ayuda, className = '', ...resto }: Prop
   const idAyuda = `${id}-ayuda`
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium text-zr-text">
+    <div className="space-y-2">
+      <label htmlFor={id} className="block text-sm font-semibold text-zr-text">
         {etiqueta}
       </label>
 
@@ -28,18 +28,16 @@ export function Campo({ etiqueta, error, ayuda, className = '', ...resto }: Prop
           .filter(Boolean)
           .join(' ') || undefined}
         className={[
-          'min-h-[56px] rounded-xl border border-white/15 bg-white/25 px-4 text-base text-zr-text',
-          'backdrop-blur-2xl',
-          'placeholder:text-zr-text-muted/50',
-          'shadow-[0_8px_32px_rgba(31,38,135,0.1),inset_0_1px_0_rgba(255,255,255,0.7)]',
-          error ? 'border-zr-error' : 'focus:border-zr-blue/50 focus:bg-white/30',
-          'focus:outline-none transition-all duration-200',
+          'w-full min-h-[56px] px-5 py-4 bg-zr-surface border border-zr-border rounded-xl',
+          'text-base font-medium text-zr-text placeholder-zr-text-muted',
+          error ? 'border-zr-error' : 'focus:border-zr-blue',
+          'focus:outline-none focus:ring-2 focus:ring-zr-blue/20 transition-all',
           className,
         ].join(' ')}
       />
 
       {ayuda && !error && (
-        <p id={idAyuda} className="text-sm text-zr-text-muted">{ayuda}</p>
+        <p id={idAyuda} className="text-xs text-zr-text-muted">{ayuda}</p>
       )}
 
       {error && (

@@ -117,7 +117,7 @@ export default function Registro() {
         <p className="text-base text-zr-text-muted mt-1">Crea tu cuenta en ZR App</p>
       </header>
 
-      <form onSubmit={registrar} className="glass-dark flex flex-col gap-3 p-8 rounded-3xl" noValidate>
+      <form onSubmit={registrar} className="space-y-4" noValidate>
         <Campo
           etiqueta="Nombre completo"
           name="fullName"

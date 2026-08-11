@@ -16,7 +16,9 @@ export async function POST(req: Request) {
   const representativeEmail = formData.get('representativeEmail') as string
   const representativePhone = formData.get('representativePhone') as string
   const method = formData.get('method') as string
-  const document = formData.get('document') as File | null
+  // Dos documentos: la cédula del representante y el consentimiento firmado.
+  const documentId = formData.get('documentId') as File | null
+  const documentConsent = formData.get('documentConsent') as File | null
 
   // Validaciones básicas
   if (!representativeName || !representativeCedula || !representativeEmail) {
@@ -30,28 +32,38 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Método inválido' }, { status: 400 })
   }
 
-  if (method === 'digital' && !document) {
-    return Response.json({ error: 'Debes subir el documento' }, { status: 400 })
+  if (method === 'digital' && (!documentId || !documentConsent)) {
+    return Response.json(
+      { error: 'Debes subir la cédula del representante y el consentimiento firmado' },
+      { status: 400 }
+    )
   }
 
   const admin = createAdminClient()
 
+  async function subir(archivo: File): Promise<string> {
+    const filename = `${user!.id}/${Date.now()}-${archivo.name}`
+    const buffer = await archivo.arrayBuffer()
+    const { data, error } = await admin.storage
+      .from('consentimientos')
+      .upload(filename, buffer, { contentType: archivo.type })
+    if (error) throw error
+    return data.path
+  }
+
+  let representativeIdDocumentUrl: string | null = null
   let documentUrl: string | null = null
 
-  // 2. Si es digital, subir el documento al bucket `consentimientos`
-  if (method === 'digital' && document) {
-    const filename = `${user.id}/${Date.now()}-${document.name}`
-    const buffer = await document.arrayBuffer()
-
-    const { data: uploadData, error: uploadError } = await admin.storage
-      .from('consentimientos')
-      .upload(filename, buffer, { contentType: document.type })
-
-    if (uploadError) {
-      return Response.json({ error: 'Error al subir documento' }, { status: 400 })
+  // 2. Si es digital, subir los dos documentos al bucket `consentimientos`
+  if (method === 'digital' && documentId && documentConsent) {
+    try {
+      ;[representativeIdDocumentUrl, documentUrl] = await Promise.all([
+        subir(documentId),
+        subir(documentConsent),
+      ])
+    } catch {
+      return Response.json({ error: 'Error al subir los documentos' }, { status: 400 })
     }
-
-    documentUrl = uploadData.path
   }
 
   // 3. Insertar en parental_consents
@@ -64,6 +76,7 @@ export async function POST(req: Request) {
     consent_type: 'account_creation',
     method: method as 'fisico' | 'digital',
     document_url: documentUrl,
+    representative_id_document_url: representativeIdDocumentUrl,
   })
 
   if (insertError) {

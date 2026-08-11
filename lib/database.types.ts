@@ -1316,6 +1316,7 @@ export type Database = {
           representative_email: string
           representative_name: string
           representative_phone: string | null
+          representative_id_document_url: string | null
           signed_at: string
           student_id: string
           verified_at: string | null
@@ -1331,6 +1332,7 @@ export type Database = {
           representative_email: string
           representative_name: string
           representative_phone?: string | null
+          representative_id_document_url?: string | null
           signed_at?: string
           student_id: string
           verified_at?: string | null
@@ -1346,6 +1348,7 @@ export type Database = {
           representative_email?: string
           representative_name?: string
           representative_phone?: string | null
+          representative_id_document_url?: string | null
           signed_at?: string
           student_id?: string
           verified_at?: string | null

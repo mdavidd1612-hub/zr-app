@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { IconoDocumento, IconoCandado } from '@/components/ui/Iconos'
+import { generarConsentimientoPDF } from '@/lib/consent-pdf'
 
 /**
  * T-114 · Cola de consentimientos.
@@ -32,13 +33,16 @@ interface DetalleConsentimiento {
   representative_name: string
   representative_cedula: string
   representative_email: string
+  representative_phone: string | null
   method: 'fisico' | 'digital'
   document_url: string | null
+  representative_id_document_url: string | null
   created_at: string
 }
 
 interface Pendiente extends FilaBloqueada {
   detalle: DetalleConsentimiento | null
+  verificadoAhora?: { verifiedAt: string; verifiedByName: string }
 }
 
 export default function Consentimientos() {
@@ -82,7 +86,7 @@ export default function Consentimientos() {
       const { data: consentimientos } = ids.length
         ? await supabase
             .from('parental_consents')
-            .select('student_id, representative_name, representative_cedula, representative_email, method, document_url, created_at')
+            .select('student_id, representative_name, representative_cedula, representative_email, representative_phone, method, document_url, representative_id_document_url, created_at')
             .in('student_id', ids)
             .eq('consent_type', 'account_creation')
         : { data: [] }
@@ -107,11 +111,13 @@ export default function Consentimientos() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
+    const verifiedAt = new Date().toISOString()
+
     // verified_by es admins.id, no profiles.id — pero son el mismo uuid
     // (admins.id referencia a profiles.id 1 a 1).
     const { error: fallo } = await supabase
       .from('parental_consents')
-      .update({ verified_by: user.id, verified_at: new Date().toISOString() })
+      .update({ verified_by: user.id, verified_at: verifiedAt })
       .eq('student_id', estudianteId)
       .eq('consent_type', 'account_creation')
 
@@ -121,8 +127,48 @@ export default function Consentimientos() {
       return
     }
 
-    setPendientes((ps) => ps.filter((p) => p.id !== estudianteId))
+    const { data: perfil } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single()
+
+    // Queda visible con el botón de descarga en vez de desaparecer, para que
+    // se pueda bajar el PDF justo después de aprobar. En la próxima carga de
+    // la cola (v_students_blocked) ya no aparecerá, porque dejó de estar
+    // pendiente — es el comportamiento normal, no un olvido.
+    setPendientes((ps) =>
+      ps.map((p) =>
+        p.id === estudianteId
+          ? { ...p, verificadoAhora: { verifiedAt, verifiedByName: perfil?.full_name ?? 'Administración' } }
+          : p
+      )
+    )
     setVerificando(null)
+  }
+
+  async function descargarPdf(p: Pendiente) {
+    if (!p.detalle || !p.verificadoAhora) return
+    generarConsentimientoPDF({
+      studentName: p.full_name,
+      studentCedula: p.cedula,
+      representativeName: p.detalle.representative_name,
+      representativeCedula: p.detalle.representative_cedula,
+      representativeEmail: p.detalle.representative_email,
+      representativePhone: p.detalle.representative_phone,
+      method: p.detalle.method,
+      signedAt: p.detalle.created_at,
+      verifiedAt: p.verificadoAhora.verifiedAt,
+      verifiedByName: p.verificadoAhora.verifiedByName,
+    })
+  }
+
+  async function verDocumento(path: string) {
+    const supabase = createClient()
+    const { data } = await supabase.storage.from('consentimientos').createSignedUrl(path, 300)
+    if (data?.signedUrl) {
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+    }
   }
 
   if (cargando) {
@@ -201,29 +247,53 @@ export default function Consentimientos() {
                         <IconoDocumento size={16} className="text-zr-text-muted" />
                         {p.detalle.method === 'fisico' ? 'Firmó en papel en la sede' : 'Documento digital'}
                       </p>
-                      {p.detalle.document_url && (
-                        <a
-                          href={`/consentimientos/${p.detalle.document_url}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-2 inline-block text-xs font-semibold text-zr-blue underline underline-offset-2"
-                        >
-                          Ver documento
-                        </a>
-                      )}
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                        {p.detalle.representative_id_document_url && (
+                          <button
+                            type="button"
+                            onClick={() => verDocumento(p.detalle!.representative_id_document_url!)}
+                            className="text-xs font-semibold text-zr-blue underline underline-offset-2"
+                          >
+                            Ver cédula del representante
+                          </button>
+                        )}
+                        {p.detalle.document_url && (
+                          <button
+                            type="button"
+                            onClick={() => verDocumento(p.detalle!.document_url!)}
+                            className="text-xs font-semibold text-zr-blue underline underline-offset-2"
+                          >
+                            Ver consentimiento firmado
+                          </button>
+                        )}
+                      </div>
                       <p className="mt-2 text-xs text-zr-text-muted">
                         Registrado el {new Date(p.detalle.created_at).toLocaleDateString('es-VE')}
                       </p>
                     </div>
 
                     <div className="p-4">
-                      <button
-                        onClick={() => verificar(p.id)}
-                        disabled={verificando === p.id}
-                        className="min-h-14 w-full rounded-lg bg-zr-success px-4 text-base font-bold text-white transition-colors active:bg-zr-success/90 disabled:opacity-50"
-                      >
-                        {verificando === p.id ? 'Verificando…' : 'Verificar'}
-                      </button>
+                      {p.verificadoAhora ? (
+                        <div className="space-y-2">
+                          <p className="text-center text-sm font-semibold text-zr-success">
+                            Verificado ✓
+                          </p>
+                          <button
+                            onClick={() => descargarPdf(p)}
+                            className="min-h-14 w-full rounded-lg bg-zr-blue px-4 text-base font-bold text-white transition-colors active:bg-zr-blue-deep"
+                          >
+                            Descargar PDF
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => verificar(p.id)}
+                          disabled={verificando === p.id}
+                          className="min-h-14 w-full rounded-lg bg-zr-success px-4 text-base font-bold text-white transition-colors active:bg-zr-success/90 disabled:opacity-50"
+                        >
+                          {verificando === p.id ? 'Verificando…' : 'Verificar'}
+                        </button>
+                      )}
                     </div>
                   </>
                 ) : (

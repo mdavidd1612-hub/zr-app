@@ -18,7 +18,8 @@ export default function Consentimiento() {
     representativeEmail: '',
     representativePhone: '',
     method: 'fisico' as Metodo,
-    document: null as File | null,
+    documentId: null as File | null,
+    documentConsent: null as File | null,
   })
 
   const [error, setError] = useState<string | null>(null)
@@ -34,8 +35,8 @@ export default function Consentimiento() {
       return
     }
 
-    if (formulario.method === 'digital' && !formulario.document) {
-      setError('Debes subir el documento')
+    if (formulario.method === 'digital' && (!formulario.documentId || !formulario.documentConsent)) {
+      setError('Debes subir la cédula del representante y el consentimiento firmado')
       return
     }
 
@@ -48,8 +49,11 @@ export default function Consentimiento() {
       formData.append('representativeEmail', formulario.representativeEmail)
       formData.append('representativePhone', formulario.representativePhone)
       formData.append('method', formulario.method)
-      if (formulario.document) {
-        formData.append('document', formulario.document)
+      if (formulario.documentId) {
+        formData.append('documentId', formulario.documentId)
+      }
+      if (formulario.documentConsent) {
+        formData.append('documentConsent', formulario.documentConsent)
       }
 
       const res = await fetch('/api/auth/consent', {
@@ -89,7 +93,7 @@ export default function Consentimiento() {
         </p>
       </header>
 
-      <form onSubmit={guardar} className="glass flex flex-col gap-3 p-8 rounded-3xl" noValidate>
+      <form onSubmit={guardar} className="glass-dark flex flex-col gap-3 p-8 rounded-3xl" noValidate>
         <fieldset className="space-y-3 border-t border-zr-border pt-4">
           <legend className="font-medium">Datos del representante legal</legend>
 
@@ -186,22 +190,42 @@ export default function Consentimiento() {
         </fieldset>
 
         {formulario.method === 'digital' && (
-          <fieldset className="border-t border-zr-border pt-4">
-            <label htmlFor="document" className="block font-medium mb-2">
-              Documento (PDF o imagen)
-            </label>
-            <input
-              id="document"
-              type="file"
-              accept=".pdf,.jpg,.jpeg,.png"
-              onChange={(e) =>
-                setFormulario({
-                  ...formulario,
-                  document: e.target.files?.[0] || null,
-                })
-              }
-              className="block w-full text-sm text-zr-text file:mr-4 file:rounded-zr file:border-0 file:bg-zr-blue file:px-4 file:py-2 file:text-white file:cursor-pointer hover:file:bg-zr-blue-deep"
-            />
+          <fieldset className="space-y-4 border-t border-zr-border pt-4">
+            <div>
+              <label htmlFor="documentId" className="block font-medium mb-2">
+                Cédula del representante (foto o PDF)
+              </label>
+              <input
+                id="documentId"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) =>
+                  setFormulario({
+                    ...formulario,
+                    documentId: e.target.files?.[0] || null,
+                  })
+                }
+                className="block w-full text-sm text-zr-text file:mr-4 file:rounded-zr file:border-0 file:bg-zr-blue file:px-4 file:py-2 file:text-white file:cursor-pointer hover:file:bg-zr-blue-deep"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="documentConsent" className="block font-medium mb-2">
+                Consentimiento firmado (foto o PDF)
+              </label>
+              <input
+                id="documentConsent"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) =>
+                  setFormulario({
+                    ...formulario,
+                    documentConsent: e.target.files?.[0] || null,
+                  })
+                }
+                className="block w-full text-sm text-zr-text file:mr-4 file:rounded-zr file:border-0 file:bg-zr-blue file:px-4 file:py-2 file:text-white file:cursor-pointer hover:file:bg-zr-blue-deep"
+              />
+            </div>
           </fieldset>
         )}
 

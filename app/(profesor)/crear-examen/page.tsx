@@ -47,7 +47,8 @@ export default function ExamenesProfesor() {
   // en vez de llamar a la carga desde el manejador: así el efecto sigue siendo
   // el único sitio que escribe el estado y React no encadena renders.
   const [version, setVersion] = useState(0)
-  const [confirmandoBorrar, setConfirmandoBorrar] = useState<string | null>(null)
+  const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
+  const [borrandoLote, setBorrandoLote] = useState(false)
 
   useEffect(() => {
     let vigente = true
@@ -88,22 +89,29 @@ export default function ExamenesProfesor() {
     return () => { vigente = false }
   }, [router, version])
 
-  async function eliminar(examen: Examen) {
-    setConfirmandoBorrar(null)
-    setOcupado(examen.id)
+  function toggleSeleccion(id: string) {
+    setSeleccionados((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  async function borrarSeleccionados() {
+    if (seleccionados.size === 0) return
+    setBorrandoLote(true)
     setError(null)
-
     const supabase = createClient()
-    // Primero borramos preguntas (por si no hay CASCADE en la migración)
-    await supabase.from('exam_questions').delete().eq('exam_id', examen.id)
-    const { error: fallo } = await supabase.from('exams').delete().eq('id', examen.id)
-
+    const ids = [...seleccionados]
+    await supabase.from('exam_questions').delete().in('exam_id', ids)
+    const { error: fallo } = await supabase.from('exams').delete().in('id', ids)
     if (fallo) {
       setError(fallo.message)
     } else {
-      setExamenes((xs) => xs.filter((x) => x.id !== examen.id))
+      setExamenes((xs) => xs.filter((x) => !ids.includes(x.id)))
+      setSeleccionados(new Set())
     }
-    setOcupado(null)
+    setBorrandoLote(false)
   }
 
   async function publicar(examen: Examen) {
@@ -202,33 +210,43 @@ export default function ExamenesProfesor() {
   const borradores = examenes.filter((e) => e.estado === 'oculto')
   const publicados = examenes.filter((e) => e.estado !== 'oculto')
 
+  const esBorrador = (e: Examen) => e.estado === 'oculto'
+
   const Tarjeta = ({ e, i }: { e: Examen; i: number }) => {
     const cuadran = e.puntosAsignados === e.puntajeMaximo
+    const seleccionado = seleccionados.has(e.id)
     return (
       <div
-        className="zr-card zr-card-interactive animate-rise overflow-hidden"
+        className={`zr-card animate-rise overflow-hidden transition-all ${seleccionado ? 'ring-2 ring-zr-blue' : ''}`}
         style={{ animationDelay: `${60 * i}ms` }}
       >
-        <div className="p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <h3 className="text-lg font-bold text-zr-text">{e.titulo}</h3>
-              <p className="mt-1 text-sm text-zr-text-muted">{e.modulo}</p>
+        <div className="p-5">
+          <div className="flex items-start gap-3">
+            {/* Checkbox — solo en borradores */}
+            {esBorrador(e) && (
+              <input
+                type="checkbox"
+                checked={seleccionado}
+                onChange={() => toggleSeleccion(e.id)}
+                className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-zr-blue"
+              />
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-base font-bold text-zr-text">{e.titulo}</h3>
+                <Etiqueta tono={ESTADO[e.estado].tono}>{ESTADO[e.estado].texto}</Etiqueta>
+              </div>
+              <p className="mt-0.5 text-sm text-zr-text-muted">{e.modulo}</p>
             </div>
-            <Etiqueta tono={ESTADO[e.estado].tono}>{ESTADO[e.estado].texto}</Etiqueta>
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-6 border-t border-zr-border/60 pt-5">
+          <div className="mt-4 flex flex-wrap gap-6 border-t border-zr-border/60 pt-4">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">
-                Preguntas
-              </p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">Preguntas</p>
               <p className="zr-metric mt-1 text-xl text-zr-text">{e.preguntas}</p>
             </div>
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">
-                Puntos
-              </p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">Puntos</p>
               <p className={`zr-metric mt-1 text-xl ${cuadran ? 'text-zr-success' : 'text-zr-error'}`}>
                 {e.puntosAsignados} / {e.puntajeMaximo}
               </p>
@@ -236,53 +254,33 @@ export default function ExamenesProfesor() {
           </div>
         </div>
 
-        {e.estado === 'oculto' && confirmandoBorrar !== e.id && (
-          <div className="flex gap-2 border-t border-zr-border bg-zr-bg/40 p-4">
-            <button
-              onClick={() => publicar(e)}
-              disabled={ocupado === e.id || !cuadran || e.preguntas === 0}
-              title={!cuadran ? 'Los puntos tienen que sumar el puntaje máximo' : undefined}
-              className="flex-1 rounded-lg bg-zr-success px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-zr-success/90 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {ocupado === e.id ? 'Trabajando…' : 'Publicar'}
-            </button>
-            <button
-              onClick={() => router.push(`/crear-examen/${e.id}`)}
-              disabled={ocupado === e.id}
-              className="rounded-lg border border-zr-border px-4 py-3 text-sm font-semibold text-zr-text transition-colors hover:border-zr-blue/45 disabled:opacity-40"
-            >
-              Editar
-            </button>
-            <button
-              onClick={() => setConfirmandoBorrar(e.id)}
-              disabled={ocupado === e.id}
-              className="rounded-lg border border-zr-error/30 px-4 py-3 text-sm font-semibold text-zr-error transition-colors hover:bg-zr-error/8 disabled:opacity-40"
-            >
-              Borrar
-            </button>
-          </div>
-        )}
-
-        {e.estado === 'oculto' && confirmandoBorrar === e.id && (
-          <div className="flex gap-2 border-t border-zr-error/20 bg-zr-error/8 p-4">
-            <p className="flex-1 text-sm font-medium text-zr-error">¿Eliminar este examen?</p>
-            <button
-              onClick={() => eliminar(e)}
-              className="rounded-lg bg-zr-error px-4 py-2 text-sm font-bold text-white"
-            >
-              Sí, eliminar
-            </button>
-            <button
-              onClick={() => setConfirmandoBorrar(null)}
-              className="rounded-lg border border-zr-border px-4 py-2 text-sm font-semibold text-zr-text"
-            >
-              Cancelar
-            </button>
-          </div>
-        )}
-
-        {e.estado !== 'oculto' && (
-          <div className="flex gap-2 border-t border-zr-border bg-zr-bg/40 p-4">
+        <div className="flex gap-2 border-t border-zr-border bg-zr-bg/40 p-4">
+          {esBorrador(e) ? (
+            <>
+              <button
+                onClick={() => publicar(e)}
+                disabled={ocupado === e.id || !cuadran || e.preguntas === 0}
+                title={!cuadran ? 'Los puntos tienen que sumar el puntaje máximo' : undefined}
+                className="flex-1 rounded-lg bg-zr-success px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-zr-success/90 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {ocupado === e.id ? 'Publicando…' : 'Publicar'}
+              </button>
+              <button
+                onClick={() => router.push(`/crear-examen/${e.id}`)}
+                disabled={ocupado === e.id}
+                className="rounded-lg border border-zr-blue px-4 py-3 text-sm font-semibold text-zr-blue transition-colors hover:bg-zr-blue/8 disabled:opacity-40"
+              >
+                Editar
+              </button>
+              <button
+                onClick={() => duplicar(e)}
+                disabled={ocupado === e.id}
+                className="rounded-lg border border-zr-border px-4 py-3 text-sm font-semibold text-zr-text transition-colors hover:border-zr-blue/30 disabled:opacity-40"
+              >
+                Duplicar
+              </button>
+            </>
+          ) : (
             <button
               onClick={() => duplicar(e)}
               disabled={ocupado === e.id}
@@ -290,8 +288,8 @@ export default function ExamenesProfesor() {
             >
               {ocupado === e.id ? 'Duplicando…' : 'Duplicar para otra cohorte'}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     )
   }
@@ -311,6 +309,30 @@ export default function ExamenesProfesor() {
           </button>
         }
       />
+
+      {/* Barra de selección masiva */}
+      {seleccionados.size > 0 && (
+        <div className="flex items-center justify-between rounded-xl border border-zr-error/30 bg-zr-error/10 px-5 py-4">
+          <p className="text-sm font-semibold text-zr-error">
+            {seleccionados.size} {seleccionados.size === 1 ? 'examen seleccionado' : 'exámenes seleccionados'}
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setSeleccionados(new Set())}
+              className="rounded-lg border border-zr-border px-4 py-2 text-sm font-semibold text-zr-text"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={borrarSeleccionados}
+              disabled={borrandoLote}
+              className="rounded-lg bg-zr-error px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+            >
+              {borrandoLote ? 'Borrando…' : 'Eliminar seleccionados'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <Regla delay={60} />
 

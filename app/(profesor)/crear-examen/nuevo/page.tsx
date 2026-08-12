@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { QuestionEditor } from '@/components/QuestionEditor'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
@@ -50,6 +50,10 @@ export default function NuevoExamen() {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [transcribiendo, setTranscribiendo] = useState(false)
+  const [errorPdf, setErrorPdf] = useState<string | null>(null)
+  const archivoRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     const supabase = createClient()
 
@@ -77,6 +81,61 @@ export default function NuevoExamen() {
   const puntosAsignados = preguntas.reduce((s, q) => s + q.points, 0)
   const puntosCuadran = puntosAsignados === puntajeMaximo
   const sePuedeGuardar = titulo.trim() !== '' && moduloId !== '' && preguntas.length > 0
+
+  async function importarPdf(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // Limpiar el input para que se pueda subir el mismo archivo de nuevo
+    e.target.value = ''
+
+    setTranscribiendo(true)
+    setErrorPdf(null)
+
+    const form = new FormData()
+    form.append('pdf', file)
+
+    try {
+      const res = await fetch('/api/transcribe-exam', { method: 'POST', body: form })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setErrorPdf(data.error ?? 'No se pudo leer el PDF')
+        return
+      }
+
+      type PreguntaRaw = {
+        type: TipoPregunta
+        statement: string
+        points: number
+        options?: Array<{ key: string; text: string }>
+        correct_answer?: unknown
+        rubric?: string | null
+      }
+
+      const nuevas: Pregunta[] = ((data.preguntas ?? []) as PreguntaRaw[]).map((p) => ({
+        id: `q${Date.now()}-${Math.random()}`,
+        type: p.type,
+        statement: p.statement,
+        points: p.points ?? 1,
+        options: p.options,
+        correct_answer: p.correct_answer,
+        rubric: p.rubric ?? null,
+      }))
+
+      if (nuevas.length === 0) {
+        setErrorPdf('No se encontraron preguntas en el PDF. Verifica que tenga texto seleccionable.')
+        return
+      }
+
+      setPreguntas((qs) => [...qs, ...nuevas])
+      if (data.titulo_sugerido && !titulo) setTitulo(data.titulo_sugerido)
+      if (data.instrucciones_sugeridas && !instrucciones) setInstrucciones(data.instrucciones_sugeridas)
+    } catch {
+      setErrorPdf('Error de conexión al procesar el PDF')
+    } finally {
+      setTranscribiendo(false)
+    }
+  }
 
   function agregarPregunta(datos: Omit<Pregunta, 'id'>) {
     setPreguntas((qs) => [...qs, { id: `q${Date.now()}`, ...datos }])
@@ -248,6 +307,37 @@ export default function NuevoExamen() {
 
       {/* 02 — PREGUNTAS */}
       <Seccion numero={2} titulo="Preguntas" delay={200}>
+        {/* Importar desde PDF */}
+        <div className="zr-card flex items-center gap-4 p-5">
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-zr-text">Importar desde PDF</p>
+            <p className="mt-0.5 text-xs text-zr-text-muted">
+              Sube el examen en PDF y la IA extrae las preguntas automáticamente.
+            </p>
+          </div>
+          <input
+            ref={archivoRef}
+            type="file"
+            accept="application/pdf"
+            className="hidden"
+            onChange={importarPdf}
+          />
+          <button
+            type="button"
+            disabled={transcribiendo}
+            onClick={() => archivoRef.current?.click()}
+            className="shrink-0 rounded-lg border border-zr-blue px-4 py-2.5 text-sm font-semibold text-zr-blue transition-colors hover:bg-zr-blue/8 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {transcribiendo ? 'Leyendo…' : 'Subir PDF'}
+          </button>
+        </div>
+
+        {errorPdf && (
+          <p className="rounded-lg border border-zr-error/30 bg-zr-error/12 px-4 py-3 text-sm font-medium text-zr-error">
+            {errorPdf}
+          </p>
+        )}
+
         {/* Contador permanente. Rojo mientras no cuadre: es el error más común
             al armar un examen y el que impide publicarlo. */}
         <div

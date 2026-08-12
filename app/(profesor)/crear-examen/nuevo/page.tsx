@@ -136,15 +136,27 @@ export default function NuevoExamen() {
         rubric?: string | null
       }
 
-      const nuevas: Pregunta[] = ((data.preguntas ?? []) as PreguntaRaw[]).map((p) => ({
-        id: `q${Date.now()}-${Math.random()}`,
-        type: p.type,
-        statement: p.statement,
-        points: p.points ?? 1,
-        options: p.options,
-        correct_answer: p.correct_answer,
-        rubric: p.rubric ?? null,
-      }))
+      const nuevas: Pregunta[] = ((data.preguntas ?? []) as PreguntaRaw[]).map((p) => {
+        let correcta = p.correct_answer ?? null
+
+        // La BD exige correct_answer != null para preguntas no abiertas.
+        // Si la IA no lo detectó, usamos la primera opción como fallback —
+        // el profesor lo corrige antes de publicar.
+        if (correcta === null && p.type !== 'redaccion_abierta') {
+          if (p.type === 'verdadero_falso') correcta = true
+          else if (p.options && p.options.length > 0) correcta = p.options[0].key
+        }
+
+        return {
+          id: `q${Date.now()}-${Math.random()}`,
+          type: p.type,
+          statement: p.statement,
+          points: p.points ?? 1,
+          options: p.options,
+          correct_answer: correcta,
+          rubric: p.rubric ?? null,
+        }
+      })
 
       if (nuevas.length === 0) {
         setErrorPdf('No se encontraron preguntas en el PDF. Verifica que tenga texto seleccionable.')

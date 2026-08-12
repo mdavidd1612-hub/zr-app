@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { registroSchema } from '@/lib/validators'
 import { Boton } from '@/components/ui/Boton'
 import { Campo } from '@/components/ui/Campo'
+import { SelectorFecha } from '@/components/ui/SelectorFecha'
 import { Aviso } from '@/components/ui/Aviso'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { createClient } from '@/lib/supabase/client'
@@ -147,12 +148,10 @@ export default function RegistroProfesor() {
           required
         />
 
-        <Campo
+        <SelectorFecha
           etiqueta="Fecha de nacimiento"
-          name="birthDate"
-          type="date"
           value={formulario.birthDate}
-          onChange={(e) => setFormulario({ ...formulario, birthDate: e.target.value })}
+          onChange={(valor) => setFormulario({ ...formulario, birthDate: valor })}
           required
         />
 

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { esDireccionAcademica } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
 
 /**
@@ -41,6 +42,7 @@ interface Cohorte {
 const ROLES: { valor: UserRole; etiqueta: string; soloSuper: boolean }[] = [
   { valor: 'profesor', etiqueta: 'Profesor', soloSuper: false },
   { valor: 'admin', etiqueta: 'Administrador', soloSuper: true },
+  { valor: 'direccion_academica', etiqueta: 'Dirección Académica', soloSuper: true },
   { valor: 'super_admin', etiqueta: 'Super admin', soloSuper: true },
 ]
 
@@ -63,6 +65,7 @@ export default function Personal() {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
+  const [eliminando, setEliminando] = useState<string | null>(null)
 
   useEffect(() => {
     let vigente = true
@@ -77,7 +80,16 @@ export default function Personal() {
 
       const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
       if (!vigente) return
-      setMiRol((perfil?.role as UserRole) ?? null)
+
+      const rolActual = (perfil?.role as UserRole) ?? null
+      // Gestionar personal es de Dirección Académica y super_admin — un
+      // admin normal ya no da de alta profesores (eso pasó a ser trabajo
+      // académico, no administrativo).
+      if (!esDireccionAcademica(rolActual)) {
+        router.replace('/panel')
+        return
+      }
+      setMiRol(rolActual)
 
       const [{ data }, { data: cohs }] = await Promise.all([
         supabase
@@ -189,6 +201,32 @@ export default function Personal() {
     setCreando(false)
     setGuardando(false)
     setVersion((v) => v + 1)
+  }
+
+  async function eliminar(id: string, nombre: string) {
+    if (!confirm(`¿Borrar la cuenta de ${nombre}? Esto no se puede deshacer.`)) return
+    setEliminando(id)
+    setError(null)
+
+    const supabase = createClient()
+    const { error: fallo } = await supabase.functions.invoke('delete-account', {
+      body: { profileId: id },
+    })
+
+    if (fallo) {
+      const contexto = (fallo as { context?: { json?: () => Promise<unknown> } }).context
+      if (contexto?.json) {
+        const cuerpo = (await contexto.json()) as { error?: { message: string } }
+        setError(cuerpo.error?.message ?? 'No se pudo borrar la cuenta.')
+      } else {
+        setError('No se pudo borrar la cuenta. Revisa tu conexión.')
+      }
+      setEliminando(null)
+      return
+    }
+
+    setEquipo((eq) => eq.filter((m) => m.id !== id))
+    setEliminando(null)
   }
 
   const rolesDisponibles = ROLES.filter((r) => !r.soloSuper || miRol === 'super_admin')
@@ -345,9 +383,20 @@ export default function Personal() {
                     </p>
                   )}
                 </div>
-                <Etiqueta tono={m.rol === 'super_admin' || m.rol === 'direccion_academica' ? 'info' : m.rol === 'admin' ? 'aviso' : 'exito'}>
-                  {m.rol === 'super_admin' ? 'Super admin' : m.rol === 'direccion_academica' ? 'Dirección académica' : m.rol === 'admin' ? 'Admin' : 'Profesor'}
-                </Etiqueta>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <Etiqueta tono={m.rol === 'super_admin' || m.rol === 'direccion_academica' ? 'info' : m.rol === 'admin' ? 'aviso' : 'exito'}>
+                    {m.rol === 'super_admin' ? 'Super admin' : m.rol === 'direccion_academica' ? 'Dirección académica' : m.rol === 'admin' ? 'Admin' : 'Profesor'}
+                  </Etiqueta>
+                  {miRol === 'super_admin' && (
+                    <button
+                      onClick={() => eliminar(m.id, m.nombre)}
+                      disabled={eliminando === m.id}
+                      className="rounded-lg border border-zr-error/40 px-3 py-1.5 text-xs font-semibold text-zr-error disabled:opacity-50"
+                    >
+                      {eliminando === m.id ? '…' : 'Eliminar'}
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>

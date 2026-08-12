@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
+import type { UserRole } from '@/lib/types'
 
 /**
  * T-113 · Lista de estudiantes.
@@ -36,6 +37,8 @@ export default function Estudiantes() {
   const [filtro, setFiltro] = useState<Filtro>('todos')
   const [cargando, setCargando] = useState(true)
   const [ocupado, setOcupado] = useState<string | null>(null)
+  const [miRol, setMiRol] = useState<UserRole | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let vigente = true
@@ -47,6 +50,9 @@ export default function Estudiantes() {
         router.replace('/login')
         return
       }
+
+      const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      if (vigente) setMiRol((perfil?.role as UserRole) ?? null)
 
       const [{ data }, { data: consentimientos }] = await Promise.all([
         supabase
@@ -97,6 +103,31 @@ export default function Estudiantes() {
     setOcupado(null)
   }
 
+  async function eliminar(id: string, nombre: string) {
+    if (!confirm(`¿Borrar la cuenta de ${nombre}? Esto no se puede deshacer.`)) return
+    setOcupado(id)
+    setError(null)
+
+    const { error: fallo } = await createClient().functions.invoke('delete-account', {
+      body: { profileId: id },
+    })
+
+    if (fallo) {
+      const contexto = (fallo as { context?: { json?: () => Promise<unknown> } }).context
+      if (contexto?.json) {
+        const cuerpo = (await contexto.json()) as { error?: { message: string } }
+        setError(cuerpo.error?.message ?? 'No se pudo borrar la cuenta.')
+      } else {
+        setError('No se pudo borrar la cuenta. Revisa tu conexión.')
+      }
+      setOcupado(null)
+      return
+    }
+
+    setEstudiantes((es) => es.filter((e) => e.id !== id))
+    setOcupado(null)
+  }
+
   if (cargando) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
@@ -140,6 +171,12 @@ export default function Estudiantes() {
       />
 
       <Regla delay={60} />
+
+      {error && (
+        <p className="rounded-lg border border-zr-error/30 bg-zr-error/12 px-4 py-3 text-sm font-medium text-zr-error">
+          {error}
+        </p>
+      )}
 
       {/* Buscador */}
       <input
@@ -216,6 +253,15 @@ export default function Estudiantes() {
                 >
                   {ocupado === e.id ? '…' : e.estado === 'suspendido' ? 'Reactivar' : 'Suspender'}
                 </button>
+                {miRol === 'super_admin' && (
+                  <button
+                    onClick={() => eliminar(e.id, e.nombre)}
+                    disabled={ocupado === e.id}
+                    className="rounded-lg border border-zr-error/40 px-3 py-2.5 text-sm font-semibold text-zr-error disabled:opacity-50"
+                  >
+                    Eliminar
+                  </button>
+                )}
               </div>
             </div>
           ))}

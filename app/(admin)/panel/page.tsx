@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Dato } from '@/components/ui/Editorial'
-import { IconoEstudiantes, IconoCandado, IconoCalendario, IconoNotas, IconoPanel, IconoPersonal, IconoCheck } from '@/components/ui/Iconos'
+import { IconoEstudiantes, IconoCandado, IconoCalendario, IconoNotas, IconoPanel, IconoPersonal, IconoCheck, IconoExamen } from '@/components/ui/Iconos'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
 
@@ -16,16 +16,26 @@ interface Estadisticas {
   modulosAprobados: number
 }
 
+// Todo lo de ESTUDIANTES es de admin (y de Dirección Académica/super_admin,
+// que ven todo). "Personal" ya no está aquí: dar de alta profesores pasó a
+// ser trabajo académico, no administrativo.
 const ACCESOS = [
   { href: '/consentimientos', titulo: 'Consentimientos', sub: 'Revisar permisos pendientes', Icono: IconoCandado },
   { href: '/cohortes',        titulo: 'Cohortes',         sub: 'Grupos y módulos',           Icono: IconoCalendario },
   { href: '/estudiantes',     titulo: 'Estudiantes',      sub: 'Ver y gestionar registros',  Icono: IconoEstudiantes },
-  { href: '/personal',        titulo: 'Personal',         sub: 'Profesores y administradores', Icono: IconoPersonal },
   { href: '/reportes',        titulo: 'Reportes',         sub: 'Asistencia, notas, uso',      Icono: IconoNotas },
 ]
 
+// Exclusivo de Dirección Académica y super_admin: profesores, notas y
+// evaluaciones de CUALQUIER cohorte (no solo la propia).
+const ACCESOS_DIRECCION = [
+  { href: '/personal',             titulo: 'Personal',                sub: 'Profesores y administradores',      Icono: IconoPersonal },
+  { href: '/solicitudes-profesor', titulo: 'Solicitudes de profesor', sub: 'Aprobar o rechazar personal nuevo', Icono: IconoCheck },
+  { href: '/notas-academicas',     titulo: 'Notas',                   sub: 'Calificaciones de cualquier cohorte', Icono: IconoNotas },
+  { href: '/examenes-academicos',  titulo: 'Exámenes',                sub: 'Supervisar evaluaciones',           Icono: IconoExamen },
+]
+
 const ACCESO_CONFIG = { href: '/configuracion', titulo: 'Configuración', sub: 'Umbrales y reglas de negocio', Icono: IconoPanel }
-const ACCESO_SOLICITUDES = { href: '/solicitudes-profesor', titulo: 'Solicitudes de profesor', sub: 'Aprobar o rechazar personal nuevo', Icono: IconoCheck }
 
 export default function Panel() {
   const router = useRouter()
@@ -128,8 +138,8 @@ export default function Panel() {
           {(
             esDireccionAcademica(rol)
               ? rol === 'super_admin'
-                ? [...ACCESOS, ACCESO_SOLICITUDES, ACCESO_CONFIG]
-                : [...ACCESOS, ACCESO_SOLICITUDES]
+                ? [...ACCESOS, ...ACCESOS_DIRECCION, ACCESO_CONFIG]
+                : [...ACCESOS, ...ACCESOS_DIRECCION]
               : ACCESOS
           ).map((a) => (
             <button

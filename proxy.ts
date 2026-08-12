@@ -21,7 +21,7 @@ const PUBLIC_ROUTES = ['/login', '/registro', '/recuperar', '/api/auth/callback'
 // hacer match de prefijo con el otro rol por accidente.
 const RUTAS_ESTUDIANTE = ['/', '/clases', '/contenido', '/examenes', '/perfil', '/progreso', '/solicitud-profesor']
 const RUTAS_PROFESOR = ['/hoy', '/sesiones', '/crear-examen', '/calificar', '/perfil-docente', '/contenido-docente', '/dominio', '/escanear', '/feedback-clase']
-const RUTAS_ADMIN = ['/panel', '/estudiantes', '/consentimientos', '/cohortes', '/reportes', '/perfil-admin', '/configuracion', '/personal', '/solicitudes-profesor']
+const RUTAS_ADMIN = ['/panel', '/estudiantes', '/consentimientos', '/cohortes', '/reportes', '/perfil-admin', '/configuracion', '/personal', '/solicitudes-profesor', '/notas-academicas', '/examenes-academicos']
 
 function empiezaConAlguna(pathname: string, rutas: string[]) {
   return rutas.some((r) => pathname === r || pathname.startsWith(r + '/'))

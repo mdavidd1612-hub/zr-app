@@ -60,11 +60,11 @@ Deno.serve(async (req) => {
     .eq('id', userData.user.id)
     .single()
 
-  // Spec FUNCIÓN 6: admin O super_admin pueden llamar esta función. Antes
-  // solo dejaba pasar a super_admin, así que un admin normal no podía dar
-  // de alta ni siquiera a un profesor.
-  if (!['admin', 'super_admin'].includes(profile?.role ?? '')) {
-    return errorResponse('NO_AUTORIZADO', 'Solo admin o super_admin', 403)
+  // Gestionar personal (crear profesores, admins, etc.) es trabajo de
+  // Dirección Académica y super_admin — un admin normal ya no da de alta
+  // profesores, eso pasó a ser académico, no administrativo.
+  if (!['direccion_academica', 'super_admin'].includes(profile?.role ?? '')) {
+    return errorResponse('NO_AUTORIZADO', 'Solo Dirección Académica o super_admin', 403)
   }
 
   // 2. Parsear el body
@@ -81,12 +81,13 @@ Deno.serve(async (req) => {
     return errorResponse('MISSING_FIELDS', 'Faltan campos requeridos', 400)
   }
 
-  if (!['profesor', 'admin', 'super_admin'].includes(role)) {
+  if (!['profesor', 'admin', 'super_admin', 'direccion_academica'].includes(role)) {
     return errorResponse('INVALID_ROLE', 'Rol inválido', 400)
   }
 
-  // Solo un super_admin puede crear otro admin o super_admin.
-  if (['admin', 'super_admin'].includes(role) && profile?.role !== 'super_admin') {
+  // Solo un super_admin puede crear otro admin, super_admin o dirección
+  // académica — son los tres roles de control administrativo/académico.
+  if (['admin', 'super_admin', 'direccion_academica'].includes(role) && profile?.role !== 'super_admin') {
     return errorResponse('NO_AUTORIZADO', 'Solo super_admin puede crear administradores', 403)
   }
 
@@ -131,7 +132,7 @@ Deno.serve(async (req) => {
       await admin.auth.admin.deleteUser(authData.user.id)
       return errorResponse('TEACHER_ERROR', 'No se pudo crear registro de profesor', 400)
     }
-  } else if (role === 'admin' || role === 'super_admin') {
+  } else if (role === 'admin' || role === 'super_admin' || role === 'direccion_academica') {
     const { error: adminInsertError } = await admin.from('admins').insert({
       id: authData.user.id,
       can_issue_certificates: role === 'super_admin',

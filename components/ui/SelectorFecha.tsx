@@ -36,11 +36,12 @@ export function SelectorFecha({ etiqueta, value, onChange, ayuda, required }: Pr
   // el formulario tras enviarlo), refleja el cambio.
   useEffect(() => {
     if (!value) {
-      setDia(''); setMes(''); setAnioTexto('')
-      return
+      const t = setTimeout(() => { setDia(''); setMes(''); setAnioTexto('') }, 0)
+      return () => clearTimeout(t)
     }
     const [y, m, d] = value.split('-')
-    setAnioTexto(y ?? ''); setMes(m ?? ''); setDia(d ?? '')
+    const t = setTimeout(() => { setAnioTexto(y ?? ''); setMes(m ?? ''); setDia(d ?? '') }, 0)
+    return () => clearTimeout(t)
   }, [value])
 
   const diasEnMes = useMemo(() => {

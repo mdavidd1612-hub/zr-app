@@ -89,6 +89,7 @@ export default function Hoy() {
         .from('exam_answers')
         .select('id', { count: 'exact', head: true })
         .is('awarded_points', null)
+        .eq('exam_questions.type', 'redaccion_abierta')
 
       setResumen((r) => ({ ...r, porCalificar: porCalificar ?? 0 }))
       setCargando(false)

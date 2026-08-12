@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 interface Question {
@@ -53,6 +53,7 @@ export default function ExamenPage() {
   const [loading, setLoading] = useState(true)
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
   const [confirmando, setConfirmando] = useState(false)
   const [confirmandoSalir, setConfirmandoSalir] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -222,7 +223,8 @@ export default function ExamenPage() {
   }
 
   async function handleSubmit() {
-    if (!attemptId || submitting) return
+    if (!attemptId || submitting || submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
     setSubmitError(null)
 
@@ -255,16 +257,19 @@ export default function ExamenPage() {
       // parece que el botón "no hizo nada" hasta que el estudiante sale.
       setConfirmando(false)
       setSubmitError(mensaje)
+      submittingRef.current = false
       setSubmitting(false)
       return
     }
 
     if (data?.status === 'entregado' || data?.status === 'calificado') {
+      submittingRef.current = false
       router.push('/examenes')
       return
     }
 
     setConfirmando(false)
+    submittingRef.current = false
     setSubmitting(false)
   }
 

@@ -41,7 +41,7 @@ export default function NuevoExamen() {
   const [cohorteId, setCohorteId] = useState('')
   const [cohortes, setCohortes] = useState<{ id: string; name: string }[]>([])
   const [puntajeMaximo, setPuntajeMaximo] = useState(20)
-  const [duracion, setDuracion] = useState<number | ''>(90)
+  const [duracion, setDuracion] = useState<number | ''>(10)
 
   const [preguntas, setPreguntas] = useState<Pregunta[]>([])
   const [editorAbierto, setEditorAbierto] = useState<TipoPregunta | null>(null)

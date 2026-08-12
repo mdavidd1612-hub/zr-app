@@ -3,9 +3,12 @@
 // preguntas estructuradas listas para poblar el editor de examen.
 
 import { NextRequest, NextResponse } from 'next/server'
-// pdf-parse no tiene export default en sus tipos; se importa así:
+// Importar desde la ruta interna evita que pdf-parse intente leer archivos
+// de test al inicializarse, lo que rompe el entorno serverless de Next.js.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require('pdf-parse')
+const pdfParse = require('pdf-parse/lib/pdf-parse.js')
+
+export const runtime = 'nodejs'
 
 const NVIDIA_URL = 'https://integrate.api.nvidia.com/v1/chat/completions'
 const MODEL = 'meta/llama-3.3-70b-instruct'

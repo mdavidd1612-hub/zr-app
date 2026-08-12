@@ -20,7 +20,6 @@ export default function Login() {
   const router = useRouter()
   const [cedula, setCedula] = useState('')
   const [password, setPassword] = useState('')
-  const [esProfesorNuevo, setEsProfesorNuevo] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(false)
 
@@ -51,36 +50,7 @@ export default function Login() {
     }
 
     const { data: perfil } = await supabase
-      .from('profiles')
-      .select('role, full_name, cedula, contact_email, phone')
-      .eq('id', data.user.id)
-      .single()
-
-    // "¿Eres profesor?" solo aplica a quien hoy es estudiante — alguien que
-    // ya es personal simplemente entra a su interfaz normal.
-    if (esProfesorNuevo && perfil?.role === 'estudiante') {
-      const { data: ultima } = await supabase
-        .from('professor_applications')
-        .select('id, status')
-        .eq('profile_id', data.user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (!ultima || ultima.status === 'rechazado') {
-        await supabase.from('professor_applications').insert({
-          profile_id: data.user.id,
-          full_name: perfil.full_name,
-          cedula: perfil.cedula,
-          contact_email: perfil.contact_email,
-          phone: perfil.phone,
-        })
-      }
-
-      router.push('/solicitud-profesor')
-      router.refresh()
-      return
-    }
+      .from('profiles').select('role').eq('id', data.user.id).single()
 
     router.push(INICIO[perfil?.role ?? 'estudiante'] ?? '/')
     router.refresh()
@@ -131,19 +101,6 @@ export default function Login() {
             />
           </div>
 
-          {/* ¿Eres profesor? */}
-          <label className="flex items-center gap-3 rounded-xl border border-zr-border bg-zr-surface px-5 py-4 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={esProfesorNuevo}
-              onChange={(e) => setEsProfesorNuevo(e.target.checked)}
-              className="size-5"
-            />
-            <span className="text-sm font-medium text-zr-text">
-              ¿Eres un profesor? Marca aquí para solicitar acceso
-            </span>
-          </label>
-
           {/* Error Message */}
           {error && (
             <div className="bg-zr-error/15 border border-zr-error/30 text-zr-error rounded-lg p-4 text-sm font-medium">
@@ -168,6 +125,12 @@ export default function Login() {
             className="block text-center py-3 text-zr-blue font-medium text-sm hover:text-zr-blue-light transition-colors"
           >
             ¿Olvidaste tu contraseña?
+          </Link>
+          <Link
+            href="/registro/profesor"
+            className="block text-center py-3 text-zr-blue font-medium text-sm hover:text-zr-blue-light transition-colors"
+          >
+            ¿Eres un profesor? Solicita acceso
           </Link>
           <Link
             href="/registro"

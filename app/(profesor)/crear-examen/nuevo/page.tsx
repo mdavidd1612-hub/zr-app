@@ -46,6 +46,7 @@ export default function NuevoExamen() {
   const [preguntas, setPreguntas] = useState<Pregunta[]>([])
   const [editorAbierto, setEditorAbierto] = useState<TipoPregunta | null>(null)
   const [eligiendoTipo, setEligiendoTipo] = useState(false)
+  const [editandoId, setEditandoId] = useState<string | null>(null)
 
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -174,8 +175,19 @@ export default function NuevoExamen() {
   }
 
   function agregarPregunta(datos: Omit<Pregunta, 'id'>) {
-    setPreguntas((qs) => [...qs, { id: `q${Date.now()}`, ...datos }])
+    if (editandoId) {
+      setPreguntas((qs) => qs.map((q) => q.id === editandoId ? { ...datos, id: editandoId } : q))
+      setEditandoId(null)
+    } else {
+      setPreguntas((qs) => [...qs, { id: `q${Date.now()}`, ...datos }])
+    }
     setEditorAbierto(null)
+  }
+
+  function iniciarEdicion(pregunta: Pregunta) {
+    setEditandoId(pregunta.id)
+    setEditorAbierto(pregunta.type)
+    setEligiendoTipo(false)
   }
 
   async function guardar() {
@@ -398,24 +410,33 @@ export default function NuevoExamen() {
         {preguntas.length > 0 && !editorAbierto && (
           <div className="space-y-3">
             {preguntas.map((q, i) => (
-              <div key={q.id} className="zr-card group flex items-start gap-4 p-5">
-                <span className="zr-metric w-8 shrink-0 pt-0.5 text-lg text-zr-blue">
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-base font-medium text-zr-text">{q.statement}</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Etiqueta tono="info">{ETIQUETA_TIPO[q.type]}</Etiqueta>
-                    <Etiqueta tono="neutro">{q.points} pts</Etiqueta>
+              <div key={q.id} className="zr-card space-y-3 p-5">
+                <div className="flex items-start gap-4">
+                  <span className="zr-metric w-8 shrink-0 pt-0.5 text-lg text-zr-blue">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base font-medium text-zr-text">{q.statement}</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Etiqueta tono="info">{ETIQUETA_TIPO[q.type]}</Etiqueta>
+                      <Etiqueta tono="neutro">{q.points} pts</Etiqueta>
+                    </div>
                   </div>
                 </div>
-                <button
-                  onClick={() => setPreguntas((qs) => qs.filter((x) => x.id !== q.id))}
-                  className="shrink-0 rounded px-2 py-1 text-sm font-semibold text-zr-text-muted transition-colors hover:text-zr-error"
-                  aria-label={`Eliminar pregunta ${i + 1}`}
-                >
-                  Eliminar
-                </button>
+                <div className="flex justify-end gap-3 border-t border-zr-border pt-3">
+                  <button
+                    onClick={() => iniciarEdicion(q)}
+                    className="rounded px-3 py-1.5 text-sm font-semibold text-zr-blue transition-colors hover:bg-zr-blue/8"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => setPreguntas((qs) => qs.filter((x) => x.id !== q.id))}
+                    className="rounded px-3 py-1.5 text-sm font-semibold text-zr-text-muted transition-colors hover:text-zr-error"
+                  >
+                    Eliminar
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -426,7 +447,9 @@ export default function NuevoExamen() {
           <QuestionEditor
             type={editorAbierto}
             onSave={agregarPregunta}
-            onCancel={() => setEditorAbierto(null)}
+            onCancel={() => { setEditorAbierto(null); setEditandoId(null) }}
+            initialData={editandoId ? preguntas.find((q) => q.id === editandoId) as never : undefined}
+            modoEdicion={!!editandoId}
           />
         ) : eligiendoTipo ? (
           <div className="zr-card space-y-3 p-5">

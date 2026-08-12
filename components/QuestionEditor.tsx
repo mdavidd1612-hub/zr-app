@@ -22,22 +22,44 @@ interface QuestionEditorProps {
   type: PreguntaNueva['type']
   onSave: (data: PreguntaNueva) => void
   onCancel: () => void
+  initialData?: Partial<PreguntaNueva>
+  modoEdicion?: boolean
 }
 
-export function QuestionEditor({ type, onSave, onCancel }: QuestionEditorProps) {
-  const [statement, setStatement] = useState('')
-  const [points, setPoints] = useState(1)
-  const [rubric, setRubric] = useState('')
+export function QuestionEditor({ type, onSave, onCancel, initialData, modoEdicion }: QuestionEditorProps) {
+  const [statement, setStatement] = useState(initialData?.statement ?? '')
+  const [points, setPoints] = useState(initialData?.points ?? 1)
+  const [rubric, setRubric] = useState(
+    typeof initialData?.rubric === 'string' ? initialData.rubric : ''
+  )
 
-  // Multiple choice
-  const [options, setOptions] = useState<Option[]>([
-    { key: 'a', text: '' },
-    { key: 'b', text: '' },
-  ])
-  const [correctOption, setCorrectOption] = useState('a')
+  // Multiple choice — normaliza correct_answer que puede venir como { key }
+  // (desde QuestionEditor) o como string "A" (desde importarPdf)
+  const resolverOpcionInicial = (): string => {
+    const ca = initialData?.correct_answer as unknown
+    if (!ca) return 'a'
+    if (typeof ca === 'string') return ca.toLowerCase()
+    if (typeof ca === 'object' && ca !== null && 'key' in ca) return (ca as { key: string }).key.toLowerCase()
+    return 'a'
+  }
 
-  // True/False
-  const [correctValue, setCorrectValue] = useState(true)
+  const [options, setOptions] = useState<Option[]>(
+    initialData?.options && initialData.options.length > 0
+      ? initialData.options
+      : [{ key: 'a', text: '' }, { key: 'b', text: '' }]
+  )
+  const [correctOption, setCorrectOption] = useState(resolverOpcionInicial)
+
+  // True/False — normaliza correct_answer que puede ser { value: bool } o bool
+  const resolverVFInicial = (): boolean => {
+    const ca = initialData?.correct_answer
+    if (ca === null || ca === undefined) return true
+    if (typeof ca === 'boolean') return ca
+    if (typeof ca === 'object' && 'value' in ca) return !!(ca as { value: boolean }).value
+    return true
+  }
+
+  const [correctValue, setCorrectValue] = useState(resolverVFInicial)
 
   function handleAddOption() {
     if (options.length < 6) {
@@ -223,7 +245,7 @@ export function QuestionEditor({ type, onSave, onCancel }: QuestionEditorProps) 
           onClick={handleSave}
           className="flex-1 px-4 py-3 bg-zr-success text-white rounded-lg font-semibold hover:bg-zr-success/90 transition-all"
         >
-          Guardar Pregunta
+          {modoEdicion ? 'Guardar cambios' : 'Guardar pregunta'}
         </button>
       </div>
     </div>

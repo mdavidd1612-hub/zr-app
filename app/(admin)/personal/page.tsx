@@ -41,7 +41,7 @@ interface Cohorte {
 const ROLES: { valor: UserRole; etiqueta: string; soloSuper: boolean }[] = [
   { valor: 'profesor', etiqueta: 'Profesor', soloSuper: false },
   { valor: 'admin', etiqueta: 'Administrador', soloSuper: true },
-  { valor: 'super_admin', etiqueta: 'Dirección académica', soloSuper: true },
+  { valor: 'super_admin', etiqueta: 'Super admin', soloSuper: true },
 ]
 
 export default function Personal() {
@@ -83,7 +83,7 @@ export default function Personal() {
         supabase
           .from('profiles')
           .select('id, cedula, full_name, contact_email, role')
-          .in('role', ['profesor', 'admin', 'super_admin'])
+          .in('role', ['profesor', 'admin', 'super_admin', 'direccion_academica'])
           .order('role'),
         // "A qué curso da clase" es, en el modelo de datos, "qué cohorte
         // tiene asignada": cohorts.teacher_id es lo único que vincula a un
@@ -345,8 +345,8 @@ export default function Personal() {
                     </p>
                   )}
                 </div>
-                <Etiqueta tono={m.rol === 'super_admin' ? 'info' : m.rol === 'admin' ? 'aviso' : 'exito'}>
-                  {m.rol === 'super_admin' ? 'Dirección' : m.rol === 'admin' ? 'Admin' : 'Profesor'}
+                <Etiqueta tono={m.rol === 'super_admin' || m.rol === 'direccion_academica' ? 'info' : m.rol === 'admin' ? 'aviso' : 'exito'}>
+                  {m.rol === 'super_admin' ? 'Super admin' : m.rol === 'direccion_academica' ? 'Dirección académica' : m.rol === 'admin' ? 'Admin' : 'Profesor'}
                 </Etiqueta>
               </div>
             ))}

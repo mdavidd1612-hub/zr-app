@@ -26,11 +26,22 @@ export function cedulaAEmail(cedula: string): string {
 }
 
 export function esPersonal(role?: UserRole | null) {
-  return role === 'profesor' || role === 'admin' || role === 'super_admin'
+  return role === 'profesor' || role === 'admin' || role === 'super_admin' || role === 'direccion_academica'
 }
 
+// Entra al área de administración (el layout, la barra flotante). Quién ve
+// qué DENTRO de esa área (p.ej. /configuracion es solo de super_admin) se
+// sigue filtrando aparte, pantalla por pantalla.
 export function esAdmin(role?: UserRole | null) {
-  return role === 'admin' || role === 'super_admin'
+  return role === 'admin' || role === 'super_admin' || role === 'direccion_academica'
+}
+
+// Dirección Académica y super_admin coexisten al mismo nivel, pero con
+// enfoques distintos: super_admin sigue a cargo de system_config/cohortes;
+// Dirección Académica aprueba profesores, gestiona permisos de personal y
+// supervisa/corrige notas. Esta función es para lo segundo.
+export function esDireccionAcademica(role?: UserRole | null) {
+  return role === 'direccion_academica' || role === 'super_admin'
 }
 
 // Calcula la edad cumplida. Se usa en el registro para decidir si hace falta

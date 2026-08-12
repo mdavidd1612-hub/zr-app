@@ -1399,6 +1399,70 @@ export type Database = {
           },
         ]
       }
+      professor_applications: {
+        Row: {
+          id: string
+          profile_id: string
+          full_name: string
+          cedula: string
+          contact_email: string
+          phone: string | null
+          status: string
+          cohort_id: string | null
+          reviewed_by: string | null
+          reviewed_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          full_name: string
+          cedula: string
+          contact_email: string
+          phone?: string | null
+          status?: string
+          cohort_id?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          full_name?: string
+          cedula?: string
+          contact_email?: string
+          phone?: string | null
+          status?: string
+          cohort_id?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "professor_applications_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professor_applications_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professor_applications_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1924,7 +1988,7 @@ export type Database = {
         | "cerrada"
         | "reprogramada"
         | "cancelada"
-      user_role: "estudiante" | "profesor" | "admin" | "super_admin"
+      user_role: "estudiante" | "profesor" | "admin" | "super_admin" | "direccion_academica"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2084,7 +2148,7 @@ export const Constants = {
         "reprogramada",
         "cancelada",
       ],
-      user_role: ["estudiante", "profesor", "admin", "super_admin"],
+      user_role: ["estudiante", "profesor", "admin", "super_admin", "direccion_academica"],
     },
   },
 } as const

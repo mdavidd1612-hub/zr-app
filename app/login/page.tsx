@@ -13,12 +13,14 @@ const INICIO: Record<string, string> = {
   profesor:    '/hoy',
   admin:       '/panel',
   super_admin: '/panel',
+  direccion_academica: '/panel',
 }
 
 export default function Login() {
   const router = useRouter()
   const [cedula, setCedula] = useState('')
   const [password, setPassword] = useState('')
+  const [esProfesorNuevo, setEsProfesorNuevo] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(false)
 
@@ -49,7 +51,36 @@ export default function Login() {
     }
 
     const { data: perfil } = await supabase
-      .from('profiles').select('role').eq('id', data.user.id).single()
+      .from('profiles')
+      .select('role, full_name, cedula, contact_email, phone')
+      .eq('id', data.user.id)
+      .single()
+
+    // "¿Eres profesor?" solo aplica a quien hoy es estudiante — alguien que
+    // ya es personal simplemente entra a su interfaz normal.
+    if (esProfesorNuevo && perfil?.role === 'estudiante') {
+      const { data: ultima } = await supabase
+        .from('professor_applications')
+        .select('id, status')
+        .eq('profile_id', data.user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (!ultima || ultima.status === 'rechazado') {
+        await supabase.from('professor_applications').insert({
+          profile_id: data.user.id,
+          full_name: perfil.full_name,
+          cedula: perfil.cedula,
+          contact_email: perfil.contact_email,
+          phone: perfil.phone,
+        })
+      }
+
+      router.push('/solicitud-profesor')
+      router.refresh()
+      return
+    }
 
     router.push(INICIO[perfil?.role ?? 'estudiante'] ?? '/')
     router.refresh()
@@ -99,6 +130,19 @@ export default function Login() {
               className="w-full px-5 py-4 bg-zr-surface border border-zr-border rounded-xl text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none focus:ring-2 focus:ring-zr-blue/20 transition-all text-base font-medium"
             />
           </div>
+
+          {/* ¿Eres profesor? */}
+          <label className="flex items-center gap-3 rounded-xl border border-zr-border bg-zr-surface px-5 py-4 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={esProfesorNuevo}
+              onChange={(e) => setEsProfesorNuevo(e.target.checked)}
+              className="size-5"
+            />
+            <span className="text-sm font-medium text-zr-text">
+              ¿Eres un profesor? Marca aquí para solicitar acceso
+            </span>
+          </label>
 
           {/* Error Message */}
           {error && (

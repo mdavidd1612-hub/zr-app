@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Dato } from '@/components/ui/Editorial'
-import { IconoEstudiantes, IconoCandado, IconoCalendario, IconoNotas, IconoPanel, IconoPersonal } from '@/components/ui/Iconos'
+import { IconoEstudiantes, IconoCandado, IconoCalendario, IconoNotas, IconoPanel, IconoPersonal, IconoCheck } from '@/components/ui/Iconos'
+import { esDireccionAcademica } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
 
 interface Estadisticas {
@@ -24,6 +25,7 @@ const ACCESOS = [
 ]
 
 const ACCESO_CONFIG = { href: '/configuracion', titulo: 'Configuración', sub: 'Umbrales y reglas de negocio', Icono: IconoPanel }
+const ACCESO_SOLICITUDES = { href: '/solicitudes-profesor', titulo: 'Solicitudes de profesor', sub: 'Aprobar o rechazar personal nuevo', Icono: IconoCheck }
 
 export default function Panel() {
   const router = useRouter()
@@ -123,7 +125,13 @@ export default function Panel() {
 
       <Seccion numero={3} titulo="Accesos" delay={280}>
         <div className="space-y-3">
-          {(rol === 'super_admin' ? [...ACCESOS, ACCESO_CONFIG] : ACCESOS).map((a) => (
+          {(
+            esDireccionAcademica(rol)
+              ? rol === 'super_admin'
+                ? [...ACCESOS, ACCESO_SOLICITUDES, ACCESO_CONFIG]
+                : [...ACCESOS, ACCESO_SOLICITUDES]
+              : ACCESOS
+          ).map((a) => (
             <button
               key={a.href}
               onClick={() => router.push(a.href)}

@@ -19,9 +19,9 @@ const PUBLIC_ROUTES = ['/login', '/registro', '/recuperar', '/api/auth/callback'
 // '/notas' es ambigua entre roles: el estudiante ve exactamente '/notas'
 // (sin nada más), el profesor ve '/notas/[cohortId]'. Va aparte para no
 // hacer match de prefijo con el otro rol por accidente.
-const RUTAS_ESTUDIANTE = ['/', '/clases', '/contenido', '/examenes', '/perfil', '/progreso']
+const RUTAS_ESTUDIANTE = ['/', '/clases', '/contenido', '/examenes', '/perfil', '/progreso', '/solicitud-profesor']
 const RUTAS_PROFESOR = ['/hoy', '/sesiones', '/crear-examen', '/calificar', '/perfil-docente', '/contenido-docente', '/dominio', '/escanear', '/feedback-clase']
-const RUTAS_ADMIN = ['/panel', '/estudiantes', '/consentimientos', '/cohortes', '/reportes', '/perfil-admin', '/configuracion']
+const RUTAS_ADMIN = ['/panel', '/estudiantes', '/consentimientos', '/cohortes', '/reportes', '/perfil-admin', '/configuracion', '/personal', '/solicitudes-profesor']
 
 function empiezaConAlguna(pathname: string, rutas: string[]) {
   return rutas.some((r) => pathname === r || pathname.startsWith(r + '/'))
@@ -87,6 +87,7 @@ export async function proxy(request: NextRequest) {
     profesor: '/hoy',
     admin: '/panel',
     super_admin: '/panel',
+    direccion_academica: '/panel',
   }
 
   // VALIDACIÓN CRÍTICA: menor sin consentimiento no puede acceder a nada
@@ -108,7 +109,7 @@ export async function proxy(request: NextRequest) {
   if (esRutaDeProfesor && role !== 'profesor') {
     return NextResponse.redirect(new URL(inicioPorRol[role] ?? '/', request.url))
   }
-  if (esRutaDeAdmin && !['admin', 'super_admin'].includes(role)) {
+  if (esRutaDeAdmin && !['admin', 'super_admin', 'direccion_academica'].includes(role)) {
     return NextResponse.redirect(new URL(inicioPorRol[role] ?? '/', request.url))
   }
 

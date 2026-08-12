@@ -18,7 +18,8 @@ const NOMBRE_ROL: Record<UserRole, string> = {
   estudiante:  'Estudiante',
   profesor:    'Profesor',
   admin:       'Administración',
-  super_admin: 'Dirección académica',
+  super_admin: 'Super admin',
+  direccion_academica: 'Dirección académica',
 }
 
 interface Props {

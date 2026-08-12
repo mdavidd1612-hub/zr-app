@@ -47,6 +47,7 @@ export default function ExamenesProfesor() {
   // en vez de llamar a la carga desde el manejador: así el efecto sigue siendo
   // el único sitio que escribe el estado y React no encadena renders.
   const [version, setVersion] = useState(0)
+  const [confirmandoBorrar, setConfirmandoBorrar] = useState<string | null>(null)
 
   useEffect(() => {
     let vigente = true
@@ -86,6 +87,24 @@ export default function ExamenesProfesor() {
     cargar()
     return () => { vigente = false }
   }, [router, version])
+
+  async function eliminar(examen: Examen) {
+    setConfirmandoBorrar(null)
+    setOcupado(examen.id)
+    setError(null)
+
+    const supabase = createClient()
+    // Primero borramos preguntas (por si no hay CASCADE en la migración)
+    await supabase.from('exam_questions').delete().eq('exam_id', examen.id)
+    const { error: fallo } = await supabase.from('exams').delete().eq('id', examen.id)
+
+    if (fallo) {
+      setError(fallo.message)
+    } else {
+      setExamenes((xs) => xs.filter((x) => x.id !== examen.id))
+    }
+    setOcupado(null)
+  }
 
   async function publicar(examen: Examen) {
     setOcupado(examen.id)
@@ -217,32 +236,57 @@ export default function ExamenesProfesor() {
           </div>
         </div>
 
-        {e.estado === 'oculto' && (
+        {e.estado === 'oculto' && confirmandoBorrar !== e.id && (
           <div className="flex gap-2 border-t border-zr-border bg-zr-bg/40 p-4">
             <button
               onClick={() => publicar(e)}
               disabled={ocupado === e.id || !cuadran || e.preguntas === 0}
-              title={!cuadran ? 'Los puntos de las preguntas tienen que sumar el puntaje máximo' : undefined}
+              title={!cuadran ? 'Los puntos tienen que sumar el puntaje máximo' : undefined}
               className="flex-1 rounded-lg bg-zr-success px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-zr-success/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {ocupado === e.id ? 'Trabajando…' : 'Publicar'}
             </button>
             <button
-              onClick={() => duplicar(e)}
+              onClick={() => router.push(`/crear-examen/${e.id}`)}
               disabled={ocupado === e.id}
-              className="flex-1 rounded-lg border border-zr-border px-4 py-3 text-sm font-semibold text-zr-text transition-colors hover:border-zr-blue/45 disabled:opacity-40"
+              className="rounded-lg border border-zr-border px-4 py-3 text-sm font-semibold text-zr-text transition-colors hover:border-zr-blue/45 disabled:opacity-40"
             >
-              Duplicar
+              Editar
+            </button>
+            <button
+              onClick={() => setConfirmandoBorrar(e.id)}
+              disabled={ocupado === e.id}
+              className="rounded-lg border border-zr-error/30 px-4 py-3 text-sm font-semibold text-zr-error transition-colors hover:bg-zr-error/8 disabled:opacity-40"
+            >
+              Borrar
+            </button>
+          </div>
+        )}
+
+        {e.estado === 'oculto' && confirmandoBorrar === e.id && (
+          <div className="flex gap-2 border-t border-zr-error/20 bg-zr-error/8 p-4">
+            <p className="flex-1 text-sm font-medium text-zr-error">¿Eliminar este examen?</p>
+            <button
+              onClick={() => eliminar(e)}
+              className="rounded-lg bg-zr-error px-4 py-2 text-sm font-bold text-white"
+            >
+              Sí, eliminar
+            </button>
+            <button
+              onClick={() => setConfirmandoBorrar(null)}
+              className="rounded-lg border border-zr-border px-4 py-2 text-sm font-semibold text-zr-text"
+            >
+              Cancelar
             </button>
           </div>
         )}
 
         {e.estado !== 'oculto' && (
-          <div className="border-t border-zr-border bg-zr-bg/40 p-4">
+          <div className="flex gap-2 border-t border-zr-border bg-zr-bg/40 p-4">
             <button
               onClick={() => duplicar(e)}
               disabled={ocupado === e.id}
-              className="w-full rounded-lg border border-zr-border px-4 py-3 text-sm font-semibold text-zr-text transition-colors hover:border-zr-blue/45 disabled:opacity-40"
+              className="flex-1 rounded-lg border border-zr-border px-4 py-3 text-sm font-semibold text-zr-text transition-colors hover:border-zr-blue/45 disabled:opacity-40"
             >
               {ocupado === e.id ? 'Duplicando…' : 'Duplicar para otra cohorte'}
             </button>

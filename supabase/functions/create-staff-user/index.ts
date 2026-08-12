@@ -75,11 +75,17 @@ Deno.serve(async (req) => {
     return errorResponse('INVALID_JSON', 'Body JSON inválido', 400)
   }
 
-  const { cedula, fullName, email, password, role } = payload
+  const { cedula, fullName, email: contactEmail, password, role } = payload
 
-  if (!cedula || !fullName || !email || !password || !role) {
+  if (!cedula || !fullName || !password || !role) {
     return errorResponse('MISSING_FIELDS', 'Faltan campos requeridos', 400)
   }
+
+  // El email de Auth SIEMPRE se deriva de la cédula, igual que cedulaAEmail()
+  // en el cliente — así el login siempre funciona sin importar qué email de
+  // contacto tenga el usuario.
+  const cedulaNorm = cedula.trim().toUpperCase()
+  const email = `${cedulaNorm}@estudiante.zrmecademy.com`
 
   if (!['profesor', 'admin', 'super_admin', 'direccion_academica'].includes(role)) {
     return errorResponse('INVALID_ROLE', 'Rol inválido', 400)
@@ -97,7 +103,7 @@ Deno.serve(async (req) => {
   const { data: authData, error: authError } = await admin.auth.admin.createUser({
     email,
     password,
-    user_metadata: { full_name: fullName, cedula },
+    user_metadata: { full_name: fullName, cedula: cedulaNorm, contact_email: contactEmail ?? email },
     email_confirm: true,
   })
 

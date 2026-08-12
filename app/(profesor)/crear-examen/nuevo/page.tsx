@@ -85,17 +85,41 @@ export default function NuevoExamen() {
   async function importarPdf(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    // Limpiar el input para que se pueda subir el mismo archivo de nuevo
     e.target.value = ''
 
     setTranscribiendo(true)
     setErrorPdf(null)
 
-    const form = new FormData()
-    form.append('pdf', file)
-
     try {
-      const res = await fetch('/api/transcribe-exam', { method: 'POST', body: form })
+      // Extraer texto del PDF en el navegador con pdfjs-dist — evita parsear
+      // binarios en el servidor donde los entornos serverless lo bloquean.
+      const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist')
+      GlobalWorkerOptions.workerSrc = new URL(
+        'pdfjs-dist/build/pdf.worker.mjs',
+        import.meta.url,
+      ).toString()
+
+      const arrayBuffer = await file.arrayBuffer()
+      const pdf = await getDocument({ data: arrayBuffer }).promise
+      let textoCompleto = ''
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i)
+        const content = await page.getTextContent()
+        const pagina = content.items.map((item) => ('str' in item ? item.str : '')).join(' ')
+        textoCompleto += pagina + '\n'
+      }
+
+      if (!textoCompleto.trim() || textoCompleto.trim().length < 30) {
+        setErrorPdf('No se pudo extraer texto del PDF. ¿Es un PDF escaneado?')
+        setTranscribiendo(false)
+        return
+      }
+
+      const res = await fetch('/api/transcribe-exam', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: textoCompleto }),
+      })
       const data = await res.json()
 
       if (!res.ok) {

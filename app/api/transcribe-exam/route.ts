@@ -1,12 +1,8 @@
-// API route — transcribe un PDF de examen usando NVIDIA NIM.
-// La key nunca sale del servidor. El cliente solo sube el archivo y recibe
-// preguntas estructuradas listas para poblar el editor de examen.
+// API route — recibe el TEXTO ya extraído del PDF (la extracción ocurre en el
+// navegador con pdfjs-dist) y llama a NVIDIA NIM para estructurarlo como
+// preguntas de examen. Sin parseo de binarios en el servidor → sin crashes.
 
 import { NextRequest, NextResponse } from 'next/server'
-// Importar desde la ruta interna evita que pdf-parse intente leer archivos
-// de test al inicializarse, lo que rompe el entorno serverless de Next.js.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require('pdf-parse/lib/pdf-parse.js')
 
 export const runtime = 'nodejs'
 
@@ -49,30 +45,16 @@ export async function POST(req: NextRequest) {
 
   let text: string
   try {
-    const form = await req.formData()
-    const file = form.get('pdf') as File | null
-    if (!file) {
-      return NextResponse.json({ error: 'No se recibió ningún archivo' }, { status: 400 })
-    }
-    if (file.type !== 'application/pdf') {
-      return NextResponse.json({ error: 'El archivo debe ser un PDF' }, { status: 400 })
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: 'El PDF no puede superar 10 MB' }, { status: 400 })
-    }
-
-    const buffer = Buffer.from(await file.arrayBuffer())
-    const parsed = await pdfParse(buffer)
-    text = (parsed.text as string).trim()
-
-    if (!text || text.length < 30) {
-      return NextResponse.json({ error: 'No se pudo extraer texto del PDF. ¿Es un PDF escaneado?' }, { status: 422 })
-    }
-    // Limitar a 12 000 caracteres para no exceder el contexto del modelo
-    if (text.length > 12000) text = text.slice(0, 12000)
+    const body = await req.json()
+    text = (body.text ?? '').trim()
   } catch {
-    return NextResponse.json({ error: 'Error al leer el PDF' }, { status: 400 })
+    return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
   }
+
+  if (!text || text.length < 30) {
+    return NextResponse.json({ error: 'El texto del PDF está vacío o es demasiado corto' }, { status: 400 })
+  }
+  if (text.length > 12000) text = text.slice(0, 12000)
 
   let nimResponse: Response
   try {
@@ -105,7 +87,6 @@ export async function POST(req: NextRequest) {
   const nimData = await nimResponse.json()
   const contenido: string = nimData?.choices?.[0]?.message?.content ?? ''
 
-  // El modelo a veces envuelve el JSON en ```json … ``` — limpiarlo
   const limpio = contenido.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
 
   let resultado: unknown

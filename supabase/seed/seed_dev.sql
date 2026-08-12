@@ -200,12 +200,12 @@ join public.cohorts c on c.id = s.cohort_id;
 -- -----------------------------------------------------------------------------
 -- 9. Un examen de ejemplo, con los tres tipos de pregunta
 -- -----------------------------------------------------------------------------
-insert into public.exams (id, module_id, cohort_id, teacher_id, title, status, max_score)
+insert into public.exams (id, module_id, cohort_id, teacher_id, title, status, max_score, duration_minutes)
 values ('00000000-0000-0000-0000-000000009001',
         '00000000-0000-0000-0000-00000000d003',
         '00000000-0000-0000-0000-00000000e001',
         '00000000-0000-0000-0000-0000000000b1',
-        'Evaluación 1 · Electricidad Automotriz', 'oculto', 20);
+        'Evaluación 1 · Electricidad Automotriz', 'oculto', 20, 20);
 
 insert into public.exam_questions (exam_id, order_index, type, statement, options, correct_answer, points, rubric) values
   ('00000000-0000-0000-0000-000000009001',1,'opcion_multiple',

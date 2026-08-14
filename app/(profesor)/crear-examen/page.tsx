@@ -99,10 +99,33 @@ export default function ExamenesProfesor() {
 
   async function borrarSeleccionados() {
     if (seleccionados.size === 0) return
+    const tienenPublicados = [...seleccionados].some(
+      (id) => examenes.find((e) => e.id === id)?.estado !== 'oculto',
+    )
+    if (
+      tienenPublicados &&
+      !window.confirm(
+        '¿Eliminar estos exámenes? Se borrarán también todos los intentos y calificaciones de los estudiantes. Esta acción no se puede deshacer.',
+      )
+    ) return
+
     setBorrandoLote(true)
     setError(null)
     const supabase = createClient()
     const ids = [...seleccionados]
+
+    // Cascade manual: RLS no permite borrar exam_answers/attempts directamente
+    // desde el cliente de estudiante, pero el profesor sí puede.
+    const { data: intentos } = await supabase
+      .from('exam_attempts').select('id').in('exam_id', ids)
+    const intentoIds = (intentos ?? []).map((a) => a.id)
+
+    if (intentoIds.length > 0) {
+      await (supabase as any).from('exam_rehabilitation_requests').delete().in('attempt_id', intentoIds)
+      await supabase.from('exam_answers').delete().in('attempt_id', intentoIds)
+      await supabase.from('exam_attempts').delete().in('id', intentoIds)
+    }
+
     await supabase.from('exam_questions').delete().in('exam_id', ids)
     const { error: fallo } = await supabase.from('exams').delete().in('id', ids)
     if (fallo) {
@@ -223,14 +246,12 @@ export default function ExamenesProfesor() {
         <div className="p-5">
           <div className="flex items-start gap-3">
             {/* Checkbox — solo en borradores */}
-            {esBorrador(e) && (
-              <input
-                type="checkbox"
-                checked={seleccionado}
-                onChange={() => toggleSeleccion(e.id)}
-                className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-zr-blue"
-              />
-            )}
+            <input
+              type="checkbox"
+              checked={seleccionado}
+              onChange={() => toggleSeleccion(e.id)}
+              className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-zr-blue"
+            />
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-3">
                 <h3 className="text-base font-bold text-zr-text">{e.titulo}</h3>
@@ -281,13 +302,25 @@ export default function ExamenesProfesor() {
               </button>
             </>
           ) : (
-            <button
-              onClick={() => duplicar(e)}
-              disabled={ocupado === e.id}
-              className="flex-1 rounded-lg border border-zr-border px-4 py-3 text-sm font-semibold text-zr-text transition-colors hover:border-zr-blue/45 disabled:opacity-40"
-            >
-              {ocupado === e.id ? 'Duplicando…' : 'Duplicar para otra cohorte'}
-            </button>
+            <>
+              <button
+                onClick={() => duplicar(e)}
+                disabled={ocupado === e.id}
+                className="flex-1 rounded-lg border border-zr-border px-4 py-3 text-sm font-semibold text-zr-text transition-colors hover:border-zr-blue/45 disabled:opacity-40"
+              >
+                {ocupado === e.id ? 'Duplicando…' : 'Duplicar para otra cohorte'}
+              </button>
+              <button
+                onClick={() => {
+                  setSeleccionados(new Set([e.id]))
+                  setBorrandoLote(false)
+                }}
+                disabled={ocupado === e.id}
+                className="rounded-lg border border-zr-error/60 px-4 py-3 text-sm font-semibold text-zr-error transition-colors hover:bg-zr-error/8 disabled:opacity-40"
+              >
+                Eliminar
+              </button>
+            </>
           )}
         </div>
       </div>

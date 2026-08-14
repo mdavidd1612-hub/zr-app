@@ -83,8 +83,9 @@ Deno.serve(async (req: Request) => {
       return errorResponse('ERROR_INTERNO', 'No se pudieron cargar las preguntas')
     }
 
-    // Get student answers
-    const { data: studentAnswers, error: answersErr } = await userSupabase
+    // Get student answers — adminClient bypasses RLS for reliability.
+    // The attempt already passed ownership check above.
+    const { data: studentAnswers, error: answersErr } = await adminSupabase
       .from('exam_answers')
       .select('*')
       .eq('attempt_id', attemptId)

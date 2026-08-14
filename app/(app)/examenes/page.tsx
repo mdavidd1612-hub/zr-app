@@ -288,13 +288,23 @@ export default function Examenes() {
                     <div className="min-w-0">
                       <p className="text-base font-semibold text-zr-text">{e.titulo}</p>
                       <p className="mt-1.5 text-sm text-zr-text-muted">{e.modulo}</p>
-                      {e.estadoIntento === 'calificado' && e.puntaje !== null && (
-                        <p className="mt-3">
-                          <span className="zr-metric text-2xl text-zr-blue">{e.puntaje}</span>
-                          <span className="ml-1 text-sm text-zr-text-muted">
-                            / {e.puntajeMaximo} puntos
-                          </span>
-                        </p>
+                      {e.estadoIntento === 'calificado' && (
+                        <div className="mt-3 flex items-center gap-4">
+                          {e.puntaje !== null && (
+                            <p>
+                              <span className="zr-metric text-2xl text-zr-blue">{e.puntaje}</span>
+                              <span className="ml-1 text-sm text-zr-text-muted">
+                                / {e.puntajeMaximo} pts
+                              </span>
+                            </p>
+                          )}
+                          <button
+                            onClick={() => router.push(`/examenes/${e.id}/revision`)}
+                            className="rounded-lg border border-zr-blue px-3 py-1.5 text-xs font-semibold text-zr-blue"
+                          >
+                            Ver revisión
+                          </button>
+                        </div>
                       )}
                       {e.estadoIntento === 'entregado' && (
                         <p className="mt-2 text-xs text-zr-text-muted">

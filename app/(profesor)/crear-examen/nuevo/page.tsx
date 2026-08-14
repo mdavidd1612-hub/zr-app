@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { QuestionEditor } from '@/components/QuestionEditor'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
@@ -51,9 +51,6 @@ export default function NuevoExamen() {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [transcribiendo, setTranscribiendo] = useState(false)
-  const [errorPdf, setErrorPdf] = useState<string | null>(null)
-  const archivoRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -82,97 +79,6 @@ export default function NuevoExamen() {
   const puntosAsignados = preguntas.reduce((s, q) => s + q.points, 0)
   const puntosCuadran = puntosAsignados === puntajeMaximo
   const sePuedeGuardar = titulo.trim() !== '' && moduloId !== '' && preguntas.length > 0
-
-  async function importarPdf(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    e.target.value = ''
-
-    setTranscribiendo(true)
-    setErrorPdf(null)
-
-    try {
-      // Extraer texto del PDF en el navegador con pdfjs-dist — evita parsear
-      // binarios en el servidor donde los entornos serverless lo bloquean.
-      const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist')
-      GlobalWorkerOptions.workerSrc = new URL(
-        'pdfjs-dist/build/pdf.worker.mjs',
-        import.meta.url,
-      ).toString()
-
-      const arrayBuffer = await file.arrayBuffer()
-      const pdf = await getDocument({ data: arrayBuffer }).promise
-      let textoCompleto = ''
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i)
-        const content = await page.getTextContent()
-        const pagina = content.items.map((item) => ('str' in item ? item.str : '')).join(' ')
-        textoCompleto += pagina + '\n'
-      }
-
-      if (!textoCompleto.trim() || textoCompleto.trim().length < 30) {
-        setErrorPdf('No se pudo extraer texto del PDF. ¿Es un PDF escaneado?')
-        setTranscribiendo(false)
-        return
-      }
-
-      const res = await fetch('/api/transcribe-exam', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: textoCompleto }),
-      })
-      const data = await res.json()
-
-      if (!res.ok) {
-        setErrorPdf(data.error ?? 'No se pudo leer el PDF')
-        return
-      }
-
-      type PreguntaRaw = {
-        type: TipoPregunta
-        statement: string
-        points: number
-        options?: Array<{ key: string; text: string }>
-        correct_answer?: unknown
-        rubric?: string | null
-      }
-
-      const nuevas: Pregunta[] = ((data.preguntas ?? []) as PreguntaRaw[]).map((p) => {
-        let correcta = p.correct_answer ?? null
-
-        // La BD exige correct_answer != null para preguntas no abiertas.
-        // Si la IA no lo detectó, usamos la primera opción como fallback —
-        // el profesor lo corrige antes de publicar.
-        if (correcta === null && p.type !== 'redaccion_abierta') {
-          if (p.type === 'verdadero_falso') correcta = true
-          else if (p.options && p.options.length > 0) correcta = p.options[0].key
-        }
-
-        return {
-          id: `q${Date.now()}-${Math.random()}`,
-          type: p.type,
-          statement: p.statement,
-          points: p.points ?? 1,
-          options: p.options,
-          correct_answer: correcta,
-          rubric: p.rubric ?? null,
-        }
-      })
-
-      if (nuevas.length === 0) {
-        setErrorPdf('No se encontraron preguntas en el PDF. Verifica que tenga texto seleccionable.')
-        return
-      }
-
-      setPreguntas((qs) => [...qs, ...nuevas])
-      if (data.titulo_sugerido && !titulo) setTitulo(data.titulo_sugerido)
-      if (data.instrucciones_sugeridas && !instrucciones) setInstrucciones(data.instrucciones_sugeridas)
-    } catch {
-      setErrorPdf('Error de conexión al procesar el PDF')
-    } finally {
-      setTranscribiendo(false)
-    }
-  }
 
   function agregarPregunta(datos: Omit<Pregunta, 'id'>) {
     if (editandoId) {
@@ -355,37 +261,6 @@ export default function NuevoExamen() {
 
       {/* 02 — PREGUNTAS */}
       <Seccion numero={2} titulo="Preguntas" delay={200}>
-        {/* Importar desde PDF */}
-        <div className="zr-card flex items-center gap-4 p-5">
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-zr-text">Importar desde PDF</p>
-            <p className="mt-0.5 text-xs text-zr-text-muted">
-              Sube el examen en PDF y la IA extrae las preguntas automáticamente.
-            </p>
-          </div>
-          <input
-            ref={archivoRef}
-            type="file"
-            accept="application/pdf"
-            className="hidden"
-            onChange={importarPdf}
-          />
-          <button
-            type="button"
-            disabled={transcribiendo}
-            onClick={() => archivoRef.current?.click()}
-            className="shrink-0 rounded-lg border border-zr-blue px-4 py-2.5 text-sm font-semibold text-zr-blue transition-colors hover:bg-zr-blue/8 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {transcribiendo ? 'Leyendo…' : 'Subir PDF'}
-          </button>
-        </div>
-
-        {errorPdf && (
-          <p className="rounded-lg border border-zr-error/30 bg-zr-error/12 px-4 py-3 text-sm font-medium text-zr-error">
-            {errorPdf}
-          </p>
-        )}
-
         {/* Contador permanente. Rojo mientras no cuadre: es el error más común
             al armar un examen y el que impide publicarlo. */}
         <div

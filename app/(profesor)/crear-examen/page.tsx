@@ -111,25 +111,17 @@ export default function ExamenesProfesor() {
 
     setBorrandoLote(true)
     setError(null)
-    const supabase = createClient()
     const ids = [...seleccionados]
 
-    // Cascade manual: RLS no permite borrar exam_answers/attempts directamente
-    // desde el cliente de estudiante, pero el profesor sí puede.
-    const { data: intentos } = await supabase
-      .from('exam_attempts').select('id').in('exam_id', ids)
-    const intentoIds = (intentos ?? []).map((a) => a.id)
+    const res = await fetch('/api/delete-exams', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    })
 
-    if (intentoIds.length > 0) {
-      await (supabase as any).from('exam_rehabilitation_requests').delete().in('attempt_id', intentoIds)
-      await supabase.from('exam_answers').delete().in('attempt_id', intentoIds)
-      await supabase.from('exam_attempts').delete().in('id', intentoIds)
-    }
-
-    await supabase.from('exam_questions').delete().in('exam_id', ids)
-    const { error: fallo } = await supabase.from('exams').delete().in('id', ids)
-    if (fallo) {
-      setError(fallo.message)
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      setError(body.error ?? 'No se pudieron eliminar los exámenes.')
     } else {
       setExamenes((xs) => xs.filter((x) => !ids.includes(x.id)))
       setSeleccionados(new Set())
@@ -311,9 +303,24 @@ export default function ExamenesProfesor() {
                 {ocupado === e.id ? 'Duplicando…' : 'Duplicar para otra cohorte'}
               </button>
               <button
-                onClick={() => {
-                  setSeleccionados(new Set([e.id]))
-                  setBorrandoLote(false)
+                onClick={async () => {
+                  if (!window.confirm(
+                    '¿Eliminar este examen? Se borrarán todos los intentos y calificaciones de los estudiantes.',
+                  )) return
+                  setOcupado(e.id)
+                  setError(null)
+                  const res = await fetch('/api/delete-exams', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: [e.id] }),
+                  })
+                  if (!res.ok) {
+                    const body = await res.json().catch(() => ({}))
+                    setError(body.error ?? 'No se pudo eliminar el examen.')
+                  } else {
+                    setExamenes((xs) => xs.filter((x) => x.id !== e.id))
+                  }
+                  setOcupado(null)
                 }}
                 disabled={ocupado === e.id}
                 className="rounded-lg border border-zr-error/60 px-4 py-3 text-sm font-semibold text-zr-error transition-colors hover:bg-zr-error/8 disabled:opacity-40"

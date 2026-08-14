@@ -11,13 +11,13 @@ function adminClient() {
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { examId: string } },
+  { params }: { params: Promise<{ examId: string }> },
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'no_auth' }, { status: 401 })
 
-  const { examId } = params
+  const { examId } = await params
 
   // Verify the attempt belongs to this student and is graded
   const { data: intento } = await supabase

@@ -238,7 +238,8 @@ export default function ExamenPage() {
     // deberá solicitar rehabilitación al profesor para poder retomar el examen.
     const { error } = await supabase
       .from('exam_attempts')
-      .update({ status: 'abandonado' })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .update({ status: 'abandonado' as any })
       .eq('id', attemptId)
 
     if (error) {

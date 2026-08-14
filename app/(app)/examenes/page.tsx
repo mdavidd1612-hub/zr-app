@@ -105,13 +105,14 @@ export default function Examenes() {
           .filter(e => e.estadoIntento === 'abandonado' && e.intentoId)
           .map(e => e.intentoId!)
 
-        const { data: solicitudesExistentes } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: solicitudesExistentes } = await (supabase as any)
           .from('exam_rehabilitation_requests')
           .select('attempt_id')
           .in('attempt_id', intentosAbandonados)
 
         if (solicitudesExistentes) {
-          setRehabEnviada(new Set(solicitudesExistentes.map(s => s.attempt_id)))
+          setRehabEnviada(new Set((solicitudesExistentes as { attempt_id: string }[]).map(s => s.attempt_id)))
         }
       }
     }
@@ -159,7 +160,8 @@ export default function Examenes() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setEnviandoRehab(false); return }
 
-    const { error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
       .from('exam_rehabilitation_requests')
       .insert({
         attempt_id: rehab.intentoId,

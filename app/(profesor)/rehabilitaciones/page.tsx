@@ -46,7 +46,8 @@ export default function Rehabilitaciones() {
 
       if (misIds.length === 0) { setCargando(false); return }
 
-      const { data, error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
         .from('exam_rehabilitation_requests')
         .select(`
           id, reason, status, requested_at,

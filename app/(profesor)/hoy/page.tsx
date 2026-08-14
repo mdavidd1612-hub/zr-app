@@ -112,7 +112,8 @@ export default function Hoy() {
       // Solicitudes de rehabilitación pendientes de los exámenes del profesor
       let solicitudesRehab = 0
       if (misExamenIds.length > 0) {
-        const { count: rehab } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { count: rehab } = await (supabase as any)
           .from('exam_rehabilitation_requests')
           .select('id', { count: 'exact', head: true })
           .eq('status', 'pendiente')

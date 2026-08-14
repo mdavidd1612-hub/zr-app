@@ -20,13 +20,14 @@ interface Resumen {
   inscritos: number
   refrigerios: number
   porCalificar: number
+  solicitudesRehab: number
 }
 
 export default function Hoy() {
   const router = useRouter()
   const [cargando, setCargando] = useState(true)
   const [sesion, setSesion] = useState<Sesion | null>(null)
-  const [resumen, setResumen] = useState<Resumen>({ presentes: 0, inscritos: 0, refrigerios: 0, porCalificar: 0 })
+  const [resumen, setResumen] = useState<Resumen>({ presentes: 0, inscritos: 0, refrigerios: 0, porCalificar: 0, solicitudesRehab: 0 })
   const [nombre, setNombre] = useState('')
 
   useEffect(() => {
@@ -83,15 +84,43 @@ export default function Hoy() {
         }))
       }
 
-      // Redacciones esperando calificación. Es el número que decide si el
-      // profesor tiene trabajo pendiente o puede cerrar el portátil.
-      const { count: porCalificar } = await supabase
-        .from('exam_answers')
-        .select('id', { count: 'exact', head: true })
-        .is('awarded_points', null)
-        .eq('exam_questions.type', 'redaccion_abierta')
+      // Redacciones pendientes — solo de los exámenes de este profesor,
+      // en intentos con status 'entregado'. Filtrar por exam_id evita
+      // falsos positivos de otros docentes.
+      const { data: misExamenes } = await supabase
+        .from('exams')
+        .select('id')
+        .eq('teacher_id', user.id)
 
-      setResumen((r) => ({ ...r, porCalificar: porCalificar ?? 0 }))
+      const misExamenIds = (misExamenes ?? []).map((e) => e.id)
+
+      let porCalificar = 0
+      if (misExamenIds.length > 0) {
+        const { count } = await supabase
+          .from('exam_answers')
+          .select(
+            'id, exam_questions!inner(type, exam_id), exam_attempts!inner(status)',
+            { count: 'exact', head: true },
+          )
+          .is('awarded_points', null)
+          .eq('exam_questions.type', 'redaccion_abierta')
+          .in('exam_questions.exam_id', misExamenIds)
+          .eq('exam_attempts.status', 'entregado')
+        porCalificar = count ?? 0
+      }
+
+      // Solicitudes de rehabilitación pendientes de los exámenes del profesor
+      let solicitudesRehab = 0
+      if (misExamenIds.length > 0) {
+        const { count: rehab } = await supabase
+          .from('exam_rehabilitation_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pendiente')
+          .in('exam_id', misExamenIds)
+        solicitudesRehab = rehab ?? 0
+      }
+
+      setResumen((r) => ({ ...r, porCalificar, solicitudesRehab }))
       setCargando(false)
     }
 
@@ -195,22 +224,41 @@ export default function Hoy() {
 
       {/* 03 — PENDIENTE */}
       <Seccion numero={sesion ? 3 : 2} titulo="Pendiente" delay={300}>
-        <button
-          onClick={() => router.push('/calificar')}
-          className="zr-card zr-card-interactive flex w-full items-center justify-between gap-4 p-6 text-left"
-        >
-          <div className="min-w-0">
-            <p className="text-base font-semibold text-zr-text">Redacciones por calificar</p>
-            <p className="mt-1 text-sm text-zr-text-muted">
-              {resumen.porCalificar === 0
-                ? 'Nada esperando. Las objetivas se calificaron solas.'
-                : 'Las objetivas ya se calificaron solas. Estas necesitan tu criterio.'}
-            </p>
-          </div>
-          <Etiqueta tono={resumen.porCalificar > 0 ? 'aviso' : 'exito'}>
-            {resumen.porCalificar > 0 ? `${resumen.porCalificar} pendientes` : 'Al día'}
-          </Etiqueta>
-        </button>
+        <div className="space-y-3">
+          <button
+            onClick={() => router.push('/calificar')}
+            className="zr-card zr-card-interactive flex w-full items-center justify-between gap-4 p-6 text-left"
+          >
+            <div className="min-w-0">
+              <p className="text-base font-semibold text-zr-text">Redacciones por calificar</p>
+              <p className="mt-1 text-sm text-zr-text-muted">
+                {resumen.porCalificar === 0
+                  ? 'Nada esperando. Las objetivas se calificaron solas.'
+                  : 'Las objetivas ya se calificaron solas. Estas necesitan tu criterio.'}
+              </p>
+            </div>
+            <Etiqueta tono={resumen.porCalificar > 0 ? 'aviso' : 'exito'}>
+              {resumen.porCalificar > 0 ? `${resumen.porCalificar} pendientes` : 'Al día'}
+            </Etiqueta>
+          </button>
+
+          <button
+            onClick={() => router.push('/rehabilitaciones')}
+            className="zr-card zr-card-interactive flex w-full items-center justify-between gap-4 p-6 text-left"
+          >
+            <div className="min-w-0">
+              <p className="text-base font-semibold text-zr-text">Solicitudes de rehabilitación</p>
+              <p className="mt-1 text-sm text-zr-text-muted">
+                {resumen.solicitudesRehab === 0
+                  ? 'Ningún estudiante ha solicitado nueva oportunidad.'
+                  : 'Un estudiante abandonó su examen y quiere presentarlo de nuevo.'}
+              </p>
+            </div>
+            <Etiqueta tono={resumen.solicitudesRehab > 0 ? 'aviso' : 'exito'}>
+              {resumen.solicitudesRehab > 0 ? `${resumen.solicitudesRehab} pendientes` : 'Ninguna'}
+            </Etiqueta>
+          </button>
+        </div>
       </Seccion>
     </div>
   )

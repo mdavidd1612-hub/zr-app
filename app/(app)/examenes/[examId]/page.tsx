@@ -56,6 +56,7 @@ export default function ExamenPage() {
   const submittingRef = useRef(false)
   const [confirmando, setConfirmando] = useState(false)
   const [confirmandoSalir, setConfirmandoSalir] = useState(false)
+  const [abandonando, setAbandonando] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -109,6 +110,13 @@ export default function ExamenPage() {
         .eq('exam_id', examId)
         .eq('student_id', user.id)
         .maybeSingle()
+
+      // Si el intento ya fue entregado, calificado o abandonado,
+      // el estudiante no puede volver a entrar.
+      if (attempt && attempt.status !== 'en_progreso') {
+        router.replace('/examenes')
+        return
+      }
 
       if (!attempt) {
         const { data: newAttempt } = await supabase
@@ -222,6 +230,27 @@ export default function ExamenPage() {
     setSubmitError(null)
   }
 
+  async function abandonarExamen() {
+    if (!attemptId || abandonando) return
+    setAbandonando(true)
+
+    // Marcar el intento como abandonado. El estudiante pierde la nota y
+    // deberá solicitar rehabilitación al profesor para poder retomar el examen.
+    const { error } = await supabase
+      .from('exam_attempts')
+      .update({ status: 'abandonado' })
+      .eq('id', attemptId)
+
+    if (error) {
+      console.error('No se pudo abandonar el intento:', error.message)
+      setAbandonando(false)
+      setConfirmandoSalir(false)
+      return
+    }
+
+    router.replace('/examenes')
+  }
+
   async function handleSubmit() {
     if (!attemptId || submitting || submittingRef.current) return
     submittingRef.current = true
@@ -289,28 +318,30 @@ export default function ExamenPage() {
 
   return (
     <div className="flex flex-col bg-zr-background min-h-dvh">
-      {/* Salir a medias es seguro: cada respuesta ya se guardó al tocarla. Se
-          pide confirmación solo para que no se salga por un toque accidental. */}
+      {/* Salir cancela el intento: el estudiante pierde la nota y necesita
+          que el profesor lo rehabilite para poder retomar el examen. */}
       {confirmandoSalir && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-5 sm:items-center">
           <div className="zr-card w-full max-w-sm animate-rise p-6">
-            <p className="zr-display text-xl text-zr-text">¿Salir del examen?</p>
-            <p className="mt-3 text-sm text-zr-text-muted">
-              Tus respuestas ya están guardadas. Puedes volver a entrar más tarde y seguir
-              donde lo dejaste.
+            <p className="zr-display text-xl text-zr-text">¿Seguro que deseas salir?</p>
+            <p className="mt-3 text-sm leading-relaxed text-zr-text-muted">
+              Perderás la nota de tu examen sin vuelta atrás. Tendrás que pedirle al profesor
+              que te rehabilite para poder presentarlo de nuevo.
             </p>
             <div className="mt-6 flex gap-3">
               <button
                 onClick={() => setConfirmandoSalir(false)}
-                className="flex-1 rounded-lg border border-zr-border px-4 py-3 text-sm font-semibold text-zr-text"
+                disabled={abandonando}
+                className="flex-1 rounded-lg border border-zr-border px-4 py-3 text-sm font-semibold text-zr-text disabled:opacity-50"
               >
                 Seguir presentando
               </button>
               <button
-                onClick={() => router.push('/examenes')}
-                className="flex-1 rounded-lg bg-zr-blue px-4 py-3 text-sm font-bold text-white"
+                onClick={abandonarExamen}
+                disabled={abandonando}
+                className="flex-1 rounded-lg bg-zr-error px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
               >
-                Salir
+                {abandonando ? 'Saliendo…' : 'Salir y perder nota'}
               </button>
             </div>
           </div>

@@ -45,7 +45,7 @@ export default function EditarExamen() {
   const [cohorteId, setCohorteId] = useState('')
   const [cohortes, setCohortes] = useState<{ id: string; name: string }[]>([])
   const [puntajeMaximo, setPuntajeMaximo] = useState(20)
-  const [duracion, setDuracion] = useState<number | ''>(90)
+  const [duracion, setDuracion] = useState<number | ''>('')
   const [preguntas, setPreguntas] = useState<Pregunta[]>([])
   const [editorAbierto, setEditorAbierto] = useState<TipoPregunta | null>(null)
   const [eligiendoTipo, setEligiendoTipo] = useState(false)

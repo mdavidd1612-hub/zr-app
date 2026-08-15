@@ -387,15 +387,22 @@ export default function Personal() {
                   <Etiqueta tono={m.rol === 'super_admin' || m.rol === 'direccion_academica' ? 'info' : m.rol === 'admin' ? 'aviso' : 'exito'}>
                     {m.rol === 'super_admin' ? 'Super admin' : m.rol === 'direccion_academica' ? 'Dirección académica' : m.rol === 'admin' ? 'Admin' : 'Profesor'}
                   </Etiqueta>
-                  {miRol === 'super_admin' && (
-                    <button
-                      onClick={() => eliminar(m.id, m.nombre)}
-                      disabled={eliminando === m.id}
-                      className="rounded-lg border border-zr-error/40 px-3 py-1.5 text-xs font-semibold text-zr-error disabled:opacity-50"
-                    >
-                      {eliminando === m.id ? '…' : 'Eliminar'}
-                    </button>
-                  )}
+                  {/* Mostrar Eliminar según jerarquía: direccion_academica puede borrar
+                      profesores y admins; super_admin puede borrar a cualquiera */}
+                  {miRol && (() => {
+                    const puedeEliminar =
+                      miRol === 'super_admin' ||
+                      (miRol === 'direccion_academica' && (m.rol === 'profesor' || m.rol === 'admin'))
+                    return puedeEliminar ? (
+                      <button
+                        onClick={() => eliminar(m.id, m.nombre)}
+                        disabled={eliminando === m.id}
+                        className="rounded-lg border border-zr-error/40 px-3 py-1.5 text-xs font-semibold text-zr-error disabled:opacity-50"
+                      >
+                        {eliminando === m.id ? '…' : 'Eliminar'}
+                      </button>
+                    ) : null
+                  })()}
                 </div>
               </div>
             ))}

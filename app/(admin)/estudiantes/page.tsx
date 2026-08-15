@@ -253,7 +253,7 @@ export default function Estudiantes() {
                 >
                   {ocupado === e.id ? '…' : e.estado === 'suspendido' ? 'Reactivar' : 'Suspender'}
                 </button>
-                {miRol === 'super_admin' && (
+                {(miRol === 'super_admin' || miRol === 'admin' || miRol === 'direccion_academica') && (
                   <button
                     onClick={() => eliminar(e.id, e.nombre)}
                     disabled={ocupado === e.id}

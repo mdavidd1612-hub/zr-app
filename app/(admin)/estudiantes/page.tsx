@@ -161,12 +161,14 @@ export default function Estudiantes() {
         titulo="Estudiantes"
         descripcion={`${estudiantes.length} registrados`}
         accion={
-          <button
-            onClick={() => router.push('/estudiantes/nuevo')}
-            className="rounded-lg bg-zr-blue px-5 py-3.5 text-sm font-bold text-white transition-colors active:bg-zr-blue-deep"
-          >
-            + Nuevo
-          </button>
+          miRol !== 'direccion_academica' ? (
+            <button
+              onClick={() => router.push('/estudiantes/nuevo')}
+              className="rounded-lg bg-zr-blue px-5 py-3.5 text-sm font-bold text-white transition-colors active:bg-zr-blue-deep"
+            >
+              + Nuevo
+            </button>
+          ) : undefined
         }
       />
 

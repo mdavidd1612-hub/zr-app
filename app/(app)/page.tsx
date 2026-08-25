@@ -28,7 +28,7 @@ const INICIAL_DIA = ['', 'L', 'M', 'X', 'J', 'V', 'S']
 // para probar el flujo de "tomar asistencia" sin esperar al sábado real.
 // Poner en false para que vuelva a leer el día real — pedido explícito del
 // equipo, quitar antes de la entrega del 5 de septiembre.
-const FORZAR_SABADO_DEMO = true
+const FORZAR_SABADO_DEMO = false
 
 export default function Inicio() {
   const router = useRouter()

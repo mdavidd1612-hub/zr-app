@@ -194,7 +194,7 @@ export default function Estudiantes() {
       />
 
       {/* Filtros */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex gap-2 overflow-x-auto pb-1 zr-scroll-x">
         {FILTROS.map((f) => (
           <button
             key={f.valor}

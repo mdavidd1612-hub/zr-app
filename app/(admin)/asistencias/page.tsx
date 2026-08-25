@@ -141,7 +141,7 @@ export default function Asistencias() {
         <EstadoVacio titulo="Sin cohortes" explicacion="Todavía no hay cohortes creadas." />
       ) : (
         <>
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="flex gap-2 overflow-x-auto pb-1 zr-scroll-x">
             {cohortes.map((c) => (
               <button
                 key={c.id}

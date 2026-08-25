@@ -11,20 +11,21 @@ import {
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
-// Cuatro botones, igual que en los otros dos roles: spec/04 §0 pide que toda
-// acción principal quede a un toque del pulgar.
-// Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, Sprint A): Consentimientos sale de la
-// barra fija — solo se llega por acceso directo o por el menú ☰. Estudiantes
-// pasa a la 2ª posición.
+// Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, ajuste): las 5 secciones principales
+// del día a día van fijas en la barra — Panel, Asistencia, QR, Material y
+// Perfil. Estudiantes y Consentimientos se usan menos seguido y quedan en
+// el menú ☰.
 const NAV: ItemBarra[] = [
-  { href: '/panel',            label: 'Panel',       Icono: IconoPanel },
-  { href: '/estudiantes',      label: 'Estudiantes', Icono: IconoEstudiantes },
-  { href: '/perfil-admin',     label: 'Perfil',       Icono: IconoPerfil },
+  { href: '/panel',        label: 'Panel',      Icono: IconoPanel },
+  { href: '/asistencias',  label: 'Asistencia', Icono: IconoCalendario },
+  { href: '/qr',           label: 'QR',         Icono: IconoCarnet },
+  { href: '/material',     label: 'Material',   Icono: IconoDocumento },
+  { href: '/perfil-admin', label: 'Perfil',     Icono: IconoPerfil },
 ]
 
 // Cohortes y Reportes se retiran del menú (código intacto, se retoman en la
 // fase siguiente — mismo criterio que Exámenes/Notas/Progreso en Fase 0
-// estudiante). Consentimientos vive solo aquí, en el menú ☰.
+// estudiante).
 //
 // "Personal" (dar de alta profesores/admins) ya NO es de admin normal — pasó
 // a ser trabajo de Dirección Académica y super_admin (división de trabajo
@@ -32,12 +33,12 @@ const NAV: ItemBarra[] = [
 // de PROFESORES/notas/evaluaciones).
 const TODAS: ItemBarra[] = [
   NAV[0],
-  NAV[1],
+  { href: '/estudiantes',     label: 'Estudiantes',     Icono: IconoEstudiantes },
   { href: '/consentimientos', label: 'Consentimientos', Icono: IconoCandado },
-  { href: '/material',        label: 'Material',        Icono: IconoDocumento },
-  { href: '/asistencias',     label: 'Asistencia',      Icono: IconoCalendario },
-  { href: '/qr',              label: 'QR asistencia',   Icono: IconoCarnet },
+  NAV[3],
+  NAV[1],
   NAV[2],
+  NAV[4],
 ]
 
 // Dirección Académica: profesores, notas de cualquier cohorte, exámenes —

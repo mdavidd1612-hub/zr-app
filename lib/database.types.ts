@@ -1765,6 +1765,7 @@ export type Database = {
           enrollment_date: string
           id: string
           onboarding_status: Database["public"]["Enums"]["onboarding_status"]
+          student_code: string | null
           trust_level: number | null
           updated_at: string
         }
@@ -1777,6 +1778,7 @@ export type Database = {
           enrollment_date?: string
           id: string
           onboarding_status?: Database["public"]["Enums"]["onboarding_status"]
+          student_code?: string | null
           trust_level?: number | null
           updated_at?: string
         }
@@ -1789,6 +1791,7 @@ export type Database = {
           enrollment_date?: string
           id?: string
           onboarding_status?: Database["public"]["Enums"]["onboarding_status"]
+          student_code?: string | null
           trust_level?: number | null
           updated_at?: string
         }

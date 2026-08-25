@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import QRCode from 'qrcode'
 import { generateTOTP } from '@/lib/totp'
 import { getQRSecret } from '@/lib/qr-secret'
-import { Seccion, Regla, Dato } from '@/components/ui/Editorial'
+import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
 import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
 
@@ -15,14 +15,20 @@ interface Perfil {
   cedula: string
   contactEmail: string | null
   cohorte: string
+  codigoCarnet: string | null
+  modulo: string | null
 }
+
+// Fase 0 (docs/14_FASE0_PLAN_SPRINTS.md, Sprint 6): sede y turno son fijos
+// por ahora — se conectan a datos reales de cohorte en una fase posterior.
+const SEDE = 'Sede principal'
+const TURNO = 'Sábado · 8:00 am'
 
 export default function PerfilEstudiante() {
   const router = useRouter()
   const [perfil, setPerfil] = useState<Perfil | null>(null)
   const [qrUrl, setQrUrl] = useState('')
   const [totp, setTotp] = useState('')
-  const [dominio, setDominio] = useState({ dominadas: 0, enProgreso: 0 })
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
@@ -37,17 +43,26 @@ export default function PerfilEstudiante() {
 
       const [{ data: prof }, { data: est }] = await Promise.all([
         supabase.from('profiles').select('full_name, cedula, contact_email').eq('id', user.id).single(),
-        supabase.from('students').select('cohorts(name)').eq('id', user.id).single(),
+        supabase
+          .from('students')
+          .select('student_code, cohorts(name, modules(name))')
+          .eq('id', user.id)
+          .single(),
       ])
 
-      const cohorte = (est as unknown as { cohorts: { name: string } | null } | null)?.cohorts?.name
+      const estData = est as unknown as {
+        student_code: string | null
+        cohorts: { name: string; modules: { name: string } | null } | null
+      } | null
 
       if (prof) {
         setPerfil({
           fullName: prof.full_name,
           cedula: prof.cedula,
           contactEmail: prof.contact_email,
-          cohorte: cohorte ?? 'Sin cohorte asignada',
+          cohorte: estData?.cohorts?.name ?? 'Sin cohorte asignada',
+          codigoCarnet: estData?.student_code ?? null,
+          modulo: estData?.cohorts?.modules?.name ?? null,
         })
 
         // El QR se genera del secreto TOTP del propio estudiante. El código
@@ -63,14 +78,6 @@ export default function PerfilEstudiante() {
           })
           setQrUrl(url)
         }
-      }
-
-      const { data: comps } = await supabase.from('v_mi_dominio').select('status').eq('student_id', user.id)
-      if (comps) {
-        setDominio({
-          dominadas: comps.filter((c) => c.status === 'dominado').length,
-          enProgreso: comps.filter((c) => c.status === 'en_progreso').length,
-        })
       }
 
       setCargando(false)
@@ -120,9 +127,26 @@ export default function PerfilEstudiante() {
             )}
           </div>
 
-          <div className="mt-6 border-t border-white/20 pt-4 text-xs font-medium text-white/70">
-            Código: <span className="ml-1 font-mono tabular-nums text-white/90">{totp}</span>
+          <div className="mt-6 space-y-0 border-t border-white/20 pt-1 text-sm">
+            {[
+              ['Código', perfil.codigoCarnet ?? '—'],
+              ['Sede', SEDE],
+              ['Turno', TURNO],
+              ['Módulo', perfil.modulo ?? 'Sin asignar'],
+            ].map(([etiqueta, valor]) => (
+              <div key={etiqueta} className="flex justify-between border-t border-white/10 py-2 first:border-t-0">
+                <span className="text-white/70">{etiqueta}</span>
+                <span className="font-semibold text-white">{valor}</span>
+              </div>
+            ))}
           </div>
+
+          {totp && (
+            <div className="mt-1 border-t border-white/20 pt-4 text-xs font-medium text-white/70">
+              Código de asistencia:{' '}
+              <span className="ml-1 font-mono tabular-nums text-white/90">{totp}</span>
+            </div>
+          )}
         </div>
 
         <p className="text-sm text-zr-text-muted">
@@ -130,16 +154,8 @@ export default function PerfilEstudiante() {
         </p>
       </Seccion>
 
-      {/* 02 — COMPETENCIAS */}
-      <Seccion numero={2} titulo="Competencias" delay={200}>
-        <div className="grid grid-cols-2 gap-3">
-          <Dato valor={dominio.dominadas} etiqueta="Dominadas" tono="exito" />
-          <Dato valor={dominio.enProgreso} etiqueta="En progreso" tono="azul" />
-        </div>
-      </Seccion>
-
-      {/* 03 — CUENTA */}
-      <Seccion numero={3} titulo="Cuenta" delay={280}>
+      {/* 02 — CUENTA */}
+      <Seccion numero={2} titulo="Cuenta" delay={200}>
         <BloqueCuenta
           nombre={perfil.fullName}
           cedula={perfil.cedula}

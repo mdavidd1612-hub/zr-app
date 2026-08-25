@@ -3,17 +3,21 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { BrowserQRCodeReader, type IScannerControls } from '@zxing/browser'
+import { createClient } from '@/lib/supabase/client'
 import { IconoFlechaAtras, IconoCheck } from '@/components/ui/Iconos'
 
 /**
- * Fase 0 (docs/14_FASE0_PLAN_SPRINTS.md, Sprint 2 — ajuste): nueva regla de
- * la academia, todavía sin Edge Function propia: es administración quien
- * muestra el QR en pantalla y el ESTUDIANTE quien lo escanea (al revés de
- * como estaba documentado en AGENTS.md). Se deja el lector realmente
- * funcionando —cámara y detección de QR reales, con @zxing/browser, igual
- * que en la pantalla del profesor— pero la validación contra una sesión de
- * clase se conecta cuando se trabaje el panel de administración.
+ * Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, Sprint F): administración muestra el
+ * QR, el ESTUDIANTE lo escanea y esta pantalla llama a la Edge Function
+ * `checkin-session`, que es la única que decide si la asistencia vale —
+ * nunca el cliente (regla 2 de AGENTS.md).
  */
+
+type Resultado =
+  | { tipo: 'exito'; duplicado: boolean }
+  | { tipo: 'error'; mensaje: string }
+  | null
+
 export default function MarcarAsistencia() {
   const router = useRouter()
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -21,11 +25,37 @@ export default function MarcarAsistencia() {
   const bloqueadoRef = useRef(false)
 
   const [errorCamara, setErrorCamara] = useState<string | null>(null)
-  const [leido, setLeido] = useState<string | null>(null)
+  const [resultado, setResultado] = useState<Resultado>(null)
 
   useEffect(() => {
     let cancelado = false
     const lector = new BrowserQRCodeReader()
+
+    async function procesar(qrText: string) {
+      const supabase = createClient()
+      const { data, error } = await supabase.functions.invoke('checkin-session', { body: { qrText } })
+
+      if (error) {
+        const contexto = (error as { context?: Response }).context
+        let mensaje = 'No se pudo conectar. Revisa tu conexión.'
+        if (contexto) {
+          try {
+            const cuerpo = await contexto.json()
+            mensaje = cuerpo.error?.message ?? mensaje
+          } catch {
+            // se queda con el mensaje genérico
+          }
+        }
+        setResultado({ tipo: 'error', mensaje })
+      } else {
+        setResultado({ tipo: 'exito', duplicado: Boolean(data?.duplicate) })
+      }
+
+      setTimeout(() => {
+        setResultado(null)
+        bloqueadoRef.current = false
+      }, 2500)
+    }
 
     async function iniciar() {
       try {
@@ -35,14 +65,10 @@ export default function MarcarAsistencia() {
         const controles = await lector.decodeFromVideoDevice(
           trasera?.deviceId,
           videoRef.current!,
-          (resultado) => {
-            if (resultado && !cancelado && !bloqueadoRef.current) {
+          (r) => {
+            if (r && !cancelado && !bloqueadoRef.current) {
               bloqueadoRef.current = true
-              setLeido(resultado.getText())
-              setTimeout(() => {
-                setLeido(null)
-                bloqueadoRef.current = false
-              }, 2500)
+              void procesar(r.getText())
             }
           },
         )
@@ -74,7 +100,6 @@ export default function MarcarAsistencia() {
 
         <video ref={videoRef} className="h-full w-full object-cover" muted playsInline />
 
-        {/* Marco visual del visor, como en el prototipo de referencia */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="relative aspect-square w-[64%] rounded-2xl border-[3px] border-white/85">
             <div className="absolute inset-x-[8%] top-[18%] h-0.5 animate-pulse bg-[#5ee08a] shadow-[0_0_10px_#5ee08a]" />
@@ -90,22 +115,30 @@ export default function MarcarAsistencia() {
           </div>
         )}
 
-        {leido && (
-          <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-center gap-1 bg-zr-blue px-6 py-8 text-center">
-            <IconoCheck size={28} className="text-white" />
-            <p className="text-lg font-bold text-white">Código leído</p>
-            <p className="text-sm text-white/80">
-              Se registrará automáticamente cuando conectemos administración
-            </p>
+        {resultado && (
+          <div
+            className={`absolute inset-x-0 bottom-0 flex flex-col items-center justify-center gap-1 px-6 py-8 text-center ${
+              resultado.tipo === 'exito' ? (resultado.duplicado ? 'bg-zr-warning' : 'bg-zr-success') : 'bg-zr-error'
+            }`}
+          >
+            {resultado.tipo === 'exito' ? (
+              <>
+                <IconoCheck size={28} className="text-white" />
+                <p className="text-lg font-bold text-white">
+                  {resultado.duplicado ? 'Ya estabas registrado' : 'Asistencia registrada'}
+                </p>
+              </>
+            ) : (
+              <p className="text-lg font-bold text-white">{resultado.mensaje}</p>
+            )}
           </div>
         )}
       </div>
 
       <div className="flex-1 bg-zr-bg px-5 py-6">
         <p className="text-sm leading-relaxed text-zr-text-muted">
-          Este lector ya usa tu cámara de verdad. Falta conectarlo con el panel de
-          administración, que es quien va a mostrar el código en pantalla — eso se resuelve
-          cuando trabajemos ese panel.
+          Escanea el código que administración muestra en pantalla al llegar. Cada código se usa
+          una sola vez.
         </p>
       </div>
     </div>

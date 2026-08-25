@@ -1698,6 +1698,49 @@ export type Database = {
           },
         ]
       }
+      session_checkin_codes: {
+        Row: {
+          code: string
+          issued_by: string | null
+          rotated_at: string
+          session_id: string
+        }
+        Insert: {
+          code: string
+          issued_by?: string | null
+          rotated_at?: string
+          session_id: string
+        }
+        Update: {
+          code?: string
+          issued_by?: string | null
+          rotated_at?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_checkin_codes_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_checkin_codes_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "class_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_checkin_codes_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "v_proximo_sabado"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
       student_qr_secrets: {
         Row: {
           created_at: string

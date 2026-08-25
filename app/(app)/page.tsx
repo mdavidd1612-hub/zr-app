@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla } from '@/components/ui/Editorial'
 import { CASOS, diaSemanaISO, lunesDeLaSemana, fechaISO } from '@/lib/casos-fase0'
+import { leerSimulacionSabado } from '@/lib/demo-sabado'
 import { IconoCarnet, IconoCheck } from '@/components/ui/Iconos'
 
 interface ProximoSabado {
@@ -24,12 +25,6 @@ interface Modulo {
 const NOMBRE_DIA = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 const INICIAL_DIA = ['', 'L', 'M', 'X', 'J', 'V', 'S']
 
-// PRUEBA TEMPORAL: forzar que la app se comporte como si hoy fuera sábado,
-// para probar el flujo de "tomar asistencia" sin esperar al sábado real.
-// Poner en false para que vuelva a leer el día real — pedido explícito del
-// equipo, quitar antes de la entrega del 5 de septiembre.
-const FORZAR_SABADO_DEMO = false
-
 export default function Inicio() {
   const router = useRouter()
   const [nombre, setNombre] = useState('')
@@ -37,9 +32,14 @@ export default function Inicio() {
   const [modulo, setModulo] = useState<Modulo | null>(null)
   const [cargando, setCargando] = useState(true)
   const [hechos, setHechos] = useState<Set<string>>(new Set())
+  // PRUEBA TEMPORAL: interruptor de simulación de sábado, controlado desde
+  // Perfil. Se lee de localStorage dentro de cargar(), como el resto del
+  // estado — nunca directo en el cuerpo del efecto (ver Sprint 7 de
+  // docs/14_FASE0_PLAN_SPRINTS.md, por qué eso rompe el lint).
+  const [simulado, setSimulado] = useState(false)
 
   const hoy = new Date()
-  const diaHoy = FORZAR_SABADO_DEMO ? 6 : diaSemanaISO(hoy)
+  const diaHoy = simulado ? 6 : diaSemanaISO(hoy)
   const lunes = lunesDeLaSemana(hoy)
   const esSabado = diaHoy === 6
   const casoHoy = CASOS[diaHoy]
@@ -48,6 +48,8 @@ export default function Inicio() {
     const supabase = createClient()
 
     async function cargar() {
+      setSimulado(leerSimulacionSabado())
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.replace('/login')

@@ -9,6 +9,7 @@ import { getQRSecret } from '@/lib/qr-secret'
 import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
 import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
+import { leerSimulacionSabado, guardarSimulacionSabado } from '@/lib/demo-sabado'
 
 interface Perfil {
   fullName: string
@@ -30,11 +31,14 @@ export default function PerfilEstudiante() {
   const [qrUrl, setQrUrl] = useState('')
   const [totp, setTotp] = useState('')
   const [cargando, setCargando] = useState(true)
+  const [simulado, setSimulado] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
 
     async function cargar() {
+      setSimulado(leerSimulacionSabado())
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.replace('/login')
@@ -164,6 +168,39 @@ export default function PerfilEstudiante() {
         />
         <p className="text-xs text-zr-text-muted">{perfil.cohorte}</p>
         <BotonActivarPush />
+      </Seccion>
+
+      {/* 03 — PRUEBA TEMPORAL: interruptor de simulación de sábado, para
+          probar el flujo de asistencia sin esperar al sábado real. Solo de
+          prueba — se quita del todo cuando la academia lo pida
+          (docs/14_FASE0_PLAN_SPRINTS.md). */}
+      <Seccion numero={3} titulo="Prueba" delay={260}>
+        <button
+          onClick={() => {
+            const nuevo = !simulado
+            setSimulado(nuevo)
+            guardarSimulacionSabado(nuevo)
+          }}
+          className="zr-card flex w-full items-center justify-between gap-4 p-5 text-left"
+        >
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-zr-text">Simular que hoy es sábado</p>
+            <p className="mt-0.5 text-xs text-zr-text-muted">
+              Solo para probar Inicio y el lector de asistencia. Se quita antes de la entrega.
+            </p>
+          </div>
+          <span
+            className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+              simulado ? 'bg-zr-blue' : 'bg-zr-border'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition-transform ${
+                simulado ? 'translate-x-5' : 'translate-x-0.5'
+              }`}
+            />
+          </span>
+        </button>
       </Seccion>
     </div>
   )

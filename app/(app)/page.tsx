@@ -94,24 +94,24 @@ export default function Inicio() {
         if (mod) setModulo({ nombre: mod.name, descripcion: mod.description })
       }
 
+      // Qué días de esta semana ya se trabajaron (Fase 0: se guarda en el
+      // teléfono, sin backend — docs/14_FASE0_PLAN_SPRINTS.md, Sprint 2).
+      try {
+        const marcados = new Set<string>()
+        for (let i = 0; i < 6; i++) {
+          const d = new Date(lunes)
+          d.setDate(d.getDate() + i)
+          if (localStorage.getItem(`zr_caso_${fechaISO(d)}`)) marcados.add(fechaISO(d))
+        }
+        setHechos(marcados)
+      } catch {
+        // localStorage puede fallar en modo privado; no es crítico.
+      }
+
       setCargando(false)
     }
 
     cargar()
-
-    // Qué días de esta semana ya se trabajaron (Fase 0: se guarda en el
-    // teléfono, sin backend — docs/14_FASE0_PLAN_SPRINTS.md, Sprint 2).
-    try {
-      const marcados = new Set<string>()
-      for (let i = 0; i < 6; i++) {
-        const d = new Date(lunes)
-        d.setDate(d.getDate() + i)
-        if (localStorage.getItem(`zr_caso_${fechaISO(d)}`)) marcados.add(fechaISO(d))
-      }
-      setHechos(marcados)
-    } catch {
-      // localStorage puede fallar en modo privado; no es crítico.
-    }
   }, [router])
 
   if (cargando) {

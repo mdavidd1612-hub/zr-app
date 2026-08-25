@@ -91,3 +91,39 @@
 **Cómo voy a reportar cada sprint:** al terminar cada uno, aviso qué se hizo,
 cómo se hizo (archivos y decisiones clave) y cómo probarlo, antes de pasar al
 siguiente.
+
+---
+
+## Estado al cierre (Sprint 7 · 25 de agosto de 2026)
+
+`npm run verify` pasa completo: typecheck limpio, lint sin errores (solo
+warnings preexistentes ajenos a esta fase), 34 tests unitarios y 15 tests de
+RLS, todos en verde. Verificado a 360px de ancho sin desbordamiento
+horizontal.
+
+**Ajustes sobre el plan original, decididos durante la ejecución:**
+- Nueva regla de asistencia: administración muestra el QR en pantalla y es
+  el **estudiante** quien escanea (antes era al revés). El lector
+  ([app/(app)/asistencia/page.tsx](../app/(app)/asistencia/page.tsx)) ya usa
+  la cámara real con `@zxing/browser`, pero no valida contra ninguna sesión
+  todavía — eso se conecta cuando se trabaje el panel de administración.
+  Hay un interruptor temporal `FORZAR_SABADO_DEMO` en
+  `app/(app)/page.tsx` para probar esa pantalla sin esperar al sábado real;
+  queda en `false`.
+- El caso del día quedó como un cuestionario tipo examen: se selecciona una
+  opción por pregunta y al revisar se marca correcta/incorrecta — no era
+  parte del alcance original, se agregó a pedido del equipo.
+- Se adelantó la sección Dudas (originalmente Sprint 5) dentro del Sprint 4,
+  para que el acceso de Inicio no quedara apuntando a una pantalla
+  inexistente. Ya está también en la barra de navegación inferior.
+
+**Pendiente para la siguiente fase:**
+- Reactivar Exámenes, Notas y Progreso desde donde se dejaron (código
+  intacto, solo desconectado del menú).
+- Conectar `/asistencia` (lector del estudiante) con una Edge Function real
+  y con la pantalla de administración que muestra el QR.
+- Sede y turno del carnet son texto fijo (`SEDE`, `TURNO` en
+  `app/(app)/perfil/page.tsx`) — conectar a datos reales de cohorte.
+- El progreso de "caso trabajado" vive en `localStorage` del teléfono, no en
+  la base de datos — es válido para esta demo, pero no sincroniza entre
+  dispositivos ni queda registrado para el profesor.

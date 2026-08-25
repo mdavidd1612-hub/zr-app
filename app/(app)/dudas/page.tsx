@@ -54,7 +54,6 @@ export default function Dudas() {
       setCargando(false)
     }
     cargar()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
   async function enviarDuda() {

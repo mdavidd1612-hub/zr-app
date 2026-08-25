@@ -187,13 +187,24 @@ h1, h2, h3, .titulo {
 }
 
 /* Filas de chips con scroll horizontal (filtros, cohortes...). La barra de
-   scroll nativa del sistema es clara y desentona con el tema oscuro. */
+   scroll nativa del sistema es clara y desentona con el tema oscuro — se
+   redibuja fina y con los mismos tokens que el resto de la app. */
 .zr-scroll-x {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--zr-border) transparent;
 }
 .zr-scroll-x::-webkit-scrollbar {
-  display: none;
+  height: 5px;
+}
+.zr-scroll-x::-webkit-scrollbar-track {
+  background: transparent;
+}
+.zr-scroll-x::-webkit-scrollbar-thumb {
+  background-color: var(--zr-border);
+  border-radius: 999px;
+}
+.zr-scroll-x::-webkit-scrollbar-thumb:hover {
+  background-color: var(--zr-blue-mid);
 }
 
 .zr-card-interactive:hover {

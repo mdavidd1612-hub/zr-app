@@ -16,6 +16,11 @@ interface ProximoSabado {
   investigacion: string | null
 }
 
+interface Modulo {
+  nombre: string
+  descripcion: string | null
+}
+
 const NOMBRE_DIA = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 const INICIAL_DIA = ['', 'L', 'M', 'X', 'J', 'V', 'S']
 
@@ -23,6 +28,7 @@ export default function Inicio() {
   const router = useRouter()
   const [nombre, setNombre] = useState('')
   const [proximo, setProximo] = useState<ProximoSabado | null>(null)
+  const [modulo, setModulo] = useState<Modulo | null>(null)
   const [cargando, setCargando] = useState(true)
   const [hechos, setHechos] = useState<Set<string>>(new Set())
 
@@ -61,6 +67,25 @@ export default function Inicio() {
           competencia: prox.sub_competency_name,
           investigacion: prox.pre_practice_description,
         })
+      }
+
+      // "Mi módulo" no depende de que haya guía digitalizada para el próximo
+      // sábado (v_proximo_sabado puede venir vacía) — se lee directo de la
+      // cohorte del estudiante, igual que hará la pantalla Mi módulo (Sprint 3).
+      const { data: est } = await supabase
+        .from('students')
+        .select('cohorts(current_module_id)')
+        .eq('id', user.id)
+        .single()
+      const moduloId = (est as unknown as { cohorts: { current_module_id: string | null } | null } | null)
+        ?.cohorts?.current_module_id
+      if (moduloId) {
+        const { data: mod } = await supabase
+          .from('modules')
+          .select('name, description')
+          .eq('id', moduloId)
+          .single()
+        if (mod) setModulo({ nombre: mod.name, descripcion: mod.description })
       }
 
       setCargando(false)
@@ -154,14 +179,14 @@ export default function Inicio() {
               </div>
               <div className="space-y-4 px-6 py-6">
                 <p className="text-sm leading-relaxed text-zr-text-muted">
-                  Muéstrale tu carnet al profesor: él escanea tu código, tú no tienes que hacer nada más.
+                  Escanea el código que administración muestra en pantalla al llegar.
                 </p>
                 <button
-                  onClick={() => router.push('/perfil')}
+                  onClick={() => router.push('/asistencia')}
                   className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg bg-zr-blue text-base font-bold text-white transition-colors active:bg-zr-blue-deep"
                 >
                   <IconoCarnet size={20} />
-                  Mostrar mi carnet
+                  Tomar asistencia
                 </button>
               </div>
             </div>
@@ -192,7 +217,7 @@ export default function Inicio() {
         </Seccion>
 
         {/* 02 — MI MÓDULO */}
-        {proximo && (
+        {modulo && (
           <Seccion numero={2} titulo="Mi módulo" delay={200}>
             <button
               onClick={() => router.push('/clases')}
@@ -200,13 +225,17 @@ export default function Inicio() {
             >
               <div className="px-6 py-5">
                 <div className="flex items-baseline justify-between gap-3">
-                  <p className="text-sm font-semibold text-zr-blue-mid">{proximo.modulo}</p>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-zr-text-muted">
-                    Semana {proximo.semana}
-                  </p>
+                  <p className="text-sm font-semibold text-zr-blue-mid">{modulo.nombre}</p>
+                  {proximo && (
+                    <p className="text-xs font-semibold uppercase tracking-wider text-zr-text-muted">
+                      Semana {proximo.semana}
+                    </p>
+                  )}
                 </div>
                 <p className="mt-1 text-xs text-zr-text-muted">
-                  Próxima clase: {fechaCorta} · toca para ver qué vas a aprender
+                  {proximo
+                    ? `Próxima clase: ${fechaCorta} · toca para ver qué vas a aprender`
+                    : 'Toca para ver qué vas a aprender'}
                 </p>
               </div>
             </button>

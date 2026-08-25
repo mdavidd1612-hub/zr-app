@@ -101,20 +101,37 @@ export default function TrabajarCaso() {
             </p>
             <div className="space-y-2">
               {paso.opciones.map((op, oi) => {
-                const on = respuestas[pi] === oi
+                const elegida = respuestas[pi] === oi
+                const esCorrecta = oi === paso.correcta
+
+                let estilo = elegida ? 'border-zr-blue bg-zr-blue/10 text-zr-text' : 'text-zr-text'
+                if (revelado) {
+                  if (esCorrecta) estilo = 'border-zr-success bg-zr-success/10 text-zr-text'
+                  else if (elegida) estilo = 'border-zr-error bg-zr-error/10 text-zr-text'
+                  else estilo = 'text-zr-text-muted opacity-70'
+                }
+
                 return (
                   <button
                     key={oi}
-                    onClick={() => elegir(pi, oi)}
-                    className={`zr-card w-full px-4 py-3.5 text-left text-sm transition-colors ${
-                      on ? 'border-zr-blue bg-zr-blue/10 text-zr-text' : 'text-zr-text'
-                    }`}
+                    onClick={() => !revelado && elegir(pi, oi)}
+                    disabled={revelado}
+                    className={`zr-card flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left text-sm transition-colors ${estilo} ${revelado ? 'cursor-default' : ''}`}
                   >
-                    {op}
+                    <span>{op}</span>
+                    {revelado && esCorrecta && <IconoCheck size={16} className="shrink-0 text-zr-success" />}
+                    {revelado && elegida && !esCorrecta && (
+                      <span className="shrink-0 text-xs font-bold text-zr-error">Tu respuesta</span>
+                    )}
                   </button>
                 )
               })}
             </div>
+            {revelado && respuestas[pi] !== paso.correcta && (
+              <p className="text-xs font-semibold text-zr-error">
+                Esa no era — la correcta está marcada en verde arriba.
+              </p>
+            )}
           </div>
         ))}
 
@@ -135,10 +152,19 @@ export default function TrabajarCaso() {
             disabled={!listo}
             className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white transition-colors active:bg-zr-blue-deep disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Ver la respuesta de referencia
+            Revisar mis respuestas
           </button>
         ) : (
           <div className="space-y-4">
+            <div className="zr-card p-5 text-center">
+              <p className="zr-metric text-3xl text-zr-text">
+                {respuestas.filter((r, i) => r === caso.pasos[i].correcta).length}/{caso.pasos.length}
+              </p>
+              <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-zr-text-muted">
+                Respuestas correctas
+              </p>
+            </div>
+
             <div className="rounded-xl border border-zr-success/30 bg-zr-success/10 p-5">
               <div className="mb-2 flex items-center gap-2 text-zr-success">
                 <IconoCheck size={18} />

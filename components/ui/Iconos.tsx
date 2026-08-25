@@ -72,6 +72,16 @@ export function IconoProgreso(p: IconoProps) {
   )
 }
 
+/** Dudas: un globo de conversación. */
+export function IconoDuda(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <path d="M4 5.5h16v11H9.5L5.5 20v-3.5H4v-11Z" />
+      <path d="M8.5 10h7M8.5 13h4.5" />
+    </Base>
+  )
+}
+
 export function IconoPerfil(p: IconoProps) {
   return (
     <Base {...p}>

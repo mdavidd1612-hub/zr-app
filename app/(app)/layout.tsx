@@ -6,18 +6,19 @@ import { createClient } from '@/lib/supabase/client'
 import { BarraFlotante, type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Campanita } from '@/components/ui/Campanita'
 import {
-  IconoInicio, IconoPerfil, IconoProgreso, IconoDocumento,
+  IconoInicio, IconoPerfil, IconoProgreso, IconoDocumento, IconoDuda,
 } from '@/components/ui/Iconos'
 
-// Fase 0 (docs/14_FASE0_PLAN_SPRINTS.md, Sprints 1 y 3): Exámenes, Notas y
-// Progreso se retiran del menú del estudiante para esta entrega, y "Clases"
-// se reemplaza por "Mi módulo" (misma ruta /clases, contenido nuevo). Las
-// rutas viejas siguen existiendo en el código — no se borran — para
-// retomarlas en la fase siguiente sin rehacer nada.
+// Fase 0 (docs/14_FASE0_PLAN_SPRINTS.md, Sprints 1, 3 y 4): Exámenes, Notas y
+// Progreso se retiran del menú del estudiante para esta entrega, "Clases" se
+// reemplaza por "Mi módulo" (misma ruta /clases, contenido nuevo) y se agrega
+// Dudas. Las rutas viejas siguen existiendo en el código — no se borran —
+// para retomarlas en la fase siguiente sin rehacer nada.
 const NAV: ItemBarra[] = [
   { href: '/',          label: 'Inicio',    Icono: IconoInicio },
   { href: '/clases',    label: 'Mi módulo', Icono: IconoProgreso },
   { href: '/contenido', label: 'Material',  Icono: IconoDocumento },
+  { href: '/dudas',     label: 'Dudas',     Icono: IconoDuda },
   { href: '/perfil',    label: 'Perfil',    Icono: IconoPerfil },
 ]
 

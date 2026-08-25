@@ -7,54 +7,55 @@ import { esAdmin, esDireccionAcademica } from '@/lib/auth-helpers'
 import { BarraFlotante, type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Campanita } from '@/components/ui/Campanita'
 import {
-  IconoPanel, IconoEstudiantes, IconoCandado, IconoPerfil, IconoCalendario, IconoNotas, IconoPersonal, IconoCheck, IconoExamen,
+  IconoPanel, IconoEstudiantes, IconoCandado, IconoPerfil, IconoNotas, IconoPersonal, IconoCheck, IconoExamen,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
 // Cuatro botones, igual que en los otros dos roles: spec/04 §0 pide que toda
 // acción principal quede a un toque del pulgar.
+// Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, Sprint A): Consentimientos sale de la
+// barra fija — solo se llega por acceso directo o por el menú ☰. Estudiantes
+// pasa a la 2ª posición.
 const NAV: ItemBarra[] = [
-  { href: '/panel',            label: 'Panel',          Icono: IconoPanel },
-  { href: '/estudiantes',      label: 'Estudiantes',    Icono: IconoEstudiantes },
-  { href: '/consentimientos',  label: 'Consentimientos', Icono: IconoCandado },
-  { href: '/perfil-admin',     label: 'Perfil',          Icono: IconoPerfil },
+  { href: '/panel',            label: 'Panel',       Icono: IconoPanel },
+  { href: '/estudiantes',      label: 'Estudiantes', Icono: IconoEstudiantes },
+  { href: '/perfil-admin',     label: 'Perfil',       Icono: IconoPerfil },
 ]
 
-// Cohortes y Reportes se alcanzan desde la rejilla de accesos de /panel —
-// pero eso las deja invisibles en la barra: entrar a /cohortes desde ahí no
-// dejaba ningún rastro de "estás aquí". El botón ☰ de BarraFlotante muestra
-// esta lista completa y resalta la actual.
+// Cohortes y Reportes se retiran del menú (código intacto, se retoman en la
+// fase siguiente — mismo criterio que Exámenes/Notas/Progreso en Fase 0
+// estudiante). Consentimientos vive solo aquí, en el menú ☰.
 //
 // "Personal" (dar de alta profesores/admins) ya NO es de admin normal — pasó
 // a ser trabajo de Dirección Académica y super_admin (división de trabajo
 // acordada: admin es todo lo de ESTUDIANTES, Dirección Académica es todo lo
 // de PROFESORES/notas/evaluaciones).
 const TODAS: ItemBarra[] = [
-  ...NAV.slice(0, 3),
-  { href: '/cohortes',   label: 'Cohortes', Icono: IconoCalendario },
-  { href: '/reportes',   label: 'Reportes', Icono: IconoNotas },
-  NAV[3],
+  NAV[0],
+  NAV[1],
+  { href: '/consentimientos', label: 'Consentimientos', Icono: IconoCandado },
+  NAV[2],
 ]
 
 // Dirección Académica: profesores, notas de cualquier cohorte, exámenes —
 // pero no Configuración (exclusivo de super_admin).
 const TODAS_DIRECCION: ItemBarra[] = [
-  ...TODAS.slice(0, 5),
+  ...TODAS.slice(0, 3),
   { href: '/personal',             label: 'Personal',     Icono: IconoPersonal },
   { href: '/solicitudes-profesor', label: 'Solicitudes',  Icono: IconoCheck },
   { href: '/notas-academicas',     label: 'Notas',        Icono: IconoNotas },
   { href: '/examenes-academicos',  label: 'Exámenes',     Icono: IconoExamen },
-  TODAS[5],
+  TODAS[3],
 ]
 
 const TODAS_SUPER: ItemBarra[] = [
-  ...TODAS.slice(0, 5),
+  ...TODAS.slice(0, 3),
   { href: '/personal',             label: 'Personal',      Icono: IconoPersonal },
   { href: '/solicitudes-profesor', label: 'Solicitudes',   Icono: IconoCheck },
   { href: '/notas-academicas',     label: 'Notas',         Icono: IconoNotas },
   { href: '/examenes-academicos',  label: 'Exámenes',      Icono: IconoExamen },
   { href: '/configuracion',        label: 'Configuración', Icono: IconoPanel },
-  TODAS[5],
+  TODAS[3],
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

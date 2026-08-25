@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Dato } from '@/components/ui/Editorial'
-import { IconoEstudiantes, IconoCandado, IconoCalendario, IconoNotas, IconoPanel, IconoPersonal, IconoCheck, IconoExamen } from '@/components/ui/Iconos'
+import { IconoEstudiantes, IconoCandado, IconoNotas, IconoPanel, IconoPersonal, IconoCheck, IconoExamen } from '@/components/ui/Iconos'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
 
@@ -16,14 +16,12 @@ interface Estadisticas {
   modulosAprobados: number
 }
 
-// Todo lo de ESTUDIANTES es de admin (y de Dirección Académica/super_admin,
-// que ven todo). "Personal" ya no está aquí: dar de alta profesores pasó a
-// ser trabajo académico, no administrativo.
+// Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, Sprint A): Cohortes y Reportes se
+// retiran de los accesos (código intacto, se retoman después). Consentimientos
+// queda como el único acceso directo a esa pantalla — ya no está en la barra.
 const ACCESOS = [
   { href: '/consentimientos', titulo: 'Consentimientos', sub: 'Revisar permisos pendientes', Icono: IconoCandado },
-  { href: '/cohortes',        titulo: 'Cohortes',         sub: 'Grupos y módulos',           Icono: IconoCalendario },
   { href: '/estudiantes',     titulo: 'Estudiantes',      sub: 'Ver y gestionar registros',  Icono: IconoEstudiantes },
-  { href: '/reportes',        titulo: 'Reportes',         sub: 'Asistencia, notas, uso',      Icono: IconoNotas },
 ]
 
 // Exclusivo de Dirección Académica y super_admin: profesores, notas y
@@ -107,9 +105,10 @@ export default function Panel() {
       <Regla delay={60} />
 
       <Seccion numero={1} titulo="Estudiantes" delay={120}>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <Dato valor={stats.totalEstudiantes} etiqueta="Registrados" tono="azul" />
           <Dato valor={stats.estudiantesActivos} etiqueta="Activos" tono="exito" />
+          <Dato valor={Math.max(stats.totalEstudiantes - stats.estudiantesActivos, 0)} etiqueta="Faltantes" tono="neutro" />
         </div>
         {stats.consentimientosPendientes > 0 && (
           <button
@@ -126,14 +125,7 @@ export default function Panel() {
         )}
       </Seccion>
 
-      <Seccion numero={2} titulo="Académico" delay={200}>
-        <div className="grid grid-cols-2 gap-3">
-          <Dato valor={stats.cohortes} etiqueta="Cohortes activas" tono="medio" />
-          <Dato valor={stats.modulosAprobados} etiqueta="Módulos aprobados" tono="exito" />
-        </div>
-      </Seccion>
-
-      <Seccion numero={3} titulo="Accesos" delay={280}>
+      <Seccion numero={2} titulo="Accesos" delay={200}>
         <div className="space-y-3">
           {(
             esDireccionAcademica(rol)

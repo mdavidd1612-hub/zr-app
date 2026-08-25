@@ -1,18 +1,20 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
- * checkin-session · Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, Sprint F).
+ * checkin-session · Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, ajuste post-Sprint F).
  *
- * Nueva regla de asistencia: administración muestra un código en pantalla,
- * el ESTUDIANTE lo escanea con su propia cámara y llama a esta función con
- * su propio token. Al revés de `validate-scan` (que sigue existiendo,
- * intacta, para cuando la academia vuelva al flujo profesor→estudiante).
+ * El QR que muestra administración es UNIVERSAL — uno solo por día, no por
+ * cohorte. El estudiante lo escanea con su propia cámara y llama a esta
+ * función con su propio token; la función decide a qué sesión pertenece
+ * según la cohorte del ESTUDIANTE, nunca según lo que venga del cliente.
  *
  * Todo lo que decide si la asistencia vale pasa aquí, en el servidor:
- *  - la sesión debe existir y estar abierta
- *  - el código debe coincidir con el vigente para esa sesión
- *  - el estudiante debe pertenecer a la cohorte de la sesión
+ *  - el código debe coincidir con el vigente de hoy
+ *  - el estudiante debe tener una sesión de clase abierta hoy, en su cohorte
  * El cliente nunca valida nada — regla 2 de AGENTS.md.
+ *
+ * `validate-scan` (profesor→estudiante) sigue existiendo intacta, para
+ * cuando la academia vuelva a ese flujo.
  */
 
 const corsHeaders = {
@@ -61,12 +63,12 @@ Deno.serve(async (req: Request) => {
   try {
     const { qrText } = await req.json()
 
-    // Formato del QR: ZRADM|<sessionId>|<code>
-    const match = typeof qrText === 'string' ? qrText.match(/^ZRADM\|([0-9a-f-]{36})\|(\S+)$/) : null
+    // Formato del QR universal: ZRADM|<code>
+    const match = typeof qrText === 'string' ? qrText.match(/^ZRADM\|(\S+)$/) : null
     if (!match) {
       return errorResponse('QR_INVALIDO', 'Este código no es de administración')
     }
-    const [, sessionId, code] = match
+    const [, code] = match
 
     const user = userClient(req)
     const { data: { user: authUser }, error: authError } = await user.auth.getUser()
@@ -75,32 +77,32 @@ Deno.serve(async (req: Request) => {
     }
 
     const admin = adminClient()
-
-    const { data: session } = await admin
-      .from('class_sessions')
-      .select('id, status, cohort_id')
-      .eq('id', sessionId)
-      .single()
-    if (!session) return errorResponse('SESION_NO_ENCONTRADA', 'La sesión no existe')
-    if (session.status !== 'abierta') return errorResponse('SESION_NO_ABIERTA', 'La sesión no está abierta')
-
-    const { data: student } = await admin.from('students').select('cohort_id').eq('id', authUser.id).single()
-    if (!student) return errorResponse('NO_AUTORIZADO', 'Solo estudiantes marcan asistencia así', 403)
-    if (student.cohort_id !== session.cohort_id) {
-      return errorResponse('OTRA_COHORTE', 'Este código no es de tu cohorte')
-    }
+    const hoy = new Date().toISOString().slice(0, 10)
 
     const { data: vigente } = await admin
-      .from('session_checkin_codes')
+      .from('daily_checkin_codes')
       .select('code')
-      .eq('session_id', sessionId)
-      .single()
+      .eq('checkin_date', hoy)
+      .maybeSingle()
     if (!vigente || vigente.code !== code) {
       return errorResponse('QR_VENCIDO', 'Este código ya cambió — vuelve a escanear la pantalla')
     }
 
+    const { data: student } = await admin.from('students').select('cohort_id').eq('id', authUser.id).single()
+    if (!student) return errorResponse('NO_AUTORIZADO', 'Solo estudiantes marcan asistencia así', 403)
+    if (!student.cohort_id) return errorResponse('SIN_COHORTE', 'Todavía no tienes cohorte asignada')
+
+    const { data: session } = await admin
+      .from('class_sessions')
+      .select('id, status')
+      .eq('cohort_id', student.cohort_id)
+      .eq('session_date', hoy)
+      .maybeSingle()
+    if (!session) return errorResponse('SIN_CLASE_HOY', 'No tienes clase programada hoy')
+    if (session.status !== 'abierta') return errorResponse('SESION_NO_ABIERTA', 'Tu clase todavía no está abierta')
+
     const { data: attendance, error: insertError } = await admin.from('attendance_events').insert({
-      session_id: sessionId,
+      session_id: session.id,
       student_id: authUser.id,
       scanned_by: authUser.id,
       method: 'qr',
@@ -109,9 +111,9 @@ Deno.serve(async (req: Request) => {
     // El código rota siempre que alguien lo use con éxito, sea nuevo o
     // duplicado — así nadie que lo vea de reojo puede reutilizarlo después.
     await admin
-      .from('session_checkin_codes')
+      .from('daily_checkin_codes')
       .update({ code: nuevoCodigo(), rotated_at: new Date().toISOString() })
-      .eq('session_id', sessionId)
+      .eq('checkin_date', hoy)
 
     if (insertError) {
       if (insertError.code === '23505') {

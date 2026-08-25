@@ -484,6 +484,24 @@ export type Database = {
           },
         ]
       }
+      daily_checkin_codes: {
+        Row: {
+          checkin_date: string
+          code: string
+          rotated_at: string
+        }
+        Insert: {
+          checkin_date: string
+          code: string
+          rotated_at?: string
+        }
+        Update: {
+          checkin_date?: string
+          code?: string
+          rotated_at?: string
+        }
+        Relationships: []
+      }
       doubts: {
         Row: {
           body: string

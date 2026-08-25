@@ -9,15 +9,19 @@ import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { MarcaZR } from '@/components/ui/Iconos'
 
 /**
- * Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, Sprint F): administración muestra
- * este QR en pantalla. El estudiante lo escanea desde /asistencia. Cada
- * escaneo válido rota el código — la Edge Function `checkin-session` es la
- * única que decide si vale (regla 2 de AGENTS.md).
+ * Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, ajuste post-Sprint F): un solo QR
+ * universal, válido para todas las cohortes que tengan clase hoy — no uno
+ * por cohorte. El estudiante lo escanea desde /asistencia; la Edge Function
+ * `checkin-session` decide a qué sesión pertenece según SU propia cohorte.
+ * Cada escaneo válido rota el código (regla 2 de AGENTS.md: nada se valida
+ * en el cliente).
  */
 
-interface Cohorte {
-  id: string
-  nombre: string
+interface SesionHoy {
+  sessionId: string
+  cohorteNombre: string
+  registrados: number
+  total: number
 }
 
 function nuevoCodigo() {
@@ -26,18 +30,45 @@ function nuevoCodigo() {
 
 export default function QRAdmin() {
   const router = useRouter()
-  const [cohortes, setCohortes] = useState<Cohorte[]>([])
-  const [cohorteId, setCohorteId] = useState('')
-  const [sessionId, setSessionId] = useState<string | null>(null)
-  const [sessionStatus, setSessionStatus] = useState<string | null>(null)
+  const [sesiones, setSesiones] = useState<SesionHoy[]>([])
+  const [hayAlgunaAbierta, setHayAlgunaAbierta] = useState(false)
   const [qrUrl, setQrUrl] = useState('')
-  const [registrados, setRegistrados] = useState(0)
-  const [total, setTotal] = useState(0)
   const [cargando, setCargando] = useState(true)
   const [abriendo, setAbriendo] = useState(false)
   const codigoActual = useRef<string | null>(null)
 
   const hoyISO = new Date().toISOString().slice(0, 10)
+
+  async function cargarSesiones() {
+    const supabase = createClient()
+    const { data: sesionesHoy } = await supabase
+      .from('class_sessions')
+      .select('id, status, cohort_id, cohorts(name)')
+      .eq('session_date', hoyISO)
+
+    const filas = (sesionesHoy ?? []) as unknown as {
+      id: string; status: string; cohort_id: string; cohorts: { name: string } | null
+    }[]
+
+    const conteos = await Promise.all(
+      filas.map(async (s) => {
+        const [{ count: registrados }, { count: total }] = await Promise.all([
+          supabase.from('attendance_events').select('id', { count: 'exact', head: true }).eq('session_id', s.id),
+          supabase.from('students').select('id', { count: 'exact', head: true }).eq('cohort_id', s.cohort_id),
+        ])
+        return {
+          sessionId: s.id,
+          cohorteNombre: s.cohorts?.name ?? 'Cohorte',
+          registrados: registrados ?? 0,
+          total: total ?? 0,
+        }
+      }),
+    )
+
+    setSesiones(conteos.sort((a, b) => a.cohorteNombre.localeCompare(b.cohorteNombre)))
+    setHayAlgunaAbierta(filas.some((s) => s.status === 'abierta'))
+    return filas
+  }
 
   useEffect(() => {
     async function cargar() {
@@ -47,95 +78,69 @@ export default function QRAdmin() {
         router.replace('/login')
         return
       }
-      const { data: cohs } = await supabase.from('cohorts').select('id, name').order('name')
-      const lista = (cohs ?? []).map((c) => ({ id: c.id, nombre: c.name }))
-      setCohortes(lista)
-      if (lista.length) setCohorteId(lista[0].id)
+      await cargarSesiones()
       setCargando(false)
     }
     cargar()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
-  // Sesión de hoy para la cohorte elegida
-  useEffect(() => {
-    if (!cohorteId) return
-
-    async function cargarSesion() {
-      setSessionId(null)
-      setSessionStatus(null)
-      setQrUrl('')
-
-      const supabase = createClient()
-      const { data: sesion } = await supabase
-        .from('class_sessions')
-        .select('id, status')
-        .eq('cohort_id', cohorteId)
-        .eq('session_date', hoyISO)
-        .maybeSingle()
-      setSessionId(sesion?.id ?? null)
-      setSessionStatus(sesion?.status ?? null)
-
-      const { count } = await supabase
-        .from('students').select('id', { count: 'exact', head: true }).eq('cohort_id', cohorteId)
-      setTotal(count ?? 0)
-    }
-    cargarSesion()
-  }, [cohorteId, hoyISO])
-
-  async function dibujarQR(code: string, sesId: string) {
+  async function dibujarQR(code: string) {
     codigoActual.current = code
-    const url = await QRCode.toDataURL(`ZRADM|${sesId}|${code}`, {
+    const url = await QRCode.toDataURL(`ZRADM|${code}`, {
       width: 260, margin: 1, color: { dark: '#0F1419', light: '#FFFFFF' },
     })
     setQrUrl(url)
   }
 
   async function abrirYMostrar() {
-    if (!sessionId) return
     setAbriendo(true)
     const supabase = createClient()
 
-    if (sessionStatus !== 'abierta') {
-      await supabase.from('class_sessions').update({ status: 'abierta' }).eq('id', sessionId)
-      setSessionStatus('abierta')
-    }
+    // Abre TODAS las sesiones de hoy que sigan "programada" — un solo QR
+    // sirve para cualquier cohorte que tenga clase.
+    await supabase.from('class_sessions').update({ status: 'abierta' }).eq('session_date', hoyISO).eq('status', 'programada')
 
     const { data: existente } = await supabase
-      .from('session_checkin_codes').select('code').eq('session_id', sessionId).maybeSingle()
+      .from('daily_checkin_codes').select('code').eq('checkin_date', hoyISO).maybeSingle()
 
     const code = existente?.code ?? nuevoCodigo()
     if (!existente) {
-      await supabase.from('session_checkin_codes').insert({ session_id: sessionId, code })
+      await supabase.from('daily_checkin_codes').insert({ checkin_date: hoyISO, code })
     }
-    await dibujarQR(code, sessionId)
+    await dibujarQR(code)
+    await cargarSesiones()
     setAbriendo(false)
   }
 
-  // Refresca el conteo y detecta rotación del código cada pocos segundos.
+  // Refresca conteos y detecta rotación del código cada pocos segundos.
   useEffect(() => {
-    if (!sessionId || sessionStatus !== 'abierta') return
+    if (!qrUrl) return
 
     const intervalo = setInterval(async () => {
       const supabase = createClient()
-      const [{ count }, { data: actual }] = await Promise.all([
-        supabase.from('attendance_events').select('id', { count: 'exact', head: true }).eq('session_id', sessionId),
-        supabase.from('session_checkin_codes').select('code').eq('session_id', sessionId).maybeSingle(),
+      const [, { data: actual }] = await Promise.all([
+        cargarSesiones(),
+        supabase.from('daily_checkin_codes').select('code').eq('checkin_date', hoyISO).maybeSingle(),
       ])
-      setRegistrados(count ?? 0)
       if (actual?.code && actual.code !== codigoActual.current) {
-        await dibujarQR(actual.code, sessionId)
+        await dibujarQR(actual.code)
       }
     }, 3000)
 
     return () => clearInterval(intervalo)
-  }, [sessionId, sessionStatus])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qrUrl])
 
-  async function cerrarClase() {
-    if (!sessionId) return
-    await createClient().from('class_sessions').update({ status: 'cerrada' }).eq('id', sessionId)
-    setSessionStatus('cerrada')
+  async function cerrarTodas() {
+    const supabase = createClient()
+    await supabase.from('class_sessions').update({ status: 'cerrada' }).eq('session_date', hoyISO).eq('status', 'abierta')
     setQrUrl('')
+    await cargarSesiones()
   }
+
+  const totalRegistrados = sesiones.reduce((acc, s) => acc + s.registrados, 0)
+  const totalEstudiantes = sesiones.reduce((acc, s) => acc + s.total, 0)
 
   if (cargando) {
     return (
@@ -152,66 +157,66 @@ export default function QRAdmin() {
       <header className="animate-rise">
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">Administración</p>
         <h1 className="zr-display mt-3 text-4xl text-zr-text">QR de asistencia</h1>
+        <p className="mt-3 text-sm text-zr-text-muted">
+          Un solo código, válido para todas las cohortes que tengan clase hoy.
+        </p>
       </header>
 
-      {cohortes.length === 0 ? (
-        <EstadoVacio titulo="Sin cohortes" explicacion="Todavía no hay cohortes creadas." />
-      ) : (
+      {sesiones.length === 0 ? (
+        <EstadoVacio titulo="Sin clases hoy" explicacion="No hay ninguna sesión programada para hoy." />
+      ) : !qrUrl ? (
         <>
-          <div className="flex gap-2 overflow-x-auto pb-1 zr-scroll-x">
-            {cohortes.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setCohorteId(c.id)}
-                className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
-                  cohorteId === c.id ? 'border-zr-blue bg-zr-blue/15 text-zr-blue' : 'border-zr-border text-zr-text-muted'
-                }`}
-              >
-                {c.nombre}
-              </button>
+          <div className="space-y-2">
+            {sesiones.map((s) => (
+              <div key={s.sessionId} className="zr-card flex items-center justify-between p-4">
+                <p className="text-sm font-semibold text-zr-text">{s.cohorteNombre}</p>
+                <p className="text-xs text-zr-text-muted">{s.registrados}/{s.total}</p>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={abrirYMostrar}
+            disabled={abriendo}
+            className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-50"
+          >
+            {abriendo ? 'Abriendo…' : hayAlgunaAbierta ? 'Mostrar QR' : 'Abrir clases de hoy y mostrar QR'}
+          </button>
+        </>
+      ) : (
+        <div className="flex flex-col items-center gap-6 rounded-2xl bg-zr-navy p-8 text-center">
+          <div className="flex items-center gap-2 text-white/60">
+            <MarcaZR size={20} />
+            <p className="text-xs font-bold uppercase tracking-[0.18em]">ZR Mecademy</p>
+          </div>
+          <div className="rounded-xl bg-white p-3">
+            <img src={qrUrl} alt="Código QR de asistencia" className="h-56 w-56" />
+          </div>
+          <div>
+            <p className="zr-metric text-3xl text-white">
+              {totalRegistrados}<span className="text-base font-medium text-white/60">/{totalEstudiantes}</span>
+            </p>
+            <p className="mt-1 text-xs uppercase tracking-wide text-white/60">ya escanearon, todas las cohortes</p>
+          </div>
+
+          <div className="w-full space-y-1.5 border-t border-white/10 pt-4 text-left">
+            {sesiones.map((s) => (
+              <div key={s.sessionId} className="flex items-center justify-between text-xs">
+                <span className="text-white/70">{s.cohorteNombre}</span>
+                <span className="font-semibold text-white">{s.registrados}/{s.total}</span>
+              </div>
             ))}
           </div>
 
-          {!sessionId ? (
-            <EstadoVacio titulo="Sin clase hoy" explicacion="Esta cohorte no tiene sesión programada para hoy." />
-          ) : sessionStatus === 'cerrada' ? (
-            <div className="zr-card p-6 text-center">
-              <p className="text-base font-semibold text-zr-text">La clase ya cerró</p>
-              <p className="mt-1 text-sm text-zr-text-muted">{registrados}/{total} registrados</p>
-            </div>
-          ) : !qrUrl ? (
-            <button
-              onClick={abrirYMostrar}
-              disabled={abriendo}
-              className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-50"
-            >
-              {abriendo ? 'Abriendo…' : 'Abrir clase y mostrar QR'}
-            </button>
-          ) : (
-            <div className="flex flex-col items-center gap-6 rounded-2xl bg-zr-navy p-8 text-center">
-              <div className="flex items-center gap-2 text-white/60">
-                <MarcaZR size={20} />
-                <p className="text-xs font-bold uppercase tracking-[0.18em]">ZR Mecademy</p>
-              </div>
-              <div className="rounded-xl bg-white p-3">
-                <img src={qrUrl} alt="Código QR de asistencia" className="h-56 w-56" />
-              </div>
-              <div>
-                <p className="zr-metric text-3xl text-white">{registrados}<span className="text-base font-medium text-white/60">/{total}</span></p>
-                <p className="mt-1 text-xs uppercase tracking-wide text-white/60">ya escanearon</p>
-              </div>
-              <p className="max-w-xs text-xs leading-relaxed text-white/50">
-                Cada código muere al usarse y aparece otro. Fotografiarlo no sirve.
-              </p>
-              <button
-                onClick={cerrarClase}
-                className="rounded-lg border border-white/20 px-5 py-2.5 text-sm font-semibold text-white/80"
-              >
-                Cerrar clase
-              </button>
-            </div>
-          )}
-        </>
+          <p className="max-w-xs text-xs leading-relaxed text-white/50">
+            Cada código muere al usarse y aparece otro. Fotografiarlo no sirve.
+          </p>
+          <button
+            onClick={cerrarTodas}
+            className="rounded-lg border border-white/20 px-5 py-2.5 text-sm font-semibold text-white/80"
+          >
+            Cerrar clases de hoy
+          </button>
+        </div>
       )}
     </div>
   )

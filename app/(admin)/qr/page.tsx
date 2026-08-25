@@ -59,11 +59,12 @@ export default function QRAdmin() {
   // Sesión de hoy para la cohorte elegida
   useEffect(() => {
     if (!cohorteId) return
-    setSessionId(null)
-    setSessionStatus(null)
-    setQrUrl('')
 
     async function cargarSesion() {
+      setSessionId(null)
+      setSessionStatus(null)
+      setQrUrl('')
+
       const supabase = createClient()
       const { data: sesion } = await supabase
         .from('class_sessions')

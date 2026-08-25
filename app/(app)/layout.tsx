@@ -6,30 +6,18 @@ import { createClient } from '@/lib/supabase/client'
 import { BarraFlotante, type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Campanita } from '@/components/ui/Campanita'
 import {
-  IconoInicio, IconoExamen, IconoProgreso, IconoPerfil, IconoCalendario, IconoDocumento, IconoNotas,
+  IconoInicio, IconoPerfil, IconoCalendario, IconoDocumento,
 } from '@/components/ui/Iconos'
 
-// Cuatro botones, ni uno más: spec/04 §1. Clases, Material y Notas se alcanzan
-// desde la rejilla de accesos del inicio — están a un toque igual, y meterlos
-// aquí dejaría cada botón por debajo del área táctil mínima de 48 px.
+// Fase 0 (docs/14_FASE0_PLAN_SPRINTS.md, Sprint 1): Exámenes, Notas y Progreso
+// se retiran del menú del estudiante para esta entrega. Las rutas siguen
+// existiendo en el código — no se borran — para retomarlas en la fase
+// siguiente sin rehacer nada.
 const NAV: ItemBarra[] = [
-  { href: '/',         label: 'Inicio',   Icono: IconoInicio },
-  { href: '/examenes', label: 'Exámenes', Icono: IconoExamen },
-  { href: '/progreso', label: 'Progreso', Icono: IconoProgreso },
-  { href: '/perfil',   label: 'Perfil',   Icono: IconoPerfil },
-]
-
-// Clases, Material y Notas se llegan desde la rejilla del inicio y no están
-// en la píldora — así que al entrar ahí la barra no mostraba dónde estabas.
-// El botón ☰ lista TODO, con la pantalla actual resaltada.
-const TODAS: ItemBarra[] = [
-  NAV[0],
-  { href: '/clases',    label: 'Clases',   Icono: IconoCalendario },
-  NAV[1],
-  { href: '/notas',     label: 'Notas',    Icono: IconoNotas },
+  { href: '/',          label: 'Inicio',  Icono: IconoInicio },
+  { href: '/clases',    label: 'Clases',  Icono: IconoCalendario },
   { href: '/contenido', label: 'Material', Icono: IconoDocumento },
-  NAV[2],
-  NAV[3],
+  { href: '/perfil',    label: 'Perfil',  Icono: IconoPerfil },
 ]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -56,7 +44,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       )}
       <div className="pb-28">{children}</div>
-      {!enExamen && <BarraFlotante items={NAV} todasLasSecciones={TODAS} />}
+      {!enExamen && <BarraFlotante items={NAV} />}
     </div>
   )
 }

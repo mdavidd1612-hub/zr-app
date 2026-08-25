@@ -45,6 +45,14 @@ const ACCESOS_DIRECCION = [
 
 const ACCESO_CONFIG = { href: '/configuracion', titulo: 'Configuración', sub: 'Umbrales y reglas de negocio', Icono: IconoPanel }
 
+// PRUEBA TEMPORAL: forzar que el panel se comporte como si hoy fuera sábado,
+// para probar el calendario de sesiones sin esperar al sábado real. Poner en
+// false para que vuelva a leer el día real — pedido explícito del equipo,
+// quitar antes de la entrega del 5 de septiembre. Ojo: la fecha que se usa
+// para BUSCAR las sesiones de hoy sigue siendo la real, así que solo se ve
+// contenido si hay una sesión programada para la fecha real de hoy.
+const FORZAR_SABADO_DEMO = true
+
 export default function Panel() {
   const router = useRouter()
   const [stats, setStats] = useState<Estadisticas | null>(null)
@@ -53,7 +61,7 @@ export default function Panel() {
   const [cargando, setCargando] = useState(true)
 
   const hoy = new Date()
-  const esSabado = hoy.getDay() === 6
+  const esSabado = FORZAR_SABADO_DEMO || hoy.getDay() === 6
   const hoyISO = hoy.toISOString().slice(0, 10)
 
   useEffect(() => {

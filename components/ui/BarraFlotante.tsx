@@ -133,23 +133,25 @@ export function BarraFlotante({ items, todasLasSecciones, deslizable = true }: P
       )}
 
       <nav className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
-        <div className="rounded-full border border-white/15 bg-white/10 px-2.5 py-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
-          <div className="flex gap-1">
+        <div className="rounded-[28px] border border-white/15 bg-white/10 px-2 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+          <div className="flex gap-0.5">
             {items.map((item) => {
               const on = activo(item.href)
               return (
                 <button
                   key={item.href}
                   onClick={() => router.push(item.href)}
-                  aria-label={item.label}
                   aria-current={on ? 'page' : undefined}
-                  className={`flex h-12 w-12 items-center justify-center rounded-full transition-all duration-300 ${
+                  className={`flex w-14 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 transition-all duration-300 ${
                     on
                       ? 'bg-zr-blue/20 text-zr-blue'
                       : 'text-zr-text-muted active:bg-white/10'
                   }`}
                 >
-                  <item.Icono size={23} />
+                  <item.Icono size={21} />
+                  <span className="max-w-full truncate text-[10px] font-semibold leading-none">
+                    {item.label}
+                  </span>
                 </button>
               )
             })}

@@ -7,30 +7,10 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
@@ -71,7 +51,7 @@ export type Database = {
           manual_reason: string | null
           method: Database["public"]["Enums"]["attendance_method"]
           scanned_at: string
-          scanned_by: string
+          scanned_by: string | null
           session_id: string
           snack_claimed_at: string | null
           snack_claimed_by: string | null
@@ -85,7 +65,7 @@ export type Database = {
           manual_reason?: string | null
           method?: Database["public"]["Enums"]["attendance_method"]
           scanned_at?: string
-          scanned_by: string
+          scanned_by?: string | null
           session_id: string
           snack_claimed_at?: string | null
           snack_claimed_by?: string | null
@@ -99,7 +79,7 @@ export type Database = {
           manual_reason?: string | null
           method?: Database["public"]["Enums"]["attendance_method"]
           scanned_at?: string
-          scanned_by?: string
+          scanned_by?: string | null
           session_id?: string
           snack_claimed_at?: string | null
           snack_claimed_by?: string | null
@@ -203,15 +183,7 @@ export type Database = {
           entity_id?: string | null
           id?: number
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_audit_actor"
-            columns: ["actor_profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       class_sessions: {
         Row: {
@@ -372,7 +344,7 @@ export type Database = {
           title: string
           type: Database["public"]["Enums"]["content_type"]
           updated_at: string
-          uploaded_by: string
+          uploaded_by: string | null
           visible_from: string | null
           week_number: number | null
         }
@@ -389,7 +361,7 @@ export type Database = {
           title: string
           type: Database["public"]["Enums"]["content_type"]
           updated_at?: string
-          uploaded_by: string
+          uploaded_by?: string | null
           visible_from?: string | null
           week_number?: number | null
         }
@@ -406,7 +378,7 @@ export type Database = {
           title?: string
           type?: Database["public"]["Enums"]["content_type"]
           updated_at?: string
-          uploaded_by?: string
+          uploaded_by?: string | null
           visible_from?: string | null
           week_number?: number | null
         }
@@ -505,6 +477,66 @@ export type Database = {
           },
           {
             foreignKeyName: "content_views_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students_blocked"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doubts: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doubts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doubts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_mi_dominio"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "doubts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_proximo_sabado"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "doubts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doubts_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "v_students_blocked"
@@ -733,6 +765,108 @@ export type Database = {
           },
         ]
       }
+      exam_rehabilitation_requests: {
+        Row: {
+          attempt_id: string
+          created_at: string
+          exam_id: string
+          id: string
+          reason: string
+          requested_at: string
+          responded_at: string | null
+          responded_by: string | null
+          response_note: string | null
+          status: Database["public"]["Enums"]["rehabilitation_status"]
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_id: string
+          created_at?: string
+          exam_id: string
+          id?: string
+          reason: string
+          requested_at?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          response_note?: string | null
+          status?: Database["public"]["Enums"]["rehabilitation_status"]
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_id?: string
+          created_at?: string
+          exam_id?: string
+          id?: string
+          reason?: string
+          requested_at?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          response_note?: string | null
+          status?: Database["public"]["Enums"]["rehabilitation_status"]
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_rehabilitation_requests_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "exam_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_rehabilitation_requests_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_rehabilitation_requests_responded_by_fkey"
+            columns: ["responded_by"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_rehabilitation_requests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_rehabilitation_requests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_mi_dominio"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "exam_rehabilitation_requests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_proximo_sabado"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "exam_rehabilitation_requests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_rehabilitation_requests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students_blocked"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exams: {
         Row: {
           closes_at: string | null
@@ -748,7 +882,7 @@ export type Database = {
           published_at: string | null
           published_by: string | null
           status: Database["public"]["Enums"]["exam_status"]
-          teacher_id: string
+          teacher_id: string | null
           title: string
           updated_at: string
         }
@@ -766,7 +900,7 @@ export type Database = {
           published_at?: string | null
           published_by?: string | null
           status?: Database["public"]["Enums"]["exam_status"]
-          teacher_id: string
+          teacher_id?: string | null
           title: string
           updated_at?: string
         }
@@ -784,7 +918,7 @@ export type Database = {
           published_at?: string | null
           published_by?: string | null
           status?: Database["public"]["Enums"]["exam_status"]
-          teacher_id?: string
+          teacher_id?: string | null
           title?: string
           updated_at?: string
         }
@@ -1314,9 +1448,9 @@ export type Database = {
           method: Database["public"]["Enums"]["consent_method"]
           representative_cedula: string
           representative_email: string
+          representative_id_document_url: string | null
           representative_name: string
           representative_phone: string | null
-          representative_id_document_url: string | null
           signed_at: string
           student_id: string
           verified_at: string | null
@@ -1330,9 +1464,9 @@ export type Database = {
           method: Database["public"]["Enums"]["consent_method"]
           representative_cedula: string
           representative_email: string
+          representative_id_document_url?: string | null
           representative_name: string
           representative_phone?: string | null
-          representative_id_document_url?: string | null
           signed_at?: string
           student_id: string
           verified_at?: string | null
@@ -1346,9 +1480,9 @@ export type Database = {
           method?: Database["public"]["Enums"]["consent_method"]
           representative_cedula?: string
           representative_email?: string
+          representative_id_document_url?: string | null
           representative_name?: string
           representative_phone?: string | null
-          representative_id_document_url?: string | null
           signed_at?: string
           student_id?: string
           verified_at?: string | null
@@ -1401,57 +1535,57 @@ export type Database = {
       }
       professor_applications: {
         Row: {
-          id: string
-          profile_id: string
-          full_name: string
           cedula: string
-          contact_email: string
-          phone: string | null
-          status: string
           cohort_id: string | null
-          reviewed_by: string | null
-          reviewed_at: string | null
+          contact_email: string
           created_at: string
+          full_name: string
+          id: string
+          phone: string | null
+          profile_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
         }
         Insert: {
-          id?: string
-          profile_id: string
-          full_name: string
           cedula: string
-          contact_email: string
-          phone?: string | null
-          status?: string
           cohort_id?: string | null
-          reviewed_by?: string | null
-          reviewed_at?: string | null
+          contact_email: string
           created_at?: string
+          full_name: string
+          id?: string
+          phone?: string | null
+          profile_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
         }
         Update: {
-          id?: string
-          profile_id?: string
-          full_name?: string
           cedula?: string
-          contact_email?: string
-          phone?: string | null
-          status?: string
           cohort_id?: string | null
-          reviewed_by?: string | null
-          reviewed_at?: string | null
+          contact_email?: string
           created_at?: string
+          full_name?: string
+          id?: string
+          phone?: string | null
+          profile_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "professor_applications_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "professor_applications_cohort_id_fkey"
             columns: ["cohort_id"]
             isOneToOne: false
             referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professor_applications_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1700,15 +1834,7 @@ export type Database = {
           updated_by?: string | null
           value?: Json
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_system_config_updated_by"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       system_config_history: {
         Row: {
@@ -1962,10 +2088,20 @@ export type Database = {
       is_super: { Args: never; Returns: boolean }
       my_cohort_id: { Args: never; Returns: string }
       my_module_id: { Args: never; Returns: string }
+      seed_user: {
+        Args: {
+          p_cedula: string
+          p_email: string
+          p_full_name: string
+          p_id: string
+          p_role: Database["public"]["Enums"]["user_role"]
+        }
+        Returns: string
+      }
       teaches_cohort: { Args: { p_cohort: string }; Returns: boolean }
     }
     Enums: {
-      attempt_status: "en_progreso" | "entregado" | "calificado"
+      attempt_status: "en_progreso" | "entregado" | "calificado" | "abandonado"
       attendance_method: "qr" | "manual"
       cohort_status: "activa" | "finalizada" | "suspendida"
       consent_method: "fisico" | "digital"
@@ -1982,13 +2118,19 @@ export type Database = {
       onboarding_status: "en_curso" | "completo"
       profile_status: "activo" | "suspendido" | "egresado" | "retirado"
       question_type: "opcion_multiple" | "verdadero_falso" | "redaccion_abierta"
+      rehabilitation_status: "pendiente" | "aprobada" | "rechazada"
       session_status:
         | "programada"
         | "abierta"
         | "cerrada"
         | "reprogramada"
         | "cancelada"
-      user_role: "estudiante" | "profesor" | "admin" | "super_admin" | "direccion_academica"
+      user_role:
+        | "estudiante"
+        | "profesor"
+        | "admin"
+        | "super_admin"
+        | "direccion_academica"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2114,12 +2256,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
-      attempt_status: ["en_progreso", "entregado", "calificado"],
+      attempt_status: ["en_progreso", "entregado", "calificado", "abandonado"],
       attendance_method: ["qr", "manual"],
       cohort_status: ["activa", "finalizada", "suspendida"],
       consent_method: ["fisico", "digital"],
@@ -2141,6 +2280,7 @@ export const Constants = {
         "verdadero_falso",
         "redaccion_abierta",
       ],
+      rehabilitation_status: ["pendiente", "aprobada", "rechazada"],
       session_status: [
         "programada",
         "abierta",
@@ -2148,8 +2288,13 @@ export const Constants = {
         "reprogramada",
         "cancelada",
       ],
-      user_role: ["estudiante", "profesor", "admin", "super_admin", "direccion_academica"],
+      user_role: [
+        "estudiante",
+        "profesor",
+        "admin",
+        "super_admin",
+        "direccion_academica",
+      ],
     },
   },
 } as const
-

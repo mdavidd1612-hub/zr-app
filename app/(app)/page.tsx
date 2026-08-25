@@ -255,7 +255,7 @@ export default function Inicio() {
             <div className="grid grid-cols-2 gap-3">
               {[
                 { href: '/contenido', titulo: 'Material', sub: 'Guías y PDFs' },
-                { href: '/clases',    titulo: 'Mi módulo', sub: 'Qué vas a aprender' },
+                { href: '/dudas',     titulo: 'Dudas',    sub: 'Pregúntale al profesor' },
               ].map((a) => (
                 <button
                   key={a.href}

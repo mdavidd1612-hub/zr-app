@@ -16,6 +16,13 @@ interface Estadisticas {
   modulosAprobados: number
 }
 
+interface SesionHoy {
+  sessionId: string
+  cohorteNombre: string
+  registrados: number
+  total: number
+}
+
 // Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, Sprint A): Cohortes y Reportes se
 // retiran de los accesos (código intacto, se retoman después). Consentimientos
 // queda como el único acceso directo a esa pantalla — ya no está en la barra.
@@ -40,7 +47,12 @@ export default function Panel() {
   const router = useRouter()
   const [stats, setStats] = useState<Estadisticas | null>(null)
   const [rol, setRol] = useState<UserRole | null>(null)
+  const [sesionesHoy, setSesionesHoy] = useState<SesionHoy[]>([])
   const [cargando, setCargando] = useState(true)
+
+  const hoy = new Date()
+  const esSabado = hoy.getDay() === 6
+  const hoyISO = hoy.toISOString().slice(0, 10)
 
   useEffect(() => {
     const supabase = createClient()
@@ -79,10 +91,41 @@ export default function Panel() {
         cohortes: numCohortes ?? 0,
         modulosAprobados: aprobados ?? 0,
       })
+
+      // Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, Sprint D): el sábado, calendario
+      // de las sesiones de hoy, una tarjeta por cohorte, con registrados
+      // (attendance_events de esa sesión) y faltan (estudiantes de la
+      // cohorte que todavía no aparecen ahí).
+      const { data: sesiones } = await supabase
+        .from('class_sessions')
+        .select('id, cohort_id, cohorts(name)')
+        .eq('session_date', hoyISO)
+
+      const filasSesion = (sesiones ?? []) as unknown as {
+        id: string; cohort_id: string; cohorts: { name: string } | null
+      }[]
+
+      const conteos = await Promise.all(
+        filasSesion.map(async (s) => {
+          const [{ count: registrados }, { count: total }] = await Promise.all([
+            supabase.from('attendance_events').select('id', { count: 'exact', head: true }).eq('session_id', s.id),
+            supabase.from('students').select('id', { count: 'exact', head: true }).eq('cohort_id', s.cohort_id),
+          ])
+          return {
+            sessionId: s.id,
+            cohorteNombre: s.cohorts?.name ?? 'Cohorte',
+            registrados: registrados ?? 0,
+            total: total ?? 0,
+          }
+        }),
+      )
+
+      setSesionesHoy(conteos.sort((a, b) => a.cohorteNombre.localeCompare(b.cohorteNombre)))
       setCargando(false)
     }
 
     cargar()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
   if (cargando || !stats) {
@@ -105,28 +148,52 @@ export default function Panel() {
 
       <Regla delay={60} />
 
-      <Seccion numero={1} titulo="Estudiantes" delay={120}>
-        <div className="grid grid-cols-3 gap-3">
-          <Dato valor={stats.totalEstudiantes} etiqueta="Registrados" tono="azul" />
-          <Dato valor={stats.estudiantesActivos} etiqueta="Activos" tono="exito" />
-          <Dato valor={Math.max(stats.totalEstudiantes - stats.estudiantesActivos, 0)} etiqueta="Faltantes" tono="neutro" />
-        </div>
-        {stats.consentimientosPendientes > 0 && (
-          <button
-            onClick={() => router.push('/consentimientos')}
-            className="zr-card w-full border-zr-warning/30 bg-zr-warning/8 p-5 text-left"
-          >
-            <p className="text-base font-semibold text-zr-text">
-              {stats.consentimientosPendientes} consentimiento
-              {stats.consentimientosPendientes === 1 ? '' : 's'} pendiente
-              {stats.consentimientosPendientes === 1 ? '' : 's'}
-            </p>
-            <p className="mt-1 text-sm text-zr-text-muted">Toca para revisarlos</p>
-          </button>
-        )}
-      </Seccion>
+      {esSabado && (
+        <>
+          <Seccion numero={1} titulo="Estudiantes" delay={120}>
+            <div className="grid grid-cols-3 gap-3">
+              <Dato valor={stats.totalEstudiantes} etiqueta="Registrados" tono="azul" />
+              <Dato valor={stats.estudiantesActivos} etiqueta="Activos" tono="exito" />
+              <Dato valor={Math.max(stats.totalEstudiantes - stats.estudiantesActivos, 0)} etiqueta="Faltantes" tono="neutro" />
+            </div>
+            {stats.consentimientosPendientes > 0 && (
+              <button
+                onClick={() => router.push('/consentimientos')}
+                className="zr-card w-full border-zr-warning/30 bg-zr-warning/8 p-5 text-left"
+              >
+                <p className="text-base font-semibold text-zr-text">
+                  {stats.consentimientosPendientes} consentimiento
+                  {stats.consentimientosPendientes === 1 ? '' : 's'} pendiente
+                  {stats.consentimientosPendientes === 1 ? '' : 's'}
+                </p>
+                <p className="mt-1 text-sm text-zr-text-muted">Toca para revisarlos</p>
+              </button>
+            )}
+          </Seccion>
 
-      <Seccion numero={2} titulo="Accesos" delay={200}>
+          <Seccion numero={2} titulo={`Hoy, sábado ${hoy.getDate()}`} delay={160}>
+            {sesionesHoy.length === 0 ? (
+              <div className="zr-card p-6">
+                <p className="text-sm text-zr-text-muted">No hay sesiones de clase programadas para hoy.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {sesionesHoy.map((s) => (
+                  <div key={s.sessionId} className="zr-card p-5">
+                    <p className="text-sm font-semibold text-zr-blue-mid">{s.cohorteNombre}</p>
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <Dato valor={s.registrados} etiqueta="Registrados" tono="exito" />
+                      <Dato valor={Math.max(s.total - s.registrados, 0)} etiqueta="Faltan" tono="neutro" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Seccion>
+        </>
+      )}
+
+      <Seccion numero={esSabado ? 3 : 1} titulo="Accesos" delay={200}>
         <div className="space-y-3">
           {(
             esDireccionAcademica(rol)

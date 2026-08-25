@@ -55,9 +55,13 @@ export default function Estudiantes() {
       if (vigente) setMiRol((perfil?.role as UserRole) ?? null)
 
       const [{ data }, { data: consentimientos }] = await Promise.all([
+        // Ordenado por cohorte y luego por nombre — Fase 0
+        // (docs/15_FASE0_PLAN_ADMIN.md, Sprint B). Postgrest ordena nulls al
+        // final por defecto, así que "Sin cohorte" queda agrupado al final.
         supabase
           .from('v_students')
           .select('id, full_name, cedula, cohort_id, status, age_years, is_minor, cohorts(name)')
+          .order('cohort_id', { nullsFirst: false })
           .order('full_name'),
         supabase.from('parental_consents').select('student_id, verified_at').eq('consent_type', 'account_creation'),
       ])
@@ -217,56 +221,66 @@ export default function Estudiantes() {
         />
       ) : (
         <div className="space-y-3">
-          {filtrados.map((e) => (
-            <div key={e.id} className="zr-card p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-base font-semibold text-zr-text">{e.nombre}</p>
-                  <p className="mt-1 text-sm tabular-nums text-zr-text-muted">{e.cedula}</p>
-                  <p className="mt-0.5 text-sm text-zr-text-muted">
-                    {e.edad} años · {e.cohorte ?? 'Sin cohorte'}
+          {filtrados.map((e, i) => {
+            const cambioDeCohorte = i === 0 || filtrados[i - 1].cohorteId !== e.cohorteId
+            return (
+              <div key={e.id}>
+                {cambioDeCohorte && (
+                  <p className="mb-3 mt-6 text-xs font-bold uppercase tracking-wider text-zr-blue-mid first:mt-0">
+                    {e.cohorte ?? 'Sin cohorte'}
                   </p>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-1.5">
-                  {e.estado === 'suspendido' && <Etiqueta tono="error">Suspendido</Etiqueta>}
-                  {e.esMenor && (
-                    <Etiqueta tono={e.consentimientoVerificado ? 'exito' : e.tieneConsentimiento ? 'aviso' : 'error'}>
-                      {e.consentimientoVerificado ? 'Consentimiento OK' : e.tieneConsentimiento ? 'Sin verificar' : 'Sin consentimiento'}
-                    </Etiqueta>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-4 flex gap-2 border-t border-zr-border/60 pt-4">
-                <button
-                  onClick={() => router.push(`/estudiantes/${e.id}`)}
-                  className="flex-1 rounded-lg border border-zr-border px-3 py-2.5 text-sm font-semibold text-zr-text"
-                >
-                  Ver
-                </button>
-                <button
-                  onClick={() => suspender(e.id, e.estado)}
-                  disabled={ocupado === e.id}
-                  className={`flex-1 rounded-lg border px-3 py-2.5 text-sm font-semibold disabled:opacity-50 ${
-                    e.estado === 'suspendido'
-                      ? 'border-zr-success/30 bg-zr-success/10 text-zr-success'
-                      : 'border-zr-error/30 bg-zr-error/10 text-zr-error'
-                  }`}
-                >
-                  {ocupado === e.id ? '…' : e.estado === 'suspendido' ? 'Reactivar' : 'Suspender'}
-                </button>
-                {(miRol === 'super_admin' || miRol === 'admin' || miRol === 'direccion_academica') && (
-                  <button
-                    onClick={() => eliminar(e.id, e.nombre)}
-                    disabled={ocupado === e.id}
-                    className="rounded-lg border border-zr-error/40 px-3 py-2.5 text-sm font-semibold text-zr-error disabled:opacity-50"
-                  >
-                    Eliminar
-                  </button>
                 )}
+                <div className="zr-card p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-base font-semibold text-zr-text">{e.nombre}</p>
+                      <p className="mt-1 text-sm tabular-nums text-zr-text-muted">{e.cedula}</p>
+                      <p className="mt-0.5 text-sm text-zr-text-muted">
+                        {e.edad} años · {e.cohorte ?? 'Sin cohorte'}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      {e.estado === 'suspendido' && <Etiqueta tono="error">Suspendido</Etiqueta>}
+                      {e.esMenor && (
+                        <Etiqueta tono={e.consentimientoVerificado ? 'exito' : e.tieneConsentimiento ? 'aviso' : 'error'}>
+                          {e.consentimientoVerificado ? 'Consentimiento OK' : e.tieneConsentimiento ? 'Sin verificar' : 'Sin consentimiento'}
+                        </Etiqueta>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex gap-2 border-t border-zr-border/60 pt-4">
+                    <button
+                      onClick={() => router.push(`/estudiantes/${e.id}`)}
+                      className="flex-1 rounded-lg border border-zr-border px-3 py-2.5 text-sm font-semibold text-zr-text"
+                    >
+                      Ver
+                    </button>
+                    <button
+                      onClick={() => suspender(e.id, e.estado)}
+                      disabled={ocupado === e.id}
+                      className={`flex-1 rounded-lg border px-3 py-2.5 text-sm font-semibold disabled:opacity-50 ${
+                        e.estado === 'suspendido'
+                          ? 'border-zr-success/30 bg-zr-success/10 text-zr-success'
+                          : 'border-zr-error/30 bg-zr-error/10 text-zr-error'
+                      }`}
+                    >
+                      {ocupado === e.id ? '…' : e.estado === 'suspendido' ? 'Reactivar' : 'Suspender'}
+                    </button>
+                    {(miRol === 'super_admin' || miRol === 'admin' || miRol === 'direccion_academica') && (
+                      <button
+                        onClick={() => eliminar(e.id, e.nombre)}
+                        disabled={ocupado === e.id}
+                        className="rounded-lg border border-zr-error/40 px-3 py-2.5 text-sm font-semibold text-zr-error disabled:opacity-50"
+                      >
+                        Eliminar
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

@@ -104,11 +104,12 @@ export default function TrabajarCaso() {
                 const elegida = respuestas[pi] === oi
                 const esCorrecta = oi === paso.correcta
 
-                let estilo = elegida ? 'border-zr-blue bg-zr-blue/10 text-zr-text' : 'text-zr-text'
+                let estilo = 'border-zr-border bg-zr-surface text-zr-text'
+                if (elegida && !revelado) estilo = 'border-zr-blue bg-zr-blue/10 text-zr-text'
                 if (revelado) {
                   if (esCorrecta) estilo = 'border-zr-success bg-zr-success/10 text-zr-text'
                   else if (elegida) estilo = 'border-zr-error bg-zr-error/10 text-zr-text'
-                  else estilo = 'text-zr-text-muted opacity-70'
+                  else estilo = 'border-zr-border bg-zr-surface text-zr-text-muted opacity-70'
                 }
 
                 return (
@@ -116,7 +117,7 @@ export default function TrabajarCaso() {
                     key={oi}
                     onClick={() => !revelado && elegir(pi, oi)}
                     disabled={revelado}
-                    className={`zr-card flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left text-sm transition-colors ${estilo} ${revelado ? 'cursor-default' : ''}`}
+                    className={`flex w-full items-center justify-between gap-3 rounded-zr border-2 px-4 py-3.5 text-left text-sm transition-colors ${estilo} ${revelado ? 'cursor-default' : ''}`}
                   >
                     <span>{op}</span>
                     {revelado && esCorrecta && <IconoCheck size={16} className="shrink-0 text-zr-success" />}

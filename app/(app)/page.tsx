@@ -24,6 +24,12 @@ interface Modulo {
 const NOMBRE_DIA = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 const INICIAL_DIA = ['', 'L', 'M', 'X', 'J', 'V', 'S']
 
+// PRUEBA TEMPORAL: forzar que la app se comporte como si hoy fuera sábado,
+// para probar el flujo de "tomar asistencia" sin esperar al sábado real.
+// Poner en false para que vuelva a leer el día real — pedido explícito del
+// equipo, quitar antes de la entrega del 5 de septiembre.
+const FORZAR_SABADO_DEMO = true
+
 export default function Inicio() {
   const router = useRouter()
   const [nombre, setNombre] = useState('')
@@ -33,7 +39,7 @@ export default function Inicio() {
   const [hechos, setHechos] = useState<Set<string>>(new Set())
 
   const hoy = new Date()
-  const diaHoy = diaSemanaISO(hoy)
+  const diaHoy = FORZAR_SABADO_DEMO ? 6 : diaSemanaISO(hoy)
   const lunes = lunesDeLaSemana(hoy)
   const esSabado = diaHoy === 6
   const casoHoy = CASOS[diaHoy]
@@ -125,7 +131,7 @@ export default function Inicio() {
     const d = new Date(lunes)
     d.setDate(d.getDate() + i)
     const iso = fechaISO(d)
-    const num = diaSemanaISO(hoy)
+    const num = diaHoy
     let estado: 'hoy' | 'hecho' | 'pasado' | 'futuro' = 'futuro'
     if (i + 1 === num) estado = 'hoy'
     else if (hechos.has(iso)) estado = 'hecho'

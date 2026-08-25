@@ -107,44 +107,44 @@ export default function PerfilEstudiante() {
 
       {/* 01 — CARNET */}
       <Seccion numero={1} titulo="Carnet digital" delay={120}>
-        <div className="overflow-hidden rounded-xl bg-gradient-to-br from-zr-blue-deep via-zr-blue to-zr-blue-mid p-6 shadow-lg">
-          <div className="flex items-start justify-between gap-6">
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">
-                ZR Mecademy
-              </p>
-              <p className="mt-3 truncate text-lg font-bold text-white">{perfil.fullName}</p>
-              <p className="mt-0.5 text-sm tabular-nums text-white/80">{perfil.cedula}</p>
-              <p className="mt-4 inline-flex items-center rounded-full border border-white/25 bg-white/15 px-3 py-1.5 text-xs font-bold text-white">
-                Estudiante activo
-              </p>
-            </div>
+        <div className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-zr-navy via-zr-navy to-zr-blue-deep p-4 shadow-md">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/50">ZR Mecademy</p>
+            <span className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[10px] font-bold text-white/70">
+              Activo
+            </span>
+          </div>
 
+          <div className="mt-3 flex items-end justify-between gap-4">
+            <div className="min-w-0">
+              <p className="truncate text-base font-bold text-white">{perfil.fullName}</p>
+              <p className="mt-0.5 text-xs tabular-nums text-white/60">{perfil.cedula}</p>
+            </div>
             {qrUrl && (
-              <div className="shrink-0 rounded-lg bg-white p-2">
-                <img src={qrUrl} alt="Código QR de asistencia" className="h-28 w-28" />
+              <div className="shrink-0 rounded-md bg-white p-1">
+                <img src={qrUrl} alt="Código QR de asistencia" className="h-16 w-16" />
               </div>
             )}
           </div>
 
-          <div className="mt-6 space-y-0 border-t border-white/20 pt-1 text-sm">
+          <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2.5 border-t border-white/10 pt-3">
             {[
               ['Código', perfil.codigoCarnet ?? '—'],
               ['Sede', SEDE],
               ['Turno', TURNO],
               ['Módulo', perfil.modulo ?? 'Sin asignar'],
             ].map(([etiqueta, valor]) => (
-              <div key={etiqueta} className="flex justify-between border-t border-white/10 py-2 first:border-t-0">
-                <span className="text-white/70">{etiqueta}</span>
-                <span className="font-semibold text-white">{valor}</span>
+              <div key={etiqueta} className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-white/40">{etiqueta}</p>
+                <p className="truncate text-xs font-semibold text-white/90">{valor}</p>
               </div>
             ))}
           </div>
 
           {totp && (
-            <div className="mt-1 border-t border-white/20 pt-4 text-xs font-medium text-white/70">
+            <div className="mt-3 border-t border-white/10 pt-2.5 text-[11px] text-white/50">
               Código de asistencia:{' '}
-              <span className="ml-1 font-mono tabular-nums text-white/90">{totp}</span>
+              <span className="font-mono tabular-nums text-white/80">{totp}</span>
             </div>
           )}
         </div>

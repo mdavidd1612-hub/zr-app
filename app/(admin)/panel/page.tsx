@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Dato } from '@/components/ui/Editorial'
-import { IconoEstudiantes, IconoCandado, IconoNotas, IconoPanel, IconoPersonal, IconoCheck, IconoExamen, IconoDocumento } from '@/components/ui/Iconos'
+import { IconoEstudiantes, IconoCandado, IconoNotas, IconoPanel, IconoPersonal, IconoCheck, IconoExamen, IconoDocumento, IconoCalendario } from '@/components/ui/Iconos'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
 
@@ -30,6 +30,7 @@ const ACCESOS = [
   { href: '/consentimientos', titulo: 'Consentimientos', sub: 'Revisar permisos pendientes', Icono: IconoCandado },
   { href: '/estudiantes',     titulo: 'Estudiantes',      sub: 'Ver y gestionar registros',  Icono: IconoEstudiantes },
   { href: '/material',        titulo: 'Material',         sub: 'Subir por cohorte',          Icono: IconoDocumento },
+  { href: '/asistencias',     titulo: 'Asistencia',       sub: 'Por cohorte, en vivo',        Icono: IconoCalendario },
 ]
 
 // Exclusivo de Dirección Académica y super_admin: profesores, notas y

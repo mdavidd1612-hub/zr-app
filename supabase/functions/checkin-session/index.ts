@@ -92,6 +92,9 @@ Deno.serve(async (req: Request) => {
     if (!student) return errorResponse('NO_AUTORIZADO', 'Solo estudiantes marcan asistencia así', 403)
     if (!student.cohort_id) return errorResponse('SIN_COHORTE', 'Todavía no tienes cohorte asignada')
 
+    // Fase 0: administración no abre ni cierra sesiones desde la pantalla
+    // de QR — basta con que exista la sesión de hoy para tu cohorte (la
+    // programación de sesiones es un proceso aparte, fuera de esta pantalla).
     const { data: session } = await admin
       .from('class_sessions')
       .select('id, status')
@@ -99,7 +102,7 @@ Deno.serve(async (req: Request) => {
       .eq('session_date', hoy)
       .maybeSingle()
     if (!session) return errorResponse('SIN_CLASE_HOY', 'No tienes clase programada hoy')
-    if (session.status !== 'abierta') return errorResponse('SESION_NO_ABIERTA', 'Tu clase todavía no está abierta')
+    if (session.status === 'cancelada') return errorResponse('CLASE_CANCELADA', 'Tu clase de hoy fue cancelada')
 
     const { data: attendance, error: insertError } = await admin.from('attendance_events').insert({
       session_id: session.id,

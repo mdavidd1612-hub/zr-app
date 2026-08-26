@@ -37,6 +37,11 @@ export default function Inicio() {
   // estado — nunca directo en el cuerpo del efecto (ver Sprint 7 de
   // docs/14_FASE0_PLAN_SPRINTS.md, por qué eso rompe el lint).
   const [simulado, setSimulado] = useState(false)
+  // Aviso de asistencia recién marcada (viene de /asistencia, ver ajuste
+  // post-Sprint F de docs/15_FASE0_PLAN_ADMIN.md): apenas se lee, se borra
+  // de sessionStorage y se autooculta solo, no hace falta que el estudiante
+  // haga nada.
+  const [avisoAsistencia, setAvisoAsistencia] = useState<'ok' | 'duplicado' | null>(null)
 
   const hoy = new Date()
   const diaHoy = simulado ? 6 : diaSemanaISO(hoy)
@@ -49,6 +54,17 @@ export default function Inicio() {
 
     async function cargar() {
       setSimulado(leerSimulacionSabado())
+
+      try {
+        const marca = sessionStorage.getItem('zr_asistencia_ok')
+        if (marca === 'ok' || marca === 'duplicado') {
+          setAvisoAsistencia(marca)
+          sessionStorage.removeItem('zr_asistencia_ok')
+          setTimeout(() => setAvisoAsistencia(null), 3500)
+        }
+      } catch {
+        // sessionStorage puede fallar en modo privado; no es crítico.
+      }
 
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
@@ -150,6 +166,15 @@ export default function Inicio() {
           </p>
           <h1 className="zr-display mt-3 text-4xl text-zr-text">{primerNombre}</h1>
         </header>
+
+        {avisoAsistencia && (
+          <div className="flex animate-fade-in items-center gap-3 rounded-lg border border-zr-success/30 bg-zr-success/12 px-5 py-4">
+            <IconoCheck size={20} className="shrink-0 text-zr-success" />
+            <p className="text-sm font-semibold text-zr-text">
+              {avisoAsistencia === 'duplicado' ? 'Ya estabas registrado hoy' : 'Asistencia registrada'}
+            </p>
+          </div>
+        )}
 
         <Regla delay={60} />
 

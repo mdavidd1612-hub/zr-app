@@ -4,19 +4,19 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { BrowserQRCodeReader, type IScannerControls } from '@zxing/browser'
 import { createClient } from '@/lib/supabase/client'
-import { IconoFlechaAtras, IconoCheck } from '@/components/ui/Iconos'
+import { IconoFlechaAtras } from '@/components/ui/Iconos'
 
 /**
- * Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, Sprint F): administración muestra el
- * QR, el ESTUDIANTE lo escanea y esta pantalla llama a la Edge Function
- * `checkin-session`, que es la única que decide si la asistencia vale —
- * nunca el cliente (regla 2 de AGENTS.md).
+ * Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, ajuste): administración muestra el
+ * QR universal, el ESTUDIANTE lo escanea y esta pantalla llama a la Edge
+ * Function `checkin-session`, que es la única que decide si la asistencia
+ * vale — nunca el cliente (regla 2 de AGENTS.md). Si vale, se vuelve al
+ * inicio de una vez — el mensaje de éxito se muestra allá, no aquí.
  */
 
-type Resultado =
-  | { tipo: 'exito'; duplicado: boolean }
-  | { tipo: 'error'; mensaje: string }
-  | null
+interface ResultadoError {
+  mensaje: string
+}
 
 export default function MarcarAsistencia() {
   const router = useRouter()
@@ -25,7 +25,7 @@ export default function MarcarAsistencia() {
   const bloqueadoRef = useRef(false)
 
   const [errorCamara, setErrorCamara] = useState<string | null>(null)
-  const [resultado, setResultado] = useState<Resultado>(null)
+  const [resultado, setResultado] = useState<ResultadoError | null>(null)
 
   useEffect(() => {
     let cancelado = false
@@ -46,15 +46,22 @@ export default function MarcarAsistencia() {
             // se queda con el mensaje genérico
           }
         }
-        setResultado({ tipo: 'error', mensaje })
-      } else {
-        setResultado({ tipo: 'exito', duplicado: Boolean(data?.duplicate) })
+        setResultado({ mensaje })
+        setTimeout(() => {
+          setResultado(null)
+          bloqueadoRef.current = false
+        }, 2500)
+        return
       }
 
-      setTimeout(() => {
-        setResultado(null)
-        bloqueadoRef.current = false
-      }, 2500)
+      // Asistencia registrada: no hay que quedarse viendo la cámara. Se
+      // guarda el resultado para el inicio y se vuelve ahí de una vez.
+      try {
+        sessionStorage.setItem('zr_asistencia_ok', data?.duplicate ? 'duplicado' : 'ok')
+      } catch {
+        // sessionStorage puede fallar en modo privado; no es crítico.
+      }
+      router.push('/')
     }
 
     async function iniciar() {
@@ -116,21 +123,8 @@ export default function MarcarAsistencia() {
         )}
 
         {resultado && (
-          <div
-            className={`absolute inset-x-0 bottom-0 flex flex-col items-center justify-center gap-1 px-6 py-8 text-center ${
-              resultado.tipo === 'exito' ? (resultado.duplicado ? 'bg-zr-warning' : 'bg-zr-success') : 'bg-zr-error'
-            }`}
-          >
-            {resultado.tipo === 'exito' ? (
-              <>
-                <IconoCheck size={28} className="text-white" />
-                <p className="text-lg font-bold text-white">
-                  {resultado.duplicado ? 'Ya estabas registrado' : 'Asistencia registrada'}
-                </p>
-              </>
-            ) : (
-              <p className="text-lg font-bold text-white">{resultado.mensaje}</p>
-            )}
+          <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-center gap-1 bg-zr-error px-6 py-8 text-center">
+            <p className="text-lg font-bold text-white">{resultado.mensaje}</p>
           </div>
         )}
       </div>

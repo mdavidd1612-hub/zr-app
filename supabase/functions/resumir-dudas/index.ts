@@ -90,7 +90,10 @@ Deno.serve(async (req: Request) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'meta/llama-3.1-8b-instruct',
+        // meta/llama-3.1-8b-instruct llegó a su fin de vida el 26/8/2026 en
+        // NVIDIA NIM. Este modelo responde rápido y sin "razonamiento" de
+        // por medio (mistral-nemotron es más lento, piensa antes de hablar).
+        model: 'meta/llama-3.2-11b-vision-instruct',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.3,
         max_tokens: 400,

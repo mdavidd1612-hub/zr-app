@@ -87,7 +87,10 @@ Responde SOLO con un array JSON de exactamente 5 objetos, uno por día lunes a v
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'meta/llama-3.1-70b-instruct',
+        // meta/llama-3.1-70b-instruct llegó a su fin de vida el 26/8/2026 en
+        // NVIDIA NIM. Este modelo responde rápido y sin "razonamiento" de
+        // por medio (mistral-nemotron es más lento, piensa antes de hablar).
+        model: 'meta/llama-3.2-11b-vision-instruct',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.6,
         max_tokens: 4000,

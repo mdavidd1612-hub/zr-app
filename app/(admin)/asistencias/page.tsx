@@ -189,22 +189,46 @@ export default function Asistencias() {
     setMarcando(null)
   }
 
-  function descargarCSV() {
+  // Tabla de Excel sin depender de ninguna librería externa (npm audit marcó
+  // la única disponible, `xlsx`/SheetJS, con vulnerabilidades altas sin
+  // parche). Excel abre nativamente una tabla HTML con este tipo MIME y
+  // extensión .xls — mismo resultado, sin ese riesgo.
+  function descargarExcel() {
     const cohorte = cohortes.find((c) => c.id === cohorteId)
-    const encabezados = ['Nombre y apellido', 'Cédula', 'Número', 'Fecha', 'Asistió']
-    const filasCSV = filas.map((f) => [
-      f.nombre, f.cedula, f.telefono ?? '', hoyISO, f.presente ? 'Sí' : 'No',
-    ])
+    const escapar = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-    const csv = [encabezados, ...filasCSV]
-      .map((fila) => fila.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
-      .join('\n')
+    const filasHTML = filas
+      .map((f) => `<tr>
+        <td>${escapar(f.nombre)}</td>
+        <td>${escapar(f.cedula)}</td>
+        <td>${escapar(f.telefono ?? '')}</td>
+        <td>${hoyISO}</td>
+        <td>${f.presente ? 'Sí' : 'No'}</td>
+      </tr>`)
+      .join('')
 
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel">
+      <head><meta charset="utf-8">
+        <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+        <x:Name>${escapar(cohorte?.nombre ?? 'Asistencia')}</x:Name>
+        <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+        </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+      </head>
+      <body>
+        <table border="1">
+          <thead><tr>
+            <th>Nombre y apellido</th><th>Cédula</th><th>Número</th><th>Fecha</th><th>Asistió</th>
+          </tr></thead>
+          <tbody>${filasHTML}</tbody>
+        </table>
+      </body>
+    </html>`
+
+    const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `asistencia_${(cohorte?.nombre ?? 'cohorte').replace(/[^a-zA-Z0-9]/g, '_')}_${hoyISO}.csv`
+    a.download = `asistencia_${(cohorte?.nombre ?? 'cohorte').replace(/[^a-zA-Z0-9]/g, '_')}_${hoyISO}.xls`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -262,10 +286,10 @@ export default function Asistencias() {
 
           {filas.length > 0 && (
             <button
-              onClick={descargarCSV}
+              onClick={descargarExcel}
               className="w-full rounded-lg border border-zr-border py-3 text-sm font-semibold text-zr-text"
             >
-              Descargar esta cohorte (CSV)
+              Descargar esta cohorte (Excel)
             </button>
           )}
 

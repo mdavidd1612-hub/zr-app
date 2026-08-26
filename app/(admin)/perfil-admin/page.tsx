@@ -60,10 +60,11 @@ export default function PerfilAdmin() {
   }, [router])
 
   // PRUEBA TEMPORAL: al activar, además de marcar el interruptor, asegura
-  // que exista una sesión de clase para HOY (fecha real) en al menos una
-  // cohorte — si no, el calendario y el QR dicen "sin clase hoy" y no hay
-  // nada que probar. Se quita del todo cuando la academia lo pida
-  // (docs/15_FASE0_PLAN_ADMIN.md).
+  // que exista una sesión de clase para HOY (fecha real) en TODAS las
+  // cohortes que ya tengan algún estudiante — si no, el estudiante de
+  // prueba puede quedar en una cohorte sin sesión de hoy y el QR le dice
+  // "no tienes clase programada hoy" aunque el interruptor esté encendido.
+  // Se quita del todo cuando la academia lo pida (docs/15_FASE0_PLAN_ADMIN.md).
   async function alternarSimulacion() {
     const nuevo = !simulado
     setSimulado(nuevo)
@@ -74,26 +75,37 @@ export default function PerfilAdmin() {
     const supabase = createClient()
     const hoyISO = new Date().toISOString().slice(0, 10)
 
-    const { data: cohorte } = await supabase
-      .from('cohorts').select('id, current_module_id').order('name').limit(1).maybeSingle()
+    const { data: cohortesConEstudiantes } = await supabase
+      .from('students')
+      .select('cohort_id, cohorts(id, current_module_id)')
+      .not('cohort_id', 'is', null)
 
-    if (cohorte?.current_module_id) {
+    const filas = (cohortesConEstudiantes ?? []) as unknown as {
+      cohort_id: string; cohorts: { id: string; current_module_id: string | null } | null
+    }[]
+
+    const cohortesUnicas = new Map(
+      filas
+        .filter((f) => f.cohorts?.current_module_id)
+        .map((f) => [f.cohort_id, f.cohorts!.current_module_id!]),
+    )
+
+    for (const [cohorteId, moduloId] of cohortesUnicas) {
       const { data: existente } = await supabase
-        .from('class_sessions').select('id').eq('cohort_id', cohorte.id).eq('session_date', hoyISO).maybeSingle()
+        .from('class_sessions').select('id').eq('cohort_id', cohorteId).eq('session_date', hoyISO).maybeSingle()
+      if (existente) continue
 
-      if (!existente) {
-        const { data: ultima } = await supabase
-          .from('class_sessions').select('week_number').eq('cohort_id', cohorte.id)
-          .order('week_number', { ascending: false }).limit(1).maybeSingle()
+      const { data: ultima } = await supabase
+        .from('class_sessions').select('week_number').eq('cohort_id', cohorteId)
+        .order('week_number', { ascending: false }).limit(1).maybeSingle()
 
-        await supabase.from('class_sessions').insert({
-          cohort_id: cohorte.id,
-          module_id: cohorte.current_module_id,
-          session_date: hoyISO,
-          week_number: (ultima?.week_number ?? 0) + 1,
-          status: 'programada',
-        })
-      }
+      await supabase.from('class_sessions').insert({
+        cohort_id: cohorteId,
+        module_id: moduloId,
+        session_date: hoyISO,
+        week_number: (ultima?.week_number ?? 0) + 1,
+        status: 'programada',
+      })
     }
     setPreparando(false)
   }

@@ -23,6 +23,9 @@ interface Material {
   publicado: boolean
   visibleDesde: string | null
   tamañoKB: number | null
+  rutaStorage: string | null
+  estadoAprobacion: 'aprobado' | 'pendiente' | 'rechazado'
+  mensajeRevision: string | null
 }
 
 export default function ContenidoProfesor() {
@@ -37,8 +40,6 @@ export default function ContenidoProfesor() {
   const [titulo, setTitulo] = useState('')
   const [moduloId, setModuloId] = useState('')
   const [semana, setSemana] = useState<number | ''>('')
-  const [publicarAhora, setPublicarAhora] = useState(true)
-  const [fechaVisible, setFechaVisible] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [formAbierto, setFormAbierto] = useState(false)
 
@@ -53,11 +54,14 @@ export default function ContenidoProfesor() {
         return
       }
 
+      // Ve el material publicado (de administración) y todo lo suyo propio,
+      // sea cual sea su estado de aprobación — Fase 0
+      // (docs/16_FASE0_PLAN_PROFESOR.md, Sprint E).
       const [{ data: items }, { data: mods }] = await Promise.all([
         supabase
           .from('content_items')
-          .select('id, title, week_number, is_published, visible_from, size_bytes, modules(name)')
-          .eq('uploaded_by', user.id)
+          .select('id, title, week_number, is_published, visible_from, size_bytes, storage_path, uploaded_by, approval_status, review_message, modules(name)')
+          .or(`is_published.eq.true,uploaded_by.eq.${user.id}`)
           .order('created_at', { ascending: false }),
         supabase.from('modules').select('id, name').order('order_index'),
       ])
@@ -67,6 +71,8 @@ export default function ContenidoProfesor() {
       const filas = (items ?? []) as unknown as {
         id: string; title: string; week_number: number | null
         is_published: boolean; visible_from: string | null; size_bytes: number | null
+        storage_path: string | null; uploaded_by: string | null
+        approval_status: 'aprobado' | 'pendiente' | 'rechazado'; review_message: string | null
         modules: { name: string } | null
       }[]
 
@@ -79,6 +85,9 @@ export default function ContenidoProfesor() {
           publicado: m.is_published,
           visibleDesde: m.visible_from,
           tamañoKB: m.size_bytes ? Math.round(m.size_bytes / 1024) : null,
+          rutaStorage: m.storage_path,
+          estadoAprobacion: m.approval_status,
+          mensajeRevision: m.review_message,
         })),
       )
 
@@ -122,6 +131,9 @@ export default function ContenidoProfesor() {
       return
     }
 
+    // Fase 0 (docs/16_FASE0_PLAN_PROFESOR.md, Sprint E): lo que sube el
+    // profesor queda pendiente hasta que administración lo revise — nunca
+    // se publica solo, aunque el profesor lo marque como listo.
     const { error: falloRegistro } = await supabase.from('content_items').insert({
       module_id: moduloId,
       week_number: semana === '' ? null : semana,
@@ -130,8 +142,8 @@ export default function ContenidoProfesor() {
       storage_path: ruta,
       size_bytes: archivo.size,
       uploaded_by: user.id,
-      is_published: publicarAhora,
-      visible_from: publicarAhora ? null : (fechaVisible || null),
+      is_published: false,
+      approval_status: 'pendiente',
     })
 
     if (falloRegistro) {
@@ -145,19 +157,19 @@ export default function ContenidoProfesor() {
     setArchivo(null)
     setTitulo('')
     setSemana('')
-    setPublicarAhora(true)
-    setFechaVisible('')
     setFormAbierto(false)
     setSubiendo(false)
     setVersion((v) => v + 1)
   }
 
-  async function alternarPublicado(m: Material) {
-    await createClient()
-      .from('content_items')
-      .update({ is_published: !m.publicado })
-      .eq('id', m.id)
-    setVersion((v) => v + 1)
+  const [descargando, setDescargando] = useState<string | null>(null)
+
+  async function descargar(m: Material) {
+    if (!m.rutaStorage) return
+    setDescargando(m.id)
+    const { data: firmada } = await createClient().storage.from('contenido').createSignedUrl(m.rutaStorage, 300)
+    setDescargando(null)
+    if (firmada?.signedUrl) window.open(firmada.signedUrl, '_blank', 'noopener,noreferrer')
   }
 
   if (cargando) {
@@ -238,29 +250,10 @@ export default function ContenidoProfesor() {
             </div>
           </div>
 
-          <div className="space-y-3 rounded-lg border border-zr-border bg-zr-bg/60 p-4">
-            <label className="flex items-center gap-2 text-sm font-semibold text-zr-text">
-              <input
-                type="checkbox"
-                checked={publicarAhora}
-                onChange={(e) => setPublicarAhora(e.target.checked)}
-              />
-              Publicar de inmediato
-            </label>
-            {!publicarAhora && (
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-zr-text">
-                  Visible a partir de
-                </label>
-                <input
-                  type="datetime-local"
-                  value={fechaVisible}
-                  onChange={(e) => setFechaVisible(e.target.value)}
-                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
-                />
-              </div>
-            )}
-          </div>
+          <p className="rounded-lg border border-zr-blue/25 bg-zr-blue/10 p-4 text-sm leading-relaxed text-zr-text">
+            Administración revisa lo que subas antes de publicarlo. Te avisa aquí mismo cuando lo
+            apruebe o si necesita algún cambio.
+          </p>
 
           {error && <p className="text-sm font-medium text-zr-error">{error}</p>}
 
@@ -282,23 +275,46 @@ export default function ContenidoProfesor() {
           </p>
         </div>
       ) : (
-        <Seccion numero={1} titulo="Tus archivos" delay={120}>
+        <Seccion numero={1} titulo="Archivos" delay={120}>
           <div className="space-y-3">
             {materiales.map((m) => (
-              <div key={m.id} className="zr-card flex items-center justify-between gap-4 p-5">
-                <div className="min-w-0">
-                  <p className="truncate text-base font-semibold text-zr-text">{m.titulo}</p>
-                  <p className="mt-1 text-sm text-zr-text-muted">
-                    {m.modulo}
-                    {m.semana ? ` · Semana ${m.semana}` : ''}
-                    {m.tamañoKB ? ` · ${(m.tamañoKB / 1024).toFixed(1)} MB` : ''}
-                  </p>
+              <div key={m.id} className="zr-card space-y-3 p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-semibold text-zr-text">{m.titulo}</p>
+                    <p className="mt-1 text-sm text-zr-text-muted">
+                      {m.modulo}
+                      {m.semana ? ` · Semana ${m.semana}` : ''}
+                      {m.tamañoKB ? ` · ${(m.tamañoKB / 1024).toFixed(1)} MB` : ''}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      onClick={() => descargar(m)}
+                      disabled={descargando === m.id || !m.rutaStorage}
+                      className="rounded-full border border-zr-border px-3 py-1.5 text-xs font-bold text-zr-text disabled:opacity-50"
+                    >
+                      {descargando === m.id ? '…' : 'Descargar'}
+                    </button>
+                    <Etiqueta
+                      tono={
+                        m.estadoAprobacion === 'aprobado' ? 'exito'
+                          : m.estadoAprobacion === 'rechazado' ? 'error'
+                          : 'aviso'
+                      }
+                    >
+                      {m.estadoAprobacion === 'aprobado'
+                        ? (m.publicado ? 'Publicado' : 'Aprobado')
+                        : m.estadoAprobacion === 'rechazado' ? 'Rechazado'
+                        : 'Pendiente'}
+                    </Etiqueta>
+                  </div>
                 </div>
-                <button onClick={() => alternarPublicado(m)} className="shrink-0">
-                  <Etiqueta tono={m.publicado ? 'exito' : 'neutro'}>
-                    {m.publicado ? 'Publicado' : 'Borrador'}
-                  </Etiqueta>
-                </button>
+                {m.estadoAprobacion === 'rechazado' && m.mensajeRevision && (
+                  <p className="rounded-lg border border-zr-error/30 bg-zr-error/10 px-4 py-3 text-sm text-zr-text">
+                    {m.mensajeRevision}
+                  </p>
+                )}
               </div>
             ))}
           </div>

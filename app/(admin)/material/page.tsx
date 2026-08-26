@@ -29,6 +29,9 @@ interface Material {
   publicado: boolean
   tamañoKB: number | null
   rutaStorage: string | null
+  subidoPor: string | null
+  autor: string | null
+  estadoAprobacion: 'aprobado' | 'pendiente' | 'rechazado'
 }
 
 export default function MaterialAdmin() {
@@ -60,7 +63,7 @@ export default function MaterialAdmin() {
       const [{ data: items }, { data: cohs }] = await Promise.all([
         supabase
           .from('content_items')
-          .select('id, title, week_number, is_published, size_bytes, storage_path, modules(name)')
+          .select('id, title, week_number, is_published, size_bytes, storage_path, uploaded_by, approval_status, profiles!content_items_uploaded_by_fkey(full_name), modules(name)')
           .order('created_at', { ascending: false }),
         supabase.from('cohorts').select('id, name, current_module_id, modules(name)').order('name'),
       ])
@@ -70,6 +73,8 @@ export default function MaterialAdmin() {
       const filas = (items ?? []) as unknown as {
         id: string; title: string; week_number: number | null
         is_published: boolean; size_bytes: number | null; storage_path: string | null
+        uploaded_by: string | null; approval_status: 'aprobado' | 'pendiente' | 'rechazado'
+        profiles: { full_name: string } | null
         modules: { name: string } | null
       }[]
 
@@ -82,6 +87,9 @@ export default function MaterialAdmin() {
           publicado: m.is_published,
           tamañoKB: m.size_bytes ? Math.round(m.size_bytes / 1024) : null,
           rutaStorage: m.storage_path,
+          subidoPor: m.uploaded_by,
+          autor: m.profiles?.full_name ?? null,
+          estadoAprobacion: m.approval_status,
         })),
       )
 
@@ -161,6 +169,34 @@ export default function MaterialAdmin() {
 
   async function alternarPublicado(m: Material) {
     await createClient().from('content_items').update({ is_published: !m.publicado }).eq('id', m.id)
+    setVersion((v) => v + 1)
+  }
+
+  async function aprobar(m: Material) {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('content_items').update({
+      approval_status: 'aprobado',
+      is_published: true,
+      review_message: null,
+      reviewed_by: user?.id,
+      reviewed_at: new Date().toISOString(),
+    }).eq('id', m.id)
+    setVersion((v) => v + 1)
+  }
+
+  async function rechazar(m: Material) {
+    const mensaje = window.prompt(`¿Qué le dices a ${m.autor ?? 'el profesor'} sobre "${m.titulo}"?`)
+    if (mensaje === null) return
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('content_items').update({
+      approval_status: 'rechazado',
+      is_published: false,
+      review_message: mensaje.trim() || 'Necesita algún cambio antes de publicarse.',
+      reviewed_by: user?.id,
+      reviewed_at: new Date().toISOString(),
+    }).eq('id', m.id)
     setVersion((v) => v + 1)
   }
 
@@ -277,14 +313,54 @@ export default function MaterialAdmin() {
           <p className="text-base font-semibold text-zr-text">Todavía no se ha subido material</p>
         </div>
       ) : (
-        <Seccion numero={1} titulo="Archivos" delay={120}>
+        <>
+          {materiales.some((m) => m.estadoAprobacion === 'pendiente') && (
+            <Seccion numero={1} titulo="Pendientes de aprobación" delay={100}>
+              <div className="space-y-3">
+                {materiales.filter((m) => m.estadoAprobacion === 'pendiente').map((m) => (
+                  <div key={m.id} className="zr-card space-y-3 border-zr-warning/30 bg-zr-warning/8 p-5">
+                    <div className="min-w-0">
+                      <p className="truncate text-base font-semibold text-zr-text">{m.titulo}</p>
+                      <p className="mt-1 text-sm text-zr-text-muted">
+                        {m.autor ?? 'Profesor'} · {m.modulo}
+                        {m.semana ? ` · Semana ${m.semana}` : ''}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => descargar(m)}
+                        disabled={descargando === m.id}
+                        className="flex-1 rounded-lg border border-zr-border py-2.5 text-sm font-semibold text-zr-text disabled:opacity-50"
+                      >
+                        Descargar
+                      </button>
+                      <button
+                        onClick={() => aprobar(m)}
+                        className="flex-1 rounded-lg bg-zr-success py-2.5 text-sm font-bold text-white"
+                      >
+                        Aprobar
+                      </button>
+                      <button
+                        onClick={() => rechazar(m)}
+                        className="flex-1 rounded-lg border border-zr-error/40 py-2.5 text-sm font-bold text-zr-error"
+                      >
+                        Rechazar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Seccion>
+          )}
+
+        <Seccion numero={2} titulo="Archivos" delay={120}>
           <div className="space-y-3">
-            {materiales.map((m) => (
+            {materiales.filter((m) => m.estadoAprobacion !== 'pendiente').map((m) => (
               <div key={m.id} className="zr-card flex items-center justify-between gap-4 p-5">
                 <div className="min-w-0">
                   <p className="truncate text-base font-semibold text-zr-text">{m.titulo}</p>
                   <p className="mt-1 text-sm text-zr-text-muted">
-                    {m.modulo}
+                    {m.autor ? `${m.autor} · ` : ''}{m.modulo}
                     {m.semana ? ` · Semana ${m.semana}` : ''}
                     {m.tamañoKB ? ` · ${(m.tamañoKB / 1024).toFixed(1)} MB` : ''}
                   </p>
@@ -297,16 +373,21 @@ export default function MaterialAdmin() {
                   >
                     {descargando === m.id ? '…' : 'Descargar'}
                   </button>
-                  <button onClick={() => alternarPublicado(m)}>
-                    <Etiqueta tono={m.publicado ? 'exito' : 'neutro'}>
-                      {m.publicado ? 'Publicado' : 'Borrador'}
-                    </Etiqueta>
-                  </button>
+                  {m.estadoAprobacion === 'rechazado' ? (
+                    <Etiqueta tono="error">Rechazado</Etiqueta>
+                  ) : (
+                    <button onClick={() => alternarPublicado(m)}>
+                      <Etiqueta tono={m.publicado ? 'exito' : 'neutro'}>
+                        {m.publicado ? 'Publicado' : 'Borrador'}
+                      </Etiqueta>
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         </Seccion>
+        </>
       )}
     </div>
   )

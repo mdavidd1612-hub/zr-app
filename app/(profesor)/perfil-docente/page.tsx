@@ -107,7 +107,20 @@ export default function PerfilDocente() {
 
       <Regla delay={60} />
 
-      <Seccion numero={1} titulo="Mis cohortes" delay={120}>
+      {/* Fase 0 (docs/16_FASE0_PLAN_PROFESOR.md, Sprint F): mini carnet —
+          nombre, cédula y módulo actual, nada más. */}
+      <Seccion numero={1} titulo="Carnet" delay={100}>
+        <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-zr-navy via-zr-navy to-zr-blue-deep p-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/50">ZR Mecademy · Profesor</p>
+          <p className="mt-2 text-base font-bold text-white">{perfil.nombre}</p>
+          <p className="mt-0.5 text-xs tabular-nums text-white/60">{perfil.cedula}</p>
+          <p className="mt-3 border-t border-white/10 pt-3 text-xs text-white/70">
+            {cohortes[0]?.modulo ?? 'Sin módulo asignado'}
+          </p>
+        </div>
+      </Seccion>
+
+      <Seccion numero={2} titulo="Mis cohortes" delay={140}>
         {cohortes.length === 0 ? (
           <div className="zr-card p-6">
             <p className="text-base font-semibold text-zr-text">Sin cohortes asignadas</p>
@@ -130,7 +143,7 @@ export default function PerfilDocente() {
         )}
       </Seccion>
 
-      <Seccion numero={2} titulo="Cuenta" delay={200}>
+      <Seccion numero={3} titulo="Cuenta" delay={220}>
         <BloqueCuenta
           nombre={perfil.nombre}
           cedula={perfil.cedula}

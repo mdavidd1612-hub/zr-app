@@ -446,6 +446,7 @@ export type Database = {
       }
       content_items: {
         Row: {
+          approval_status: Database["public"]["Enums"]["content_approval_status"]
           created_at: string
           description: string | null
           external_url: string | null
@@ -453,6 +454,9 @@ export type Database = {
           is_published: boolean
           learning_guide_id: string | null
           module_id: string
+          review_message: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           size_bytes: number | null
           storage_path: string | null
           title: string
@@ -463,6 +467,7 @@ export type Database = {
           week_number: number | null
         }
         Insert: {
+          approval_status?: Database["public"]["Enums"]["content_approval_status"]
           created_at?: string
           description?: string | null
           external_url?: string | null
@@ -470,6 +475,9 @@ export type Database = {
           is_published?: boolean
           learning_guide_id?: string | null
           module_id: string
+          review_message?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           size_bytes?: number | null
           storage_path?: string | null
           title: string
@@ -480,6 +488,7 @@ export type Database = {
           week_number?: number | null
         }
         Update: {
+          approval_status?: Database["public"]["Enums"]["content_approval_status"]
           created_at?: string
           description?: string | null
           external_url?: string | null
@@ -487,6 +496,9 @@ export type Database = {
           is_published?: boolean
           learning_guide_id?: string | null
           module_id?: string
+          review_message?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           size_bytes?: number | null
           storage_path?: string | null
           title?: string
@@ -523,6 +535,13 @@ export type Database = {
             columns: ["module_id"]
             isOneToOne: false
             referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_items_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2284,6 +2303,7 @@ export type Database = {
       cohort_status: "activa" | "finalizada" | "suspendida"
       consent_method: "fisico" | "digital"
       consent_type: "account_creation" | "ugc_publication"
+      content_approval_status: "aprobado" | "pendiente" | "rechazado"
       content_type: "pdf" | "presentacion" | "imagen" | "enlace" | "documento"
       enrollment_status: "en_curso" | "aprobado" | "reprobado" | "retirado"
       exam_status: "oculto" | "habilitado" | "cerrado" | "calificado"
@@ -2441,6 +2461,7 @@ export const Constants = {
       cohort_status: ["activa", "finalizada", "suspendida"],
       consent_method: ["fisico", "digital"],
       consent_type: ["account_creation", "ugc_publication"],
+      content_approval_status: ["aprobado", "pendiente", "rechazado"],
       content_type: ["pdf", "presentacion", "imagen", "enlace", "documento"],
       enrollment_status: ["en_curso", "aprobado", "reprobado", "retirado"],
       exam_status: ["oculto", "habilitado", "cerrado", "calificado"],

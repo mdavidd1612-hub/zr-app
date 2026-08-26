@@ -112,19 +112,21 @@ export default function Inicio() {
         if (mod) setModulo({ nombre: mod.name, descripcion: mod.description })
       }
 
-      // Qué días de esta semana ya se trabajaron (Fase 0: se guarda en el
-      // teléfono, sin backend — docs/14_FASE0_PLAN_SPRINTS.md, Sprint 2).
-      try {
-        const marcados = new Set<string>()
-        for (let i = 0; i < 6; i++) {
-          const d = new Date(lunes)
-          d.setDate(d.getDate() + i)
-          if (localStorage.getItem(`zr_caso_${fechaISO(d)}`)) marcados.add(fechaISO(d))
-        }
-        setHechos(marcados)
-      } catch {
-        // localStorage puede fallar en modo privado; no es crítico.
-      }
+      // Qué días de esta semana ya se trabajaron. Fase 0 (Sprint 2) los
+      // guardaba solo en el teléfono; ahora se lee de la base
+      // (case_completions, ver Sprint D de docs/16_FASE0_PLAN_PROFESOR.md)
+      // para que sea la misma verdad en cualquier dispositivo, y coincida
+      // con lo que ve el profesor.
+      const inicioSemana = fechaISO(lunes)
+      const finSemana = fechaISO(new Date(lunes.getTime() + 5 * 86400000))
+      const { data: completados } = await supabase
+        .from('case_completions')
+        .select('case_date')
+        .eq('student_id', user.id)
+        .gte('case_date', inicioSemana)
+        .lte('case_date', finSemana)
+
+      setHechos(new Set((completados ?? []).map((c) => c.case_date)))
 
       setCargando(false)
     }

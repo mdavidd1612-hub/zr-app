@@ -6,10 +6,11 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 
 /**
- * Fase 0 (docs/16_FASE0_PLAN_PROFESOR.md, Sprint D): quién trabajó el caso
+ * Fase 0 (docs/16_FASE0_PLAN_PROFESOR.md, ajuste): quién trabajó el caso
  * cada día — SIN nombres, solo el % (barra animada, como el HTML de
- * referencia). Los casos en sí los genera una Edge Function con IA
- * (`generar-casos`), 5 por semana (lunes a viernes) para el módulo actual.
+ * referencia). Los casos ya no se generan por botón: un cron diario
+ * (migración 042) genera el caso del día siguiente hábil solo, con un día
+ * de margen — el profesor no tiene que hacer nada.
  */
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
@@ -35,8 +36,6 @@ export default function CasosDocente() {
   const [cargando, setCargando] = useState(true)
   const [modulo, setModulo] = useState<{ id: string; nombre: string } | null>(null)
   const [dias, setDias] = useState<DiaProgreso[]>([])
-  const [generando, setGenerando] = useState(false)
-  const [avisoIA, setAvisoIA] = useState<string | null>(null)
 
   useEffect(() => {
     async function cargar() {
@@ -100,31 +99,6 @@ export default function CasosDocente() {
     cargar()
   }, [router])
 
-  async function generarConIA() {
-    if (!modulo) return
-    setGenerando(true)
-    setAvisoIA(null)
-    const supabase = createClient()
-    const { error } = await supabase.functions.invoke('generar-casos', { body: { moduleId: modulo.id } })
-
-    if (error) {
-      const contexto = (error as { context?: Response }).context
-      let mensaje = 'No se pudieron generar los casos.'
-      if (contexto) {
-        try {
-          const cuerpo = await contexto.json()
-          mensaje = cuerpo.error?.message ?? mensaje
-        } catch {
-          // se queda con el mensaje genérico
-        }
-      }
-      setAvisoIA(mensaje)
-    } else {
-      setAvisoIA('Casos de la semana generados. Ya están disponibles para los estudiantes.')
-    }
-    setGenerando(false)
-  }
-
   if (cargando) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
@@ -154,24 +128,14 @@ export default function CasosDocente() {
 
       <Regla delay={60} />
 
-      <Seccion numero={1} titulo="Casos de la semana con IA" delay={100}>
-        <div className="zr-card space-y-3 p-6">
-          <p className="text-sm text-zr-text-muted">
-            Genera los 5 casos de lunes a viernes para este módulo, con IA. Si ya existen, se
-            reemplazan.
-          </p>
-          {avisoIA && <p className="text-sm font-medium text-zr-text">{avisoIA}</p>}
-          <button
-            onClick={generarConIA}
-            disabled={generando}
-            className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-50"
-          >
-            {generando ? 'Generando…' : 'Generar casos de la semana'}
-          </button>
-        </div>
-      </Seccion>
+      <div className="flex gap-3 rounded-lg border border-zr-blue/25 bg-zr-blue/10 p-4">
+        <p className="text-sm leading-relaxed text-zr-text">
+          Los casos se generan solos: cada mañana se prepara el del siguiente día hábil, con un
+          día de margen. No hace falta tocar nada aquí.
+        </p>
+      </div>
 
-      <Seccion numero={2} titulo="Quién trabajó los casos" delay={180}>
+      <Seccion numero={1} titulo="Quién trabajó los casos" delay={140}>
         <div className="space-y-3">
           {dias.map((d) => {
             const pct = d.total > 0 ? Math.round((d.hechos / d.total) * 100) : 0

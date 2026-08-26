@@ -1,19 +1,26 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 /**
- * generar-casos · Fase 0 (docs/16_FASE0_PLAN_PROFESOR.md, Sprint D).
+ * generar-casos · Fase 0 (docs/16_FASE0_PLAN_PROFESOR.md, ajuste).
  *
- * Genera los 5 casos de la semana (lunes a viernes, sin sábado — ese día es
- * clase, no caso) para un módulo, con NVIDIA NIM. Cada caso: escenario,
- * 2 preguntas de opción múltiple, una reflexión de respuesta libre, y una
- * referencia (qué es, por qué no las otras, qué queda claro) — mismo
- * formato que el banco fijo de lib/casos-fase0.ts en el estudiante.
- * Solo personal puede pedirlo, y la clave nunca sale del servidor.
+ * Genera UN caso (no los 5 de golpe — eso tardaba demasiado y a veces la IA
+ * no alcanzaba a responder completo) para un módulo y un día de la semana.
+ * Se llama de dos formas:
+ *  1. Automática, por el cron diario (fn_generar_caso_del_dia en Postgres):
+ *     sábado genera el lunes, lunes genera el martes, y así — el profesor
+ *     no tiene que tocar nada. Se identifica con el header
+ *     `x-cron-secret` en vez de un token de usuario.
+ *  2. Manual, por un profesor/admin autenticado (por si hace falta
+ *     regenerar uno a mano).
+ *
+ * verify_jwt está en false porque el cron no tiene usuario — la
+ * autenticación la hace este código: o el secreto del cron, o un JWT válido
+ * de personal. Nunca se salta esa validación (regla 2 de AGENTS.md).
  */
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 }
 
 function errorResponse(code: string, message: string, status = 400) {
@@ -53,17 +60,27 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { moduleId } = await req.json()
-    if (!moduleId) return errorResponse('FALTA_MODULO', 'Falta el id del módulo')
-
-    const user = userClient(req)
-    const { data: { user: authUser }, error: authError } = await user.auth.getUser()
-    if (authError || !authUser) {
-      return errorResponse('NO_AUTORIZADO', 'Token inválido', 403)
+    const { moduleId, weekday } = await req.json()
+    if (!moduleId || !weekday || weekday < 1 || weekday > 5) {
+      return errorResponse('DATOS_INVALIDOS', 'Falta moduleId o weekday (1-5)')
     }
-    const { data: perfil } = await user.from('profiles').select('role').eq('id', authUser.id).single()
-    if (!['profesor', 'admin', 'super_admin', 'direccion_academica'].includes(perfil?.role ?? '')) {
-      return errorResponse('NO_AUTORIZADO', 'Solo personal puede generar casos', 403)
+
+    // Autenticación: o es el cron (secreto compartido), o es personal con
+    // sesión válida. Nunca se genera nada sin pasar por una de las dos.
+    const cronSecret = req.headers.get('x-cron-secret')
+    const esCron = Boolean(cronSecret) && cronSecret === Deno.env.get('CRON_SECRET')
+
+    let generatedBy: string | null = null
+    if (!esCron) {
+      const user = userClient(req)
+      const { data: { user: authUser }, error: authError } = await user.auth.getUser()
+      if (authError || !authUser) return errorResponse('NO_AUTORIZADO', 'Token inválido', 403)
+
+      const { data: perfil } = await user.from('profiles').select('role').eq('id', authUser.id).single()
+      if (!['profesor', 'admin', 'super_admin', 'direccion_academica'].includes(perfil?.role ?? '')) {
+        return errorResponse('NO_AUTORIZADO', 'Solo personal puede generar casos', 403)
+      }
+      generatedBy = authUser.id
     }
 
     const admin = adminClient()
@@ -73,73 +90,62 @@ Deno.serve(async (req: Request) => {
     const apiKey = Deno.env.get('NVIDIA_API_KEY')
     if (!apiKey) return errorResponse('SIN_CONFIGURAR', 'Falta la clave de NVIDIA en el servidor', 500)
 
-    const prompt = `Eres un instructor de mecánica automotriz. Genera 5 casos cortos de diagnóstico para estudiantes de 15 a 25 años, uno para cada día de la semana (lunes a viernes), relacionados con el módulo "${modulo.name}"${modulo.description ? ` (${modulo.description})` : ''}.
+    const prompt = `Eres un instructor de mecánica automotriz. Genera UN caso corto de diagnóstico para estudiantes de 15 a 25 años, para el ${NOMBRE_DIA[weekday]}, relacionado con el módulo "${modulo.name}"${modulo.description ? ` (${modulo.description})` : ''}.
 
 Reglas estrictas:
-- Conceptuales, sin cifras ni medidas exactas (ver AGENTS.md del proyecto: nada de números de negocio inventados).
-- Cada caso: un escenario breve (2-4 líneas), 2 preguntas de opción múltiple con 4 opciones cada una (la primera opción SIEMPRE es la correcta, luego reordena los índices), una pregunta de reflexión de respuesta libre, y una referencia con: qué es la respuesta correcta y por qué, por qué las otras 3 opciones de cada pregunta NO son correctas (agrupado, 3 líneas), y una idea final de una línea.
+- Conceptual, sin cifras ni medidas exactas.
+- El caso: un escenario breve (2-4 líneas), 2 preguntas de opción múltiple con 4 opciones cada una (la primera opción SIEMPRE es la correcta, luego reordena los índices), una pregunta de reflexión de respuesta libre, y una referencia con: qué es la respuesta correcta y por qué, por qué las otras 3 opciones de cada pregunta NO son correctas (agrupado, 3 líneas), y una idea final de una línea.
 - Español de Venezuela, tono cercano, sin tecnicismos innecesarios.
 
-Responde SOLO con un array JSON de exactamente 5 objetos, uno por día lunes a viernes en ese orden, con esta forma exacta:
+Responde SOLO con un objeto JSON con esta forma exacta, sin explicación adicional:
 {"titulo": "...", "escenario": "...", "preguntas": [{"pregunta": "...", "opciones": ["...","...","...","..."], "correcta": 0}, {"pregunta": "...", "opciones": ["...","...","...","..."], "correcta": 0}], "reflexion": "...", "referencia": {"que": "...", "porQueNo": ["...","...","..."], "quedaClaro": "..."}}`
 
     const respuesta = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        // meta/llama-3.1-70b-instruct llegó a su fin de vida el 26/8/2026 en
-        // NVIDIA NIM. Este modelo responde rápido y sin "razonamiento" de
-        // por medio (mistral-nemotron es más lento, piensa antes de hablar).
         model: 'meta/llama-3.2-11b-vision-instruct',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.6,
-        max_tokens: 4000,
+        max_tokens: 900,
       }),
     })
 
     if (!respuesta.ok) {
       const detalle = await respuesta.text()
       console.error('generar-casos: NVIDIA respondió', respuesta.status, detalle)
-      return errorResponse('IA_NO_DISPONIBLE', 'No se pudo generar los casos ahora mismo', 502)
+      return errorResponse('IA_NO_DISPONIBLE', 'No se pudo generar el caso ahora mismo', 502)
     }
 
     const cuerpo = await respuesta.json()
-    const texto = cuerpo.choices?.[0]?.message?.content ?? '[]'
+    const texto = cuerpo.choices?.[0]?.message?.content ?? '{}'
 
-    let casos: unknown[] = []
+    let caso: Record<string, unknown> = {}
     try {
-      const match = texto.match(/\[[\s\S]*\]/)
-      casos = JSON.parse(match ? match[0] : texto)
+      const match = texto.match(/\{[\s\S]*\}/)
+      caso = JSON.parse(match ? match[0] : texto)
     } catch {
       console.error('generar-casos: no se pudo parsear la respuesta de la IA', texto)
       return errorResponse('IA_RESPUESTA_INVALIDA', 'La IA no devolvió un formato válido', 502)
     }
 
-    if (!Array.isArray(casos) || casos.length !== 5) {
-      return errorResponse('IA_RESPUESTA_INVALIDA', 'La IA no devolvió los 5 casos esperados', 502)
-    }
-
-    const filas = casos.map((c, i) => ({
+    const { error: guardarError } = await admin.from('ai_cases').upsert({
       module_id: moduleId,
-      weekday: i + 1,
-      titulo: (c as { titulo?: string }).titulo ?? `Caso del ${NOMBRE_DIA[i + 1]}`,
-      escenario: (c as { escenario?: string }).escenario ?? '',
-      preguntas: (c as { preguntas?: unknown }).preguntas ?? [],
-      reflexion: (c as { reflexion?: string }).reflexion ?? '',
-      referencia: (c as { referencia?: unknown }).referencia ?? {},
-      generated_by: authUser.id,
-    }))
-
-    const { error: guardarError } = await admin
-      .from('ai_cases')
-      .upsert(filas, { onConflict: 'module_id,weekday' })
+      weekday,
+      titulo: (caso.titulo as string) ?? `Caso del ${NOMBRE_DIA[weekday]}`,
+      escenario: (caso.escenario as string) ?? '',
+      preguntas: caso.preguntas ?? [],
+      reflexion: (caso.reflexion as string) ?? '',
+      referencia: caso.referencia ?? {},
+      generated_by: generatedBy,
+    }, { onConflict: 'module_id,weekday' })
 
     if (guardarError) {
       console.error('generar-casos: fallo al guardar', guardarError.message)
-      return errorResponse('ERROR_GUARDANDO', 'Los casos se generaron pero no se pudieron guardar', 500)
+      return errorResponse('ERROR_GUARDANDO', 'El caso se generó pero no se pudo guardar', 500)
     }
 
-    return okResponse({ ok: true, casos: filas.length })
+    return okResponse({ ok: true })
   } catch (error) {
     console.error('generar-casos error:', error)
     return errorResponse('ERROR_INTERNO', error instanceof Error ? error.message : 'Error desconocido', 500)

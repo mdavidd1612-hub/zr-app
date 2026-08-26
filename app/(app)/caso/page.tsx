@@ -3,40 +3,86 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { CASOS, diaSemanaISO, fechaISO } from '@/lib/casos-fase0'
+import { CASOS, diaSemanaISO, fechaISO, type Caso, type PasoCaso } from '@/lib/casos-fase0'
 import { IconoFlechaAtras, IconoCheck } from '@/components/ui/Iconos'
 
-// Fase 0 (docs/14_FASE0_PLAN_SPRINTS.md, Sprint 2): el caso no se califica ni
-// se envía a ningún lado, así que "trabajarlo" solo necesita quedar marcado
-// en el teléfono para pintar el día en el calendario del inicio.
-function marcarCasoHecho(fecha: string) {
+// Fase 0 (docs/16_FASE0_PLAN_PROFESOR.md, Sprint D): si el profesor ya
+// generó los casos de la semana con IA para el módulo del estudiante, se
+// usan esos — si no, se cae al banco fijo de Fase 0 estudiante.
+async function cargarCaso(dia: number): Promise<Caso | null> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return CASOS[dia] ?? null
+
+  const { data: est } = await supabase
+    .from('students').select('cohorts(current_module_id)').eq('id', user.id).single()
+  const moduloId = (est as unknown as { cohorts: { current_module_id: string | null } | null } | null)
+    ?.cohorts?.current_module_id
+
+  if (moduloId) {
+    const { data: casoIA } = await supabase
+      .from('ai_cases')
+      .select('titulo, escenario, preguntas, reflexion, referencia')
+      .eq('module_id', moduloId)
+      .eq('weekday', dia)
+      .maybeSingle()
+
+    if (casoIA) {
+      return {
+        dia: ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'][dia] ?? '',
+        titulo: casoIA.titulo,
+        escenario: casoIA.escenario,
+        pasos: casoIA.preguntas as unknown as PasoCaso[],
+        reflexion: casoIA.reflexion,
+        referencia: casoIA.referencia as unknown as Caso['referencia'],
+      }
+    }
+  }
+
+  return CASOS[dia] ?? null
+}
+
+// El caso no se califica ni se envía a ningún lado más allá de marcarlo
+// hecho — en el teléfono (para pintar el calendario al instante) y en la
+// base (para que el profesor vea el % agregado, sin nombres).
+async function marcarCasoHecho(fecha: string, dia: number) {
   try {
     localStorage.setItem(`zr_caso_${fecha}`, '1')
   } catch {
     // localStorage puede fallar en modo privado; no es crítico para Fase 0.
   }
+
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  await supabase.from('case_completions').upsert(
+    { student_id: user.id, case_date: fecha, weekday: dia },
+    { onConflict: 'student_id,case_date' },
+  )
 }
 
 export default function TrabajarCaso() {
   const router = useRouter()
   const [cargando, setCargando] = useState(true)
+  const [caso, setCaso] = useState<Caso | null>(null)
   const [respuestas, setRespuestas] = useState<number[]>([])
   const [reflexionTxt, setReflexionTxt] = useState('')
   const [revelado, setRevelado] = useState(false)
 
   const hoy = new Date()
   const dia = diaSemanaISO(hoy)
-  const caso = CASOS[dia]
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) {
         router.replace('/login')
         return
       }
+      setCaso(await cargarCaso(dia))
       setCargando(false)
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
   if (cargando) {
@@ -70,7 +116,7 @@ export default function TrabajarCaso() {
 
   function revelar() {
     setRevelado(true)
-    marcarCasoHecho(fechaISO(hoy))
+    void marcarCasoHecho(fechaISO(hoy), dia)
   }
 
   return (

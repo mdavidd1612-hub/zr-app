@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -39,6 +39,60 @@ export type Database = {
             columns: ["id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_cases: {
+        Row: {
+          created_at: string
+          escenario: string
+          generated_by: string | null
+          id: string
+          module_id: string
+          preguntas: Json
+          referencia: Json
+          reflexion: string
+          titulo: string
+          weekday: number
+        }
+        Insert: {
+          created_at?: string
+          escenario: string
+          generated_by?: string | null
+          id?: string
+          module_id: string
+          preguntas: Json
+          referencia: Json
+          reflexion: string
+          titulo: string
+          weekday: number
+        }
+        Update: {
+          created_at?: string
+          escenario?: string
+          generated_by?: string | null
+          id?: string
+          module_id?: string
+          preguntas?: Json
+          referencia?: Json
+          reflexion?: string
+          titulo?: string
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_cases_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_cases_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
             referencedColumns: ["id"]
           },
         ]
@@ -184,6 +238,66 @@ export type Database = {
           id?: number
         }
         Relationships: []
+      }
+      case_completions: {
+        Row: {
+          case_date: string
+          created_at: string
+          id: string
+          student_id: string
+          weekday: number
+        }
+        Insert: {
+          case_date: string
+          created_at?: string
+          id?: string
+          student_id: string
+          weekday: number
+        }
+        Update: {
+          case_date?: string
+          created_at?: string
+          id?: string
+          student_id?: string
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_completions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_completions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_mi_dominio"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "case_completions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_proximo_sabado"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "case_completions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_completions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students_blocked"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       class_sessions: {
         Row: {

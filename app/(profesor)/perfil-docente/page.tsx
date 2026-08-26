@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
 import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
+import { leerSimulacionSabado, guardarSimulacionSabado } from '@/lib/demo-sabado'
 import type { UserRole } from '@/lib/types'
 
 /**
@@ -33,11 +34,14 @@ export default function PerfilDocente() {
   const [perfil, setPerfil] = useState<Perfil | null>(null)
   const [cohortes, setCohortes] = useState<Cohorte[]>([])
   const [cargando, setCargando] = useState(true)
+  const [simulado, setSimulado] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
 
     async function cargar() {
+      setSimulado(leerSimulacionSabado())
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.replace('/login')
@@ -151,6 +155,34 @@ export default function PerfilDocente() {
           correo={perfil.correo}
         />
         <BotonActivarPush />
+      </Seccion>
+
+      {/* PRUEBA TEMPORAL — se quita del todo cuando la academia lo pida. */}
+      <Seccion numero={4} titulo="Prueba" delay={280}>
+        <button
+          onClick={() => {
+            const nuevo = !simulado
+            setSimulado(nuevo)
+            guardarSimulacionSabado(nuevo)
+          }}
+          className="zr-card flex w-full items-center justify-between gap-4 p-5 text-left"
+        >
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-zr-text">Simular que hoy es sábado</p>
+            <p className="mt-0.5 text-xs text-zr-text-muted">Solo para probar pantallas sin esperar al sábado real.</p>
+          </div>
+          <span
+            className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+              simulado ? 'bg-zr-blue' : 'bg-zr-border'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition-transform ${
+                simulado ? 'translate-x-5' : 'translate-x-0.5'
+              }`}
+            />
+          </span>
+        </button>
       </Seccion>
     </div>
   )

@@ -97,9 +97,44 @@ export default function QRAdmin() {
     setAbriendo(true)
     const supabase = createClient()
 
-    // Abre TODAS las sesiones de hoy que sigan "programada" — un solo QR
-    // sirve para cualquier cohorte que tenga clase.
-    await supabase.from('class_sessions').update({ status: 'abierta' }).eq('session_date', hoyISO).eq('status', 'programada')
+    // La pantalla se autoabastece: asegura que exista sesión de hoy para
+    // CADA cohorte que tenga estudiantes (la crea si falta) y la abre. Así
+    // "entrar a QR el sábado" siempre funciona, sin pasos manuales aparte.
+    const { data: cohortesConEstudiantes } = await supabase
+      .from('students')
+      .select('cohort_id, cohorts(id, current_module_id)')
+      .not('cohort_id', 'is', null)
+
+    const filas = (cohortesConEstudiantes ?? []) as unknown as {
+      cohort_id: string; cohorts: { id: string; current_module_id: string | null } | null
+    }[]
+
+    const cohortesUnicas = new Map(
+      filas
+        .filter((f) => f.cohorts?.current_module_id)
+        .map((f) => [f.cohort_id, f.cohorts!.current_module_id!]),
+    )
+
+    for (const [cohorteId, moduloId] of cohortesUnicas) {
+      const { data: sesion } = await supabase
+        .from('class_sessions').select('id, status').eq('cohort_id', cohorteId).eq('session_date', hoyISO).maybeSingle()
+
+      if (!sesion) {
+        const { data: ultima } = await supabase
+          .from('class_sessions').select('week_number').eq('cohort_id', cohorteId)
+          .order('week_number', { ascending: false }).limit(1).maybeSingle()
+
+        await supabase.from('class_sessions').insert({
+          cohort_id: cohorteId,
+          module_id: moduloId,
+          session_date: hoyISO,
+          week_number: (ultima?.week_number ?? 0) + 1,
+          status: 'abierta',
+        })
+      } else if (sesion.status === 'programada') {
+        await supabase.from('class_sessions').update({ status: 'abierta' }).eq('id', sesion.id)
+      }
+    }
 
     const { data: existente } = await supabase
       .from('daily_checkin_codes').select('code').eq('checkin_date', hoyISO).maybeSingle()
@@ -162,18 +197,20 @@ export default function QRAdmin() {
         </p>
       </header>
 
-      {sesiones.length === 0 ? (
-        <EstadoVacio titulo="Sin clases hoy" explicacion="No hay ninguna sesión programada para hoy." />
-      ) : !qrUrl ? (
+      {!qrUrl ? (
         <>
-          <div className="space-y-2">
-            {sesiones.map((s) => (
-              <div key={s.sessionId} className="zr-card flex items-center justify-between p-4">
-                <p className="text-sm font-semibold text-zr-text">{s.cohorteNombre}</p>
-                <p className="text-xs text-zr-text-muted">{s.registrados}/{s.total}</p>
-              </div>
-            ))}
-          </div>
+          {sesiones.length === 0 ? (
+            <EstadoVacio titulo="Sin clases hoy" explicacion="Todavía no hay ninguna sesión hoy — se crea sola al abrir." />
+          ) : (
+            <div className="space-y-2">
+              {sesiones.map((s) => (
+                <div key={s.sessionId} className="zr-card flex items-center justify-between p-4">
+                  <p className="text-sm font-semibold text-zr-text">{s.cohorteNombre}</p>
+                  <p className="text-xs text-zr-text-muted">{s.registrados}/{s.total}</p>
+                </div>
+              ))}
+            </div>
+          )}
           <button
             onClick={abrirYMostrar}
             disabled={abriendo}

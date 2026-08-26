@@ -102,30 +102,46 @@ export default function CasosDocente() {
     cargar()
   }, [router])
 
+  // La IA a veces tarda más de un minuto en responder (NVIDIA en capa
+  // gratuita), y algunas redes cortan una conexión que lleva mucho tiempo
+  // esperando. Un reintento silencioso cubre esos casos sin que el
+  // profesor tenga que darse cuenta ni volver a tocar nada.
   async function probarGeneracion() {
     if (!modulo) return
     setGenerando(true)
     setAvisoPrueba(null)
     const supabase = createClient()
-    const { error } = await supabase.functions.invoke('generar-casos', {
-      body: { moduleId: modulo.id, weekday: diaPrueba },
-    })
 
-    if (error) {
+    let ultimoError: string | null = null
+    for (let intento = 1; intento <= 2; intento++) {
+      const { error } = await supabase.functions.invoke('generar-casos', {
+        body: { moduleId: modulo.id, weekday: diaPrueba },
+      })
+
+      if (!error) {
+        setAvisoPrueba(`Listo — ya puedes verlo como estudiante ese día (${DIAS[diaPrueba - 1]}).`)
+        setGenerando(false)
+        return
+      }
+
       const contexto = (error as { context?: Response }).context
-      let mensaje = 'No se pudo generar el caso.'
       if (contexto) {
         try {
           const cuerpo = await contexto.json()
-          mensaje = cuerpo.error?.message ?? mensaje
+          ultimoError = cuerpo.error?.message ?? error.message
         } catch {
-          // se queda con el mensaje genérico
+          ultimoError = error.message
         }
+      } else {
+        // Sin "context": la conexión se cortó antes de que el servidor
+        // respondiera — probablemente todavía estaba generando.
+        ultimoError = `Se tardó demasiado (${error.message || 'sin respuesta'}).`
       }
-      setAvisoPrueba(mensaje)
-    } else {
-      setAvisoPrueba(`Listo — ya puedes verlo como estudiante ese día (${DIAS[diaPrueba - 1]}).`)
+
+      if (intento === 1) setAvisoPrueba('Está tardando más de lo normal, reintentando…')
     }
+
+    setAvisoPrueba(`${ultimoError} Intenta de nuevo en un momento.`)
     setGenerando(false)
   }
 

@@ -7,29 +7,24 @@ import { esPersonal } from '@/lib/auth-helpers'
 import { BarraFlotante } from '@/components/ui/BarraFlotante'
 import { Campanita } from '@/components/ui/Campanita'
 import {
-  IconoPanel, IconoCalendario, IconoExamen, IconoCalificar, IconoPerfil, IconoDocumento,
+  IconoPanel, IconoDuda, IconoProgreso, IconoDocumento, IconoPerfil,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
 /**
- * El profesor también usa el teléfono. Revisa la cola de calificación el
- * domingo desde el sofá y abre la asistencia el sábado de pie en el taller.
- * Mismo ancho de referencia y misma barra flotante que el estudiante: son la
- * misma aplicación, no dos.
+ * El profesor también usa el teléfono. Fase 0
+ * (docs/16_FASE0_PLAN_PROFESOR.md, Sprint A): Sesiones, Exámenes y Calificar
+ * se retiran del menú (código intacto, se retoman en la fase siguiente).
+ * Las 5 secciones que quedan caben todas en la barra fija — no hace falta
+ * menú ☰.
  */
 
 const NAV = [
-  { href: '/hoy',          label: 'Hoy',       Icono: IconoPanel },
-  { href: '/sesiones',     label: 'Sesiones',  Icono: IconoCalendario },
-  { href: '/crear-examen', label: 'Exámenes',  Icono: IconoExamen },
-  { href: '/calificar',    label: 'Calificar', Icono: IconoCalificar },
-  { href: '/perfil-docente', label: 'Perfil',  Icono: IconoPerfil },
-]
-
-const TODAS = [
-  ...NAV.slice(0, 4),
-  { href: '/contenido-docente', label: 'Material', Icono: IconoDocumento },
-  NAV[4],
+  { href: '/hoy',                label: 'Hoy',      Icono: IconoPanel },
+  { href: '/dudas-docente',      label: 'Dudas',    Icono: IconoDuda },
+  { href: '/casos-docente',      label: 'Casos',    Icono: IconoProgreso },
+  { href: '/contenido-docente',  label: 'Material',  Icono: IconoDocumento },
+  { href: '/perfil-docente',     label: 'Perfil',    Icono: IconoPerfil },
 ]
 
 export default function ProfesorLayout({ children }: { children: React.ReactNode }) {
@@ -85,7 +80,7 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
         </div>
       )}
       <div className={escaneando ? '' : 'pb-28'}>{children}</div>
-      {!escaneando && <BarraFlotante items={NAV} todasLasSecciones={TODAS} />}
+      {!escaneando && <BarraFlotante items={NAV} />}
     </div>
   )
 }

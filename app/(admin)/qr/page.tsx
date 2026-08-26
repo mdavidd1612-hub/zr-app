@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import QRCode from 'qrcode'
 import { BotonVolver } from '@/components/ui/BotonVolver'
-import { MarcaZR } from '@/components/ui/Iconos'
 
 /**
  * Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, ajuste): el QR es universal y
@@ -68,8 +67,10 @@ export default function QRAdmin() {
 
   async function dibujarQR(code: string) {
     codigoActual.current = code
+    // Margen generoso (zona de silencio) para que la cámara lo detecte
+    // apenas apunte al cuadro, sin necesitar nada alrededor.
     const url = await QRCode.toDataURL(`ZRADM|${code}`, {
-      width: 260, margin: 1, color: { dark: '#0F1419', light: '#FFFFFF' },
+      width: 320, margin: 3, color: { dark: '#0F1419', light: '#FFFFFF' },
     })
     setQrUrl(url)
   }
@@ -142,12 +143,10 @@ export default function QRAdmin() {
       </header>
 
       <div className="flex flex-col items-center gap-6 rounded-2xl bg-zr-navy p-8 text-center">
-        <div className="flex items-center gap-2 text-white/60">
-          <MarcaZR size={20} />
-          <p className="text-xs font-bold uppercase tracking-[0.18em]">ZR Mecademy</p>
-        </div>
-        <div className="rounded-xl bg-white p-3">
-          <img src={qrUrl} alt="Código QR de asistencia" className="h-56 w-56" />
+        {/* Solo el cuadro del QR — nada alrededor que haya que incluir para
+            que la cámara lo detecte (ajuste pedido: antes confundía). */}
+        <div className="rounded-xl bg-white p-4">
+          <img src={qrUrl} alt="Código QR de asistencia" className="h-64 w-64" />
         </div>
         {sesiones.length > 0 && (
           <div>

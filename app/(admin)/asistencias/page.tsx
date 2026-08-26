@@ -39,7 +39,6 @@ export default function Asistencias() {
   const [cargando, setCargando] = useState(true)
   const [cargandoLista, setCargandoLista] = useState(false)
   const [marcando, setMarcando] = useState<string | null>(null)
-  const [totalHoy, setTotalHoy] = useState(0)
 
   const hoyISO = new Date().toISOString().slice(0, 10)
 
@@ -57,19 +56,9 @@ export default function Asistencias() {
       setCohortes(lista)
       if (lista.length) setCohorteId(lista[0].id)
 
-      // Conteo global de registrados hoy — todas las cohortes juntas.
-      const { data: sesionesHoy } = await supabase.from('class_sessions').select('id').eq('session_date', hoyISO)
-      const idsSesiones = (sesionesHoy ?? []).map((s) => s.id)
-      if (idsSesiones.length) {
-        const { count } = await supabase
-          .from('attendance_events').select('id', { count: 'exact', head: true }).in('session_id', idsSesiones)
-        setTotalHoy(count ?? 0)
-      }
-
       setCargando(false)
     }
     cargar()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
   async function cargarLista() {
@@ -185,7 +174,6 @@ export default function Asistencias() {
     })
 
     await cargarLista()
-    setTotalHoy((n) => n + 1)
     setMarcando(null)
   }
 
@@ -254,7 +242,11 @@ export default function Asistencias() {
 
       <Regla delay={60} />
 
-      <Dato valor={totalHoy} etiqueta="Registrados hoy, todas las cohortes" tono="exito" />
+      <Dato
+        valor={filas.filter((f) => f.presente).length}
+        etiqueta={`Registrados hoy · ${cohortes.find((c) => c.id === cohorteId)?.nombre ?? 'esta cohorte'}`}
+        tono="exito"
+      />
 
       {cohortes.length === 0 ? (
         <EstadoVacio titulo="Sin cohortes" explicacion="Todavía no hay cohortes creadas." />

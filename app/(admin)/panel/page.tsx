@@ -10,11 +10,7 @@ import { leerSimulacionSabado } from '@/lib/demo-sabado'
 import type { UserRole } from '@/lib/types'
 
 interface Estadisticas {
-  totalEstudiantes: number
-  estudiantesActivos: number
   consentimientosPendientes: number
-  cohortes: number
-  modulosAprobados: number
 }
 
 interface SesionHoy {
@@ -76,30 +72,13 @@ export default function Panel() {
       const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
       setRol((perfil?.role as UserRole) ?? null)
 
-      const [
-        { count: totalEst },
-        { count: activos },
-        { count: pendientes },
-        { count: numCohortes },
-        { count: aprobados },
-      ] = await Promise.all([
-        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'estudiante'),
-        supabase.from('students').select('id', { count: 'exact', head: true }).eq('onboarding_status', 'completo'),
-        // v_students_blocked ya filtra por "menor de edad Y (sin consentimiento
-        // O sin verificar)". Contar por onboarding_status daría un número que
-        // no corresponde a lo que /consentimientos realmente muestra.
-        supabase.from('v_students_blocked').select('id', { count: 'exact', head: true }),
-        supabase.from('cohorts').select('id', { count: 'exact', head: true }),
-        supabase.from('module_enrollments').select('id', { count: 'exact', head: true }).eq('status', 'aprobado'),
-      ])
+      // v_students_blocked ya filtra por "menor de edad Y (sin consentimiento
+      // O sin verificar)". Contar por onboarding_status daría un número que
+      // no corresponde a lo que /consentimientos realmente muestra.
+      const { count: pendientes } = await supabase
+        .from('v_students_blocked').select('id', { count: 'exact', head: true })
 
-      setStats({
-        totalEstudiantes: totalEst ?? 0,
-        estudiantesActivos: activos ?? 0,
-        consentimientosPendientes: pendientes ?? 0,
-        cohortes: numCohortes ?? 0,
-        modulosAprobados: aprobados ?? 0,
-      })
+      setStats({ consentimientosPendientes: pendientes ?? 0 })
 
       // Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, Sprint D): el sábado, calendario
       // de las sesiones de hoy, una tarjeta por cohorte, con registrados
@@ -158,51 +137,41 @@ export default function Panel() {
       <Regla delay={60} />
 
       {esSabado && (
-        <>
-          <Seccion numero={1} titulo="Estudiantes" delay={120}>
-            <div className="grid grid-cols-3 gap-3">
-              <Dato valor={stats.totalEstudiantes} etiqueta="Registrados" tono="azul" />
-              <Dato valor={stats.estudiantesActivos} etiqueta="Activos" tono="exito" />
-              <Dato valor={Math.max(stats.totalEstudiantes - stats.estudiantesActivos, 0)} etiqueta="Faltantes" tono="neutro" />
+        <Seccion numero={1} titulo={`Hoy, sábado ${hoy.getDate()}`} delay={120}>
+          {stats.consentimientosPendientes > 0 && (
+            <button
+              onClick={() => router.push('/consentimientos')}
+              className="zr-card w-full border-zr-warning/30 bg-zr-warning/8 p-5 text-left"
+            >
+              <p className="text-base font-semibold text-zr-text">
+                {stats.consentimientosPendientes} consentimiento
+                {stats.consentimientosPendientes === 1 ? '' : 's'} pendiente
+                {stats.consentimientosPendientes === 1 ? '' : 's'}
+              </p>
+              <p className="mt-1 text-sm text-zr-text-muted">Toca para revisarlos</p>
+            </button>
+          )}
+          {sesionesHoy.length === 0 ? (
+            <div className="zr-card p-6">
+              <p className="text-sm text-zr-text-muted">No hay sesiones de clase programadas para hoy.</p>
             </div>
-            {stats.consentimientosPendientes > 0 && (
-              <button
-                onClick={() => router.push('/consentimientos')}
-                className="zr-card w-full border-zr-warning/30 bg-zr-warning/8 p-5 text-left"
-              >
-                <p className="text-base font-semibold text-zr-text">
-                  {stats.consentimientosPendientes} consentimiento
-                  {stats.consentimientosPendientes === 1 ? '' : 's'} pendiente
-                  {stats.consentimientosPendientes === 1 ? '' : 's'}
-                </p>
-                <p className="mt-1 text-sm text-zr-text-muted">Toca para revisarlos</p>
-              </button>
-            )}
-          </Seccion>
-
-          <Seccion numero={2} titulo={`Hoy, sábado ${hoy.getDate()}`} delay={160}>
-            {sesionesHoy.length === 0 ? (
-              <div className="zr-card p-6">
-                <p className="text-sm text-zr-text-muted">No hay sesiones de clase programadas para hoy.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {sesionesHoy.map((s) => (
-                  <div key={s.sessionId} className="zr-card p-5">
-                    <p className="text-sm font-semibold text-zr-blue-mid">{s.cohorteNombre}</p>
-                    <div className="mt-3 grid grid-cols-2 gap-3">
-                      <Dato valor={s.registrados} etiqueta="Registrados" tono="exito" />
-                      <Dato valor={Math.max(s.total - s.registrados, 0)} etiqueta="Faltan" tono="neutro" />
-                    </div>
+          ) : (
+            <div className="space-y-3">
+              {sesionesHoy.map((s) => (
+                <div key={s.sessionId} className="zr-card p-5">
+                  <p className="text-sm font-semibold text-zr-blue-mid">{s.cohorteNombre}</p>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <Dato valor={s.registrados} etiqueta="Registrados" tono="exito" />
+                    <Dato valor={Math.max(s.total - s.registrados, 0)} etiqueta="Faltan" tono="neutro" />
                   </div>
-                ))}
-              </div>
-            )}
-          </Seccion>
-        </>
+                </div>
+              ))}
+            </div>
+          )}
+        </Seccion>
       )}
 
-      <Seccion numero={esSabado ? 3 : 1} titulo="Accesos" delay={200}>
+      <Seccion numero={esSabado ? 2 : 1} titulo="Accesos" delay={200}>
         <div className="space-y-3">
           {(
             esDireccionAcademica(rol)

@@ -28,6 +28,7 @@ interface Material {
   semana: number | null
   publicado: boolean
   tamañoKB: number | null
+  rutaStorage: string | null
 }
 
 export default function MaterialAdmin() {
@@ -59,7 +60,7 @@ export default function MaterialAdmin() {
       const [{ data: items }, { data: cohs }] = await Promise.all([
         supabase
           .from('content_items')
-          .select('id, title, week_number, is_published, size_bytes, modules(name)')
+          .select('id, title, week_number, is_published, size_bytes, storage_path, modules(name)')
           .order('created_at', { ascending: false }),
         supabase.from('cohorts').select('id, name, current_module_id, modules(name)').order('name'),
       ])
@@ -68,7 +69,7 @@ export default function MaterialAdmin() {
 
       const filas = (items ?? []) as unknown as {
         id: string; title: string; week_number: number | null
-        is_published: boolean; size_bytes: number | null
+        is_published: boolean; size_bytes: number | null; storage_path: string | null
         modules: { name: string } | null
       }[]
 
@@ -80,6 +81,7 @@ export default function MaterialAdmin() {
           semana: m.week_number,
           publicado: m.is_published,
           tamañoKB: m.size_bytes ? Math.round(m.size_bytes / 1024) : null,
+          rutaStorage: m.storage_path,
         })),
       )
 
@@ -160,6 +162,19 @@ export default function MaterialAdmin() {
   async function alternarPublicado(m: Material) {
     await createClient().from('content_items').update({ is_published: !m.publicado }).eq('id', m.id)
     setVersion((v) => v + 1)
+  }
+
+  const [descargando, setDescargando] = useState<string | null>(null)
+
+  async function descargar(m: Material) {
+    if (!m.rutaStorage) return
+    setDescargando(m.id)
+    const supabase = createClient()
+    const { data: firmada } = await supabase.storage.from('contenido').createSignedUrl(m.rutaStorage, 300)
+    setDescargando(null)
+    if (firmada?.signedUrl) {
+      window.open(firmada.signedUrl, '_blank', 'noopener,noreferrer')
+    }
   }
 
   if (cargando) {
@@ -274,11 +289,20 @@ export default function MaterialAdmin() {
                     {m.tamañoKB ? ` · ${(m.tamañoKB / 1024).toFixed(1)} MB` : ''}
                   </p>
                 </div>
-                <button onClick={() => alternarPublicado(m)} className="shrink-0">
-                  <Etiqueta tono={m.publicado ? 'exito' : 'neutro'}>
-                    {m.publicado ? 'Publicado' : 'Borrador'}
-                  </Etiqueta>
-                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    onClick={() => descargar(m)}
+                    disabled={descargando === m.id || !m.rutaStorage}
+                    className="rounded-full border border-zr-border px-3 py-1.5 text-xs font-bold text-zr-text disabled:opacity-50"
+                  >
+                    {descargando === m.id ? '…' : 'Descargar'}
+                  </button>
+                  <button onClick={() => alternarPublicado(m)}>
+                    <Etiqueta tono={m.publicado ? 'exito' : 'neutro'}>
+                      {m.publicado ? 'Publicado' : 'Borrador'}
+                    </Etiqueta>
+                  </button>
+                </div>
               </div>
             ))}
           </div>

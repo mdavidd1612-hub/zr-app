@@ -14,6 +14,7 @@ const INICIO: Record<string, string> = {
   admin:       '/panel',
   super_admin: '/panel',
   direccion_academica: '/panel',
+  vendedor: '/carga-ventas',
 }
 
 export default function Login() {

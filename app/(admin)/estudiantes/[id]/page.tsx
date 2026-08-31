@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import Link from 'next/link'
 
 interface Ficha {
   nombre: string
@@ -148,6 +149,15 @@ export default function FichaEstudiante() {
             {guardando ? 'Guardando…' : 'Cambiar cohorte'}
           </button>
         </div>
+      </Seccion>
+
+      <Seccion numero={3} titulo="Planilla" delay={260}>
+        <Link
+          href={`/estudiantes/${id}/planilla`}
+          className="zr-card zr-card-interactive flex min-h-14 w-full items-center justify-center px-6 text-base font-bold text-zr-blue"
+        >
+          Ver planilla para firmar
+        </Link>
       </Seccion>
     </div>
   )

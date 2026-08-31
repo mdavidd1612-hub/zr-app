@@ -44,6 +44,10 @@ export function esDireccionAcademica(role?: UserRole | null) {
   return role === 'direccion_academica' || role === 'super_admin'
 }
 
+export function esVendedor(role?: UserRole | null) {
+  return role === 'vendedor'
+}
+
 // Calcula la edad cumplida. Se usa en el registro para decidir si hace falta
 // el consentimiento del representante legal (LOPNNA).
 export function edadCumplida(nacimiento: Date, hoy = new Date()): number {

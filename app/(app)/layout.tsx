@@ -34,6 +34,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => subscription?.unsubscribe()
   }, [router])
 
+  // Formulario del primer login (Sprint 6, docs/17_...): mientras el
+  // estudiante no lo llene, no puede usar el resto de la app.
+  useEffect(() => {
+    if (pathname === '/completar-perfil') return
+    const supabase = createClient()
+    async function verificarOnboarding() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: est } = await supabase
+        .from('students').select('onboarding_status').eq('id', user.id).maybeSingle()
+      if (est?.onboarding_status === 'en_curso') router.replace('/completar-perfil')
+    }
+    verificarOnboarding()
+  }, [pathname, router])
+
   // Dentro de un examen no se desliza: el gesto de pasar de sección chocaría
   // con el de pasar de pregunta y el estudiante saldría del examen a medias.
   const enExamen = /^\/examenes\/[^/]+$/.test(pathname)

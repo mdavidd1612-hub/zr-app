@@ -79,9 +79,10 @@ Deno.serve(async (req: Request) => {
   if (!user) return errorResponse('NO_AUTORIZADO', 'No autenticado', 401)
 
   const { data: perfil } = await userSb.from('profiles').select('role').eq('id', user.id).single()
-  if (!perfil || !['admin', 'super_admin'].includes(perfil.role)) {
-    return errorResponse('NO_AUTORIZADO', 'Solo administración crea estudiantes', 403)
+  if (!perfil || !['admin', 'super_admin', 'vendedor'].includes(perfil.role)) {
+    return errorResponse('NO_AUTORIZADO', 'Solo administración o ventas crean estudiantes', 403)
   }
+  const esVendedor = perfil.role === 'vendedor'
 
   let body: { estudiantes?: FilaEstudiante[] }
   try {
@@ -108,6 +109,7 @@ Deno.serve(async (req: Request) => {
       errores.push({ fila: i + 1, motivo: `Fecha de nacimiento inválida: "${f.fechaNacimiento}"` })
     }
     if (!emailRx.test(f.correoContacto ?? '')) errores.push({ fila: i + 1, motivo: `Correo inválido: "${f.correoContacto}"` })
+    if (esVendedor && !f.cohorteId) errores.push({ fila: i + 1, motivo: 'Ventas debe asignar una cohorte al inscribir' })
   })
 
   if (errores.length > 0) return erroresPorFila(errores)
@@ -169,6 +171,7 @@ Deno.serve(async (req: Request) => {
       id: authData.user.id,
       birth_date: f.fechaNacimiento,
       cohort_id: f.cohorteId ?? null,
+      enrolled_by: esVendedor ? user.id : null,
     })
 
     if (studentError) {

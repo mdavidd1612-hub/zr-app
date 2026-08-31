@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -385,39 +385,48 @@ export type Database = {
       }
       cohorts: {
         Row: {
+          code_number: number | null
           created_at: string
           current_module_id: string | null
           id: string
           location: string | null
           name: string
           program_id: string
+          sede: string | null
           start_date: string
           status: Database["public"]["Enums"]["cohort_status"]
           teacher_id: string | null
+          turno: string | null
           updated_at: string
         }
         Insert: {
+          code_number?: number | null
           created_at?: string
           current_module_id?: string | null
           id?: string
           location?: string | null
           name: string
           program_id: string
+          sede?: string | null
           start_date?: string
           status?: Database["public"]["Enums"]["cohort_status"]
           teacher_id?: string | null
+          turno?: string | null
           updated_at?: string
         }
         Update: {
+          code_number?: number | null
           created_at?: string
           current_module_id?: string | null
           id?: string
           location?: string | null
           name?: string
           program_id?: string
+          sede?: string | null
           start_date?: string
           status?: Database["public"]["Enums"]["cohort_status"]
           teacher_id?: string | null
+          turno?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1509,6 +1518,7 @@ export type Database = {
           duration_weeks: number
           id: string
           inces_homologado: boolean
+          is_complementario: boolean
           name: string
           order_index: number
           program_id: string
@@ -1519,6 +1529,7 @@ export type Database = {
           duration_weeks?: number
           id?: string
           inces_homologado?: boolean
+          is_complementario?: boolean
           name: string
           order_index: number
           program_id: string
@@ -1529,6 +1540,7 @@ export type Database = {
           duration_weeks?: number
           id?: string
           inces_homologado?: boolean
+          is_complementario?: boolean
           name?: string
           order_index?: number
           program_id?: string
@@ -1892,6 +1904,99 @@ export type Database = {
           },
         ]
       }
+      student_profile_details: {
+        Row: {
+          completed_at: string
+          current_school_grade: string | null
+          currently_studying: boolean
+          education_level: string
+          education_status: string
+          employment_status: string
+          ethnicity: string
+          gender: string
+          has_teaching_experience: boolean
+          health_conditions: string[]
+          id: string
+          marital_status: string
+          nationality: string
+          student_id: string
+          teaching_area: string | null
+          years_of_experience: number | null
+        }
+        Insert: {
+          completed_at?: string
+          current_school_grade?: string | null
+          currently_studying: boolean
+          education_level: string
+          education_status: string
+          employment_status: string
+          ethnicity: string
+          gender: string
+          has_teaching_experience: boolean
+          health_conditions?: string[]
+          id?: string
+          marital_status: string
+          nationality: string
+          student_id: string
+          teaching_area?: string | null
+          years_of_experience?: number | null
+        }
+        Update: {
+          completed_at?: string
+          current_school_grade?: string | null
+          currently_studying?: boolean
+          education_level?: string
+          education_status?: string
+          employment_status?: string
+          ethnicity?: string
+          gender?: string
+          has_teaching_experience?: boolean
+          health_conditions?: string[]
+          id?: string
+          marital_status?: string
+          nationality?: string
+          student_id?: string
+          teaching_area?: string | null
+          years_of_experience?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_profile_details_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_profile_details_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "v_mi_dominio"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_profile_details_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "v_proximo_sabado"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_profile_details_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "v_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_profile_details_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "v_students_blocked"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_qr_secrets: {
         Row: {
           created_at: string
@@ -1956,6 +2061,7 @@ export type Database = {
           created_at: string
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
+          enrolled_by: string | null
           enrollment_date: string
           id: string
           onboarding_status: Database["public"]["Enums"]["onboarding_status"]
@@ -1969,6 +2075,7 @@ export type Database = {
           created_at?: string
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
+          enrolled_by?: string | null
           enrollment_date?: string
           id: string
           onboarding_status?: Database["public"]["Enums"]["onboarding_status"]
@@ -1982,6 +2089,7 @@ export type Database = {
           created_at?: string
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
+          enrolled_by?: string | null
           enrollment_date?: string
           id?: string
           onboarding_status?: Database["public"]["Enums"]["onboarding_status"]
@@ -1995,6 +2103,13 @@ export type Database = {
             columns: ["cohort_id"]
             isOneToOne: false
             referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_enrolled_by_fkey"
+            columns: ["enrolled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2279,10 +2394,12 @@ export type Database = {
       cfg: { Args: { p_key: string }; Returns: Json }
       cfg_int: { Args: { p_default: number; p_key: string }; Returns: number }
       cfg_num: { Args: { p_default: number; p_key: string }; Returns: number }
+      fn_generar_caso_del_dia: { Args: never; Returns: undefined }
       is_admin_up: { Args: never; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
       is_student: { Args: never; Returns: boolean }
       is_super: { Args: never; Returns: boolean }
+      is_vendedor: { Args: never; Returns: boolean }
       my_cohort_id: { Args: never; Returns: string }
       my_module_id: { Args: never; Returns: string }
       seed_user: {
@@ -2293,6 +2410,10 @@ export type Database = {
           p_id: string
           p_role: Database["public"]["Enums"]["user_role"]
         }
+        Returns: string
+      }
+      set_student_code_calc: {
+        Args: { p_cohort_id: string; p_enrollment_date: string; p_id: string }
         Returns: string
       }
       teaches_cohort: { Args: { p_cohort: string }; Returns: boolean }
@@ -2329,6 +2450,7 @@ export type Database = {
         | "admin"
         | "super_admin"
         | "direccion_academica"
+        | "vendedor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2493,6 +2615,7 @@ export const Constants = {
         "admin",
         "super_admin",
         "direccion_academica",
+        "vendedor",
       ],
     },
   },

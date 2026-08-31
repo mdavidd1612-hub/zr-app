@@ -11,13 +11,14 @@ import { Aviso } from '@/components/ui/Aviso'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { createClient } from '@/lib/supabase/client'
 import { cedulaAEmail } from '@/lib/auth-helpers'
+import { SelectorCedula } from '@/components/ui/SelectorCedula'
 
 export default function Registro() {
   const router = useRouter()
 
   const [formulario, setFormulario] = useState({
     fullName: '',
-    cedula: '',
+    cedula: 'V-',
     birthDate: '',
     contactEmail: '',
     phone: '',
@@ -129,15 +130,10 @@ export default function Registro() {
           required
         />
 
-        <Campo
+        <SelectorCedula
           etiqueta="Cédula"
-          name="cedula"
-          inputMode="text"
-          autoComplete="off"
-          placeholder="V-12345678"
           value={formulario.cedula}
-          onChange={(e) => setFormulario({ ...formulario, cedula: e.target.value.toUpperCase() })}
-          ayuda="Con la letra y el guion"
+          onChange={(v) => setFormulario({ ...formulario, cedula: v })}
           required
         />
 

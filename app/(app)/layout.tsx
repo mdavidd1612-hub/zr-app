@@ -36,17 +36,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Formulario del primer login (Sprint 6, docs/17_...): mientras el
   // estudiante no lo llene, no puede usar el resto de la app.
+  //
+  // OJO: esto NO se puede leer de students.onboarding_status. Ese campo es
+  // de antes de este sprint (registro/registro/consentimiento ya lo ponían
+  // en 'completo' apenas terminaba el registro básico, sin pasar por este
+  // formulario) — reusarlo aquí hacía que cualquiera que se registrara
+  // entrara derecho a la app sin llenar nada. La señal real es si ya existe
+  // su fila en student_profile_details.
   useEffect(() => {
     if (pathname === '/completar-perfil') return
     const supabase = createClient()
-    async function verificarOnboarding() {
+    async function verificarPerfilCompleto() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data: est } = await supabase
-        .from('students').select('onboarding_status').eq('id', user.id).maybeSingle()
-      if (est?.onboarding_status === 'en_curso') router.replace('/completar-perfil')
+      const { data: yaLleno } = await supabase
+        .from('student_profile_details').select('id').eq('student_id', user.id).maybeSingle()
+      if (!yaLleno) router.replace('/completar-perfil')
     }
-    verificarOnboarding()
+    verificarPerfilCompleto()
   }, [pathname, router])
 
   // Dentro de un examen no se desliza: el gesto de pasar de sección chocaría

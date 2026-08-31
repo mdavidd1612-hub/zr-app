@@ -35,9 +35,9 @@ export default function CompletarPerfil() {
         router.replace('/login')
         return
       }
-      const { data: est } = await supabase
-        .from('students').select('onboarding_status').eq('id', user.id).single()
-      if (est?.onboarding_status === 'completo') {
+      const { data: yaLleno } = await supabase
+        .from('student_profile_details').select('id').eq('student_id', user.id).maybeSingle()
+      if (yaLleno) {
         router.replace('/')
         return
       }
@@ -81,7 +81,14 @@ export default function CompletarPerfil() {
     })
 
     if (error) {
-      setErrorEnvio('No se pudo guardar. Intenta de nuevo.')
+      // El caso más común aquí: eres menor de edad y falta el consentimiento
+      // parental (regla de negocio, no un bug — el trigger de la migración
+      // 010 la aplica también sobre esta tabla porque activa onboarding_status).
+      setErrorEnvio(
+        error.message.includes('LOPNNA')
+          ? 'Como eres menor de edad, hace falta el consentimiento de tu representante antes de continuar. Contacta a administración.'
+          : 'No se pudo guardar. Intenta de nuevo.'
+      )
       setEnviando(false)
       return
     }

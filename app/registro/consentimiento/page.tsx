@@ -6,6 +6,7 @@ import { Boton } from '@/components/ui/Boton'
 import { Campo } from '@/components/ui/Campo'
 import { Aviso } from '@/components/ui/Aviso'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { SelectorCedula } from '@/components/ui/SelectorCedula'
 
 type Metodo = 'fisico' | 'digital'
 
@@ -14,7 +15,7 @@ export default function Consentimiento() {
 
   const [formulario, setFormulario] = useState({
     representativeName: '',
-    representativeCedula: '',
+    representativeCedula: 'V-',
     representativeEmail: '',
     representativePhone: '',
     method: 'fisico' as Metodo,
@@ -109,19 +110,10 @@ export default function Consentimiento() {
             required
           />
 
-          <Campo
+          <SelectorCedula
             etiqueta="Cédula"
-            name="representativeCedula"
-            inputMode="text"
-            placeholder="V-12345678"
             value={formulario.representativeCedula}
-            onChange={(e) =>
-              setFormulario({
-                ...formulario,
-                representativeCedula: e.target.value.toUpperCase(),
-              })
-            }
-            ayuda="Con la letra y el guion"
+            onChange={(v) => setFormulario({ ...formulario, representativeCedula: v })}
             required
           />
 

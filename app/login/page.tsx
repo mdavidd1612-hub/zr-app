@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cedulaAEmail } from '@/lib/auth-helpers'
 import { cedulaSchema } from '@/lib/validators'
 import { MarcaZR } from '@/components/ui/Iconos'
+import { SelectorCedula } from '@/components/ui/SelectorCedula'
 
 const INICIO: Record<string, string> = {
   estudiante:  '/',
@@ -19,7 +20,7 @@ const INICIO: Record<string, string> = {
 
 export default function Login() {
   const router = useRouter()
-  const [cedula, setCedula] = useState('')
+  const [cedula, setCedula] = useState('V-')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(false)
@@ -72,21 +73,7 @@ export default function Login() {
         {/* Login Form */}
         <form onSubmit={entrar} className="space-y-5" noValidate>
           {/* Cédula Input */}
-          <div className="space-y-2">
-            <label className="block text-sm font-semibold text-zr-text">Cédula</label>
-            <input
-              type="text"
-              name="cedula"
-              inputMode="text"
-              autoComplete="username"
-              placeholder="V-12345678"
-              value={cedula}
-              onChange={(e) => setCedula(e.target.value.toUpperCase())}
-              required
-              className="w-full px-5 py-4 bg-zr-surface border border-zr-border rounded-xl text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none focus:ring-2 focus:ring-zr-blue/20 transition-all text-base font-medium"
-            />
-            <p className="text-xs text-zr-text-muted">Con la letra y el guion, como aparece en tu cédula</p>
-          </div>
+          <SelectorCedula etiqueta="Cédula" value={cedula} onChange={setCedula} required />
 
           {/* Password Input */}
           <div className="space-y-2">

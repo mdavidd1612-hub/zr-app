@@ -1,11 +1,15 @@
 import { z } from 'zod'
 
-// Cédula venezolana: V o E, guion, 6 a 9 dígitos.
+// Cédula venezolana: V, E o J, guion, 6 a 9 dígitos.
+// (V/J son las que se ofrecen en el selector de la interfaz; E se acepta
+// igual porque ya existía y algún registro previo puede tenerla.)
 export const cedulaSchema = z
   .string()
   .trim()
   .toUpperCase()
-  .regex(/^[VE]-\d{6,9}$/, 'La cédula debe tener el formato V-12345678')
+  .regex(/^[VEJ]-\d{6,9}$/, 'La cédula debe tener el formato V-12345678')
+
+export const PREFIJOS_CEDULA = ['V', 'J'] as const
 
 export const passwordSchema = z
   .string()

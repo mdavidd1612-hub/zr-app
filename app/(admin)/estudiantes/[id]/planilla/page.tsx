@@ -23,6 +23,10 @@ const INSTITUCION = {
   horario: 'Sábados',
 }
 
+// Mismo azul de marca que usa el resto de la app (--zr-blue en globals.css) —
+// la planilla tiene que verse de la misma identidad, no en blanco y negro.
+const AZUL = '#3869B1'
+
 const HORARIO_TURNO: Record<string, string> = {
   'mañana': 'Sábados, 9:00 a.m. – 12:00 p.m.',
   tarde: 'Sábados, 2:00 p.m. – 5:00 p.m.',
@@ -135,19 +139,23 @@ export default function PlanillaEstudiante() {
       </div>
 
       {/* ============================= PÁGINA 1 ============================= */}
-      <div className="mx-auto mt-8 max-w-[700px] rounded-lg bg-white p-8 text-black print:mt-0 print:max-w-none print:min-h-screen print:rounded-none print:p-0 print:shadow-none print:break-after-page">
-        <header className="border-b-2 border-black pb-3 text-center">
-          <p className="text-base font-bold uppercase">{INSTITUCION.nombre}</p>
-          <p className="text-[11px] text-neutral-700">
-            RIF: {INSTITUCION.rif} &nbsp;|&nbsp; {INSTITUCION.direccion}
-          </p>
-          <p className="text-[11px] text-neutral-700">
-            Tel. Adm: {INSTITUCION.telAdmin} &nbsp;&nbsp; Tel. Acad: {INSTITUCION.telAcademico} &nbsp;&nbsp;
-            {INSTITUCION.correo} &nbsp;&nbsp; Horario de atención: {INSTITUCION.horario}
-          </p>
+      <div className="mx-auto mt-8 max-w-[700px] rounded-lg bg-white p-8 text-black print:mt-0 print:max-w-none print:rounded-none print:p-0 print:shadow-none print:break-after-page">
+        <header className="flex items-center gap-4 border-b-4 pb-3" style={{ borderColor: AZUL }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-zr-mecademy.png" alt="ZR Mecademy" className="h-14 w-auto shrink-0" />
+          <div className="min-w-0 flex-1 text-center">
+            <p className="text-base font-bold uppercase" style={{ color: AZUL }}>{INSTITUCION.nombre}</p>
+            <p className="text-[11px] text-neutral-700">
+              RIF: {INSTITUCION.rif} &nbsp;|&nbsp; {INSTITUCION.direccion}
+            </p>
+            <p className="text-[11px] text-neutral-700">
+              Tel. Adm: {INSTITUCION.telAdmin} &nbsp;&nbsp; Tel. Acad: {INSTITUCION.telAcademico} &nbsp;&nbsp;
+              {INSTITUCION.correo} &nbsp;&nbsp; Horario de atención: {INSTITUCION.horario}
+            </p>
+          </div>
         </header>
 
-        <p className="mt-4 text-center text-sm font-bold uppercase tracking-wide">
+        <p className="mt-4 text-center text-sm font-bold uppercase tracking-wide" style={{ color: AZUL }}>
           Planilla de inscripción – Comprobante Módulo 1
         </p>
         <p className="mt-1 text-center text-[11px] leading-relaxed text-neutral-600">
@@ -156,14 +164,14 @@ export default function PlanillaEstudiante() {
           completan luego dentro de la aplicación.
         </p>
 
-        <div className="mt-5 rounded border-2 border-black p-4 text-center">
+        <div className="mt-5 rounded p-4 text-center text-white" style={{ backgroundColor: AZUL }}>
           <p className="text-[11px] font-bold uppercase tracking-wide">
             Código de estudiante — consérvelo, lo necesitará para su primer ingreso a la app
           </p>
           <p className="mt-1 text-2xl font-bold tabular-nums">{datos.studentCode ?? 'PENDIENTE'}</p>
         </div>
 
-        <p className="mt-6 border-b border-black pb-1 text-xs font-bold uppercase tracking-wide">
+        <p className="mt-6 border-b-2 pb-1 text-xs font-bold uppercase tracking-wide" style={{ borderColor: AZUL, color: AZUL }}>
           Datos del participante
         </p>
         <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
@@ -182,7 +190,7 @@ export default function PlanillaEstudiante() {
 
         {datos.esMenor && datos.representante && (
           <>
-            <p className="mt-6 border-b border-black pb-1 text-xs font-bold uppercase tracking-wide">
+            <p className="mt-6 border-b-2 pb-1 text-xs font-bold uppercase tracking-wide" style={{ borderColor: AZUL, color: AZUL }}>
               Contacto del representante
             </p>
             <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
@@ -196,9 +204,11 @@ export default function PlanillaEstudiante() {
       </div>
 
       {/* ============================= PÁGINA 2 ============================= */}
-      <div className="mx-auto mt-6 max-w-[700px] rounded-lg bg-white p-8 text-black print:mt-0 print:max-w-none print:min-h-screen print:rounded-none print:p-0 print:shadow-none">
-        <header className="border-b-2 border-black pb-3 text-center">
-          <p className="text-base font-bold uppercase">{INSTITUCION.nombre}</p>
+      <div className="mx-auto mt-6 max-w-[700px] rounded-lg bg-white p-8 text-black print:mt-0 print:max-w-none print:rounded-none print:p-0 print:shadow-none">
+        <header className="flex items-center gap-4 border-b-4 pb-3" style={{ borderColor: AZUL }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-zr-mecademy.png" alt="ZR Mecademy" className="h-10 w-auto shrink-0" />
+          <p className="flex-1 text-center text-base font-bold uppercase" style={{ color: AZUL }}>{INSTITUCION.nombre}</p>
         </header>
 
         <p className="mt-4 text-center text-sm font-bold uppercase tracking-wide">
@@ -220,7 +230,7 @@ export default function PlanillaEstudiante() {
           <p><b>Aceptación de las normas.</b> Confirmo que he leído y acepto la normativa de la institución. Entiendo el Manual de Convivencia de la Academia y me comprometo a respetar tanto mis estudios como el comportamiento y los pagos. Sé que puedo pedir el Manual completo en la recepción siempre que lo necesite.</p>
         </div>
 
-        <div className={`mt-16 grid ${datos.esMenor ? 'grid-cols-2' : 'grid-cols-1 justify-items-center'} gap-10 pt-8 text-center text-sm`}>
+        <div className={`mt-10 grid ${datos.esMenor ? 'grid-cols-2' : 'grid-cols-1 justify-items-center'} gap-10 pt-6 text-center text-sm print:break-inside-avoid`}>
           {datos.esMenor && (
             <div>
               <div className="mb-1 border-t border-black pt-2 w-56 mx-auto">Firma del Representante</div>

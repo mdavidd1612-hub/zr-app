@@ -62,11 +62,35 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     verificarPerfilCompleto()
   }, [pathname, router])
 
+  // Términos y condiciones (B-1, docs/18_BRECHAS_SPEC_FUNCIONAL_ZRM.md, spec
+  // §20): independiente del formulario de arriba. Si system_config sube
+  // terms.version, el estudiante cae aquí de nuevo en su próximo ingreso,
+  // sin importar que ya haya aceptado una versión anterior.
+  useEffect(() => {
+    if (pathname === '/completar-perfil' || pathname === '/aceptar-terminos') return
+    const supabase = createClient()
+    async function verificarTerminos() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: version } = await supabase
+        .from('system_config').select('value').eq('key', 'terms.version').maybeSingle()
+      const versionVigente = Number(version?.value ?? 1)
+
+      const { data: aceptado } = await supabase
+        .from('terms_acceptances').select('id')
+        .eq('user_id', user.id).eq('terms_version', versionVigente).maybeSingle()
+
+      if (!aceptado) router.replace('/aceptar-terminos')
+    }
+    verificarTerminos()
+  }, [pathname, router])
+
   // Validación de administración (firma física de la planilla): es
-  // INDEPENDIENTE del formulario de arriba — el estudiante puede llenarlo
-  // mientras espera. Lo que sí se restringe es la navegación: sin validar,
-  // solo Inicio y Perfil tienen sentido, y cualquier otra ruta de estudiante
-  // rebota a Inicio.
+  // INDEPENDIENTE de lo de arriba — el estudiante puede llenar su formulario
+  // y aceptar términos mientras espera. Lo que sí se restringe es la
+  // navegación: sin validar, solo Inicio y Perfil tienen sentido, y
+  // cualquier otra ruta de estudiante rebota a Inicio.
   useEffect(() => {
     const supabase = createClient()
     async function verificarValidacion() {
@@ -76,7 +100,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         .from('students').select('validated_at').eq('id', user.id).maybeSingle()
       const yaValidado = Boolean(est?.validated_at)
       setValidado(yaValidado)
-      if (!yaValidado && pathname !== '/' && pathname !== '/perfil' && pathname !== '/completar-perfil') {
+      const rutasPermitidasPendiente = ['/', '/perfil', '/completar-perfil', '/aceptar-terminos']
+      if (!yaValidado && !rutasPermitidasPendiente.includes(pathname)) {
         router.replace('/')
       }
     }

@@ -24,18 +24,29 @@ import { EstadoVacio } from '@/components/ui/EstadoVacio'
 interface Cohorte { id: string; nombre: string; programaId: string; programa: string }
 interface Modulo  { id: string; nombre: string; programaId: string; orden: number }
 
+type Estado = 'presente' | 'tarde' | 'ausente' | 'justificado'
+
 interface Fila {
   clave: string
+  sessionId: string
   estudianteId: string
   estudiante: string
   cedula: string
   cohorte: string
   modulo: string
   fecha: string
-  presente: boolean
+  estado: Estado
   hora: string | null
   registradoPor: string | null
   metodo: string | null
+  justificacion: string | null
+}
+
+const ETIQUETA_ESTADO: Record<Estado, string> = {
+  presente: 'Presente', tarde: 'Tarde', ausente: 'Ausente', justificado: 'Justificado',
+}
+const TONO_ESTADO: Record<Estado, 'exito' | 'aviso' | 'error' | 'neutro'> = {
+  presente: 'exito', tarde: 'aviso', ausente: 'error', justificado: 'neutro',
 }
 
 // Rango por defecto: el último mes. Suficiente para la revisión semanal sin
@@ -135,14 +146,18 @@ export default function AsistenciaHistorico() {
     const cohortIds = [...new Set(sesiones.map((s) => s.cohort_id))]
     const sessionIds = sesiones.map((s) => s.id)
 
-    const [{ data: alumnosRaw }, { data: eventosRaw }] = await Promise.all([
+    const [{ data: alumnosRaw }, { data: eventosRaw }, { data: justifsRaw }] = await Promise.all([
       supabase
         .from('students')
         .select('id, cohort_id, profiles!students_id_fkey(full_name, cedula)')
         .in('cohort_id', cohortIds),
       supabase
         .from('attendance_events')
-        .select('session_id, student_id, scanned_at, method, profiles!attendance_events_scanned_by_fkey(full_name)')
+        .select('session_id, student_id, scanned_at, method, status, profiles!attendance_events_scanned_by_fkey(full_name)')
+        .in('session_id', sessionIds),
+      supabase
+        .from('attendance_justifications')
+        .select('session_id, student_id, reason')
         .in('session_id', sessionIds),
     ])
 
@@ -151,11 +166,16 @@ export default function AsistenciaHistorico() {
     }[])
 
     const eventos = ((eventosRaw ?? []) as unknown as {
-      session_id: string; student_id: string; scanned_at: string; method: string | null
+      session_id: string; student_id: string; scanned_at: string; method: string | null; status: string | null
       profiles: { full_name: string } | null
     }[])
 
+    const justificaciones = ((justifsRaw ?? []) as unknown as {
+      session_id: string; student_id: string; reason: string
+    }[])
+
     const porSesionEstudiante = new Map(eventos.map((e) => [`${e.session_id}|${e.student_id}`, e]))
+    const justifPorSesionEstudiante = new Map(justificaciones.map((j) => [`${j.session_id}|${j.student_id}`, j.reason]))
     const porCohorte = new Map<string, typeof alumnos>()
     alumnos.forEach((a) => {
       if (!a.cohort_id) return
@@ -165,25 +185,35 @@ export default function AsistenciaHistorico() {
     })
 
     // 3. El cruce: cada estudiante de la cohorte × cada sesión del rango. La
-    // ausencia no es una fila en la base — es la falta de un evento.
+    // ausencia no es una fila en la base — es la falta de un evento. Si esa
+    // ausencia tiene una justificación guardada, se muestra como
+    // "justificado" en vez de "ausente".
     const resultado: Fila[] = []
     for (const s of sesiones) {
       for (const a of porCohorte.get(s.cohort_id) ?? []) {
-        const evento = porSesionEstudiante.get(`${s.id}|${a.id}`)
+        const clave = `${s.id}|${a.id}`
+        const evento = porSesionEstudiante.get(clave)
+        const justificacion = justifPorSesionEstudiante.get(clave) ?? null
+        const estado: Estado = evento
+          ? (evento.status === 'tarde' ? 'tarde' : 'presente')
+          : (justificacion ? 'justificado' : 'ausente')
+
         resultado.push({
-          clave: `${s.id}|${a.id}`,
+          clave,
+          sessionId: s.id,
           estudianteId: a.id,
           estudiante: a.profiles?.full_name ?? '—',
           cedula: a.profiles?.cedula ?? '—',
           cohorte: s.cohorts?.name ?? '—',
           modulo: s.modules?.name ?? '—',
           fecha: s.session_date,
-          presente: Boolean(evento),
+          estado,
           hora: evento
             ? new Date(evento.scanned_at).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })
             : null,
           registradoPor: evento?.profiles?.full_name ?? null,
           metodo: evento?.method ?? null,
+          justificacion,
         })
       }
     }
@@ -191,6 +221,28 @@ export default function AsistenciaHistorico() {
     setFilas(resultado)
     setConsultando(false)
   }, [programaId, moduloId, cohorteId, desde, hasta])
+
+  async function justificar(sessionId: string, estudianteId: string) {
+    const motivo = window.prompt('Motivo de la justificación (ej. reposo médico, fallecimiento familiar):')
+    if (!motivo || !motivo.trim()) return
+
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error } = await supabase.from('attendance_justifications').insert({
+      session_id: sessionId,
+      student_id: estudianteId,
+      reason: motivo.trim(),
+      justified_by: user?.id ?? null,
+    })
+
+    if (!error) {
+      setFilas((fs) => fs.map((f) =>
+        f.sessionId === sessionId && f.estudianteId === estudianteId
+          ? { ...f, estado: 'justificado', justificacion: motivo.trim() }
+          : f
+      ))
+    }
+  }
 
   // Pequeño retardo antes de consultar: los <input type="date"> disparan un
   // cambio por cada dígito tecleado del año, y sin esto cada uno lanzaría su
@@ -205,20 +257,21 @@ export default function AsistenciaHistorico() {
   const filasVisibles = useMemo(() => {
     const texto = busqueda.trim().toLowerCase()
     return filas.filter((f) =>
-      (!soloAusentes || !f.presente)
+      (!soloAusentes || f.estado === 'ausente')
       && (!texto || f.estudiante.toLowerCase().includes(texto) || f.cedula.toLowerCase().includes(texto)),
     )
   }, [filas, busqueda, soloAusentes])
 
   // % de asistencia por estudiante — lo que la spec pide para detectar quién
-  // va a necesitar tutoría (§10.2, política de inasistencias).
+  // va a necesitar tutoría (§10.2, política de inasistencias). "Tarde" cuenta
+  // como asistencia para este cálculo; "justificado" no (siguió sin venir).
   const porcentajes = useMemo(() => {
     const acumulado = new Map<string, { nombre: string; cedula: string; total: number; presentes: number }>()
     for (const f of filas) {
       const actual = acumulado.get(f.estudianteId)
         ?? { nombre: f.estudiante, cedula: f.cedula, total: 0, presentes: 0 }
       actual.total += 1
-      if (f.presente) actual.presentes += 1
+      if (f.estado === 'presente' || f.estado === 'tarde') actual.presentes += 1
       acumulado.set(f.estudianteId, actual)
     }
     return [...acumulado.values()]
@@ -241,15 +294,16 @@ export default function AsistenciaHistorico() {
       <td>${escapar(f.cohorte)}</td>
       <td>${escapar(f.modulo)}</td>
       <td>${f.fecha}</td>
-      <td>${f.presente ? 'Presente' : 'Ausente'}</td>
+      <td>${ETIQUETA_ESTADO[f.estado]}</td>
       <td>${f.hora ?? ''}</td>
       <td>${escapar(f.registradoPor ?? '')}</td>
+      <td>${escapar(f.justificacion ?? '')}</td>
     </tr>`).join('')
 
     const html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head>
       <body><table border="1"><thead><tr>
         <th>Estudiante</th><th>Cédula</th><th>Cohorte</th><th>Módulo</th>
-        <th>Fecha de la sesión</th><th>Estado</th><th>Hora</th><th>Registrado por</th>
+        <th>Fecha de la sesión</th><th>Estado</th><th>Hora</th><th>Registrado por</th><th>Justificación</th>
       </tr></thead><tbody>${cuerpo}</tbody></table></body></html>`
 
     const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' })
@@ -269,7 +323,7 @@ export default function AsistenciaHistorico() {
     )
   }
 
-  const totalPresentes = filas.filter((f) => f.presente).length
+  const totalPresentes = filas.filter((f) => f.estado === 'presente' || f.estado === 'tarde').length
 
   return (
     <div className="space-y-9 px-5 pb-16 pt-14">
@@ -417,18 +471,31 @@ export default function AsistenciaHistorico() {
                   <p className="truncate text-sm font-semibold text-zr-text">{f.estudiante}</p>
                   <p className="text-xs tabular-nums text-zr-text-muted">{f.cedula}</p>
                 </div>
-                <Etiqueta tono={f.presente ? 'exito' : 'error'}>
-                  {f.presente ? `Presente · ${f.hora}` : 'Ausente'}
+                <Etiqueta tono={TONO_ESTADO[f.estado]}>
+                  {f.estado === 'presente' || f.estado === 'tarde'
+                    ? `${ETIQUETA_ESTADO[f.estado]} · ${f.hora}`
+                    : ETIQUETA_ESTADO[f.estado]}
                 </Etiqueta>
               </div>
               <p className="text-xs text-zr-text-muted">
                 {f.fecha} · {f.cohorte} · {f.modulo}
               </p>
-              {f.presente && (
+              {(f.estado === 'presente' || f.estado === 'tarde') && (
                 <p className="text-xs text-zr-text-muted">
                   Registró: {f.registradoPor ?? '—'}
                   {f.metodo === 'manual' ? ' (a mano)' : ' (escaneo QR)'}
                 </p>
+              )}
+              {f.estado === 'justificado' && (
+                <p className="text-xs text-zr-text-muted">Motivo: {f.justificacion}</p>
+              )}
+              {f.estado === 'ausente' && (
+                <button
+                  onClick={() => justificar(f.sessionId, f.estudianteId)}
+                  className="mt-1 rounded-lg border border-zr-border px-3 py-1.5 text-xs font-semibold text-zr-text"
+                >
+                  Justificar ausencia
+                </button>
               )}
             </div>
           ))}

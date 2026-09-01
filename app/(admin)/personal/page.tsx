@@ -39,6 +39,13 @@ interface Cohorte {
   profesorId: string | null
 }
 
+interface Modulo {
+  id: string
+  nombre: string
+  orden: number
+  programa: string
+}
+
 const ROLES: { valor: UserRole; etiqueta: string; soloSuper: boolean }[] = [
   { valor: 'profesor', etiqueta: 'Profesor', soloSuper: false },
   { valor: 'admin', etiqueta: 'Administrador', soloSuper: true },
@@ -54,6 +61,10 @@ export default function Personal() {
   const [version, setVersion] = useState(0)
 
   const [cohortes, setCohortes] = useState<Cohorte[]>([])
+  const [modulos, setModulos] = useState<Modulo[]>([])
+  const [asignaciones, setAsignaciones] = useState<Map<string, Set<string>>>(new Map())
+  const [expandido, setExpandido] = useState<string | null>(null)
+  const [guardandoModulo, setGuardandoModulo] = useState<string | null>(null)
 
   const [creando, setCreando] = useState(false)
   const [nombre, setNombre] = useState('')
@@ -91,7 +102,7 @@ export default function Personal() {
       }
       setMiRol(rolActual)
 
-      const [{ data }, { data: cohs }] = await Promise.all([
+      const [{ data }, { data: cohs }, { data: mods }, { data: asigs }] = await Promise.all([
         supabase
           .from('profiles')
           .select('id, cedula, full_name, contact_email, role')
@@ -106,6 +117,10 @@ export default function Personal() {
           .from('cohorts')
           .select('id, name, teacher_id, modules(name)')
           .eq('status', 'activa'),
+        // C-2 (docs/18_BRECHAS_SPEC_FUNCIONAL_ZRM.md): además de la cohorte,
+        // un profesor puede tener módulos propios asignados (spec §7).
+        supabase.from('modules').select('id, name, order_index, programs(name)').order('order_index'),
+        supabase.from('teacher_module_assignments').select('teacher_id, module_id'),
       ])
 
       if (!vigente) return
@@ -121,6 +136,19 @@ export default function Personal() {
         profesorId: c.teacher_id,
       }))
       setCohortes(cohortesMapeadas)
+
+      setModulos(
+        ((mods ?? []) as unknown as { id: string; name: string; order_index: number; programs: { name: string } | null }[])
+          .map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index, programa: m.programs?.name ?? '—' })),
+      )
+
+      const mapaAsignaciones = new Map<string, Set<string>>()
+      for (const a of asigs ?? []) {
+        const set = mapaAsignaciones.get(a.teacher_id) ?? new Set<string>()
+        set.add(a.module_id)
+        mapaAsignaciones.set(a.teacher_id, set)
+      }
+      setAsignaciones(mapaAsignaciones)
 
       setEquipo(
         (data ?? []).map((p) => ({
@@ -201,6 +229,31 @@ export default function Personal() {
     setCreando(false)
     setGuardando(false)
     setVersion((v) => v + 1)
+  }
+
+  async function alternarModulo(teacherId: string, moduleId: string) {
+    const claveOcupado = `${teacherId}|${moduleId}`
+    setGuardandoModulo(claveOcupado)
+    const supabase = createClient()
+    const yaAsignado = asignaciones.get(teacherId)?.has(moduleId) ?? false
+
+    if (yaAsignado) {
+      await supabase.from('teacher_module_assignments')
+        .delete().eq('teacher_id', teacherId).eq('module_id', moduleId)
+    } else {
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('teacher_module_assignments')
+        .insert({ teacher_id: teacherId, module_id: moduleId, assigned_by: user?.id ?? null })
+    }
+
+    setAsignaciones((prev) => {
+      const copia = new Map(prev)
+      const set = new Set(copia.get(teacherId) ?? [])
+      if (yaAsignado) set.delete(moduleId); else set.add(moduleId)
+      copia.set(teacherId, set)
+      return copia
+    })
+    setGuardandoModulo(null)
   }
 
   async function eliminar(id: string, nombre: string) {
@@ -372,40 +425,81 @@ export default function Personal() {
       ) : (
         <Seccion numero={1} titulo="Equipo" delay={120}>
           <div className="space-y-3">
-            {equipo.map((m) => (
-              <div key={m.id} className="zr-card flex items-center justify-between gap-4 p-5">
-                <div className="min-w-0">
-                  <p className="truncate text-base font-semibold text-zr-text">{m.nombre}</p>
-                  <p className="mt-1 text-sm tabular-nums text-zr-text-muted">{m.cedula}</p>
-                  {m.rol === 'profesor' && (
-                    <p className="mt-1 truncate text-xs text-zr-text-muted">
-                      {m.cohortes.length > 0 ? m.cohortes.join(' · ') : 'Sin cohorte asignada'}
-                    </p>
-                  )}
+            {equipo.map((m) => {
+              const misModulos = asignaciones.get(m.id) ?? new Set<string>()
+              return (
+              <div key={m.id} className="zr-card space-y-3 p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-semibold text-zr-text">{m.nombre}</p>
+                    <p className="mt-1 text-sm tabular-nums text-zr-text-muted">{m.cedula}</p>
+                    {m.rol === 'profesor' && (
+                      <p className="mt-1 truncate text-xs text-zr-text-muted">
+                        {m.cohortes.length > 0 ? m.cohortes.join(' · ') : 'Sin cohorte asignada'}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <Etiqueta tono={m.rol === 'super_admin' || m.rol === 'direccion_academica' ? 'info' : m.rol === 'admin' ? 'aviso' : 'exito'}>
+                      {m.rol === 'super_admin' ? 'Super admin' : m.rol === 'direccion_academica' ? 'Dirección académica' : m.rol === 'admin' ? 'Admin' : 'Profesor'}
+                    </Etiqueta>
+                    {/* Mostrar Eliminar según jerarquía: direccion_academica puede borrar
+                        profesores y admins; super_admin puede borrar a cualquiera */}
+                    {miRol && (() => {
+                      const puedeEliminar =
+                        miRol === 'super_admin' ||
+                        (miRol === 'direccion_academica' && (m.rol === 'profesor' || m.rol === 'admin'))
+                      return puedeEliminar ? (
+                        <button
+                          onClick={() => eliminar(m.id, m.nombre)}
+                          disabled={eliminando === m.id}
+                          className="rounded-lg border border-zr-error/40 px-3 py-1.5 text-xs font-semibold text-zr-error disabled:opacity-50"
+                        >
+                          {eliminando === m.id ? '…' : 'Eliminar'}
+                        </button>
+                      ) : null
+                    })()}
+                  </div>
                 </div>
-                <div className="flex shrink-0 flex-col items-end gap-2">
-                  <Etiqueta tono={m.rol === 'super_admin' || m.rol === 'direccion_academica' ? 'info' : m.rol === 'admin' ? 'aviso' : 'exito'}>
-                    {m.rol === 'super_admin' ? 'Super admin' : m.rol === 'direccion_academica' ? 'Dirección académica' : m.rol === 'admin' ? 'Admin' : 'Profesor'}
-                  </Etiqueta>
-                  {/* Mostrar Eliminar según jerarquía: direccion_academica puede borrar
-                      profesores y admins; super_admin puede borrar a cualquiera */}
-                  {miRol && (() => {
-                    const puedeEliminar =
-                      miRol === 'super_admin' ||
-                      (miRol === 'direccion_academica' && (m.rol === 'profesor' || m.rol === 'admin'))
-                    return puedeEliminar ? (
-                      <button
-                        onClick={() => eliminar(m.id, m.nombre)}
-                        disabled={eliminando === m.id}
-                        className="rounded-lg border border-zr-error/40 px-3 py-1.5 text-xs font-semibold text-zr-error disabled:opacity-50"
-                      >
-                        {eliminando === m.id ? '…' : 'Eliminar'}
-                      </button>
-                    ) : null
-                  })()}
-                </div>
+
+                {m.rol === 'profesor' && (
+                  <div className="border-t border-zr-border/60 pt-3">
+                    <button
+                      onClick={() => setExpandido((e) => (e === m.id ? null : m.id))}
+                      className="text-xs font-bold uppercase tracking-wide text-zr-blue-mid"
+                    >
+                      {expandido === m.id ? 'Ocultar módulos' : `Módulos asignados (${misModulos.size})`}
+                    </button>
+
+                    {expandido === m.id && (
+                      <div className="mt-3 max-h-64 space-y-1 overflow-y-auto">
+                        {modulos.map((mod) => {
+                          const activo = misModulos.has(mod.id)
+                          const ocupado = guardandoModulo === `${m.id}|${mod.id}`
+                          return (
+                            <button
+                              key={mod.id}
+                              onClick={() => alternarModulo(m.id, mod.id)}
+                              disabled={ocupado}
+                              className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors disabled:opacity-50 ${
+                                activo ? 'bg-zr-blue/15 text-zr-blue' : 'text-zr-text-muted active:bg-zr-border/40'
+                              }`}
+                            >
+                              <span className="min-w-0 truncate">
+                                {mod.orden}. {mod.nombre}
+                                <span className="ml-1.5 text-xs text-zr-text-muted">· {mod.programa}</span>
+                              </span>
+                              {activo && <span className="shrink-0 text-xs font-bold">✓</span>}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            ))}
+              )
+            })}
           </div>
         </Seccion>
       )}

@@ -110,11 +110,19 @@ export default function MaterialAdmin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router, version])
 
+  const TIPOS_ACEPTADOS: Record<string, 'pdf' | 'video'> = {
+    'application/pdf': 'pdf',
+    'video/mp4': 'video',
+    'video/webm': 'video',
+  }
+
   async function subir() {
     const cohorte = cohortes.find((c) => c.id === cohorteId)
     if (!archivo || !titulo.trim() || !cohorte?.moduloId) return
-    if (archivo.type !== 'application/pdf') {
-      setError('Solo se aceptan archivos PDF en esta fase.')
+
+    const tipo = TIPOS_ACEPTADOS[archivo.type]
+    if (!tipo) {
+      setError('Solo se aceptan PDF o video (MP4/WebM).')
       return
     }
 
@@ -122,6 +130,18 @@ export default function MaterialAdmin() {
     setError(null)
 
     const supabase = createClient()
+
+    // El tope de tamaño es de negocio (regla 5 de CLAUDE.md): vive en
+    // system_config, nunca escrito en el código.
+    const { data: configTamano } = await supabase
+      .from('system_config').select('value').eq('key', 'content.max_size_mb').maybeSingle()
+    const maxMB = Number(configTamano?.value ?? 200)
+    if (archivo.size > maxMB * 1024 * 1024) {
+      setError(`El archivo pesa más de ${maxMB} MB. Comprímelo o pide que se suba en partes.`)
+      setSubiendo(false)
+      return
+    }
+
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       setSubiendo(false)
@@ -133,7 +153,7 @@ export default function MaterialAdmin() {
 
     const { error: falloSubida } = await supabase.storage
       .from('contenido')
-      .upload(ruta, archivo, { contentType: 'application/pdf' })
+      .upload(ruta, archivo, { contentType: archivo.type })
 
     if (falloSubida) {
       setError(`No se pudo subir el archivo: ${falloSubida.message}`)
@@ -145,7 +165,7 @@ export default function MaterialAdmin() {
       module_id: cohorte.moduloId,
       week_number: semana === '' ? null : semana,
       title: titulo.trim(),
-      type: 'pdf',
+      type: tipo,
       storage_path: ruta,
       size_bytes: archivo.size,
       uploaded_by: user.id,
@@ -234,7 +254,7 @@ export default function MaterialAdmin() {
             onClick={() => setFormAbierto((f) => !f)}
             className="rounded-lg bg-zr-blue px-5 py-3.5 text-sm font-bold text-white"
           >
-            {formAbierto ? 'Cancelar' : '+ Subir PDF'}
+            {formAbierto ? 'Cancelar' : '+ Subir archivo'}
           </button>
         }
       />
@@ -244,10 +264,10 @@ export default function MaterialAdmin() {
       {formAbierto && (
         <div className="zr-card space-y-5 p-6">
           <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Archivo (PDF)</label>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Archivo (PDF o video)</label>
             <input
               type="file"
-              accept="application/pdf"
+              accept="application/pdf,video/mp4,video/webm"
               onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-sm text-zr-text file:mr-4 file:rounded file:border-0 file:bg-zr-blue file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
             />

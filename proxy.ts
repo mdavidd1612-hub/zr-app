@@ -16,7 +16,7 @@ const PUBLIC_ROUTES = ['/login', '/recuperar', '/api/auth/callback']
 // '/notas' es ambigua entre roles: el estudiante ve exactamente '/notas'
 // (sin nada más), el profesor ve '/notas/[cohortId]'. Va aparte para no
 // hacer match de prefijo con el otro rol por accidente.
-const RUTAS_ESTUDIANTE = ['/', '/clases', '/contenido', '/examenes', '/perfil', '/progreso', '/completar-perfil']
+const RUTAS_ESTUDIANTE = ['/', '/clases', '/contenido', '/examenes', '/perfil', '/progreso', '/completar-perfil', '/aceptar-terminos', '/malla']
 const RUTAS_PROFESOR = ['/hoy', '/sesiones', '/crear-examen', '/calificar', '/perfil-docente', '/contenido-docente', '/dominio', '/escanear', '/feedback-clase']
 const RUTAS_ADMIN = ['/panel', '/estudiantes', '/consentimientos', '/cohortes', '/reportes', '/perfil-admin', '/configuracion', '/personal', '/notas-academicas', '/examenes-academicos']
 

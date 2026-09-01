@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { IconoDocumento, IconoAviso } from '@/components/ui/Iconos'
+import { IconoDocumento, IconoVideo, IconoAviso, IconoCerrar } from '@/components/ui/Iconos'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 
 /**
@@ -12,6 +12,11 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
  * RLS ya filtra: solo material publicado, con visible_from vencido y del
  * módulo del estudiante (migración 012). Aquí no se repite ese filtro, solo
  * se pide la data.
+ *
+ * B-4 (docs/18_BRECHAS_SPEC_FUNCIONAL_ZRM.md, spec §6): el visor queda
+ * embebido en la misma pantalla (iframe para PDF, <video> para video) en vez
+ * de abrir una pestaña nueva — la spec pide explícitamente "minimizar
+ * fricción, que no tenga que descargar cada archivo".
  */
 
 interface Material {
@@ -19,6 +24,14 @@ interface Material {
   titulo: string
   semana: number | null
   tamañoKB: number | null
+  tipo: 'pdf' | 'video' | string
+}
+
+interface Abierto {
+  id: string
+  titulo: string
+  tipo: 'pdf' | 'video' | string
+  url: string
 }
 
 export default function Contenido() {
@@ -26,6 +39,7 @@ export default function Contenido() {
   const [materiales, setMateriales] = useState<Material[]>([])
   const [cargando, setCargando] = useState(true)
   const [abriendo, setAbriendo] = useState<string | null>(null)
+  const [abierto, setAbierto] = useState<Abierto | null>(null)
 
   useEffect(() => {
     async function cargar() {
@@ -38,8 +52,8 @@ export default function Contenido() {
 
       const { data } = await supabase
         .from('content_items')
-        .select('id, title, week_number, size_bytes')
-        .eq('type', 'pdf')
+        .select('id, title, week_number, size_bytes, type')
+        .in('type', ['pdf', 'video'])
         .order('week_number', { ascending: true, nullsFirst: false })
 
       setMateriales(
@@ -48,6 +62,7 @@ export default function Contenido() {
           titulo: m.title,
           semana: m.week_number,
           tamañoKB: m.size_bytes ? Math.round(m.size_bytes / 1024) : null,
+          tipo: m.type,
         })),
       )
       setCargando(false)
@@ -77,14 +92,14 @@ export default function Contenido() {
       .createSignedUrl(item.storage_path, 300)
 
     // Se registra la vista sin bloquear la apertura: si falla, el estudiante
-    // igual debe poder leer el PDF.
+    // igual debe poder ver el archivo.
     if (user) {
       void supabase.from('content_views').insert({ content_item_id: m.id, student_id: user.id })
     }
 
     setAbriendo(null)
     if (firmada?.signedUrl) {
-      window.open(firmada.signedUrl, '_blank', 'noopener,noreferrer')
+      setAbierto({ id: m.id, titulo: m.titulo, tipo: m.tipo, url: firmada.signedUrl })
     }
   }
 
@@ -107,6 +122,28 @@ export default function Contenido() {
 
   return (
     <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
+      {abierto && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black">
+          <div className="flex items-center justify-between gap-3 bg-zr-surface px-5 py-4">
+            <p className="min-w-0 truncate text-sm font-semibold text-zr-text">{abierto.titulo}</p>
+            <button
+              onClick={() => setAbierto(null)}
+              aria-label="Cerrar"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zr-text-muted active:bg-zr-border/50"
+            >
+              <IconoCerrar size={18} />
+            </button>
+          </div>
+          <div className="flex-1">
+            {abierto.tipo === 'video' ? (
+              <video src={abierto.url} controls autoPlay className="h-full w-full bg-black" />
+            ) : (
+              <iframe src={abierto.url} title={abierto.titulo} className="h-full w-full border-0 bg-white" />
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-9">
         <BotonVolver href="/" />
 
@@ -146,7 +183,9 @@ export default function Contenido() {
                   disabled={abriendo === m.id}
                   className="zr-card zr-card-interactive flex w-full items-start gap-3 p-4 text-left disabled:opacity-60"
                 >
-                  <IconoDocumento size={22} className="mt-0.5 shrink-0 text-zr-error" />
+                  {m.tipo === 'video'
+                    ? <IconoVideo size={22} className="mt-0.5 shrink-0 text-zr-blue" />
+                    : <IconoDocumento size={22} className="mt-0.5 shrink-0 text-zr-error" />}
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-zr-text">{m.titulo}</p>
                     {m.tamañoKB && (
@@ -155,8 +194,8 @@ export default function Contenido() {
                       </p>
                     )}
                   </div>
-                  <span className="shrink-0 text-xs font-bold uppercase tracking-wide text-zr-error/80">
-                    {abriendo === m.id ? '...' : 'PDF'}
+                  <span className={`shrink-0 text-xs font-bold uppercase tracking-wide ${m.tipo === 'video' ? 'text-zr-blue/80' : 'text-zr-error/80'}`}>
+                    {abriendo === m.id ? '...' : m.tipo === 'video' ? 'VIDEO' : 'PDF'}
                   </span>
                 </button>
               ))}
@@ -170,7 +209,7 @@ export default function Contenido() {
             Consejo
           </p>
           <p className="text-sm text-zr-text-muted">
-            Descarga los PDF antes del sábado para consultarlos sin conexión en el taller.
+            Puedes verlos directo aquí, sin descargar — tócalos para abrirlos.
           </p>
         </div>
       </div>

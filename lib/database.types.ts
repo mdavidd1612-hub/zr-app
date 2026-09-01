@@ -109,6 +109,7 @@ export type Database = {
           session_id: string
           snack_claimed_at: string | null
           snack_claimed_by: string | null
+          status: string
           student_id: string
           synced_at: string | null
         }
@@ -123,6 +124,7 @@ export type Database = {
           session_id: string
           snack_claimed_at?: string | null
           snack_claimed_by?: string | null
+          status?: string
           student_id: string
           synced_at?: string | null
         }
@@ -137,6 +139,7 @@ export type Database = {
           session_id?: string
           snack_claimed_at?: string | null
           snack_claimed_by?: string | null
+          status?: string
           student_id?: string
           synced_at?: string | null
         }
@@ -199,6 +202,90 @@ export type Database = {
           },
           {
             foreignKeyName: "attendance_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students_blocked"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_justifications: {
+        Row: {
+          id: string
+          justified_at: string
+          justified_by: string | null
+          reason: string
+          session_id: string
+          student_id: string
+        }
+        Insert: {
+          id?: string
+          justified_at?: string
+          justified_by?: string | null
+          reason: string
+          session_id: string
+          student_id: string
+        }
+        Update: {
+          id?: string
+          justified_at?: string
+          justified_by?: string | null
+          reason?: string
+          session_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_justifications_justified_by_fkey"
+            columns: ["justified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_justifications_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "class_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_justifications_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_proximo_sabado"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "attendance_justifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_justifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_mi_dominio"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "attendance_justifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_proximo_sabado"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "attendance_justifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_justifications_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "v_students_blocked"
@@ -2209,6 +2296,52 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_module_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          id: string
+          module_id: string
+          teacher_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          module_id: string
+          teacher_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          id?: string
+          module_id?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_module_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_module_assignments_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_module_assignments_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teachers: {
         Row: {
           created_at: string
@@ -2236,6 +2369,38 @@ export type Database = {
             foreignKeyName: "teachers_id_fkey"
             columns: ["id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      terms_acceptances: {
+        Row: {
+          accepted_at: string
+          id: string
+          ip_address: string | null
+          terms_version: number
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string
+          id?: string
+          ip_address?: string | null
+          terms_version: number
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string
+          id?: string
+          ip_address?: string | null
+          terms_version?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "terms_acceptances_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2461,7 +2626,13 @@ export type Database = {
       consent_method: "fisico" | "digital"
       consent_type: "account_creation" | "ugc_publication"
       content_approval_status: "aprobado" | "pendiente" | "rechazado"
-      content_type: "pdf" | "presentacion" | "imagen" | "enlace" | "documento"
+      content_type:
+        | "pdf"
+        | "presentacion"
+        | "imagen"
+        | "enlace"
+        | "documento"
+        | "video"
       enrollment_status: "en_curso" | "aprobado" | "reprobado" | "retirado"
       exam_status: "oculto" | "habilitado" | "cerrado" | "calificado"
       mastery_source:
@@ -2620,7 +2791,14 @@ export const Constants = {
       consent_method: ["fisico", "digital"],
       consent_type: ["account_creation", "ugc_publication"],
       content_approval_status: ["aprobado", "pendiente", "rechazado"],
-      content_type: ["pdf", "presentacion", "imagen", "enlace", "documento"],
+      content_type: [
+        "pdf",
+        "presentacion",
+        "imagen",
+        "enlace",
+        "documento",
+        "video",
+      ],
       enrollment_status: ["en_curso", "aprobado", "reprobado", "retirado"],
       exam_status: ["oculto", "habilitado", "cerrado", "calificado"],
       mastery_source: [

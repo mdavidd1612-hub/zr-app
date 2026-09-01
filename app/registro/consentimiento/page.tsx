@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Boton } from '@/components/ui/Boton'
 import { Campo } from '@/components/ui/Campo'
 import { Aviso } from '@/components/ui/Aviso'
@@ -11,7 +10,6 @@ import { SelectorCedula } from '@/components/ui/SelectorCedula'
 type Metodo = 'fisico' | 'digital'
 
 export default function Consentimiento() {
-  const router = useRouter()
 
   const [formulario, setFormulario] = useState({
     representativeName: '',
@@ -73,9 +71,12 @@ export default function Consentimiento() {
         return
       }
 
-      // Consentimiento registrado, ir al carnet
-      router.push('/')
-      router.refresh()
+      // Consentimiento registrado. Recarga completa (no router.push) a
+      // propósito: así el middleware vuelve a evaluar todo desde cero con
+      // el consentimiento ya guardado, sin depender de que el router del
+      // cliente reconcilie una redirección de servidor a mitad de una
+      // transición — eso era lo que se quedaba pegado en "Un momento…".
+      window.location.href = '/'
     } catch (err) {
       setError('Error de conexión. Intenta de nuevo.')
       console.error('Consent submission error:', err)

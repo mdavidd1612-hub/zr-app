@@ -112,7 +112,12 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     *
+     * El manifiesto, el service worker y los iconos tienen que responder
+     * aunque no haya sesión: el navegador los pide antes de que nadie inicie
+     * sesión, y si el proxy los redirige a /login la app deja de ser
+     * instalable (no aparece el botón «Instalar»).
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|manifest.json|sw.js|icon-|apple-touch-icon.png|logo-zr-mecademy.png).*)',
   ],
 }

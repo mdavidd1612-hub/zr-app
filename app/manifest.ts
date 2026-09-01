@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/',
     scope: '/',
     display: 'standalone', // Sin barra de direcciones
-    background_color: '#F5F7FB',
-    theme_color: '#21284F',
+    background_color: '#0F1419',
+    theme_color: '#3869B1',
     orientation: 'portrait-primary',
     icons: [
       {
@@ -35,20 +35,6 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable',
-      },
-    ],
-    screenshots: [
-      {
-        src: '/screenshot-540x720.png',
-        sizes: '540x720',
-        type: 'image/png',
-        form_factor: 'narrow',
-      },
-      {
-        src: '/screenshot-1280x720.png',
-        sizes: '1280x720',
-        type: 'image/png',
-        form_factor: 'wide',
       },
     ],
     shortcuts: [

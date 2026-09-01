@@ -18,8 +18,11 @@ La spec del cliente describe 8 módulos. ZR App ya cubre bien el núcleo
 contenido, casos con IA). La auditoría encontró **4 módulos incompletos, 5 piezas
 inexistentes y 1 integración entera sin empezar (Odoo)**.
 
-De eso, el **Bloque A ya se ejecutó** (sección 2). Los bloques B, C y D siguen
-pendientes (sección 3).
+**Actualización 1 de septiembre de 2026 (tarde):** el Bloque A ya se había
+ejecutado. Con las preguntas abiertas ya respondidas por el cliente, se
+ejecutaron también **B-1, B-3, B-4 y C-2** (commit `bff331e`). Quedan
+pendientes **C-1, C-3 (confirmado que sigue igual) y C-4** — y **Odoo (D-1)
+explícitamente fuera de alcance por ahora**, por decisión del cliente.
 
 ---
 
@@ -141,14 +144,57 @@ sí las lleva todas).
 spec. `attendance_events` no los soporta — la asistencia hoy es binaria. Eso es el
 punto 3.3 de este documento.
 
-### 2.5 · Estado del despliegue
+### 2.5 · Estado del despliegue del Bloque A
 
-⚠️ **La migración `052` NO estaba aplicada cuando se cerró la sesión.** Sin ella,
-la planilla y la creación de cohortes fallan al pedir `days`/`schedule`.
+✅ La migración `052` se aplicó (verificado con `select` sobre `cohorts`, las 7
+cohortes reales tienen `days`/`schedule` correctos). Bloque A cerrado y en producción.
 
-**Primer paso de quien retome esto**: aplicar la migración (`supabase db push`, o
-el MCP de Supabase) y verificar en el navegador — nada de esto se probó corriendo,
-solo compilando.
+---
+
+## 2bis. Lo que se ejecutó después, con las preguntas ya respondidas (commit `bff331e`)
+
+El cliente respondió las preguntas abiertas de la sección 4.4 (ver ahí el detalle
+de cada respuesta). Con eso resuelto, se ejecutó todo lo que no era Odoo:
+
+- **B-1 · Términos y condiciones** — `terms_acceptances` +
+  `system_config['terms.version'/'terms.text']`. Gate en `/aceptar-terminos`,
+  independiente del formulario de primer login y de la validación de admin.
+  Subir `terms.version` obliga a re-aceptar a todos. **El texto legal sigue
+  siendo el placeholder** — falta que alguien lo redacte y lo cargue en
+  `system_config` desde Configuración (no requiere código).
+- **B-3 · Estados tarde/justificado** — `attendance_events.status` se calcula
+  en el servidor (trigger) contra `system_config['attendance.tarde_umbral_minutos']`.
+  Las ausencias justificadas viven en `attendance_justifications` (tabla
+  nueva, porque una ausencia nunca fue un evento). `/asistencias/historico`
+  ya muestra los 4 estados y tiene el botón "Justificar ausencia".
+- **B-4 · Video + visor inline** — `content_type` acepta `'video'`, tope de
+  tamaño en `system_config['content.max_size_mb']` (200 por defecto). El
+  estudiante ve el PDF/video embebido en `/contenido`, ya no abre pestaña
+  nueva. **Sin tocar todavía**: la pantalla de subida del profesor
+  (`app/(profesor)/contenido-docente`) sigue solo aceptando PDF — se
+  actualizó la del admin (`app/(admin)/material`), no esa.
+- **C-2 · Profesor↔módulo** — el cliente confirmó el modelo de la spec
+  ("profesor dueño de módulo"). Se agregó `teacher_module_assignments` (N:M)
+  y un selector de módulos por profesor en `/personal`.
+  **Alcance limitado a propósito**: esto NO reemplaza `cohorts.teacher_id` ni
+  `class_sessions.teacher_id` — esos siguen siendo los que de verdad
+  controlan quién puede tomar asistencia, calificar y ver notas
+  (`teaches_cohort()`). Migrar esos flujos para que dependan del módulo en
+  vez de la cohorte es una tarea aparte, más grande, que no se hizo para no
+  romper lo que ya funciona.
+- **B-2 · Descartado** — el cliente confirmó que el proceso termina en la
+  firma física. No hace falta digitalizar la planilla firmada; con
+  `students.validated_at` alcanza.
+- **C-3 · Sin cambios** — el cliente confirmó que la generación automática
+  por cron (sin aprobación, ligada al módulo actual del estudiante) es el
+  comportamiento que quiere. Coincide con lo que ya había.
+- **C-4 · Pospuesto** — el cliente pidió dejarlo para después del 5 de
+  septiembre. No se tocó.
+
+**Todavía sin verificar en el navegador** — se probó `tsc`, `eslint` y
+`npm run build`, pero nadie hizo clic en `/aceptar-terminos`, justificó una
+ausencia desde `/asistencias/historico`, subió un video desde `/material`, ni
+asignó un módulo desde `/personal`. Hazlo antes de dar esto por cerrado.
 
 ---
 
@@ -340,16 +386,20 @@ Estas hay que preguntarle al cliente antes de construir lo que dependa de ellas:
 
 ## 5. Orden sugerido para retomar
 
-1. **Aplicar la migración 052** y verificar en el navegador lo del bloque A
-   (sección 2.5). Nada se probó corriendo.
-2. **B-1, términos y condiciones** — el de mayor exposición legal.
-3. **B-3, estados de asistencia** — la pantalla nueva ya está preparada para
-   recibirlos.
-4. **B-4, tipos de archivo y visor** — es lo que más nota el estudiante.
-5. **B-2** solo después de responder la pregunta abierta 3.
-6. El bloque C requiere decisiones de producto antes que código. **No lo empieces
-   sin respuestas.**
-7. **Odoo (D-1) va de último**, y solo cuando existan credenciales.
+Con B-1, B-3, B-4 y C-2 ya ejecutados (sección 2bis), lo que queda:
+
+1. **Verificar en el navegador todo lo de la sección 2bis** — nada de eso se
+   probó corriendo, solo compilando. Es el primer paso, antes de tocar nada nuevo.
+2. **Cargar el texto legal real de Términos y Condiciones** en
+   `system_config['terms.text']` en cuanto lo redacte administración/un
+   abogado — es solo editar una fila, no requiere código.
+3. **C-1, carpetas jerárquicas del Classroom** — el que queda del bloque C
+   que no depende de ninguna pregunta abierta, solo de tiempo.
+4. **C-4, seguridad extra** — el cliente pidió dejarlo para después del 5 de
+   septiembre; retomarlo cuando se acerque esa fecha o cuando el material
+   tenga valor comercial suficiente para justificarlo.
+5. **Odoo (D-1) sigue explícitamente fuera de alcance** — no se toca hasta
+   que el cliente lo pida y existan credenciales.
 
 ---
 
@@ -359,7 +409,7 @@ Recordatorio, porque cada punto pendiente las toca (`CLAUDE.md` §2):
 
 - Toda tabla nueva va **con RLS habilitada y políticas escritas**. Sin excepción:
   son datos de menores de edad.
-- **Nunca editar una migración ya aplicada.** La siguiente libre es la `053`.
+- **Nunca editar una migración ya aplicada.** La siguiente libre es la `057`.
 - Ningún número ni valor de negocio dentro del código: van en `system_config`.
 - Nada de Fase 2 ni Fase 3 (pagos, puntos, insignias, mensajería privada).
 - Interfaz en español de Venezuela; código y nombres de tablas en inglés.

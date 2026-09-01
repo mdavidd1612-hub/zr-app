@@ -81,14 +81,7 @@ export default function CompletarPerfil() {
     })
 
     if (error) {
-      // El caso más común aquí: eres menor de edad y falta el consentimiento
-      // parental (regla de negocio, no un bug — el trigger de la migración
-      // 010 la aplica también sobre esta tabla porque activa onboarding_status).
-      setErrorEnvio(
-        error.message.includes('LOPNNA')
-          ? 'Como eres menor de edad, hace falta el consentimiento de tu representante antes de continuar. Contacta a administración.'
-          : 'No se pudo guardar. Intenta de nuevo.'
-      )
+      setErrorEnvio('No se pudo guardar. Intenta de nuevo.')
       setEnviando(false)
       return
     }

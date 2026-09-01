@@ -7,9 +7,10 @@
 // insertar en `students` (PTMA/PFTA-AAAA-CC-CCC), que es lo que dice la
 // planilla: "consérvelo, lo necesitará para su primer ingreso a la app".
 //
-// Si es menor de edad, se piden también los datos completos del
-// representante — la planilla real los pide todos en el momento de la
-// venta, no después.
+// Si es menor de edad, ventas puede anotar el contacto del representante
+// (nombre, cédula, teléfono, correo) — solo como referencia. No es un
+// requisito para crear la cuenta: la academia decidió no bloquear nada por
+// ser menor de edad, así que esto nunca hace fallar la inscripción.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -60,15 +61,6 @@ function cedulaAEmail(cedula: string): string {
   return `${cedula.trim().toUpperCase()}@estudiante.zrmecademy.com`
 }
 
-function esMenorDeEdad(fechaNacimiento: string): boolean {
-  const nacimiento = new Date(fechaNacimiento)
-  const hoy = new Date()
-  let edad = hoy.getFullYear() - nacimiento.getFullYear()
-  const mes = hoy.getMonth() - nacimiento.getMonth()
-  if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) edad--
-  return edad < 18
-}
-
 function generarPasswordTemporal(): string {
   // Contraseña de arranque, solo hasta que el trigger genere el código real
   // (necesita que el usuario de Auth ya exista). Se reemplaza abajo.
@@ -77,14 +69,10 @@ function generarPasswordTemporal(): string {
 }
 
 interface DatosRepresentante {
-  nombre: string
-  cedula: string
-  parentesco: string
-  edad: number
-  nacionalidad: string
-  profesion: string
+  nombre?: string
+  cedula?: string
   telefono?: string
-  correo: string
+  correo?: string
 }
 
 interface FilaEstudiante {
@@ -137,14 +125,6 @@ Deno.serve(async (req: Request) => {
     }
     if (!emailRx.test(f.correoContacto ?? '')) errores.push({ fila: i + 1, motivo: `Correo inválido: "${f.correoContacto}"` })
     if (esVendedor && !f.cohorteId) errores.push({ fila: i + 1, motivo: 'Ventas debe asignar una cohorte al inscribir' })
-
-    if (f.fechaNacimiento && !Number.isNaN(Date.parse(f.fechaNacimiento)) && esMenorDeEdad(f.fechaNacimiento)) {
-      const r = f.representante
-      if (!r || !r.nombre?.trim() || !cedulaRx.test(r.cedula ?? '') || !r.parentesco?.trim()
-        || !r.edad || !r.nacionalidad?.trim() || !r.profesion?.trim() || !emailRx.test(r.correo ?? '')) {
-        errores.push({ fila: i + 1, motivo: 'Es menor de edad: faltan datos completos del representante (LOPNNA)' })
-      }
-    }
   })
 
   if (errores.length > 0) return erroresPorFila(errores)
@@ -225,23 +205,20 @@ Deno.serve(async (req: Request) => {
       return errorResponse('ERROR_INTERNO', `No se pudo fijar la contraseña de ${cedula}`)
     }
 
-    if (f.representante) {
+    // Solo referencia — nunca bloquea la inscripción. Se guarda lo que haya.
+    if (f.representante?.nombre?.trim() || f.representante?.correo?.trim()) {
       const r = f.representante
       const { error: consentError } = await admin.from('parental_consents').insert({
         student_id: authData.user.id,
         consent_type: 'account_creation',
-        representative_name: r.nombre.trim(),
-        representative_cedula: r.cedula.trim().toUpperCase(),
-        representative_email: r.correo.trim(),
+        representative_name: r.nombre?.trim() || '',
+        representative_cedula: r.cedula?.trim().toUpperCase() || '',
+        representative_email: r.correo?.trim() || '',
         representative_phone: r.telefono?.trim() || null,
-        representative_relationship: r.parentesco.trim(),
-        representative_age: r.edad,
-        representative_nationality: r.nacionalidad.trim(),
-        representative_occupation: r.profesion.trim(),
         method: 'fisico',
       })
       if (consentError) {
-        console.error('create-student: fallo al guardar el consentimiento', consentError.message)
+        console.error('create-student: fallo al guardar el contacto del representante', consentError.message)
       }
     }
 

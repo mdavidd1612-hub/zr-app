@@ -99,17 +99,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="mx-auto min-h-dvh w-full max-w-[430px] bg-zr-bg">
-      <div className="fixed right-3 top-3 z-40 rounded-full border border-white/15 bg-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+    <div className="mx-auto min-h-dvh w-full max-w-[430px] bg-zr-bg print:bg-white">
+      <div className="fixed right-3 top-3 z-40 rounded-full border border-white/15 bg-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-2xl print:hidden">
         <Campanita />
       </div>
-      <div className="pb-28">{children}</div>
-      <BarraFlotante
-        items={NAV}
-        todasLasSecciones={
-          rol === 'super_admin' ? TODAS_SUPER : esDireccionAcademica(rol) ? TODAS_DIRECCION : TODAS
-        }
-      />
+      <div className="pb-28 print:pb-0">{children}</div>
+      <div className="print:hidden">
+        <BarraFlotante
+          items={NAV}
+          todasLasSecciones={
+            rol === 'super_admin' ? TODAS_SUPER : esDireccionAcademica(rol) ? TODAS_DIRECCION : TODAS
+          }
+        />
+      </div>
     </div>
   )
 }

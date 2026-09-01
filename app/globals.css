@@ -275,3 +275,30 @@ button, a[role='button'], input[type='submit'] {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ===========================================================================
+   IMPRESIÓN · planilla (app/(admin)/estudiantes/[id]/planilla)
+   Toda la app vive dentro de un contenedor `max-w-[430px]` (diseño mobile-
+   first) — eso es exactamente lo que hacía que la planilla se imprimiera
+   angosta, "tipo factura", en vez de una página de carta normal: el ancho
+   máximo del layout se hereda incluso cuando el documento interno pide más.
+   Aquí se anula ese límite SOLO al imprimir, y se ocultan los controles de
+   navegación de la app (nunca deben aparecer en el PDF/papel).
+   =========================================================================== */
+@media print {
+  @page {
+    size: letter;
+    margin: 14mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+  }
+
+  /* Todo layout de sección (admin/profesor/estudiante/vendedor) envuelve su
+     contenido en un div con este ancho máximo — se anula solo en impresión. */
+  .mx-auto.min-h-dvh.w-full.max-w-\[430px\] {
+    max-width: none !important;
+    margin: 0 !important;
+  }
+}

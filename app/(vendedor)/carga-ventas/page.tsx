@@ -17,14 +17,10 @@ export default function CargaVentas() {
   const [direccion, setDireccion] = useState('')
   const [cohorteId, setCohorteId] = useState('')
 
-  // Datos del representante — la planilla real los pide TODOS al momento de
-  // la venta cuando el participante es menor de edad, no después.
+  // No hay ningún bloqueo por ser menor de edad — esto es solo referencia
+  // de contacto, nunca un requisito para inscribir.
   const [repNombre, setRepNombre] = useState('')
   const [repCedula, setRepCedula] = useState('V-')
-  const [repParentesco, setRepParentesco] = useState('')
-  const [repEdad, setRepEdad] = useState('')
-  const [repNacionalidad, setRepNacionalidad] = useState('Venezolana')
-  const [repProfesion, setRepProfesion] = useState('')
   const [repTelefono, setRepTelefono] = useState('')
   const [repCorreo, setRepCorreo] = useState('')
 
@@ -43,8 +39,7 @@ export default function CargaVentas() {
   function limpiar() {
     setNombre(''); setCedula('V-'); setFechaNacimiento(''); setCorreo(''); setTelefono('')
     setDireccion(''); setCohorteId('')
-    setRepNombre(''); setRepCedula('V-'); setRepParentesco(''); setRepEdad('')
-    setRepNacionalidad('Venezolana'); setRepProfesion(''); setRepTelefono(''); setRepCorreo('')
+    setRepNombre(''); setRepCedula('V-'); setRepTelefono(''); setRepCorreo('')
   }
 
   async function inscribir() {
@@ -63,14 +58,10 @@ export default function CargaVentas() {
           direccion: direccion || undefined,
           cohorteId,
           representante: esMenor ? {
-            nombre: repNombre,
-            cedula: repCedula.trim().toUpperCase(),
-            parentesco: repParentesco,
-            edad: Number(repEdad),
-            nacionalidad: repNacionalidad,
-            profesion: repProfesion,
+            nombre: repNombre || undefined,
+            cedula: repCedula.trim() !== 'V-' ? repCedula.trim().toUpperCase() : undefined,
             telefono: repTelefono || undefined,
-            correo: repCorreo,
+            correo: repCorreo || undefined,
           } : undefined,
         }],
       },
@@ -96,10 +87,7 @@ export default function CargaVentas() {
     limpiar()
   }
 
-  const completo = Boolean(
-    nombre.trim() && cedula.trim() && fechaNacimiento && correo.trim() && cohorteId &&
-    (!esMenor || (repNombre.trim() && repCedula.trim() && repParentesco.trim() && repEdad && repNacionalidad.trim() && repProfesion.trim() && repCorreo.trim()))
-  )
+  const completo = Boolean(nombre.trim() && cedula.trim() && fechaNacimiento && correo.trim() && cohorteId)
 
   return (
     <div className="space-y-11 px-5 pt-14 pb-10">
@@ -137,8 +125,8 @@ export default function CargaVentas() {
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
             />
             {esMenor && (
-              <p className="mt-1.5 text-xs font-semibold text-zr-warning">
-                Es menor de edad — completa abajo los datos de su representante.
+              <p className="mt-1.5 text-xs text-zr-text-muted">
+                Es menor de edad — puedes anotar abajo el contacto de su representante (opcional).
               </p>
             )}
           </div>
@@ -162,15 +150,11 @@ export default function CargaVentas() {
       </Seccion>
 
       {esMenor && (
-        <Seccion numero={2} titulo="Datos del representante legal" delay={160}>
+        <Seccion numero={2} titulo="Contacto del representante (opcional)" delay={160}>
           <div className="zr-card space-y-5 p-6">
             <Campo etiqueta="Nombre completo" valor={repNombre} onChange={setRepNombre} placeholder="" />
-            <SelectorCedula etiqueta="Cédula" value={repCedula} onChange={setRepCedula} required />
-            <Campo etiqueta="Parentesco" valor={repParentesco} onChange={setRepParentesco} placeholder="Madre, padre, tío(a)…" />
-            <Campo etiqueta="Edad" valor={repEdad} onChange={setRepEdad} placeholder="" type="number" />
-            <Campo etiqueta="Nacionalidad" valor={repNacionalidad} onChange={setRepNacionalidad} placeholder="" />
-            <Campo etiqueta="Profesión / ocupación" valor={repProfesion} onChange={setRepProfesion} placeholder="" />
-            <Campo etiqueta="Teléfono (vigente)" valor={repTelefono} onChange={setRepTelefono} placeholder="" />
+            <SelectorCedula etiqueta="Cédula" value={repCedula} onChange={setRepCedula} />
+            <Campo etiqueta="Teléfono" valor={repTelefono} onChange={setRepTelefono} placeholder="" />
             <Campo etiqueta="Correo" valor={repCorreo} onChange={setRepCorreo} placeholder="" type="email" />
           </div>
         </Seccion>

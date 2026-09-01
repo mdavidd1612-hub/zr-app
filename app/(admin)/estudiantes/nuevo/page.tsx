@@ -22,10 +22,6 @@ export default function NuevoEstudiante() {
 
   const [repNombre, setRepNombre] = useState('')
   const [repCedula, setRepCedula] = useState('V-')
-  const [repParentesco, setRepParentesco] = useState('')
-  const [repEdad, setRepEdad] = useState('')
-  const [repNacionalidad, setRepNacionalidad] = useState('Venezolana')
-  const [repProfesion, setRepProfesion] = useState('')
   const [repTelefono, setRepTelefono] = useState('')
   const [repCorreo, setRepCorreo] = useState('')
 
@@ -57,14 +53,10 @@ export default function NuevoEstudiante() {
           direccion: direccion || undefined,
           cohorteId: cohorteId || null,
           representante: esMenor ? {
-            nombre: repNombre,
-            cedula: repCedula.trim().toUpperCase(),
-            parentesco: repParentesco,
-            edad: Number(repEdad),
-            nacionalidad: repNacionalidad,
-            profesion: repProfesion,
+            nombre: repNombre || undefined,
+            cedula: repCedula.trim() !== 'V-' ? repCedula.trim().toUpperCase() : undefined,
             telefono: repTelefono || undefined,
-            correo: repCorreo,
+            correo: repCorreo || undefined,
           } : undefined,
         }],
       },
@@ -92,10 +84,7 @@ export default function NuevoEstudiante() {
   // contraseña de la cuenta) necesita una cohorte real para generarse. Sin
   // eso quedaría en un código "pendiente" que después, al asignar cohorte,
   // cambia — pero la contraseña ya fijada no se actualiza sola.
-  const individualCompleto = Boolean(
-    nombre.trim() && cedula.trim() && fechaNacimiento && correo.trim() && cohorteId &&
-    (!esMenor || (repNombre.trim() && repCedula.trim() && repParentesco.trim() && repEdad && repNacionalidad.trim() && repProfesion.trim() && repCorreo.trim()))
-  )
+  const individualCompleto = Boolean(nombre.trim() && cedula.trim() && fechaNacimiento && correo.trim() && cohorteId)
 
   return (
     <div className="space-y-11 px-5 pt-14 pb-10">
@@ -139,8 +128,8 @@ export default function NuevoEstudiante() {
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
             />
             {esMenor && (
-              <p className="mt-1.5 text-xs font-semibold text-zr-warning">
-                Es menor de edad — completa abajo los datos de su representante.
+              <p className="mt-1.5 text-xs text-zr-text-muted">
+                Es menor de edad — puedes anotar abajo el contacto de su representante (opcional).
               </p>
             )}
           </div>
@@ -164,15 +153,11 @@ export default function NuevoEstudiante() {
       </Seccion>
 
       {esMenor && (
-        <Seccion numero={2} titulo="Datos del representante legal" delay={160}>
+        <Seccion numero={2} titulo="Contacto del representante (opcional)" delay={160}>
           <div className="zr-card space-y-5 p-6">
             <Campo etiqueta="Nombre completo" valor={repNombre} onChange={setRepNombre} placeholder="" />
-            <SelectorCedula etiqueta="Cédula" value={repCedula} onChange={setRepCedula} required />
-            <Campo etiqueta="Parentesco" valor={repParentesco} onChange={setRepParentesco} placeholder="Madre, padre, tío(a)…" />
-            <Campo etiqueta="Edad" valor={repEdad} onChange={setRepEdad} placeholder="" type="number" />
-            <Campo etiqueta="Nacionalidad" valor={repNacionalidad} onChange={setRepNacionalidad} placeholder="" />
-            <Campo etiqueta="Profesión / ocupación" valor={repProfesion} onChange={setRepProfesion} placeholder="" />
-            <Campo etiqueta="Teléfono (vigente)" valor={repTelefono} onChange={setRepTelefono} placeholder="" />
+            <SelectorCedula etiqueta="Cédula" value={repCedula} onChange={setRepCedula} />
+            <Campo etiqueta="Teléfono" valor={repTelefono} onChange={setRepTelefono} placeholder="" />
             <Campo etiqueta="Correo" valor={repCorreo} onChange={setRepCorreo} placeholder="" type="email" />
           </div>
         </Seccion>

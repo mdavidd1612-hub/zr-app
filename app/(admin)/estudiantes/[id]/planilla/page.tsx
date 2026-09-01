@@ -40,8 +40,7 @@ interface Datos {
   moduloActual: string | null
   turno: string | null
   representante: {
-    nombre: string; cedula: string; parentesco: string | null; edad: number | null
-    nacionalidad: string | null; profesion: string | null; telefono: string | null; correo: string
+    nombre: string; cedula: string; telefono: string | null; correo: string
   } | null
 }
 
@@ -76,7 +75,7 @@ export default function PlanillaEstudiante() {
       const [{ data: student }, { data: consentimiento }] = await Promise.all([
         supabase.from('students').select('student_code, cohorts(turno, current_module_id, modules(name))').eq('id', id).single(),
         supabase.from('parental_consents')
-          .select('representative_name, representative_cedula, representative_email, representative_phone, representative_relationship, representative_age, representative_nationality, representative_occupation')
+          .select('representative_name, representative_cedula, representative_email, representative_phone')
           .eq('student_id', id).eq('consent_type', 'account_creation').maybeSingle(),
       ])
 
@@ -99,10 +98,6 @@ export default function PlanillaEstudiante() {
         representante: consentimiento ? {
           nombre: consentimiento.representative_name,
           cedula: consentimiento.representative_cedula,
-          parentesco: consentimiento.representative_relationship,
-          edad: consentimiento.representative_age,
-          nacionalidad: consentimiento.representative_nationality,
-          profesion: consentimiento.representative_occupation,
           telefono: consentimiento.representative_phone,
           correo: consentimiento.representative_email,
         } : null,
@@ -131,21 +126,16 @@ export default function PlanillaEstudiante() {
     <div className="px-5 pb-16 pt-14 print:px-0 print:pt-0">
       <div className="print:hidden">
         <BotonVolver href={`/estudiantes/${id}`} />
-        {datos.esMenor && !datos.representante && (
-          <p className="mt-6 rounded-lg border border-zr-error/30 bg-zr-error/12 px-4 py-3 text-sm font-medium text-zr-error">
-            Es menor de edad y no tiene datos de representante guardados — no imprimas hasta completarlos.
-          </p>
-        )}
         <button
           onClick={() => window.print()}
-          className="mt-4 min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white"
+          className="mt-6 min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white"
         >
           Imprimir / Guardar como PDF
         </button>
       </div>
 
       {/* ============================= PÁGINA 1 ============================= */}
-      <div className="mx-auto mt-8 max-w-[700px] rounded-lg bg-white p-8 text-black print:mt-0 print:max-w-none print:rounded-none print:p-10 print:shadow-none print:break-after-page">
+      <div className="mx-auto mt-8 max-w-[700px] rounded-lg bg-white p-8 text-black print:mt-0 print:max-w-none print:min-h-screen print:rounded-none print:p-0 print:shadow-none print:break-after-page">
         <header className="border-b-2 border-black pb-3 text-center">
           <p className="text-base font-bold uppercase">{INSTITUCION.nombre}</p>
           <p className="text-[11px] text-neutral-700">
@@ -190,32 +180,23 @@ export default function PlanillaEstudiante() {
           solicitan como dato aparte al vendedor.
         </p>
 
-        {datos.esMenor && (
+        {datos.esMenor && datos.representante && (
           <>
             <p className="mt-6 border-b border-black pb-1 text-xs font-bold uppercase tracking-wide">
-              Datos del representante — solo si el participante es menor de edad
+              Contacto del representante
             </p>
             <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-              <CampoAncho etiqueta="Nombre y apellido del representante" valor={datos.representante?.nombre ?? '—'} />
-              <Campo etiqueta="C.I." valor={datos.representante?.cedula ?? '—'} />
-              <Campo etiqueta="Parentesco" valor={datos.representante?.parentesco ?? '—'} />
-              <Campo etiqueta="Edad" valor={datos.representante?.edad != null ? String(datos.representante.edad) : '—'} />
-              <Campo etiqueta="Nacionalidad" valor={datos.representante?.nacionalidad ?? '—'} />
-              <Campo etiqueta="Profesión / ocupación" valor={datos.representante?.profesion ?? '—'} />
-              <Campo etiqueta="Nro. celular (vigente)" valor={datos.representante?.telefono ?? '—'} />
-              <Campo etiqueta="Correo Gmail del representante" valor={datos.representante?.correo ?? '—'} />
+              <CampoAncho etiqueta="Nombre y apellido del representante" valor={datos.representante.nombre || '—'} />
+              <Campo etiqueta="C.I." valor={datos.representante.cedula || '—'} />
+              <Campo etiqueta="Nro. celular" valor={datos.representante.telefono ?? '—'} />
+              <Campo etiqueta="Correo" valor={datos.representante.correo || '—'} />
             </div>
-            <p className="mt-2 text-[10px] italic text-neutral-500">
-              Esta sección solo se imprime cuando el sistema marca al participante como menor de edad.
-              En ese caso se solicitan todos estos datos del representante al momento de la venta
-              (Módulo 1), no después en la app.
-            </p>
           </>
         )}
       </div>
 
       {/* ============================= PÁGINA 2 ============================= */}
-      <div className="mx-auto mt-6 max-w-[700px] rounded-lg bg-white p-8 text-black print:mt-0 print:max-w-none print:rounded-none print:p-10 print:shadow-none">
+      <div className="mx-auto mt-6 max-w-[700px] rounded-lg bg-white p-8 text-black print:mt-0 print:max-w-none print:min-h-screen print:rounded-none print:p-0 print:shadow-none">
         <header className="border-b-2 border-black pb-3 text-center">
           <p className="text-base font-bold uppercase">{INSTITUCION.nombre}</p>
         </header>

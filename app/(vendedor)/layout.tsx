@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { esVendedor } from '@/lib/auth-helpers'
-import { BarraFlotante, type ItemBarra } from '@/components/ui/BarraFlotante'
+import { type ItemBarra } from '@/components/ui/BarraFlotante'
+import { Marco } from '@/components/ui/Marco'
 import { IconoEstudiantes, IconoNotas, IconoPanel, IconoPerfil } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -57,9 +58,8 @@ export default function VendedorLayout({ children }: { children: React.ReactNode
   }
 
   return (
-    <div className="mx-auto min-h-dvh w-full max-w-[430px] bg-zr-bg">
-      <div className="pb-28">{children}</div>
-      <BarraFlotante items={NAV} deslizable={false} />
-    </div>
+    <Marco items={NAV} deslizable={false} campanita={false}>
+      {children}
+    </Marco>
   )
 }

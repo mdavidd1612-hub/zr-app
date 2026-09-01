@@ -10,7 +10,11 @@ export default function manifest(): MetadataRoute.Manifest {
     display: 'standalone', // Sin barra de direcciones
     background_color: '#0F1419',
     theme_color: '#3869B1',
-    orientation: 'portrait-primary',
+    // Sin bloqueo de orientación: instalada en una PC, la ventana de la PWA
+    // es apaisada y de tamaño libre — con 'portrait-primary' el sistema puede
+    // negarse a darle el ancho completo. En el teléfono se sigue usando de pie
+    // por costumbre, y el marco responsive aguanta el giro sin romperse.
+    orientation: 'any',
     icons: [
       {
         src: '/icon-192.png',

@@ -3,8 +3,8 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { BarraFlotante, type ItemBarra } from '@/components/ui/BarraFlotante'
-import { Campanita } from '@/components/ui/Campanita'
+import { type ItemBarra } from '@/components/ui/BarraFlotante'
+import { Marco } from '@/components/ui/Marco'
 import {
   IconoInicio, IconoPerfil, IconoProgreso, IconoDocumento, IconoDuda,
 } from '@/components/ui/Iconos'
@@ -113,14 +113,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const enExamen = /^\/examenes\/[^/]+$/.test(pathname)
 
   return (
-    <div className="mx-auto min-h-dvh w-full max-w-[430px] bg-zr-bg">
-      {!enExamen && (
-        <div className="fixed right-3 top-3 z-40 rounded-full border border-white/15 bg-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
-          <Campanita />
-        </div>
-      )}
-      <div className="pb-28">{children}</div>
-      {!enExamen && <BarraFlotante items={validado ? NAV : NAV_PENDIENTE} deslizable={validado} />}
-    </div>
+    <Marco
+      items={validado ? NAV : NAV_PENDIENTE}
+      deslizable={validado}
+      sinNavegacion={enExamen}
+    >
+      {children}
+    </Marco>
   )
 }

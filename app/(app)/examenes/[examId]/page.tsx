@@ -495,7 +495,7 @@ export default function ExamenPage() {
       )}
 
       {/* Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-zr-surface border-t border-zr-border px-5 py-4 space-y-3">
+      <div className="fixed bottom-0 left-1/2 w-full max-w-[430px] -translate-x-1/2 space-y-3 border-t border-zr-border bg-zr-surface px-5 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:max-w-[900px]">
         {submitError && (
           <p className="rounded-lg border border-zr-error/30 bg-zr-error/12 px-4 py-3 text-sm font-medium text-zr-error">
             {submitError}

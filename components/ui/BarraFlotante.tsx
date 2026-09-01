@@ -92,7 +92,7 @@ export function BarraFlotante({ items, todasLasSecciones, deslizable = true }: P
   return (
     <>
       {menuAbierto && todasLasSecciones && (
-        <div className="fixed inset-0 z-40 flex items-end bg-black/60" onClick={() => setMenuAbierto(false)}>
+        <div className="fixed inset-0 z-40 flex items-end bg-black/60 lg:hidden" onClick={() => setMenuAbierto(false)}>
           <div
             onClick={(e) => e.stopPropagation()}
             className="w-full rounded-t-2xl border-t border-white/15 bg-zr-surface pb-28 pt-2 shadow-[0_-8px_32px_rgba(0,0,0,0.5)]"
@@ -132,7 +132,12 @@ export function BarraFlotante({ items, todasLasSecciones, deslizable = true }: P
         </div>
       )}
 
-      <nav className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
+      {/* Desde 1024 px manda `BarraLateral`: en un monitor esta píldora queda
+          descolgada del contenido y sobra ancho para una columna de secciones. */}
+      <nav
+        className="fixed left-1/2 z-50 -translate-x-1/2 lg:hidden"
+        style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+      >
         <div className="rounded-[28px] border border-white/15 bg-white/10 px-2 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
           <div className="flex gap-0.5">
             {items.map((item) => {

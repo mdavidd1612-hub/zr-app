@@ -46,9 +46,14 @@ export default function PerfilVendedor() {
         setPerfil({ nombre: p.full_name, cedula: p.cedula, rol: p.role as UserRole, correo: p.contact_email })
       }
 
+      // OJO: students tiene DOS relaciones con profiles (students.id y
+      // students.enrolled_by, ambas → profiles.id) desde la migración 046.
+      // Sin nombrar la FK exacta (students_id_fkey), PostgREST no sabe cuál
+      // de las dos usar para el embed y la consulta entera falla —
+      // por eso la lista aparecía siempre vacía.
       const { data: est } = await supabase
         .from('students')
-        .select('student_code, profiles(full_name), cohorts(name)')
+        .select('student_code, profiles!students_id_fkey(full_name), cohorts(name)')
         .eq('enrolled_by', user.id)
         .order('created_at', { ascending: false })
 

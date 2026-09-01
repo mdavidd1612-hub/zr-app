@@ -76,7 +76,7 @@ export default function NotasCohorte() {
       }
 
       const [{ data: estudiantes }, { data: notas }] = await Promise.all([
-        supabase.from('students').select('id, profiles(full_name, cedula)').eq('cohort_id', cohortId),
+        supabase.from('students').select('id, profiles!students_id_fkey(full_name, cedula)').eq('cohort_id', cohortId),
         supabase
           .from('module_enrollments')
           .select('id, student_id, theory_score, practice_score, participation_score, participation_weight, final_score, status, passing_threshold')

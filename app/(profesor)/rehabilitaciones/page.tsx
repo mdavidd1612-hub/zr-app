@@ -54,7 +54,7 @@ export default function Rehabilitaciones() {
           exams(title),
           exam_attempts!inner(
             id,
-            students(profiles(full_name))
+            students(profiles!students_id_fkey(full_name))
           )
         `)
         .in('exam_id', misIds)

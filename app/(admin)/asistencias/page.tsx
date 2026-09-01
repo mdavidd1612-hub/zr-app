@@ -75,7 +75,7 @@ export default function Asistencias() {
         .maybeSingle(),
       supabase
         .from('students')
-        .select('id, profiles(full_name, cedula, phone)')
+        .select('id, profiles!students_id_fkey(full_name, cedula, phone)')
         .eq('cohort_id', cohorteId),
     ])
 

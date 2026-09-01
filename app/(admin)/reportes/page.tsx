@@ -134,7 +134,7 @@ export default function Reportes() {
       // 4 — Exámenes pendientes de calificar, con antigüedad en horas
       const { data: respuestas } = await supabase
         .from('exam_answers')
-        .select('created_at, exam_attempts(submitted_at, students(profiles(full_name)), exams(title))')
+        .select('created_at, exam_attempts(submitted_at, students(profiles!students_id_fkey(full_name)), exams(title))')
         .is('awarded_points', null)
 
       const filasRespuestas = respuestas as unknown as {

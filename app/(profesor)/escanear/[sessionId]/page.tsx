@@ -207,7 +207,7 @@ export default function Escanear() {
 
     const { data } = await supabase
       .from('students')
-      .select('id, profiles(full_name, cedula)')
+      .select('id, profiles!students_id_fkey(full_name, cedula)')
       .eq('cohort_id', sesion.cohort_id)
 
     const filas = (data ?? []) as unknown as { id: string; profiles: { full_name: string; cedula: string } | null }[]

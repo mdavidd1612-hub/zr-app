@@ -59,7 +59,7 @@ export default function Calificar() {
           exam_attempts!inner(
             submitted_at,
             exams(title),
-            students(profiles(full_name))
+            students(profiles!students_id_fkey(full_name))
           )
         `)
         .is('awarded_points', null)

@@ -1609,11 +1609,15 @@ export type Database = {
           document_url: string | null
           id: string
           method: Database["public"]["Enums"]["consent_method"]
+          representative_age: number | null
           representative_cedula: string
           representative_email: string
           representative_id_document_url: string | null
           representative_name: string
+          representative_nationality: string | null
+          representative_occupation: string | null
           representative_phone: string | null
+          representative_relationship: string | null
           signed_at: string
           student_id: string
           verified_at: string | null
@@ -1625,11 +1629,15 @@ export type Database = {
           document_url?: string | null
           id?: string
           method: Database["public"]["Enums"]["consent_method"]
+          representative_age?: number | null
           representative_cedula: string
           representative_email: string
           representative_id_document_url?: string | null
           representative_name: string
+          representative_nationality?: string | null
+          representative_occupation?: string | null
           representative_phone?: string | null
+          representative_relationship?: string | null
           signed_at?: string
           student_id: string
           verified_at?: string | null
@@ -1641,11 +1649,15 @@ export type Database = {
           document_url?: string | null
           id?: string
           method?: Database["public"]["Enums"]["consent_method"]
+          representative_age?: number | null
           representative_cedula?: string
           representative_email?: string
           representative_id_document_url?: string | null
           representative_name?: string
+          representative_nationality?: string | null
+          representative_occupation?: string | null
           representative_phone?: string | null
+          representative_relationship?: string | null
           signed_at?: string
           student_id?: string
           verified_at?: string | null
@@ -2056,6 +2068,7 @@ export type Database = {
       }
       students: {
         Row: {
+          address: string | null
           birth_date: string
           cohort_id: string | null
           created_at: string
@@ -2068,8 +2081,11 @@ export type Database = {
           student_code: string | null
           trust_level: number | null
           updated_at: string
+          validated_at: string | null
+          validated_by: string | null
         }
         Insert: {
+          address?: string | null
           birth_date: string
           cohort_id?: string | null
           created_at?: string
@@ -2082,8 +2098,11 @@ export type Database = {
           student_code?: string | null
           trust_level?: number | null
           updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
         }
         Update: {
+          address?: string | null
           birth_date?: string
           cohort_id?: string | null
           created_at?: string
@@ -2096,6 +2115,8 @@ export type Database = {
           student_code?: string | null
           trust_level?: number | null
           updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
         }
         Relationships: [
           {
@@ -2116,6 +2137,13 @@ export type Database = {
             foreignKeyName: "students_id_fkey"
             columns: ["id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2307,6 +2335,7 @@ export type Database = {
       }
       v_students: {
         Row: {
+          address: string | null
           age_years: number | null
           avatar_url: string | null
           birth_date: string | null
@@ -2325,6 +2354,7 @@ export type Database = {
             | null
           phone: string | null
           status: Database["public"]["Enums"]["profile_status"] | null
+          validated_at: string | null
         }
         Relationships: [
           {

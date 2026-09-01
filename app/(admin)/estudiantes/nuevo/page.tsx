@@ -3,19 +3,31 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Encabezado, Regla } from '@/components/ui/Editorial'
+import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { SelectorCedula } from '@/components/ui/SelectorCedula'
+import { esMenorDeEdad } from '@/lib/auth-helpers'
 
 export default function NuevoEstudiante() {
   const router = useRouter()
   const [cohortes, setCohortes] = useState<{ id: string; name: string }[]>([])
 
   const [nombre, setNombre] = useState('')
-  const [cedula, setCedula] = useState('')
+  const [cedula, setCedula] = useState('V-')
   const [fechaNacimiento, setFechaNacimiento] = useState('')
   const [correo, setCorreo] = useState('')
   const [telefono, setTelefono] = useState('')
+  const [direccion, setDireccion] = useState('')
   const [cohorteId, setCohorteId] = useState('')
+
+  const [repNombre, setRepNombre] = useState('')
+  const [repCedula, setRepCedula] = useState('V-')
+  const [repParentesco, setRepParentesco] = useState('')
+  const [repEdad, setRepEdad] = useState('')
+  const [repNacionalidad, setRepNacionalidad] = useState('Venezolana')
+  const [repProfesion, setRepProfesion] = useState('')
+  const [repTelefono, setRepTelefono] = useState('')
+  const [repCorreo, setRepCorreo] = useState('')
 
   const [enviando, setEnviando] = useState(false)
   const [erroresServidor, setErroresServidor] = useState<{ fila: number; motivo: string }[]>([])
@@ -27,12 +39,14 @@ export default function NuevoEstudiante() {
     })
   }, [])
 
+  const esMenor = fechaNacimiento ? esMenorDeEdad(new Date(fechaNacimiento)) : false
+
   async function enviarIndividual() {
     setEnviando(true)
     setErroresServidor([])
     setExito(null)
 
-    const { error } = await createClient().functions.invoke('create-student', {
+    const { data, error } = await createClient().functions.invoke('create-student', {
       body: {
         estudiantes: [{
           nombreCompleto: nombre,
@@ -40,7 +54,18 @@ export default function NuevoEstudiante() {
           fechaNacimiento,
           correoContacto: correo,
           telefono: telefono || undefined,
+          direccion: direccion || undefined,
           cohorteId: cohorteId || null,
+          representante: esMenor ? {
+            nombre: repNombre,
+            cedula: repCedula.trim().toUpperCase(),
+            parentesco: repParentesco,
+            edad: Number(repEdad),
+            nacionalidad: repNacionalidad,
+            profesion: repProfesion,
+            telefono: repTelefono || undefined,
+            correo: repCorreo,
+          } : undefined,
         }],
       },
     })
@@ -57,15 +82,23 @@ export default function NuevoEstudiante() {
       return
     }
 
-    setExito(`Cuenta creada para ${nombre}.`)
+    const codigo = (data as { creados?: { studentCode: string }[] } | null)?.creados?.[0]?.studentCode
+    setExito(`Cuenta creada para ${nombre}. Código/contraseña de su carnet: ${codigo ?? '—'}.`)
     setEnviando(false)
-    setTimeout(() => router.push('/estudiantes'), 1200)
+    setTimeout(() => router.push('/estudiantes'), 1800)
   }
 
-  const individualCompleto = nombre.trim() && cedula.trim() && fechaNacimiento && correo.trim()
+  // La cohorte ya no es opcional: el código de carnet (que también es la
+  // contraseña de la cuenta) necesita una cohorte real para generarse. Sin
+  // eso quedaría en un código "pendiente" que después, al asignar cohorte,
+  // cambia — pero la contraseña ya fijada no se actualiza sola.
+  const individualCompleto = Boolean(
+    nombre.trim() && cedula.trim() && fechaNacimiento && correo.trim() && cohorteId &&
+    (!esMenor || (repNombre.trim() && repCedula.trim() && repParentesco.trim() && repEdad && repNacionalidad.trim() && repProfesion.trim() && repCorreo.trim()))
+  )
 
   return (
-    <div className="space-y-11 px-5 pt-14">
+    <div className="space-y-11 px-5 pt-14 pb-10">
       <BotonVolver href="/estudiantes" />
 
       <Encabezado sobretitulo="Administración · Estudiantes" titulo="Nuevo estudiante" />
@@ -93,42 +126,65 @@ export default function NuevoEstudiante() {
         </div>
       )}
 
-      <div className="zr-card space-y-5 p-6">
-        <Campo etiqueta="Nombre completo" valor={nombre} onChange={setNombre} placeholder="Como aparece en la cédula" />
-        <Campo etiqueta="Cédula" valor={cedula} onChange={(v) => setCedula(v.toUpperCase())} placeholder="V-12345678" />
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-zr-text">Fecha de nacimiento</label>
-          <input
-            type="date"
-            value={fechaNacimiento}
-            onChange={(e) => setFechaNacimiento(e.target.value)}
-            className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
-          />
+      <Seccion numero={1} titulo="Datos del participante" delay={100}>
+        <div className="zr-card space-y-5 p-6">
+          <Campo etiqueta="Nombre completo" valor={nombre} onChange={setNombre} placeholder="Como aparece en la cédula" />
+          <SelectorCedula etiqueta="Cédula" value={cedula} onChange={setCedula} required />
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Fecha de nacimiento</label>
+            <input
+              type="date"
+              value={fechaNacimiento}
+              onChange={(e) => setFechaNacimiento(e.target.value)}
+              className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+            />
+            {esMenor && (
+              <p className="mt-1.5 text-xs font-semibold text-zr-warning">
+                Es menor de edad — completa abajo los datos de su representante.
+              </p>
+            )}
+          </div>
+          <Campo etiqueta="Correo de contacto" valor={correo} onChange={setCorreo} placeholder="Del estudiante o su representante" type="email" />
+          <Campo etiqueta="Teléfono (opcional)" valor={telefono} onChange={setTelefono} placeholder="" />
+          <Campo etiqueta="Dirección" valor={direccion} onChange={setDireccion} placeholder="Para la planilla" />
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Cohorte</label>
+            <select
+              value={cohorteId}
+              onChange={(e) => setCohorteId(e.target.value)}
+              className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+            >
+              <option value="">Selecciona una cohorte</option>
+              {cohortes.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
-        <Campo etiqueta="Correo de contacto" valor={correo} onChange={setCorreo} placeholder="Del estudiante o su representante" type="email" />
-        <Campo etiqueta="Teléfono (opcional)" valor={telefono} onChange={setTelefono} placeholder="" />
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-zr-text">Cohorte (opcional)</label>
-          <select
-            value={cohorteId}
-            onChange={(e) => setCohorteId(e.target.value)}
-            className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
-          >
-            <option value="">Sin asignar</option>
-            {cohortes.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
+      </Seccion>
 
-        <button
-          onClick={enviarIndividual}
-          disabled={!individualCompleto || enviando}
-          className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {enviando ? 'Creando cuenta…' : 'Crear estudiante'}
-        </button>
-      </div>
+      {esMenor && (
+        <Seccion numero={2} titulo="Datos del representante legal" delay={160}>
+          <div className="zr-card space-y-5 p-6">
+            <Campo etiqueta="Nombre completo" valor={repNombre} onChange={setRepNombre} placeholder="" />
+            <SelectorCedula etiqueta="Cédula" value={repCedula} onChange={setRepCedula} required />
+            <Campo etiqueta="Parentesco" valor={repParentesco} onChange={setRepParentesco} placeholder="Madre, padre, tío(a)…" />
+            <Campo etiqueta="Edad" valor={repEdad} onChange={setRepEdad} placeholder="" type="number" />
+            <Campo etiqueta="Nacionalidad" valor={repNacionalidad} onChange={setRepNacionalidad} placeholder="" />
+            <Campo etiqueta="Profesión / ocupación" valor={repProfesion} onChange={setRepProfesion} placeholder="" />
+            <Campo etiqueta="Teléfono (vigente)" valor={repTelefono} onChange={setRepTelefono} placeholder="" />
+            <Campo etiqueta="Correo" valor={repCorreo} onChange={setRepCorreo} placeholder="" type="email" />
+          </div>
+        </Seccion>
+      )}
+
+      <button
+        onClick={enviarIndividual}
+        disabled={!individualCompleto || enviando}
+        className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {enviando ? 'Creando cuenta…' : 'Crear estudiante'}
+      </button>
     </div>
   )
 }

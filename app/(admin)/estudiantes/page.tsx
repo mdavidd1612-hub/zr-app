@@ -26,9 +26,10 @@ interface Estudiante {
   esMenor: boolean
   tieneConsentimiento: boolean
   consentimientoVerificado: boolean
+  validado: boolean
 }
 
-type Filtro = 'todos' | 'menores' | 'sin_cohorte' | 'suspendidos'
+type Filtro = 'todos' | 'pendientes' | 'menores' | 'sin_cohorte' | 'suspendidos'
 
 export default function Estudiantes() {
   const router = useRouter()
@@ -60,7 +61,7 @@ export default function Estudiantes() {
         // final por defecto, así que "Sin cohorte" queda agrupado al final.
         supabase
           .from('v_students')
-          .select('id, full_name, cedula, cohort_id, status, age_years, is_minor, cohorts(name)')
+          .select('id, full_name, cedula, cohort_id, status, age_years, is_minor, validated_at, cohorts(name)')
           .order('cohort_id', { nullsFirst: false })
           .order('full_name'),
         supabase.from('parental_consents').select('student_id, verified_at').eq('consent_type', 'account_creation'),
@@ -72,7 +73,7 @@ export default function Estudiantes() {
 
       const filas = data as unknown as {
         id: string; full_name: string; cedula: string; cohort_id: string | null
-        status: string; age_years: number; is_minor: boolean
+        status: string; age_years: number; is_minor: boolean; validated_at: string | null
         cohorts: { name: string } | null
       }[] | null
 
@@ -88,6 +89,7 @@ export default function Estudiantes() {
           esMenor: e.is_minor,
           tieneConsentimiento: porEstudiante.has(e.id),
           consentimientoVerificado: porEstudiante.get(e.id) != null,
+          validado: Boolean(e.validated_at),
         })),
       )
       setCargando(false)
@@ -145,6 +147,7 @@ export default function Estudiantes() {
     if (texto && !e.nombre.toLowerCase().includes(texto) && !e.cedula.toLowerCase().includes(texto)) {
       return false
     }
+    if (filtro === 'pendientes') return !e.validado
     if (filtro === 'menores') return e.esMenor
     if (filtro === 'sin_cohorte') return !e.cohorteId
     if (filtro === 'suspendidos') return e.estado === 'suspendido'
@@ -153,6 +156,7 @@ export default function Estudiantes() {
 
   const FILTROS: { valor: Filtro; texto: string }[] = [
     { valor: 'todos', texto: 'Todos' },
+    { valor: 'pendientes', texto: 'Pendientes de validar' },
     { valor: 'menores', texto: 'Menores' },
     { valor: 'sin_cohorte', texto: 'Sin cohorte' },
     { valor: 'suspendidos', texto: 'Suspendidos' },
@@ -240,6 +244,7 @@ export default function Estudiantes() {
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      {!e.validado && <Etiqueta tono="aviso">Pendiente de validar</Etiqueta>}
                       {e.estado === 'suspendido' && <Etiqueta tono="error">Suspendido</Etiqueta>}
                       {e.esMenor && (
                         <Etiqueta tono={e.consentimientoVerificado ? 'exito' : e.tieneConsentimiento ? 'aviso' : 'error'}>

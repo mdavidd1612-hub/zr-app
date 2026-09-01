@@ -31,6 +31,7 @@ export default function Inicio() {
   const [proximo, setProximo] = useState<ProximoSabado | null>(null)
   const [modulo, setModulo] = useState<Modulo | null>(null)
   const [cargando, setCargando] = useState(true)
+  const [validado, setValidado] = useState(true)
   const [hechos, setHechos] = useState<Set<string>>(new Set())
   // PRUEBA TEMPORAL: interruptor de simulación de sábado, controlado desde
   // Perfil. Se lee de localStorage dentro de cargar(), como el resto del
@@ -75,6 +76,19 @@ export default function Inicio() {
       const { data: perfil } = await supabase
         .from('profiles').select('full_name').eq('id', user.id).single()
       if (perfil) setNombre(perfil.full_name)
+
+      const { data: estValidacion } = await supabase
+        .from('students').select('validated_at').eq('id', user.id).maybeSingle()
+      const yaValidado = Boolean(estValidacion?.validated_at)
+      setValidado(yaValidado)
+
+      // Sin validar todavía no tiene sentido cargar horario, módulo ni
+      // casos — la cuenta apenas la creó ventas, puede que ni tenga cohorte
+      // real asignada todavía.
+      if (!yaValidado) {
+        setCargando(false)
+        return
+      }
 
       const { data: prox } = await supabase
         .from('v_proximo_sabado')
@@ -138,6 +152,34 @@ export default function Inicio() {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
         <p className="text-sm text-zr-text-muted">Cargando…</p>
+      </div>
+    )
+  }
+
+  if (!validado) {
+    return (
+      <div className="flex min-h-dvh flex-col justify-center bg-zr-bg px-5 pb-28">
+        <div className="space-y-6 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-zr-border bg-zr-surface text-3xl">
+            ⏳
+          </div>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
+              {nombre.split(' ')[0] || 'Bienvenido(a)'}
+            </p>
+            <h1 className="zr-display mt-2 text-3xl text-zr-text">Tu cuenta está siendo validada</h1>
+          </div>
+          <p className="mx-auto max-w-xs text-sm leading-relaxed text-zr-text-muted">
+            Administración confirma tu inscripción cuando firmes tu planilla en persona en la
+            academia. Ya puedes completar tu perfil desde abajo mientras esperas.
+          </p>
+          <button
+            onClick={() => router.push('/perfil')}
+            className="mx-auto min-h-14 rounded-lg border border-zr-border px-8 text-base font-semibold text-zr-text"
+          >
+            Ir a mi perfil
+          </button>
+        </div>
       </div>
     )
   }

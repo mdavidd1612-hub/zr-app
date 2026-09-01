@@ -7,7 +7,7 @@ import { esAdmin, esDireccionAcademica } from '@/lib/auth-helpers'
 import { BarraFlotante, type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Campanita } from '@/components/ui/Campanita'
 import {
-  IconoPanel, IconoEstudiantes, IconoCandado, IconoPerfil, IconoNotas, IconoPersonal, IconoCheck, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet,
+  IconoPanel, IconoEstudiantes, IconoCandado, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -46,7 +46,6 @@ const TODAS: ItemBarra[] = [
 const TODAS_DIRECCION: ItemBarra[] = [
   ...TODAS.slice(0, 6),
   { href: '/personal',             label: 'Personal',     Icono: IconoPersonal },
-  { href: '/solicitudes-profesor', label: 'Solicitudes',  Icono: IconoCheck },
   { href: '/notas-academicas',     label: 'Notas',        Icono: IconoNotas },
   { href: '/examenes-academicos',  label: 'Exámenes',     Icono: IconoExamen },
   TODAS[6],
@@ -55,7 +54,6 @@ const TODAS_DIRECCION: ItemBarra[] = [
 const TODAS_SUPER: ItemBarra[] = [
   ...TODAS.slice(0, 6),
   { href: '/personal',             label: 'Personal',      Icono: IconoPersonal },
-  { href: '/solicitudes-profesor', label: 'Solicitudes',   Icono: IconoCheck },
   { href: '/notas-academicas',     label: 'Notas',         Icono: IconoNotas },
   { href: '/examenes-academicos',  label: 'Exámenes',      Icono: IconoExamen },
   { href: '/configuracion',        label: 'Configuración', Icono: IconoPanel },

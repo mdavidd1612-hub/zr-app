@@ -17,6 +17,7 @@ interface Ficha {
   cohorteId: string | null
   estado: string
   ingreso: string
+  validadoEn: string | null
 }
 
 export default function FichaEstudiante() {
@@ -44,7 +45,7 @@ export default function FichaEstudiante() {
       const [{ data: est }, { data: cohs }] = await Promise.all([
         supabase
           .from('v_students')
-          .select('full_name, cedula, contact_email, phone, age_years, is_minor, cohort_id, status, enrollment_date')
+          .select('full_name, cedula, contact_email, phone, age_years, is_minor, cohort_id, status, enrollment_date, validated_at')
           .eq('id', id)
           .single(),
         supabase.from('cohorts').select('id, name').eq('status', 'activa'),
@@ -61,6 +62,7 @@ export default function FichaEstudiante() {
           cohorteId: est.cohort_id,
           estado: est.status ?? 'activo',
           ingreso: est.enrollment_date ?? '',
+          validadoEn: est.validated_at,
         })
         setNuevaCohorte(est.cohort_id ?? '')
       }
@@ -71,6 +73,25 @@ export default function FichaEstudiante() {
 
     cargar()
   }, [id, router])
+
+  async function validar() {
+    setGuardando(true)
+    setMensaje(null)
+
+    const { data: { user } } = await createClient().auth.getUser()
+    const { error } = await createClient()
+      .from('students')
+      .update({ validated_at: new Date().toISOString(), validated_by: user?.id ?? null })
+      .eq('id', id)
+
+    if (error) {
+      setMensaje(error.message)
+    } else {
+      setFicha((f) => (f ? { ...f, validadoEn: new Date().toISOString() } : f))
+      setMensaje('Estudiante validado.')
+    }
+    setGuardando(false)
+  }
 
   async function guardarCohorte() {
     setGuardando(true)
@@ -105,6 +126,30 @@ export default function FichaEstudiante() {
       <Encabezado sobretitulo="Administración · Estudiantes" titulo={ficha.nombre} />
 
       <Regla delay={60} />
+
+      {!ficha.validadoEn && (
+        <Seccion numero={0} titulo="Validación pendiente" delay={80}>
+          <div className="zr-card space-y-4 border-zr-warning/40 p-5">
+            <p className="text-sm leading-relaxed text-zr-text-muted">
+              Este estudiante todavía no puede usar la app completa — solo ve Inicio y Perfil,
+              con un aviso de que su cuenta está en validación. Imprime su planilla, que la firme
+              en persona, y valida aquí para desbloquearlo.
+            </p>
+            {mensaje && (
+              <p className={`text-sm font-medium ${mensaje.includes('validado') ? 'text-zr-success' : 'text-zr-error'}`}>
+                {mensaje}
+              </p>
+            )}
+            <button
+              onClick={validar}
+              disabled={guardando}
+              className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-40"
+            >
+              {guardando ? 'Validando…' : 'Validar estudiante (ya firmó en persona)'}
+            </button>
+          </div>
+        </Seccion>
+      )}
 
       <Seccion numero={1} titulo="Datos" delay={120}>
         <div className="zr-card divide-y divide-zr-border">

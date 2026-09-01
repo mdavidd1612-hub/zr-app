@@ -87,6 +87,9 @@ export default function Login() {
               required
               className="w-full px-5 py-4 bg-zr-surface border border-zr-border rounded-xl text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none focus:ring-2 focus:ring-zr-blue/20 transition-all text-base font-medium"
             />
+            <p className="text-xs text-zr-text-muted">
+              Si eres estudiante y es tu primera vez, es el código de tu carnet (ej. PTMA-2026-04-001).
+            </p>
           </div>
 
           {/* Error Message */}
@@ -114,23 +117,12 @@ export default function Login() {
           >
             ¿Olvidaste tu contraseña?
           </Link>
-          <Link
-            href="/registro/profesor"
-            className="block text-center py-3 text-zr-blue font-medium text-sm hover:text-zr-blue-light transition-colors"
-          >
-            ¿Eres un profesor? Solicita acceso
-          </Link>
-          <Link
-            href="/registro"
-            className="block text-center py-3 bg-zr-surface border border-zr-border text-zr-text font-medium text-sm rounded-lg hover:border-zr-blue/50 hover:bg-zr-blue/5 transition-all"
-          >
-            ¿Eres nuevo? Regístrate
-          </Link>
         </div>
 
         {/* Footer Info */}
         <div className="text-center text-xs text-zr-text-muted pt-6 border-t border-zr-border">
-          <p>Acceso seguro para estudiantes, profesores y administración</p>
+          <p>Las cuentas las crea administración o ventas. Si eres estudiante nuevo,
+          tu clave es el código de tu carnet — lo recibiste en tu planilla de inscripción.</p>
         </div>
       </div>
     </main>

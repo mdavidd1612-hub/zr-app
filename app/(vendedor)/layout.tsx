@@ -5,15 +5,19 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { esVendedor } from '@/lib/auth-helpers'
 import { BarraFlotante, type ItemBarra } from '@/components/ui/BarraFlotante'
-import { IconoEstudiantes, IconoPerfil } from '@/components/ui/Iconos'
+import { IconoEstudiantes, IconoNotas, IconoPanel, IconoPerfil } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
 // El rol Vendedor solo inscribe estudiantes al cobrar — nunca ve notas,
 // asistencia ni configuración. Por eso vive en su propio grupo de rutas con
-// su propia barra, de solo 2 secciones (docs/17_PLAN_CONSOLIDADO..., Sprint 5).
+// su propia barra (docs/17_PLAN_CONSOLIDADO..., ajuste post-Sprint 7):
+// Inscribir, Mis inscripciones (filtradas por programa) y Programas
+// (cohortes de PTMA/PFTA, puede dar de alta una nueva) son secciones aparte.
 const NAV: ItemBarra[] = [
-  { href: '/carga-ventas',     label: 'Inscribir', Icono: IconoEstudiantes },
-  { href: '/perfil-vendedor',  label: 'Perfil',    Icono: IconoPerfil },
+  { href: '/carga-ventas',       label: 'Inscribir',      Icono: IconoEstudiantes },
+  { href: '/mis-inscripciones',  label: 'Inscripciones',  Icono: IconoNotas },
+  { href: '/programas',          label: 'Programas',      Icono: IconoPanel },
+  { href: '/perfil-vendedor',    label: 'Perfil',         Icono: IconoPerfil },
 ]
 
 export default function VendedorLayout({ children }: { children: React.ReactNode }) {

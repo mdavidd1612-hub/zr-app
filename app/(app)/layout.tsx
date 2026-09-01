@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { BarraFlotante, type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Campanita } from '@/components/ui/Campanita'
@@ -22,9 +22,15 @@ const NAV: ItemBarra[] = [
   { href: '/perfil',    label: 'Perfil',    Icono: IconoPerfil },
 ]
 
+// Mientras administración no valida al estudiante (firma física de la
+// planilla, ver docs/17_PLAN_CONSOLIDADO...), solo tiene sentido mostrarle
+// dos pestañas: Inicio (con el mensaje de "en validación") y Perfil.
+const NAV_PENDIENTE: ItemBarra[] = [NAV[0], NAV[4]]
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
+  const [validado, setValidado] = useState(true)
 
   useEffect(() => {
     const supabase = createClient()
@@ -56,6 +62,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     verificarPerfilCompleto()
   }, [pathname, router])
 
+  // Validación de administración (firma física de la planilla): es
+  // INDEPENDIENTE del formulario de arriba — el estudiante puede llenarlo
+  // mientras espera. Lo que sí se restringe es la navegación: sin validar,
+  // solo Inicio y Perfil tienen sentido, y cualquier otra ruta de estudiante
+  // rebota a Inicio.
+  useEffect(() => {
+    const supabase = createClient()
+    async function verificarValidacion() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: est } = await supabase
+        .from('students').select('validated_at').eq('id', user.id).maybeSingle()
+      const yaValidado = Boolean(est?.validated_at)
+      setValidado(yaValidado)
+      if (!yaValidado && pathname !== '/' && pathname !== '/perfil' && pathname !== '/completar-perfil') {
+        router.replace('/')
+      }
+    }
+    verificarValidacion()
+  }, [pathname, router])
+
   // Dentro de un examen no se desliza: el gesto de pasar de sección chocaría
   // con el de pasar de pregunta y el estudiante saldría del examen a medias.
   const enExamen = /^\/examenes\/[^/]+$/.test(pathname)
@@ -68,7 +95,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       )}
       <div className="pb-28">{children}</div>
-      {!enExamen && <BarraFlotante items={NAV} />}
+      {!enExamen && <BarraFlotante items={validado ? NAV : NAV_PENDIENTE} deslizable={validado} />}
     </div>
   )
 }

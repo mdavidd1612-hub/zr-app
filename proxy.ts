@@ -1,13 +1,10 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 
-// /api/auth/register: lo llama alguien que TODAVÍA no tiene cuenta — no
-// puede exigirle sesión. /api/auth/consent: si pasara por el chequeo de
-// abajo, un menor con onboarding_status='en_curso' quedaría atrapado en un
-// bucle (la propia llamada que completa el consentimiento sería bloqueada
-// por no haber completado el consentimiento todavía). La ruta valida su
-// propia sesión internamente (devuelve 401 si no hay usuario).
-const PUBLIC_ROUTES = ['/login', '/registro', '/recuperar', '/api/auth/callback', '/api/auth/register', '/api/auth/consent']
+// Ya no hay autoregistro (docs/17_PLAN_CONSOLIDADO..., ajuste post-Sprint 7):
+// toda cuenta la crea administración o ventas desde dentro de la app. Solo
+// quedan públicas login y recuperar contraseña.
+const PUBLIC_ROUTES = ['/login', '/recuperar', '/api/auth/callback']
 
 // Rutas reales por rol. Los grupos de Next.js como (app), (profesor) o
 // (admin) NUNCA aparecen en la URL — son solo organización de archivos —
@@ -19,9 +16,9 @@ const PUBLIC_ROUTES = ['/login', '/registro', '/recuperar', '/api/auth/callback'
 // '/notas' es ambigua entre roles: el estudiante ve exactamente '/notas'
 // (sin nada más), el profesor ve '/notas/[cohortId]'. Va aparte para no
 // hacer match de prefijo con el otro rol por accidente.
-const RUTAS_ESTUDIANTE = ['/', '/clases', '/contenido', '/examenes', '/perfil', '/progreso', '/solicitud-profesor']
+const RUTAS_ESTUDIANTE = ['/', '/clases', '/contenido', '/examenes', '/perfil', '/progreso', '/completar-perfil']
 const RUTAS_PROFESOR = ['/hoy', '/sesiones', '/crear-examen', '/calificar', '/perfil-docente', '/contenido-docente', '/dominio', '/escanear', '/feedback-clase']
-const RUTAS_ADMIN = ['/panel', '/estudiantes', '/consentimientos', '/cohortes', '/reportes', '/perfil-admin', '/configuracion', '/personal', '/solicitudes-profesor', '/notas-academicas', '/examenes-academicos']
+const RUTAS_ADMIN = ['/panel', '/estudiantes', '/consentimientos', '/cohortes', '/reportes', '/perfil-admin', '/configuracion', '/personal', '/notas-academicas', '/examenes-academicos']
 
 function empiezaConAlguna(pathname: string, rutas: string[]) {
   return rutas.some((r) => pathname === r || pathname.startsWith(r + '/'))
@@ -83,38 +80,12 @@ export async function proxy(request: NextRequest) {
     direccion_academica: '/panel',
   }
 
-  // VALIDACIÓN CRÍTICA: menor sin consentimiento no puede acceder a nada
-  // excepto consentimiento.
-  //
-  // OJO: esto usaba `onboarding_status !== 'completo'` para decidirlo, pero
-  // ese campo NO significa "es menor sin consentimiento" — significa
-  // "terminó el registro básico", y con el Sprint 6 (formulario de primer
-  // login) empezó a quedar en 'en_curso' también para ESTUDIANTES ADULTOS
-  // mientras llenan ese formulario. Resultado: cualquier adulto a mitad del
-  // formulario de primer login era mandado a rellenar el consentimiento
-  // parental de un menor — no tiene nada que ver. La pregunta real es "¿es
-  // menor Y le falta el consentimiento?", así que se consulta eso
-  // directamente en vez de fiarse de onboarding_status.
-  if (role === 'estudiante') {
-    const { data: est } = await supabase
-      .from('v_students')
-      .select('is_minor')
-      .eq('id', user.id)
-      .maybeSingle()
-
-    if (est?.is_minor) {
-      const { data: consentimiento } = await supabase
-        .from('parental_consents')
-        .select('id')
-        .eq('student_id', user.id)
-        .eq('consent_type', 'account_creation')
-        .maybeSingle()
-
-      if (!consentimiento && !pathname.startsWith('/registro/consentimiento')) {
-        return NextResponse.redirect(new URL('/registro/consentimiento', request.url))
-      }
-    }
-  }
+  // El consentimiento parental (LOPNNA) ya no se autogestiona desde la app —
+  // lo captura el vendedor al momento de la venta (Módulo 1), junto con el
+  // resto de los datos del estudiante, así que no hace falta un gate aquí
+  // redirigiendo a ninguna pantalla propia. La ley se sigue aplicando en la
+  // base (trigger fn_check_parental_consent, migración 010): sin ese
+  // consentimiento, el estudiante nunca puede quedar onboarding 'completo'.
 
   // Validar que el rol corresponda a la ruta.
   const esRutaDeEstudiante = empiezaConAlguna(pathname, RUTAS_ESTUDIANTE) || esNotasEstudiante(pathname)

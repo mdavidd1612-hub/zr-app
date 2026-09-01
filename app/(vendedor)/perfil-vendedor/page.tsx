@@ -14,16 +14,9 @@ interface Perfil {
   correo: string | null
 }
 
-interface Inscrito {
-  full_name: string
-  student_code: string | null
-  cohort_name: string | null
-}
-
 export default function PerfilVendedor() {
   const router = useRouter()
   const [perfil, setPerfil] = useState<Perfil | null>(null)
-  const [inscritos, setInscritos] = useState<Inscrito[]>([])
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
@@ -45,29 +38,6 @@ export default function PerfilVendedor() {
       if (p) {
         setPerfil({ nombre: p.full_name, cedula: p.cedula, rol: p.role as UserRole, correo: p.contact_email })
       }
-
-      // OJO: students tiene DOS relaciones con profiles (students.id y
-      // students.enrolled_by, ambas → profiles.id) desde la migración 046.
-      // Sin nombrar la FK exacta (students_id_fkey), PostgREST no sabe cuál
-      // de las dos usar para el embed y la consulta entera falla —
-      // por eso la lista aparecía siempre vacía.
-      const { data: est } = await supabase
-        .from('students')
-        .select('student_code, profiles!students_id_fkey(full_name), cohorts(name)')
-        .eq('enrolled_by', user.id)
-        .order('created_at', { ascending: false })
-
-      const filas = (est ?? []) as unknown as {
-        student_code: string | null
-        profiles: { full_name: string } | null
-        cohorts: { name: string } | null
-      }[]
-
-      setInscritos(filas.map((f) => ({
-        full_name: f.profiles?.full_name ?? '—',
-        student_code: f.student_code,
-        cohort_name: f.cohorts?.name ?? null,
-      })))
 
       setCargando(false)
     }
@@ -94,24 +64,6 @@ export default function PerfilVendedor() {
 
       <Seccion numero={1} titulo="Cuenta" delay={120}>
         <BloqueCuenta nombre={perfil.nombre} cedula={perfil.cedula} rol={perfil.rol} correo={perfil.correo} />
-      </Seccion>
-
-      <Seccion numero={2} titulo={`Mis inscripciones (${inscritos.length})`} delay={200}>
-        {inscritos.length === 0 ? (
-          <p className="zr-card p-5 text-sm text-zr-text-muted">Todavía no has inscrito a nadie.</p>
-        ) : (
-          <div className="zr-card divide-y divide-zr-border">
-            {inscritos.map((i, idx) => (
-              <div key={idx} className="flex items-center justify-between gap-4 px-5 py-4">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-zr-text">{i.full_name}</p>
-                  <p className="mt-0.5 truncate text-xs text-zr-text-muted">{i.cohort_name ?? 'Sin cohorte'}</p>
-                </div>
-                <span className="shrink-0 text-xs font-bold tabular-nums text-zr-blue-mid">{i.student_code}</span>
-              </div>
-            ))}
-          </div>
-        )}
       </Seccion>
     </div>
   )

@@ -1,9 +1,15 @@
-// T-113: Crear estudiante desde administración (uno o por lote CSV).
+// T-113: Crear estudiante — ahora la ÚNICA vía para que exista un estudiante.
 //
-// El estudiante normal entra por /registro y elige su propia contraseña.
-// Esta función es para cuando ADMINISTRACIÓN lo da de alta a mano: le asigna
-// una contraseña temporal, y el correo real (contact_email) es a donde debe
-// ir la recuperación — nunca al correo sintético de cedulaAEmail().
+// Ya no hay autoregistro (docs/17_PLAN_CONSOLIDADO..., ajuste post-Sprint 7):
+// el vendedor (o administración) lo inscribe con los datos de la planilla
+// física, Módulo 1. La contraseña de la cuenta NO la elige nadie — es el
+// mismo código de carnet que el trigger set_student_code() genera al
+// insertar en `students` (PTMA/PFTA-AAAA-CC-CCC), que es lo que dice la
+// planilla: "consérvelo, lo necesitará para su primer ingreso a la app".
+//
+// Si es menor de edad, se piden también los datos completos del
+// representante — la planilla real los pide todos en el momento de la
+// venta, no después.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -54,11 +60,31 @@ function cedulaAEmail(cedula: string): string {
   return `${cedula.trim().toUpperCase()}@estudiante.zrmecademy.com`
 }
 
+function esMenorDeEdad(fechaNacimiento: string): boolean {
+  const nacimiento = new Date(fechaNacimiento)
+  const hoy = new Date()
+  let edad = hoy.getFullYear() - nacimiento.getFullYear()
+  const mes = hoy.getMonth() - nacimiento.getMonth()
+  if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) edad--
+  return edad < 18
+}
+
 function generarPasswordTemporal(): string {
-  // 12 caracteres al azar, suficiente para una contraseña que se cambia en el
-  // primer inicio de sesión y no se vuelve a usar.
+  // Contraseña de arranque, solo hasta que el trigger genere el código real
+  // (necesita que el usuario de Auth ya exista). Se reemplaza abajo.
   const bytes = crypto.getRandomValues(new Uint8Array(9))
   return btoa(String.fromCharCode(...bytes)).replace(/[+/=]/g, 'x').slice(0, 12) + 'Aa1!'
+}
+
+interface DatosRepresentante {
+  nombre: string
+  cedula: string
+  parentesco: string
+  edad: number
+  nacionalidad: string
+  profesion: string
+  telefono?: string
+  correo: string
 }
 
 interface FilaEstudiante {
@@ -67,7 +93,9 @@ interface FilaEstudiante {
   fechaNacimiento: string   // YYYY-MM-DD
   correoContacto: string
   telefono?: string
+  direccion?: string
   cohorteId?: string | null
+  representante?: DatosRepresentante
 }
 
 Deno.serve(async (req: Request) => {
@@ -97,9 +125,8 @@ Deno.serve(async (req: Request) => {
   }
 
   // Validación completa ANTES de crear nada: la carga es todo o nada.
-  // Una fila mala en un CSV de 80 no debe dejar 79 cuentas huérfanas.
   const errores: { fila: number; motivo: string }[] = []
-  const cedulaRx = /^V-\d{7,8}$/
+  const cedulaRx = /^[VEJ]-\d{6,9}$/
   const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
   filas.forEach((f, i) => {
@@ -110,13 +137,20 @@ Deno.serve(async (req: Request) => {
     }
     if (!emailRx.test(f.correoContacto ?? '')) errores.push({ fila: i + 1, motivo: `Correo inválido: "${f.correoContacto}"` })
     if (esVendedor && !f.cohorteId) errores.push({ fila: i + 1, motivo: 'Ventas debe asignar una cohorte al inscribir' })
+
+    if (f.fechaNacimiento && !Number.isNaN(Date.parse(f.fechaNacimiento)) && esMenorDeEdad(f.fechaNacimiento)) {
+      const r = f.representante
+      if (!r || !r.nombre?.trim() || !cedulaRx.test(r.cedula ?? '') || !r.parentesco?.trim()
+        || !r.edad || !r.nacionalidad?.trim() || !r.profesion?.trim() || !emailRx.test(r.correo ?? '')) {
+        errores.push({ fila: i + 1, motivo: 'Es menor de edad: faltan datos completos del representante (LOPNNA)' })
+      }
+    }
   })
 
   if (errores.length > 0) return erroresPorFila(errores)
 
   const admin = adminClient()
 
-  // Cédulas duplicadas entre sí en el mismo archivo.
   const vistas = new Set<string>()
   filas.forEach((f, i) => {
     const c = f.cedula.trim().toUpperCase()
@@ -124,7 +158,6 @@ Deno.serve(async (req: Request) => {
     vistas.add(c)
   })
 
-  // Cédulas que ya existen en la base.
   const { data: existentes } = await admin
     .from('profiles')
     .select('cedula')
@@ -139,17 +172,14 @@ Deno.serve(async (req: Request) => {
 
   if (errores.length > 0) return erroresPorFila(errores)
 
-  // Todo validado. Se crean todas las cuentas; si alguna falla a mitad de
-  // camino (fallo de red con Auth, por ejemplo) se deshacen las ya creadas.
-  const creados: { userId: string; cedula: string }[] = []
+  const creados: { userId: string; cedula: string; studentCode: string }[] = []
 
   for (const f of filas) {
     const cedula = f.cedula.trim().toUpperCase()
-    const password = generarPasswordTemporal()
 
     const { data: authData, error: authError } = await admin.auth.admin.createUser({
       email: cedulaAEmail(cedula),
-      password,
+      password: generarPasswordTemporal(),
       user_metadata: {
         full_name: f.nombreCompleto,
         cedula,
@@ -164,25 +194,59 @@ Deno.serve(async (req: Request) => {
       return errorResponse('ERROR_INTERNO', `No se pudo crear la cuenta de ${cedula}: ${authError?.message}`)
     }
 
-    // El disparador handle_new_user ya creó profiles (role='estudiante',
-    // full_name, cedula, contact_email, phone) desde la metadata de arriba.
-    // Solo falta la fila propia de students.
-    const { error: studentError } = await admin.from('students').insert({
+    const { data: nuevoEstudiante, error: studentError } = await admin.from('students').insert({
       id: authData.user.id,
       birth_date: f.fechaNacimiento,
       cohort_id: f.cohorteId ?? null,
+      address: f.direccion ?? null,
       enrolled_by: esVendedor ? user.id : null,
-    })
+    }).select('student_code').single()
 
-    if (studentError) {
-      for (const c of [...creados, { userId: authData.user.id, cedula }]) {
+    if (studentError || !nuevoEstudiante) {
+      for (const c of [...creados, { userId: authData.user.id, cedula, studentCode: '' }]) {
         await admin.auth.admin.deleteUser(c.userId)
       }
       return errorResponse('ERROR_INTERNO', `No se pudo completar el registro de ${cedula}`)
     }
 
-    creados.push({ userId: authData.user.id, cedula })
+    const studentCode = nuevoEstudiante.student_code as string
+
+    // La contraseña de la cuenta ES el código de carnet — se fija recién
+    // ahora porque el trigger que lo genera necesita que el usuario y la
+    // cohorte ya existan (regla 2 de AGENTS.md: nunca se calcula en el
+    // cliente, aquí sigue siendo 100% servidor).
+    const { error: passwordError } = await admin.auth.admin.updateUserById(authData.user.id, {
+      password: studentCode,
+    })
+    if (passwordError) {
+      for (const c of [...creados, { userId: authData.user.id, cedula, studentCode }]) {
+        await admin.auth.admin.deleteUser(c.userId)
+      }
+      return errorResponse('ERROR_INTERNO', `No se pudo fijar la contraseña de ${cedula}`)
+    }
+
+    if (f.representante) {
+      const r = f.representante
+      const { error: consentError } = await admin.from('parental_consents').insert({
+        student_id: authData.user.id,
+        consent_type: 'account_creation',
+        representative_name: r.nombre.trim(),
+        representative_cedula: r.cedula.trim().toUpperCase(),
+        representative_email: r.correo.trim(),
+        representative_phone: r.telefono?.trim() || null,
+        representative_relationship: r.parentesco.trim(),
+        representative_age: r.edad,
+        representative_nationality: r.nacionalidad.trim(),
+        representative_occupation: r.profesion.trim(),
+        method: 'fisico',
+      })
+      if (consentError) {
+        console.error('create-student: fallo al guardar el consentimiento', consentError.message)
+      }
+    }
+
+    creados.push({ userId: authData.user.id, cedula, studentCode })
   }
 
-  return okResponse({ ok: true, creados: creados.length })
+  return okResponse({ ok: true, creados: creados.map((c) => ({ cedula: c.cedula, studentCode: c.studentCode })) })
 })

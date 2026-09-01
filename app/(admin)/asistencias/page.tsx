@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -238,9 +239,19 @@ export default function Asistencias() {
     <div className="space-y-11 px-5 pt-14">
       <BotonVolver href="/panel" />
 
-      <Encabezado sobretitulo="Administración" titulo="Asistencia" />
+      <Encabezado sobretitulo="Administración" titulo="Asistencia de hoy" />
 
       <Regla delay={60} />
+
+      {/* La vista general con filtros e histórico vive aparte para no
+          estorbar el flujo del sábado, que es marcar rápido y seguir. */}
+      <Link
+        href="/asistencias/historico"
+        className="flex min-h-14 items-center justify-between rounded-lg border border-zr-border bg-zr-surface px-5 text-base font-bold text-zr-text"
+      >
+        Ver asistencia general e histórico
+        <span aria-hidden className="text-zr-text-muted">›</span>
+      </Link>
 
       <Dato
         valor={filas.filter((f) => f.presente).length}

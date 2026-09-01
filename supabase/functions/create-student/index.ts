@@ -68,11 +68,18 @@ function generarPasswordTemporal(): string {
   return btoa(String.fromCharCode(...bytes)).replace(/[+/=]/g, 'x').slice(0, 12) + 'Aa1!'
 }
 
+// Los ocho campos que pide la planilla física de la academia
+// (especificacion-funcional-zrm-academy.md §3). Ninguno bloquea la
+// inscripción — se guarda lo que ventas haya podido anotar.
 interface DatosRepresentante {
   nombre?: string
   cedula?: string
   telefono?: string
   correo?: string
+  parentesco?: string
+  edad?: number
+  nacionalidad?: string
+  profesion?: string
 }
 
 interface FilaEstudiante {
@@ -215,6 +222,10 @@ Deno.serve(async (req: Request) => {
         representative_cedula: r.cedula?.trim().toUpperCase() || '',
         representative_email: r.correo?.trim() || '',
         representative_phone: r.telefono?.trim() || null,
+        representative_relationship: r.parentesco?.trim() || null,
+        representative_age: Number.isFinite(r.edad) && (r.edad ?? 0) > 0 ? r.edad : null,
+        representative_nationality: r.nacionalidad?.trim() || null,
+        representative_occupation: r.profesion?.trim() || null,
         method: 'fisico',
       })
       if (consentError) {

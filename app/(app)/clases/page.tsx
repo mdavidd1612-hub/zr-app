@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -171,6 +172,16 @@ export default function MiModulo() {
                 </p>
               </div>
             </Seccion>
+
+            {/* Módulo 7 de la spec funcional: el camino completo del programa,
+                no solo el módulo de esta semana. */}
+            <Link
+              href="/malla"
+              className="flex min-h-14 items-center justify-between rounded-lg border border-zr-border bg-zr-surface px-5 text-base font-bold text-zr-text"
+            >
+              Ver la malla curricular completa
+              <span aria-hidden className="text-zr-text-muted">›</span>
+            </Link>
           </>
         )}
       </div>

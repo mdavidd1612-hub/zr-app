@@ -23,6 +23,10 @@ export default function CargaVentas() {
   const [repCedula, setRepCedula] = useState('V-')
   const [repTelefono, setRepTelefono] = useState('')
   const [repCorreo, setRepCorreo] = useState('')
+  const [repParentesco, setRepParentesco] = useState('')
+  const [repEdad, setRepEdad] = useState('')
+  const [repNacionalidad, setRepNacionalidad] = useState('')
+  const [repProfesion, setRepProfesion] = useState('')
 
   const [enviando, setEnviando] = useState(false)
   const [erroresServidor, setErroresServidor] = useState<{ fila: number; motivo: string }[]>([])
@@ -40,6 +44,7 @@ export default function CargaVentas() {
     setNombre(''); setCedula('V-'); setFechaNacimiento(''); setCorreo(''); setTelefono('')
     setDireccion(''); setCohorteId('')
     setRepNombre(''); setRepCedula('V-'); setRepTelefono(''); setRepCorreo('')
+    setRepParentesco(''); setRepEdad(''); setRepNacionalidad(''); setRepProfesion('')
   }
 
   async function inscribir() {
@@ -62,6 +67,10 @@ export default function CargaVentas() {
             cedula: repCedula.trim() !== 'V-' ? repCedula.trim().toUpperCase() : undefined,
             telefono: repTelefono || undefined,
             correo: repCorreo || undefined,
+            parentesco: repParentesco || undefined,
+            edad: repEdad ? Number(repEdad) : undefined,
+            nacionalidad: repNacionalidad || undefined,
+            profesion: repProfesion || undefined,
           } : undefined,
         }],
       },
@@ -154,9 +163,17 @@ export default function CargaVentas() {
           <div className="zr-card space-y-5 p-6">
             <Campo etiqueta="Nombre completo" valor={repNombre} onChange={setRepNombre} placeholder="" />
             <SelectorCedula etiqueta="Cédula" value={repCedula} onChange={setRepCedula} />
+            <Campo etiqueta="Parentesco" valor={repParentesco} onChange={setRepParentesco} placeholder="Madre, padre, tío…" />
+            <Campo etiqueta="Edad" valor={repEdad} onChange={setRepEdad} placeholder="" type="number" />
+            <Campo etiqueta="Nacionalidad" valor={repNacionalidad} onChange={setRepNacionalidad} placeholder="Venezolana" />
+            <Campo etiqueta="Profesión u ocupación" valor={repProfesion} onChange={setRepProfesion} placeholder="" />
             <Campo etiqueta="Teléfono" valor={repTelefono} onChange={setRepTelefono} placeholder="" />
             <Campo etiqueta="Correo" valor={repCorreo} onChange={setRepCorreo} placeholder="" type="email" />
           </div>
+          <p className="mt-2 px-1 text-xs text-zr-text-muted">
+            Estos ocho campos son los que pide la planilla física. Anota lo que el representante
+            traiga hoy; lo que falte se completa antes de la firma.
+          </p>
         </Seccion>
       )}
 

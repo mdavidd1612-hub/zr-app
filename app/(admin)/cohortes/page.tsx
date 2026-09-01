@@ -41,6 +41,10 @@ export default function Cohortes() {
   const [creando, setCreando] = useState(false)
   const [nombreNueva, setNombreNueva] = useState('')
   const [ubicacionNueva, setUbicacionNueva] = useState('')
+  // Días y horario de la cohorte: es lo que sale impreso en la planilla del
+  // estudiante (migración 052). No se le pide al vendedor.
+  const [diasNueva, setDiasNueva] = useState('Sábados')
+  const [horarioNueva, setHorarioNueva] = useState('')
   const [moduloNueva, setModuloNueva] = useState('')
   const [profesorNueva, setProfesorNueva] = useState('')
   const [guardando, setGuardando] = useState(false)
@@ -110,6 +114,8 @@ export default function Cohortes() {
       program_id: programaId,
       name: nombreNueva.trim(),
       location: ubicacionNueva.trim() || null,
+      days: diasNueva.trim() || null,
+      schedule: horarioNueva.trim() || null,
       current_module_id: moduloNueva || null,
       teacher_id: profesorNueva || null,
     })
@@ -122,6 +128,8 @@ export default function Cohortes() {
 
     setNombreNueva('')
     setUbicacionNueva('')
+    setDiasNueva('Sábados')
+    setHorarioNueva('')
     setModuloNueva('')
     setProfesorNueva('')
     setCreando(false)
@@ -188,6 +196,30 @@ export default function Cohortes() {
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
             />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-zr-text">Días</label>
+              <input
+                value={diasNueva}
+                onChange={(e) => setDiasNueva(e.target.value)}
+                placeholder="Sábados"
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-zr-text">Horario</label>
+              <input
+                value={horarioNueva}
+                onChange={(e) => setHorarioNueva(e.target.value)}
+                placeholder="9:00 a.m. – 12:00 p.m."
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
+              />
+            </div>
+          </div>
+          <p className="-mt-1 text-xs text-zr-text-muted">
+            Es lo que se imprime como &quot;Días y horario&quot; en la planilla del estudiante.
+          </p>
+
           <div>
             <label className="mb-2 block text-sm font-semibold text-zr-text">Módulo inicial</label>
             <select

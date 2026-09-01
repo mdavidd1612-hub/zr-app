@@ -388,10 +388,12 @@ export type Database = {
           code_number: number | null
           created_at: string
           current_module_id: string | null
+          days: string | null
           id: string
           location: string | null
           name: string
           program_id: string
+          schedule: string | null
           sede: string | null
           start_date: string
           status: Database["public"]["Enums"]["cohort_status"]
@@ -403,10 +405,12 @@ export type Database = {
           code_number?: number | null
           created_at?: string
           current_module_id?: string | null
+          days?: string | null
           id?: string
           location?: string | null
           name: string
           program_id: string
+          schedule?: string | null
           sede?: string | null
           start_date?: string
           status?: Database["public"]["Enums"]["cohort_status"]
@@ -418,10 +422,12 @@ export type Database = {
           code_number?: number | null
           created_at?: string
           current_module_id?: string | null
+          days?: string | null
           id?: string
           location?: string | null
           name?: string
           program_id?: string
+          schedule?: string | null
           sede?: string | null
           start_date?: string
           status?: Database["public"]["Enums"]["cohort_status"]

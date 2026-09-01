@@ -27,11 +27,6 @@ const INSTITUCION = {
 // la planilla tiene que verse de la misma identidad, no en blanco y negro.
 const AZUL = '#3869B1'
 
-const HORARIO_TURNO: Record<string, string> = {
-  'mañana': 'Sábados, 9:00 a.m. – 12:00 p.m.',
-  tarde: 'Sábados, 2:00 p.m. – 5:00 p.m.',
-}
-
 interface Datos {
   nombre: string
   cedula: string
@@ -42,9 +37,11 @@ interface Datos {
   esMenor: boolean
   studentCode: string | null
   moduloActual: string | null
-  turno: string | null
+  diasYHorario: string | null
   representante: {
     nombre: string; cedula: string; telefono: string | null; correo: string
+    parentesco: string | null; edad: number | null
+    nacionalidad: string | null; profesion: string | null
   } | null
 }
 
@@ -77,16 +74,21 @@ export default function PlanillaEstudiante() {
       }
 
       const [{ data: student }, { data: consentimiento }] = await Promise.all([
-        supabase.from('students').select('student_code, cohorts(turno, current_module_id, modules(name))').eq('id', id).single(),
+        supabase.from('students').select('student_code, cohorts(days, schedule, current_module_id, modules(name))').eq('id', id).single(),
         supabase.from('parental_consents')
-          .select('representative_name, representative_cedula, representative_email, representative_phone')
+          .select('representative_name, representative_cedula, representative_email, representative_phone, representative_relationship, representative_age, representative_nationality, representative_occupation')
           .eq('student_id', id).eq('consent_type', 'account_creation').maybeSingle(),
       ])
 
       const cohorteInfo = (student as unknown as {
         student_code: string | null
-        cohorts: { turno: string | null; modules: { name: string } | null } | null
+        cohorts: { days: string | null; schedule: string | null; modules: { name: string } | null } | null
       } | null)
+
+      // "Días y horario" salen de la cohorte (migración 052), nunca escritos
+      // en el código: cambiarlos es editar la cohorte, no desplegar.
+      const diasYHorario = [cohorteInfo?.cohorts?.days, cohorteInfo?.cohorts?.schedule]
+        .filter(Boolean).join(', ') || null
 
       setDatos({
         nombre: est.full_name ?? '',
@@ -98,12 +100,16 @@ export default function PlanillaEstudiante() {
         esMenor: est.is_minor ?? false,
         studentCode: cohorteInfo?.student_code ?? null,
         moduloActual: cohorteInfo?.cohorts?.modules?.name ?? null,
-        turno: cohorteInfo?.cohorts?.turno ?? null,
+        diasYHorario,
         representante: consentimiento ? {
           nombre: consentimiento.representative_name,
           cedula: consentimiento.representative_cedula,
           telefono: consentimiento.representative_phone,
           correo: consentimiento.representative_email,
+          parentesco: consentimiento.representative_relationship,
+          edad: consentimiento.representative_age,
+          nacionalidad: consentimiento.representative_nationality,
+          profesion: consentimiento.representative_occupation,
         } : null,
       })
       setCargando(false)
@@ -181,7 +187,7 @@ export default function PlanillaEstudiante() {
           <CampoAncho etiqueta="Nombre y apellido" valor={datos.nombre} />
           <Campo etiqueta="C.I." valor={datos.cedula} />
           <Campo etiqueta="Módulo a cursar" valor={datos.moduloActual ?? '—'} />
-          <Campo etiqueta="Días y horario" valor={datos.turno ? HORARIO_TURNO[datos.turno] : '—'} />
+          <Campo etiqueta="Días y horario" valor={datos.diasYHorario ?? '—'} />
           <Campo etiqueta="Fecha de inscripción" valor={fecha(datos.fechaInscripcion)} />
           <Campo etiqueta="Nro. celular del participante" valor={datos.telefono ?? '—'} />
           <CampoAncho etiqueta="Dirección" valor={datos.direccion ?? '—'} />
@@ -194,11 +200,15 @@ export default function PlanillaEstudiante() {
         {datos.esMenor && datos.representante && (
           <>
             <p className="mt-6 border-b-2 pb-1 text-xs font-bold uppercase tracking-wide" style={{ borderColor: AZUL, color: AZUL }}>
-              Contacto del representante
+              Datos del representante
             </p>
             <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
               <CampoAncho etiqueta="Nombre y apellido del representante" valor={datos.representante.nombre || '—'} />
               <Campo etiqueta="C.I." valor={datos.representante.cedula || '—'} />
+              <Campo etiqueta="Parentesco" valor={datos.representante.parentesco || '—'} />
+              <Campo etiqueta="Edad" valor={datos.representante.edad ? String(datos.representante.edad) : '—'} />
+              <Campo etiqueta="Nacionalidad" valor={datos.representante.nacionalidad || '—'} />
+              <Campo etiqueta="Profesión u ocupación" valor={datos.representante.profesion || '—'} />
               <Campo etiqueta="Nro. celular" valor={datos.representante.telefono ?? '—'} />
               <Campo etiqueta="Correo" valor={datos.representante.correo || '—'} />
             </div>

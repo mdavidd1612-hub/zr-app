@@ -288,7 +288,7 @@ button, a[role='button'], input[type='submit'] {
 @media print {
   @page {
     size: letter;
-    margin: 14mm;
+    margin: 10mm;
   }
 
   html, body {

@@ -147,13 +147,18 @@ export default function PlanillaEstudiante() {
       {/* ============================= PÁGINA 1 ============================= */}
       <div className="mx-auto mt-8 max-w-[700px] rounded-lg bg-white p-8 text-black print:mt-0 print:max-w-none print:rounded-none print:p-8 print:shadow-none print:break-after-page">
         <header
-          className="flex flex-col items-center gap-2 border-b-4 pb-3 text-center print:flex-row print:items-center print:gap-4 print:text-left"
+          className="flex items-center gap-3 border-b-4 pb-3 text-left"
           style={{ borderColor: AZUL }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-zr-mecademy.png" alt="ZR Mecademy" className="h-12 w-auto shrink-0 print:h-14" />
+          <img
+            src="/logo-zr-mecademy.png"
+            alt="ZR Mecademy"
+            style={{ height: 40, width: 'auto' }}
+            className="shrink-0"
+          />
           <div className="min-w-0">
-            <p className="text-sm font-bold uppercase leading-snug print:text-base" style={{ color: AZUL }}>{INSTITUCION.nombre}</p>
+            <p className="text-sm font-bold uppercase leading-snug" style={{ color: AZUL }}>{INSTITUCION.nombre}</p>
             <p className="text-[11px] text-neutral-700">
               RIF: {INSTITUCION.rif} &nbsp;|&nbsp; {INSTITUCION.direccion}
             </p>
@@ -219,12 +224,17 @@ export default function PlanillaEstudiante() {
       {/* ============================= PÁGINA 2 ============================= */}
       <div className="mx-auto mt-6 max-w-[700px] rounded-lg bg-white p-8 text-black print:mt-0 print:max-w-none print:rounded-none print:p-8 print:shadow-none">
         <header
-          className="flex flex-col items-center gap-2 border-b-4 pb-3 text-center print:flex-row print:gap-4"
+          className="flex items-center gap-3 border-b-4 pb-3"
           style={{ borderColor: AZUL }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-zr-mecademy.png" alt="ZR Mecademy" className="h-10 w-auto shrink-0" />
-          <p className="flex-1 text-sm font-bold uppercase print:text-base" style={{ color: AZUL }}>{INSTITUCION.nombre}</p>
+          <img
+            src="/logo-zr-mecademy.png"
+            alt="ZR Mecademy"
+            style={{ height: 32, width: 'auto' }}
+            className="shrink-0"
+          />
+          <p className="flex-1 text-sm font-bold uppercase" style={{ color: AZUL }}>{INSTITUCION.nombre}</p>
         </header>
 
         <p className="mt-4 text-center text-sm font-bold uppercase tracking-wide">

@@ -59,3 +59,8 @@ tmp/
 
 .vercel
 .env*
+
+# Presentaciones de los módulos descargadas de Classroom. Son material de
+# la academia, pesan mucho y no son código: se leen para redactar los
+# resúmenes de modules.description y no se versionan.
+material-modulos/

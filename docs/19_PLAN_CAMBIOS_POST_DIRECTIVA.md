@@ -458,6 +458,16 @@ en el navegador, no solo compilando (lección de `docs/18` §2bis).
 
 ### FASE 1 — Reglas de datos de la inscripción
 
+> ✅ **EJECUTADA el 2 de septiembre de 2026.** Decisión de teléfono cerrada por el cliente: un
+> teléfono obligatorio para todos + segundo teléfono de contacto obligatorio si es menor (la
+> opción recomendada en §3.2). Las cuatro tareas están desplegadas y verificadas contra
+> producción — R-10/R-11 con llamadas reales a `create-student` (casos negativos y positivos) y
+> por la interfaz de `/carga-ventas`; R-12 con la vista consultada en vivo (hoy solo
+> `PTMA-2026-II` es inscribible, el resto de las 7 cohortes ya empezó hace más de 30 días); R-13
+> con el índice de `programs.name` aplicado sin conflicto.
+>
+> Migraciones `064` y `065`. Edge Function `create-student` en versión 8.
+
 #### R-10 · Nombre completo sin abreviar
 - Validación **en el servidor** (`supabase/functions/create-student/index.ts`, junto a las demás):
   mínimo dos palabras de 3+ letras, sin puntos de abreviatura (`J. Pérez` se rechaza).

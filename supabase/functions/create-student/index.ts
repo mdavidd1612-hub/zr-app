@@ -10,7 +10,14 @@
 // Si es menor de edad, ventas puede anotar el contacto del representante
 // (nombre, cédula, teléfono, correo) — solo como referencia. No es un
 // requisito para crear la cuenta: la academia decidió no bloquear nada por
-// ser menor de edad, así que esto nunca hace fallar la inscripción.
+// ser menor de edad respecto al CONSENTIMIENTO, así que esos ocho campos
+// nunca hacen fallar la inscripción (docs/18 §2.1, migración 051).
+//
+// Eso es distinto de R-11 (docs/19_PLAN_CAMBIOS_POST_DIRECTIVA.md): un menor
+// sí necesita un segundo teléfono de contacto (`emergency_contact_phone`)
+// para poder ubicarlo, y ESE sí bloquea la inscripción si falta. No es una
+// decisión sobre consentimiento legal, es que la academia necesita poder
+// llamar a alguien si el estudiante no aparece.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -88,9 +95,51 @@ interface FilaEstudiante {
   fechaNacimiento: string   // YYYY-MM-DD
   correoContacto: string
   telefono?: string
+  // Segundo teléfono de contacto — obligatorio si el estudiante es menor de
+  // edad (R-11). No confundir con el teléfono del representante que se
+  // guarda en `representante.telefono`: ese es solo referencia para el
+  // consentimiento y nunca bloquea nada (docs/18 §2.1). Este es
+  // `students.emergency_contact_phone`, un número de localización que sí es
+  // obligatorio para un menor.
+  telefonoEmergencia?: string
   direccion?: string
   cohorteId?: string | null
   representante?: DatosRepresentante
+}
+
+// R-10: ataca el caso real que reportó la directiva (dos "Ricardo Hernández"
+// en el mismo corte), sin bloquear nombres legítimos cortos. No se puede
+// detectar toda abreviatura, así que la regla es deliberadamente simple:
+// al menos dos palabras, cada una con 3+ letras, sin puntos (que es como se
+// abrevia en español: "J. Pérez", "Ma. González").
+function nombreCompletoValido(nombre: string): boolean {
+  const limpio = nombre.trim()
+  if (limpio.includes('.')) return false
+  const palabras = limpio.split(/\s+/).filter(Boolean)
+  if (palabras.length < 2) return false
+  return palabras.every((p) => (p.match(/\p{L}/gu) ?? []).length >= 3)
+}
+
+// R-11: formato venezolano, admite escrito con o sin guiones/espacios, con o
+// sin +58. 11 dígitos empezando en 0 (0412-1234567) o 12 empezando en 58
+// (58-412-1234567).
+function telefonoValido(raw: string | undefined | null): boolean {
+  if (!raw) return false
+  const digitos = raw.replace(/\D/g, '')
+  if (digitos.length === 11 && digitos.startsWith('0')) return true
+  if (digitos.length === 12 && digitos.startsWith('58')) return true
+  return false
+}
+
+// Mismo cálculo que `esMenorDeEdad` de lib/auth-helpers.ts — se duplica aquí
+// porque las Edge Functions no importan del repo, solo de esm.sh (mismo
+// motivo por el que cedulaRx/emailRx ya estaban duplicados en este archivo).
+function esMenorDeEdad(fechaNacimiento: string, hoy = new Date()): boolean {
+  const nacimiento = new Date(fechaNacimiento)
+  let edad = hoy.getFullYear() - nacimiento.getFullYear()
+  const mes = hoy.getMonth() - nacimiento.getMonth()
+  if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) edad--
+  return edad < 18
 }
 
 Deno.serve(async (req: Request) => {
@@ -125,12 +174,21 @@ Deno.serve(async (req: Request) => {
   const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
   filas.forEach((f, i) => {
-    if (!f.nombreCompleto?.trim()) errores.push({ fila: i + 1, motivo: 'Falta el nombre completo' })
+    if (!nombreCompletoValido(f.nombreCompleto ?? '')) {
+      errores.push({ fila: i + 1, motivo: 'Escribe el nombre completo como aparece en la cédula, sin abreviar.' })
+    }
     if (!cedulaRx.test(f.cedula ?? '')) errores.push({ fila: i + 1, motivo: `Cédula inválida: "${f.cedula}"` })
-    if (!f.fechaNacimiento || Number.isNaN(Date.parse(f.fechaNacimiento))) {
+    const fechaValida = Boolean(f.fechaNacimiento) && !Number.isNaN(Date.parse(f.fechaNacimiento))
+    if (!fechaValida) {
       errores.push({ fila: i + 1, motivo: `Fecha de nacimiento inválida: "${f.fechaNacimiento}"` })
     }
     if (!emailRx.test(f.correoContacto ?? '')) errores.push({ fila: i + 1, motivo: `Correo inválido: "${f.correoContacto}"` })
+    if (!telefonoValido(f.telefono)) {
+      errores.push({ fila: i + 1, motivo: 'El teléfono es obligatorio, en formato venezolano (ej. 0412-1234567).' })
+    }
+    if (fechaValida && esMenorDeEdad(f.fechaNacimiento) && !telefonoValido(f.telefonoEmergencia)) {
+      errores.push({ fila: i + 1, motivo: 'Por ser menor de edad, hace falta un segundo teléfono de contacto.' })
+    }
     if (esVendedor && !f.cohorteId) errores.push({ fila: i + 1, motivo: 'Ventas debe asignar una cohorte al inscribir' })
   })
 
@@ -186,6 +244,7 @@ Deno.serve(async (req: Request) => {
       birth_date: f.fechaNacimiento,
       cohort_id: f.cohorteId ?? null,
       address: f.direccion ?? null,
+      emergency_contact_phone: f.telefonoEmergencia?.trim() || null,
       enrolled_by: esVendedor ? user.id : null,
     }).select('student_code').single()
 

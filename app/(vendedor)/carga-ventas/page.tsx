@@ -6,6 +6,7 @@ import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 import { SelectorCedula } from '@/components/ui/SelectorCedula'
 import { SelectorCohorte, type OpcionCohorte } from '@/components/ui/SelectorCohorte'
 import { esMenorDeEdad } from '@/lib/auth-helpers'
+import { nombreCompletoValido, telefonoVenezolanoValido } from '@/lib/validators'
 
 export default function CargaVentas() {
   const [cohortes, setCohortes] = useState<OpcionCohorte[]>([])
@@ -15,11 +16,17 @@ export default function CargaVentas() {
   const [fechaNacimiento, setFechaNacimiento] = useState('')
   const [correo, setCorreo] = useState('')
   const [telefono, setTelefono] = useState('')
+  // Segundo teléfono de contacto, obligatorio si es menor de edad (R-11).
+  // Es `students.emergency_contact_phone` — distinto del teléfono del
+  // representante de la sección de abajo, que sigue siendo opcional.
+  const [telefonoEmergencia, setTelefonoEmergencia] = useState('')
   const [direccion, setDireccion] = useState('')
   const [cohorteId, setCohorteId] = useState('')
 
-  // No hay ningún bloqueo por ser menor de edad — esto es solo referencia
-  // de contacto, nunca un requisito para inscribir.
+  // No hay ningún bloqueo por ser menor de edad EN ESTOS CAMPOS — es solo
+  // referencia de contacto para el consentimiento, nunca un requisito para
+  // inscribir (docs/18 §2.1). El segundo teléfono de arriba sí es requerido,
+  // pero por otra razón: poder ubicar al estudiante, no por consentimiento.
   const [repNombre, setRepNombre] = useState('')
   const [repCedula, setRepCedula] = useState('V-')
   const [repTelefono, setRepTelefono] = useState('')
@@ -34,15 +41,23 @@ export default function CargaVentas() {
   const [exito, setExito] = useState<string | null>(null)
 
   useEffect(() => {
-    // Sede y turno viajan con la cohorte para poder mostrarlas como etiqueta:
-    // el nombre solo no basta para saber dónde se dicta el corte.
+    // v_cohorts_inscribibles (migración 064), no `cohorts` directo: ya trae
+    // solo las activas y dentro de la ventana de inscripción desde su fecha
+    // de inicio — no hay que repetir ese filtro aquí. Sede y turno viajan con
+    // la cohorte para poder mostrarlas como etiqueta.
     createClient()
-      .from('cohorts')
+      .from('v_cohorts_inscribibles')
       .select('id, name, sede, turno')
-      .eq('status', 'activa')
       .order('name')
       .then(({ data }) => {
-        setCohortes(data ?? [])
+        // Las columnas de una vista salen siempre "nullable" en los tipos
+        // generados, aunque en `cohorts` id/name son NOT NULL — se filtra
+        // cualquier fila rara en vez de forzar el tipo con un `as`.
+        setCohortes(
+          (data ?? []).flatMap((c) =>
+            c.id && c.name ? [{ id: c.id, name: c.name, sede: c.sede, turno: c.turno }] : [],
+          ),
+        )
       })
   }, [])
 
@@ -50,7 +65,7 @@ export default function CargaVentas() {
 
   function limpiar() {
     setNombre(''); setCedula('V-'); setFechaNacimiento(''); setCorreo(''); setTelefono('')
-    setDireccion(''); setCohorteId('')
+    setTelefonoEmergencia(''); setDireccion(''); setCohorteId('')
     setRepNombre(''); setRepCedula('V-'); setRepTelefono(''); setRepCorreo('')
     setRepParentesco(''); setRepEdad(''); setRepNacionalidad(''); setRepProfesion('')
   }
@@ -68,6 +83,7 @@ export default function CargaVentas() {
           fechaNacimiento,
           correoContacto: correo,
           telefono: telefono || undefined,
+          telefonoEmergencia: esMenor ? (telefonoEmergencia || undefined) : undefined,
           direccion: direccion || undefined,
           cohorteId,
           representante: esMenor ? {
@@ -104,7 +120,22 @@ export default function CargaVentas() {
     limpiar()
   }
 
-  const completo = Boolean(nombre.trim() && cedula.trim() && fechaNacimiento && correo.trim() && cohorteId)
+  // Presencia, no formato: el botón no se bloquea por un teléfono mal escrito
+  // (el servidor es quien de verdad decide, y así no se traba una venta real
+  // por un caso que la expresión regular no anticipó). Los avisos de formato
+  // de abajo son solo eso, avisos.
+  const completo = Boolean(
+    nombre.trim() && cedula.trim() && fechaNacimiento && correo.trim() && telefono.trim() &&
+    (!esMenor || telefonoEmergencia.trim()) && cohorteId,
+  )
+
+  const avisoNombre = nombre.trim() && !nombreCompletoValido(nombre)
+    ? 'Escríbelo completo, como en la cédula, sin abreviar (ej. "María González", no "Ma. González").'
+    : null
+
+  const avisoTelefono = telefono.trim() && !telefonoVenezolanoValido(telefono)
+    ? 'Verifica el formato: 0412-1234567.'
+    : null
 
   return (
     <div className="space-y-11 px-5 pt-14 pb-10">
@@ -131,7 +162,10 @@ export default function CargaVentas() {
 
       <Seccion numero={1} titulo="Datos del participante" delay={100}>
         <div className="zr-card space-y-5 p-6">
-          <Campo etiqueta="Nombre completo" valor={nombre} onChange={setNombre} placeholder="Como aparece en la cédula" />
+          <div>
+            <Campo etiqueta="Nombre completo" valor={nombre} onChange={setNombre} placeholder="Como aparece en la cédula" />
+            {avisoNombre && <p className="mt-1.5 text-xs text-zr-warning">{avisoNombre}</p>}
+          </div>
           <SelectorCedula etiqueta="Cédula" value={cedula} onChange={setCedula} required />
           <div>
             <label className="mb-2 block text-sm font-semibold text-zr-text">Fecha de nacimiento</label>
@@ -143,12 +177,24 @@ export default function CargaVentas() {
             />
             {esMenor && (
               <p className="mt-1.5 text-xs text-zr-text-muted">
-                Es menor de edad — puedes anotar abajo el contacto de su representante (opcional).
+                Es menor de edad: escribe abajo un segundo teléfono de contacto (obligatorio). El
+                contacto del representante sigue siendo opcional.
               </p>
             )}
           </div>
           <Campo etiqueta="Correo de contacto" valor={correo} onChange={setCorreo} placeholder="Del estudiante o su representante" type="email" />
-          <Campo etiqueta="Teléfono (opcional)" valor={telefono} onChange={setTelefono} placeholder="" />
+          <div>
+            <Campo etiqueta="Teléfono" valor={telefono} onChange={setTelefono} placeholder="0412-1234567" />
+            {avisoTelefono && <p className="mt-1.5 text-xs text-zr-warning">{avisoTelefono}</p>}
+          </div>
+          {esMenor && (
+            <Campo
+              etiqueta="Segundo teléfono de contacto (obligatorio por ser menor)"
+              valor={telefonoEmergencia}
+              onChange={setTelefonoEmergencia}
+              placeholder="0412-1234567"
+            />
+          )}
           <Campo etiqueta="Dirección" valor={direccion} onChange={setDireccion} placeholder="Para la planilla" />
           <SelectorCohorte opciones={cohortes} valor={cohorteId} onChange={setCohorteId} />
         </div>

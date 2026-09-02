@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { EtiquetaSede } from '@/components/ui/EtiquetaSede'
 
 /**
  * T-211 · Gestión de cohortes.
@@ -18,6 +19,8 @@ interface Cohorte {
   id: string
   nombre: string
   ubicacion: string | null
+  sede: string | null
+  turno: string | null
   moduloId: string | null
   moduloNombre: string | null
   profesorId: string | null
@@ -40,7 +43,6 @@ export default function Cohortes() {
   const [version, setVersion] = useState(0)
 
   const [creando, setCreando] = useState(false)
-  const [nombreNueva, setNombreNueva] = useState('')
   const [ubicacionNueva, setUbicacionNueva] = useState('')
   // Días y horario de la cohorte: es lo que sale impreso en la planilla del
   // estudiante (migración 052). No se le pide al vendedor.
@@ -74,7 +76,7 @@ export default function Cohortes() {
       }
 
       const [{ data: cohs }, { data: mods }, { data: profs }, { data: programa }] = await Promise.all([
-        supabase.from('cohorts').select('id, name, location, sede, current_module_id, teacher_id, status, modules(name), teachers(profiles(full_name)), students(id)'),
+        supabase.from('cohorts').select('id, name, location, sede, turno, current_module_id, teacher_id, status, modules(name), teachers(profiles(full_name)), students(id)'),
         supabase.from('modules').select('id, name, order_index').order('order_index'),
         supabase.from('teachers').select('id, profiles(full_name)').eq('is_active', true),
         // Antes se tomaba `limit(1).single()`: la cohorte nueva caía siempre en
@@ -87,7 +89,7 @@ export default function Cohortes() {
       if (!vigente) return
 
       const filas = cohs as unknown as {
-        id: string; name: string; location: string | null; sede: string | null
+        id: string; name: string; location: string | null; sede: string | null; turno: string | null
         current_module_id: string | null; teacher_id: string | null; status: string
         modules: { name: string } | null
         teachers: { profiles: { full_name: string } | null } | null
@@ -99,6 +101,8 @@ export default function Cohortes() {
           id: c.id,
           nombre: c.name,
           ubicacion: c.location,
+          sede: c.sede,
+          turno: c.turno,
           moduloId: c.current_module_id,
           moduloNombre: c.modules?.name ?? null,
           profesorId: c.teacher_id,
@@ -127,7 +131,7 @@ export default function Cohortes() {
   }, [router, version])
 
   async function crearCohorte() {
-    if (!nombreNueva.trim() || !programaId || !fechaInicioNueva) return
+    if (!programaId || !fechaInicioNueva) return
     setGuardando(true)
     setError(null)
     setCreada(null)
@@ -138,7 +142,10 @@ export default function Cohortes() {
     // confirmarle a administración qué número de corte quedó.
     const { data, error: fallo } = await createClient().from('cohorts').insert({
       program_id: programaId,
-      name: nombreNueva.trim(),
+      // Sin `name`: lo genera el servidor como SIGLAS-AÑO-ROMANO a partir del
+      // programa, la fecha y el número de corte (migración 060). Se escribía a
+      // mano y llegaron a existir dos cohortes llamadas igual en sedes
+      // distintas. Se puede renombrar después.
       location: ubicacionNueva.trim() || null,
       sede: sedeFinal || null,
       turno: turnoNueva,
@@ -163,7 +170,6 @@ export default function Cohortes() {
       `Cohorte "${data.name}" creada: corte ${String(data.code_number).padStart(2, '0')} de ${fechaInicioNueva.slice(0, 4)}.`,
     )
 
-    setNombreNueva('')
     setUbicacionNueva('')
     setDiasNueva('Sábados')
     setHorarioNueva('')
@@ -241,15 +247,6 @@ export default function Cohortes() {
             </p>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Nombre</label>
-            <input
-              value={nombreNueva}
-              onChange={(e) => setNombreNueva(e.target.value)}
-              placeholder="Ej: Cohorte 2026-C · Sábado 2:00 pm"
-              className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
-            />
-          </div>
-          <div>
             <label className="mb-2 block text-sm font-semibold text-zr-text">Fecha de inicio</label>
             <input
               type="date"
@@ -258,7 +255,8 @@ export default function Cohortes() {
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
             />
             <p className="mt-1.5 text-xs text-zr-text-muted">
-              Define el año del carnet. El número de corte lo asigna el sistema.
+              El nombre (ej. PTMA-2026-III) y el número de corte los pone el sistema a partir del
+              programa y esta fecha. Se puede renombrar después.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -360,7 +358,7 @@ export default function Cohortes() {
 
           <button
             onClick={crearCohorte}
-            disabled={!nombreNueva.trim() || !programaId || !fechaInicioNueva || guardando}
+            disabled={!programaId || !fechaInicioNueva || guardando}
             className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-40"
           >
             {guardando ? 'Creando…' : 'Crear cohorte'}
@@ -381,7 +379,8 @@ export default function Cohortes() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-base font-semibold text-zr-text">{c.nombre}</p>
-                      <p className="mt-1 text-sm text-zr-text-muted">{c.ubicacion ?? 'Sin ubicación'}</p>
+                      <div className="mt-1.5"><EtiquetaSede sede={c.sede} turno={c.turno} /></div>
+                      <p className="mt-1.5 text-sm text-zr-text-muted">{c.ubicacion ?? 'Sin ubicación'}</p>
                     </div>
                     <Etiqueta tono={c.estado === 'activa' ? 'exito' : 'neutro'}>{c.estado}</Etiqueta>
                   </div>

@@ -46,6 +46,16 @@ interface Modulo {
   programa: string
 }
 
+// Cómo se llama cada rol en pantalla. La base y el código siguen en inglés
+// (CLAUDE.md §9); esto es lo único que ve el usuario.
+const ETIQUETA_ROL: Partial<Record<UserRole, { texto: string; tono: 'info' | 'aviso' | 'exito' }>> = {
+  super_admin:         { texto: 'Super admin',         tono: 'info' },
+  direccion_academica: { texto: 'Dirección académica', tono: 'info' },
+  admin:               { texto: 'Administración',      tono: 'aviso' },
+  vendedor:            { texto: 'Vendedor',            tono: 'aviso' },
+  profesor:            { texto: 'Profesor',            tono: 'exito' },
+}
+
 const ROLES: { valor: UserRole; etiqueta: string; soloSuper: boolean }[] = [
   { valor: 'profesor', etiqueta: 'Profesor', soloSuper: false },
   { valor: 'admin', etiqueta: 'Administrador', soloSuper: true },
@@ -106,7 +116,7 @@ export default function Personal() {
         supabase
           .from('profiles')
           .select('id, cedula, full_name, contact_email, role')
-          .in('role', ['profesor', 'admin', 'super_admin', 'direccion_academica'])
+          .in('role', ['profesor', 'admin', 'super_admin', 'direccion_academica', 'vendedor'])
           .order('role'),
         // "A qué curso da clase" es, en el modelo de datos, "qué cohorte
         // tiene asignada": cohorts.teacher_id es lo único que vincula a un
@@ -440,8 +450,8 @@ export default function Personal() {
                     )}
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-2">
-                    <Etiqueta tono={m.rol === 'super_admin' || m.rol === 'direccion_academica' ? 'info' : m.rol === 'admin' ? 'aviso' : 'exito'}>
-                      {m.rol === 'super_admin' ? 'Super admin' : m.rol === 'direccion_academica' ? 'Dirección académica' : m.rol === 'admin' ? 'Admin' : 'Profesor'}
+                    <Etiqueta tono={ETIQUETA_ROL[m.rol]?.tono ?? 'exito'}>
+                      {ETIQUETA_ROL[m.rol]?.texto ?? m.rol}
                     </Etiqueta>
                     {/* Mostrar Eliminar según jerarquía: direccion_academica puede borrar
                         profesores y admins; super_admin puede borrar a cualquiera */}

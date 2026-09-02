@@ -474,6 +474,7 @@ export type Database = {
         Row: {
           code_number: number | null
           created_at: string
+          created_by: string | null
           current_module_id: string | null
           days: string | null
           id: string
@@ -491,11 +492,12 @@ export type Database = {
         Insert: {
           code_number?: number | null
           created_at?: string
+          created_by?: string | null
           current_module_id?: string | null
           days?: string | null
           id?: string
           location?: string | null
-          name: string
+          name?: string
           program_id: string
           schedule?: string | null
           sede?: string | null
@@ -508,6 +510,7 @@ export type Database = {
         Update: {
           code_number?: number | null
           created_at?: string
+          created_by?: string | null
           current_module_id?: string | null
           days?: string | null
           id?: string

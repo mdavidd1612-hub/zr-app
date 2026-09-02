@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 import { SelectorCedula } from '@/components/ui/SelectorCedula'
+import { SelectorCohorte, type OpcionCohorte } from '@/components/ui/SelectorCohorte'
 import { esMenorDeEdad } from '@/lib/auth-helpers'
 
 export default function CargaVentas() {
-  const [cohortes, setCohortes] = useState<{ id: string; name: string }[]>([])
+  const [cohortes, setCohortes] = useState<OpcionCohorte[]>([])
 
   const [nombre, setNombre] = useState('')
   const [cedula, setCedula] = useState('V-')
@@ -33,9 +34,16 @@ export default function CargaVentas() {
   const [exito, setExito] = useState<string | null>(null)
 
   useEffect(() => {
-    createClient().from('cohorts').select('id, name').eq('status', 'activa').then(({ data }) => {
-      setCohortes(data ?? [])
-    })
+    // Sede y turno viajan con la cohorte para poder mostrarlas como etiqueta:
+    // el nombre solo no basta para saber dónde se dicta el corte.
+    createClient()
+      .from('cohorts')
+      .select('id, name, sede, turno')
+      .eq('status', 'activa')
+      .order('name')
+      .then(({ data }) => {
+        setCohortes(data ?? [])
+      })
   }, [])
 
   const esMenor = fechaNacimiento ? esMenorDeEdad(new Date(fechaNacimiento)) : false
@@ -142,19 +150,7 @@ export default function CargaVentas() {
           <Campo etiqueta="Correo de contacto" valor={correo} onChange={setCorreo} placeholder="Del estudiante o su representante" type="email" />
           <Campo etiqueta="Teléfono (opcional)" valor={telefono} onChange={setTelefono} placeholder="" />
           <Campo etiqueta="Dirección" valor={direccion} onChange={setDireccion} placeholder="Para la planilla" />
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Cohorte</label>
-            <select
-              value={cohorteId}
-              onChange={(e) => setCohorteId(e.target.value)}
-              className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
-            >
-              <option value="">Selecciona una cohorte</option>
-              {cohortes.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
+          <SelectorCohorte opciones={cohortes} valor={cohorteId} onChange={setCohorteId} />
         </div>
       </Seccion>
 

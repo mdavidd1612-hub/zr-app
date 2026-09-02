@@ -88,7 +88,7 @@ export default function Login() {
               className="w-full px-5 py-4 bg-zr-surface border border-zr-border rounded-xl text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none focus:ring-2 focus:ring-zr-blue/20 transition-all text-base font-medium"
             />
             <p className="text-xs text-zr-text-muted">
-              Si eres estudiante y es tu primera vez, es el código de tu carnet (ej. PTMA-2026-04-001).
+              Si eres estudiante y es tu primera vez, es el código de tu carnet (ej. PTMA-2026-02-001).
             </p>
           </div>
 

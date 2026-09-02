@@ -27,9 +27,18 @@ export default function ProgramasVendedor() {
   const [creando, setCreando] = useState<string | null>(null) // program_id
   const [nombreCohorte, setNombreCohorte] = useState('')
   const [sede, setSede] = useState('')
+  const [sedeNueva, setSedeNueva] = useState('')
   const [turno, setTurno] = useState<'mañana' | 'tarde'>('mañana')
+  // La fecha de inicio define el AÑO del código de carnet de todos los
+  // estudiantes de esta cohorte (PTMA-2026-02-...), así que se pide siempre.
+  // Antes no se pedía y quedaba en la fecha de hoy por defecto.
+  const [fechaInicio, setFechaInicio] = useState('')
+  const [dias, setDias] = useState('Sábados')
+  const [horario, setHorario] = useState('')
+  const [sedesConocidas, setSedesConocidas] = useState<string[]>([])
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [creada, setCreada] = useState<string | null>(null)
   const [version, setVersion] = useState(0)
 
   useEffect(() => {
@@ -66,6 +75,14 @@ export default function ProgramasVendedor() {
           misEstudiantes: conteoPorCohorte.get(c.id) ?? 0,
         })),
       })))
+
+      // Las sedes salen de las cohortes que ya existen, no de una lista escrita
+      // en el código: así «UCV» y «U.C.V.» no terminan siendo dos sedes
+      // distintas para la base. (El catálogo de sedes propiamente dicho es R-20.)
+      setSedesConocidas([...new Set(
+        filas.flatMap((p) => p.cohorts.map((c) => c.sede)).filter((s): s is string => Boolean(s)),
+      )].sort())
+
       setCargando(false)
     }
 
@@ -75,22 +92,43 @@ export default function ProgramasVendedor() {
   async function crearCohorte(programId: string) {
     setGuardando(true)
     setError(null)
+    setCreada(null)
 
-    const { error: fallo } = await createClient().from('cohorts').insert({
+    const sedeFinal = (sede === '__nueva__' ? sedeNueva : sede).trim()
+
+    // El correlativo (code_number) NO se manda desde aquí: lo asigna el
+    // servidor por (programa, año de la fecha de inicio) — migración 057,
+    // regla 2 de AGENTS.md. Se lee de vuelta solo para confirmárselo a ventas.
+    const { data, error: fallo } = await createClient().from('cohorts').insert({
       program_id: programId,
       name: nombreCohorte.trim(),
-      sede: sede.trim() || null,
+      sede: sedeFinal || null,
       turno,
+      start_date: fechaInicio,
+      days: dias.trim() || null,
+      schedule: horario.trim() || null,
       status: 'activa',
-    })
+    }).select('name, code_number').single()
 
     if (fallo) {
-      setError(fallo.message)
+      setError(
+        fallo.code === '23505'
+          ? 'Ya existe una cohorte con ese nombre o ese número en el programa. Revisa la lista de arriba.'
+          : fallo.message,
+      )
       setGuardando(false)
       return
     }
 
-    setNombreCohorte(''); setSede(''); setTurno('mañana'); setCreando(null)
+    const anio = fechaInicio.slice(0, 4)
+    setCreada(
+      `Cohorte "${data.name}" creada: corte ${String(data.code_number).padStart(2, '0')} de ${anio}. ` +
+      `Los carnets de sus estudiantes empezarán por ${nombreCohorte.trim().slice(0, 4).toUpperCase()}-${anio}-${String(data.code_number).padStart(2, '0')}.`,
+    )
+
+    setNombreCohorte(''); setSede(''); setSedeNueva(''); setTurno('mañana')
+    setFechaInicio(''); setDias('Sábados'); setHorario('')
+    setCreando(null)
     setGuardando(false)
     setVersion((v) => v + 1)
   }
@@ -107,6 +145,12 @@ export default function ProgramasVendedor() {
     <div className="space-y-11 px-5 pt-14 pb-10">
       <Encabezado sobretitulo="Ventas" titulo="Programas" descripcion="PTMA y PFTA, con sus cohortes activas" />
       <Regla delay={60} />
+
+      {creada && (
+        <p className="rounded-lg border border-zr-success/30 bg-zr-success/12 px-4 py-3 text-sm font-medium text-zr-success">
+          {creada}
+        </p>
+      )}
 
       {programas.map((p, i) => (
         <Seccion key={p.id} numero={i + 1} titulo={p.name} delay={100 + i * 60}>
@@ -140,11 +184,54 @@ export default function ProgramasVendedor() {
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-zr-text">Sede</label>
+                  <label className="mb-2 block text-sm font-semibold text-zr-text">Fecha de inicio</label>
                   <input
+                    type="date"
+                    value={fechaInicio}
+                    onChange={(e) => setFechaInicio(e.target.value)}
+                    className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+                  />
+                  <p className="mt-1.5 text-xs text-zr-text-muted">
+                    Define el año del carnet de sus estudiantes. El número de corte lo asigna el sistema.
+                  </p>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-zr-text">Sede</label>
+                  <select
                     value={sede}
                     onChange={(e) => setSede(e.target.value)}
-                    placeholder="San Antonio de Los Altos / UCV"
+                    className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+                  >
+                    <option value="">Selecciona una sede</option>
+                    {sedesConocidas.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                    <option value="__nueva__">Otra sede…</option>
+                  </select>
+                  {sede === '__nueva__' && (
+                    <input
+                      value={sedeNueva}
+                      onChange={(e) => setSedeNueva(e.target.value)}
+                      placeholder="Nombre de la sede nueva"
+                      className="mt-2 w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
+                    />
+                  )}
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-zr-text">Días</label>
+                  <input
+                    value={dias}
+                    onChange={(e) => setDias(e.target.value)}
+                    placeholder="Sábados"
+                    className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-zr-text">Horario</label>
+                  <input
+                    value={horario}
+                    onChange={(e) => setHorario(e.target.value)}
+                    placeholder="9:00 a.m. – 12:00 p.m."
                     className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
                   />
                 </div>
@@ -169,7 +256,11 @@ export default function ProgramasVendedor() {
                   </button>
                   <button
                     onClick={() => crearCohorte(p.id)}
-                    disabled={!nombreCohorte.trim() || guardando}
+                    disabled={
+                      !nombreCohorte.trim() || !fechaInicio ||
+                      !(sede === '__nueva__' ? sedeNueva.trim() : sede) ||
+                      guardando
+                    }
                     className="min-h-14 flex-1 rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-40"
                   >
                     {guardando ? 'Creando…' : 'Crear'}

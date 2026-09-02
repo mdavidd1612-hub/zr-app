@@ -64,3 +64,6 @@ tmp/
 # la academia, pesan mucho y no son código: se leen para redactar los
 # resúmenes de modules.description y no se versionan.
 material-modulos/
+
+# Salidas de scripts operativos: llevan datos personales de estudiantes
+scripts/salida/

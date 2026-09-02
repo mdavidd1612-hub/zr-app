@@ -34,6 +34,7 @@ export default function Cohortes() {
   const [cohortes, setCohortes] = useState<Cohorte[]>([])
   const [modulos, setModulos] = useState<Modulo[]>([])
   const [profesores, setProfesores] = useState<Profesor[]>([])
+  const [programas, setProgramas] = useState<{ id: string; name: string }[]>([])
   const [programaId, setProgramaId] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const [version, setVersion] = useState(0)
@@ -45,10 +46,19 @@ export default function Cohortes() {
   // estudiante (migración 052). No se le pide al vendedor.
   const [diasNueva, setDiasNueva] = useState('Sábados')
   const [horarioNueva, setHorarioNueva] = useState('')
+  // La fecha de inicio define el año del código de carnet, y la sede y el turno
+  // eran campos que esta pantalla nunca pidió aunque la cohorte los tiene
+  // (migración 043). Sin ellos la cohorte nacía a medias.
+  const [fechaInicioNueva, setFechaInicioNueva] = useState('')
+  const [sedeNueva, setSedeNueva] = useState('')
+  const [sedeLibre, setSedeLibre] = useState('')
+  const [turnoNueva, setTurnoNueva] = useState<'mañana' | 'tarde'>('mañana')
+  const [sedesConocidas, setSedesConocidas] = useState<string[]>([])
   const [moduloNueva, setModuloNueva] = useState('')
   const [profesorNueva, setProfesorNueva] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [creada, setCreada] = useState<string | null>(null)
 
   const [confirmandoAvance, setConfirmandoAvance] = useState<string | null>(null)
 
@@ -64,16 +74,20 @@ export default function Cohortes() {
       }
 
       const [{ data: cohs }, { data: mods }, { data: profs }, { data: programa }] = await Promise.all([
-        supabase.from('cohorts').select('id, name, location, current_module_id, teacher_id, status, modules(name), teachers(profiles(full_name)), students(id)'),
+        supabase.from('cohorts').select('id, name, location, sede, current_module_id, teacher_id, status, modules(name), teachers(profiles(full_name)), students(id)'),
         supabase.from('modules').select('id, name, order_index').order('order_index'),
         supabase.from('teachers').select('id, profiles(full_name)').eq('is_active', true),
-        supabase.from('programs').select('id').limit(1).single(),
+        // Antes se tomaba `limit(1).single()`: la cohorte nueva caía siempre en
+        // el primer programa que devolviera la base, así que una cohorte de PFTA
+        // podía quedar colgada de PTMA — y el prefijo del carnet sale del
+        // programa. Ahora se eligen todos y el usuario dice cuál.
+        supabase.from('programs').select('id, name').order('name'),
       ])
 
       if (!vigente) return
 
       const filas = cohs as unknown as {
-        id: string; name: string; location: string | null
+        id: string; name: string; location: string | null; sede: string | null
         current_module_id: string | null; teacher_id: string | null; status: string
         modules: { name: string } | null
         teachers: { profiles: { full_name: string } | null } | null
@@ -97,7 +111,14 @@ export default function Cohortes() {
       setModulos(mods ?? [])
       const listaProfes = (profs as unknown as { id: string; profiles: { full_name: string } | null }[] | null) ?? []
       setProfesores(listaProfes.map((p) => ({ id: p.id, full_name: p.profiles?.full_name ?? 'Sin nombre' })))
-      setProgramaId(programa?.id ?? null)
+
+      setProgramas(programa ?? [])
+      setProgramaId((actual) => actual ?? programa?.[0]?.id ?? null)
+
+      setSedesConocidas([...new Set(
+        (filas ?? []).map((c) => c.sede).filter((s): s is string => Boolean(s)),
+      )].sort())
+
       setCargando(false)
     }
 
@@ -106,30 +127,50 @@ export default function Cohortes() {
   }, [router, version])
 
   async function crearCohorte() {
-    if (!nombreNueva.trim() || !programaId) return
+    if (!nombreNueva.trim() || !programaId || !fechaInicioNueva) return
     setGuardando(true)
     setError(null)
+    setCreada(null)
 
-    const { error: fallo } = await createClient().from('cohorts').insert({
+    const sedeFinal = (sedeNueva === '__nueva__' ? sedeLibre : sedeNueva).trim()
+
+    // code_number lo asigna el servidor (migración 057). Se lee de vuelta para
+    // confirmarle a administración qué número de corte quedó.
+    const { data, error: fallo } = await createClient().from('cohorts').insert({
       program_id: programaId,
       name: nombreNueva.trim(),
       location: ubicacionNueva.trim() || null,
+      sede: sedeFinal || null,
+      turno: turnoNueva,
+      start_date: fechaInicioNueva,
       days: diasNueva.trim() || null,
       schedule: horarioNueva.trim() || null,
       current_module_id: moduloNueva || null,
       teacher_id: profesorNueva || null,
-    })
+    }).select('name, code_number').single()
 
     if (fallo) {
-      setError(fallo.message)
+      setError(
+        fallo.code === '23505'
+          ? 'Ya existe una cohorte con ese nombre o ese número de corte en el programa.'
+          : fallo.message,
+      )
       setGuardando(false)
       return
     }
+
+    setCreada(
+      `Cohorte "${data.name}" creada: corte ${String(data.code_number).padStart(2, '0')} de ${fechaInicioNueva.slice(0, 4)}.`,
+    )
 
     setNombreNueva('')
     setUbicacionNueva('')
     setDiasNueva('Sábados')
     setHorarioNueva('')
+    setFechaInicioNueva('')
+    setSedeNueva('')
+    setSedeLibre('')
+    setTurnoNueva('mañana')
     setModuloNueva('')
     setProfesorNueva('')
     setCreando(false)
@@ -176,8 +217,29 @@ export default function Cohortes() {
 
       <Regla delay={60} />
 
+      {creada && (
+        <p className="rounded-lg border border-zr-success/30 bg-zr-success/12 px-4 py-3 text-sm font-medium text-zr-success">
+          {creada}
+        </p>
+      )}
+
       {creando && (
         <div className="zr-card space-y-4 p-6">
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Programa</label>
+            <select
+              value={programaId ?? ''}
+              onChange={(e) => setProgramaId(e.target.value || null)}
+              className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+            >
+              {programas.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            <p className="mt-1.5 text-xs text-zr-text-muted">
+              Define el prefijo del carnet de sus estudiantes (PTMA o PFTA).
+            </p>
+          </div>
           <div>
             <label className="mb-2 block text-sm font-semibold text-zr-text">Nombre</label>
             <input
@@ -187,6 +249,53 @@ export default function Cohortes() {
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
             />
           </div>
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Fecha de inicio</label>
+            <input
+              type="date"
+              value={fechaInicioNueva}
+              onChange={(e) => setFechaInicioNueva(e.target.value)}
+              className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+            />
+            <p className="mt-1.5 text-xs text-zr-text-muted">
+              Define el año del carnet. El número de corte lo asigna el sistema.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-zr-text">Sede</label>
+              <select
+                value={sedeNueva}
+                onChange={(e) => setSedeNueva(e.target.value)}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+              >
+                <option value="">Sin asignar</option>
+                {sedesConocidas.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+                <option value="__nueva__">Otra sede…</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-zr-text">Turno</label>
+              <select
+                value={turnoNueva}
+                onChange={(e) => setTurnoNueva(e.target.value as 'mañana' | 'tarde')}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+              >
+                <option value="mañana">Mañana</option>
+                <option value="tarde">Tarde</option>
+              </select>
+            </div>
+          </div>
+          {sedeNueva === '__nueva__' && (
+            <input
+              value={sedeLibre}
+              onChange={(e) => setSedeLibre(e.target.value)}
+              placeholder="Nombre de la sede nueva"
+              className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
+            />
+          )}
           <div>
             <label className="mb-2 block text-sm font-semibold text-zr-text">Ubicación</label>
             <input
@@ -251,7 +360,7 @@ export default function Cohortes() {
 
           <button
             onClick={crearCohorte}
-            disabled={!nombreNueva.trim() || guardando}
+            disabled={!nombreNueva.trim() || !programaId || !fechaInicioNueva || guardando}
             className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-40"
           >
             {guardando ? 'Creando…' : 'Crear cohorte'}

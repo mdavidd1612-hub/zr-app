@@ -15,7 +15,7 @@ interface Cohorte {
   dias: string | null
   horario: string | null
   codeNumber: number | null
-  esMia: boolean
+  estado: 'activa' | 'finalizada' | 'suspendida'
   misEstudiantes: number
   totalEstudiantes: number
 }
@@ -76,7 +76,7 @@ export default function ProgramasVendedor() {
       const [{ data: progs }, { data: mias }] = await Promise.all([
         supabase
           .from('programs')
-          .select('id, name, cohorts(id, name, sede, turno, start_date, days, schedule, code_number, created_by, students(id))')
+          .select('id, name, cohorts(id, name, sede, turno, start_date, days, schedule, code_number, status, students(id))')
           .order('name'),
         supabase.from('students').select('cohort_id').eq('enrolled_by', user.id),
       ])
@@ -92,7 +92,7 @@ export default function ProgramasVendedor() {
         cohorts: {
           id: string; name: string; sede: string | null; turno: string | null
           start_date: string; days: string | null; schedule: string | null
-          code_number: number | null; created_by: string | null
+          code_number: number | null; status: 'activa' | 'finalizada' | 'suspendida'
           students: { id: string }[] | null
         }[]
       }[]
@@ -112,7 +112,7 @@ export default function ProgramasVendedor() {
             dias: c.days,
             horario: c.schedule,
             codeNumber: c.code_number,
-            esMia: c.created_by === user.id,
+            estado: c.status,
             misEstudiantes: conteoPorCohorte.get(c.id) ?? 0,
             totalEstudiantes: c.students?.length ?? 0,
           })),
@@ -205,6 +205,30 @@ export default function ProgramasVendedor() {
     setVersion((v) => v + 1)
   }
 
+  // Terminar una cohorte la saca del desplegable de inscripción sin tocar nada
+  // de lo que ya pasó dentro de ella. Es reversible: si se terminó por error,
+  // "Reabrir" la devuelve a activa.
+  async function cambiarEstado(c: Cohorte, estado: 'activa' | 'finalizada') {
+    setGuardando(true); setError(null); setAviso(null)
+
+    const { error: fallo } = await createClient()
+      .from('cohorts').update({ status: estado }).eq('id', c.id)
+
+    if (fallo) {
+      setError(mensajeDeError(fallo.code, fallo.message))
+      setGuardando(false)
+      return
+    }
+
+    setAviso(
+      estado === 'finalizada'
+        ? `Cohorte ${c.name} terminada. Ya no aparece al inscribir.`
+        : `Cohorte ${c.name} reabierta. Vuelve a aparecer al inscribir.`,
+    )
+    setGuardando(false)
+    setVersion((v) => v + 1)
+  }
+
   async function borrarCohorte(c: Cohorte) {
     setGuardando(true); setError(null); setAviso(null)
 
@@ -268,25 +292,45 @@ export default function ProgramasVendedor() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 space-y-2">
                       <p className="truncate text-sm font-semibold text-zr-text">{c.name}</p>
-                      <EtiquetaSede sede={c.sede} turno={c.turno} />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <EtiquetaSede sede={c.sede} turno={c.turno} />
+                        {c.estado !== 'activa' && (
+                          <span className="inline-flex shrink-0 items-center rounded-full border border-zr-border bg-zr-bg px-2.5 py-1 text-[11px] font-bold leading-none text-zr-text-muted">
+                            {c.estado === 'finalizada' ? 'Terminada' : 'Suspendida'}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <span className="shrink-0 text-xs font-bold tabular-nums text-zr-blue-mid">
                       {c.misEstudiantes} inscritos por mí
                     </span>
                   </div>
 
-                  {c.esMia && editando !== c.id && borrando !== c.id && (
-                    <div className="flex gap-3 pt-1">
+                  {editando !== c.id && borrando !== c.id && (
+                    <div className="flex flex-wrap gap-3 pt-1">
                       <button
                         onClick={() => empezarEdicion(c)}
                         className="min-h-11 flex-1 rounded-lg border border-zr-border text-sm font-semibold text-zr-text"
                       >
                         Corregir
                       </button>
+
+                      {/* Terminar es lo que se usa a fin de corte. Borrar solo
+                          sirve para una cohorte que nunca llegó a arrancar:
+                          con estudiantes dentro hay asistencias, notas y
+                          carnets emitidos, y eso no se tira. */}
+                      <button
+                        onClick={() => cambiarEstado(c, c.estado === 'activa' ? 'finalizada' : 'activa')}
+                        disabled={guardando}
+                        className="min-h-11 flex-1 rounded-lg border border-zr-blue-mid/50 text-sm font-semibold text-zr-blue-light disabled:opacity-40"
+                      >
+                        {c.estado === 'activa' ? 'Terminar' : 'Reabrir'}
+                      </button>
+
                       <button
                         onClick={() => { setBorrando(c.id); setEditando(null); setError(null) }}
                         disabled={c.totalEstudiantes > 0}
-                        title={c.totalEstudiantes > 0 ? 'Tiene estudiantes inscritos' : undefined}
+                        title={c.totalEstudiantes > 0 ? 'Tiene estudiantes inscritos: se termina, no se borra' : undefined}
                         className="min-h-11 flex-1 rounded-lg border border-zr-error/40 text-sm font-semibold text-zr-error disabled:opacity-35"
                       >
                         Eliminar

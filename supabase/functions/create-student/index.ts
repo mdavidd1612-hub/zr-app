@@ -248,6 +248,13 @@ Deno.serve(async (req: Request) => {
       address: f.direccion ?? null,
       emergency_contact_phone: f.telefonoEmergencia?.trim() || null,
       enrolled_by: esVendedor ? user.id : null,
+      // "Validación pendiente" (firma física de la planilla) existía para
+      // cuando un estudiante podía autoregistrarse sin que nadie de la
+      // academia lo viera. Ya no hay autoregistro — toda cuenta la crea acá
+      // administración o ventas, en persona o con los datos de la planilla
+      // ya en mano — así que la inscripción misma ES la validación.
+      validated_at: new Date().toISOString(),
+      validated_by: user.id,
     }).select('student_code').single()
 
     if (studentError || !nuevoEstudiante) {

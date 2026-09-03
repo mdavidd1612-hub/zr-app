@@ -143,8 +143,8 @@ export default function ProgramasVendedor() {
   const sedeElegida = () => (sede === '__nueva__' ? sedeNueva : sede).trim()
 
   function mensajeDeError(codigo?: string, texto?: string) {
-    if (codigo === '23505') return 'Ya existe una cohorte con ese nombre en el programa.'
-    if (codigo === '23503') return 'No se puede borrar: la cohorte tiene estudiantes inscritos.'
+    if (codigo === '23505') return 'Ya existe un programa con ese nombre.'
+    if (codigo === '23503') return 'No se puede borrar: el programa tiene estudiantes inscritos.'
     return texto ?? 'No se pudo guardar. Revisa tu conexión.'
   }
 
@@ -170,10 +170,10 @@ export default function ProgramasVendedor() {
       return
     }
 
-    const corte = String(data.code_number).padStart(2, '0')
+    const numero = String(data.code_number).padStart(2, '0')
     setAviso(
-      `Cohorte ${data.name} creada en ${sedeElegida() || 'sin sede'}. ` +
-      `Los carnets de sus estudiantes empezarán por ${p.siglas}-${fechaInicio.slice(0, 4)}-${corte}.`,
+      `Programa ${data.name} creado en ${sedeElegida() || 'sin sede'}. ` +
+      `Los carnets de sus estudiantes empezarán por ${p.siglas}-${fechaInicio.slice(0, 4)}-${numero}.`,
     )
 
     limpiar()
@@ -201,15 +201,15 @@ export default function ProgramasVendedor() {
     // La fecha de inicio no se puede cambiar desde aquí a propósito: define el
     // año del código de carnet, y moverla dejaría los carnets ya entregados sin
     // relación con su cohorte. Si hay que corregirla, lo hace administración.
-    setAviso(`Cohorte ${nombre.trim()} actualizada.`)
+    setAviso(`Programa ${nombre.trim()} actualizado.`)
     limpiar()
     setGuardando(false)
     setVersion((v) => v + 1)
   }
 
-  // Terminar una cohorte la saca del desplegable de inscripción sin tocar nada
-  // de lo que ya pasó dentro de ella. Es reversible: si se terminó por error,
-  // "Reabrir" la devuelve a activa.
+  // Terminar un programa lo saca del desplegable de inscripción sin tocar
+  // nada de lo que ya pasó dentro de él. Es reversible: si se terminó por
+  // error, "Reabrir" lo devuelve a activo.
   async function cambiarEstado(c: Cohorte, estado: 'activa' | 'finalizada') {
     setGuardando(true); setError(null); setAviso(null)
 
@@ -224,8 +224,8 @@ export default function ProgramasVendedor() {
 
     setAviso(
       estado === 'finalizada'
-        ? `Cohorte ${c.name} terminada. Ya no aparece al inscribir.`
-        : `Cohorte ${c.name} reabierta. Vuelve a aparecer al inscribir.`,
+        ? `Programa ${c.name} terminado. Ya no aparece al inscribir.`
+        : `Programa ${c.name} reabierto. Vuelve a aparecer al inscribir.`,
     )
     setGuardando(false)
     setVersion((v) => v + 1)
@@ -242,7 +242,7 @@ export default function ProgramasVendedor() {
       return
     }
 
-    setAviso(`Cohorte ${c.name} eliminada.`)
+    setAviso(`Programa ${c.name} eliminado.`)
     limpiar()
     setGuardando(false)
     setVersion((v) => v + 1)
@@ -267,7 +267,7 @@ export default function ProgramasVendedor() {
 
   return (
     <div className="space-y-11 px-5 pt-14 pb-10">
-      <Encabezado sobretitulo="Ventas" titulo="Programas" descripcion="PTMA y PFTA, con sus cohortes activas" />
+      <Encabezado sobretitulo="Ventas" titulo="Programas" descripcion="PTMA y PFTA, con sus programas activos" />
       <Regla delay={60} />
 
       {aviso && (
@@ -286,7 +286,7 @@ export default function ProgramasVendedor() {
           <Seccion key={p.id} numero={i + 1} titulo={p.name} delay={100 + i * 60}>
             <div className="space-y-3">
               {p.cohortes.length === 0 && (
-                <p className="zr-card p-5 text-sm text-zr-text-muted">Todavía no hay cohortes en este programa.</p>
+                <p className="zr-card p-5 text-sm text-zr-text-muted">Todavía no hay ningún programa de {p.siglas}.</p>
               )}
 
               {p.cohortes.map((c) => (
@@ -317,10 +317,10 @@ export default function ProgramasVendedor() {
                         Corregir
                       </button>
 
-                      {/* Terminar es lo que se usa a fin de corte. Borrar solo
-                          sirve para una cohorte que nunca llegó a arrancar:
-                          con estudiantes dentro hay asistencias, notas y
-                          carnets emitidos, y eso no se tira. */}
+                      {/* Terminar es lo que se usa cuando el programa acaba.
+                          Borrar solo sirve para uno que nunca llegó a
+                          arrancar: con estudiantes dentro hay asistencias,
+                          notas y carnets emitidos, y eso no se tira. */}
                       <button
                         onClick={() => cambiarEstado(c, c.estado === 'activa' ? 'finalizada' : 'activa')}
                         disabled={guardando}
@@ -425,7 +425,7 @@ export default function ProgramasVendedor() {
                       {previsto ?? 'Elige la fecha de inicio'}
                     </p>
                     <p className="mt-1.5 text-xs text-zr-text-muted">
-                      El nombre y el número de corte los pone el sistema, para que no haya dos cohortes iguales.
+                      El nombre y el número los pone el sistema, para que no haya dos programas iguales.
                     </p>
                   </div>
 
@@ -452,7 +452,7 @@ export default function ProgramasVendedor() {
                   onClick={() => { limpiar(); setCreando(p.id) }}
                   className="zr-card zr-card-interactive flex min-h-14 w-full items-center justify-center px-6 text-sm font-bold text-zr-blue"
                 >
-                  + Nueva cohorte de {p.siglas}
+                  + Nuevo programa de {p.siglas}
                 </button>
               )}
             </div>

@@ -29,7 +29,9 @@ export function SelectorCohorte({
   opciones,
   valor,
   onChange,
-  etiqueta = 'Cohorte',
+  // "Programa", no "Cohorte": así lo llama la academia — para ellos PTMA-2026-II
+  // ya ES el programa, no hay un nivel intermedio con nombre propio.
+  etiqueta = 'Programa',
 }: {
   opciones: OpcionCohorte[]
   valor: string
@@ -97,7 +99,7 @@ export function SelectorCohorte({
             <EtiquetaSede sede={elegida.sede} turno={elegida.turno} />
           </span>
         ) : (
-          <span className="text-zr-text-muted">Selecciona una cohorte</span>
+          <span className="text-zr-text-muted">Selecciona un programa</span>
         )}
         <span aria-hidden className={`shrink-0 text-zr-text-muted transition-transform ${abierto ? 'rotate-180' : ''}`}>
           ▾
@@ -113,7 +115,7 @@ export function SelectorCohorte({
         >
           {opciones.length === 0 && (
             <li className="px-4 py-4 text-sm text-zr-text-muted">
-              No hay cohortes abiertas para inscribir.
+              No hay programas abiertos para inscribir.
             </li>
           )}
 

@@ -47,22 +47,19 @@ export function FormularioInscripcion({ sobretitulo }: { sobretitulo: string }) 
   const [exito, setExito] = useState<string | null>(null)
 
   useEffect(() => {
-    // v_cohorts_inscribibles (migración 064), no `cohorts` directo: ya trae
-    // solo las activas y dentro de la ventana de inscripción desde su fecha
-    // de inicio — no hay que repetir ese filtro aquí. Sede y turno viajan con
-    // la cohorte para poder mostrarlas como etiqueta.
+    // R-12 filtraba por una ventana de 30 días desde el inicio — se revirtió
+    // (migración 069) porque en la práctica dejaba un solo programa visible
+    // y la academia sí necesita poder sumar estudiantes a uno ya en marcha.
+    // Muestra todos los que están 'activa', sin más filtro. Sede y turno
+    // viajan con el programa para poder mostrarlas como etiqueta.
     createClient()
-      .from('v_cohorts_inscribibles')
+      .from('cohorts')
       .select('id, name, sede, turno')
+      .eq('status', 'activa')
       .order('name')
       .then(({ data }) => {
-        // Las columnas de una vista salen siempre "nullable" en los tipos
-        // generados, aunque en `cohorts` id/name son NOT NULL — se filtra
-        // cualquier fila rara en vez de forzar el tipo con un `as`.
         setCohortes(
-          (data ?? []).flatMap((c) =>
-            c.id && c.name ? [{ id: c.id, name: c.name, sede: c.sede, turno: c.turno }] : [],
-          ),
+          (data ?? []).map((c) => ({ id: c.id, name: c.name, sede: c.sede, turno: c.turno })),
         )
       })
   }, [])

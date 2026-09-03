@@ -625,6 +625,46 @@ en el navegador, no solo compilando (lección de `docs/18` §2bis).
 
 ---
 
+### Corrección de terminología y vigencia (2 de septiembre de 2026, después de que el cliente probó la Fase 2)
+
+El cliente probó `/catalogo` e `/inscribir` recién desplegados y devolvió dos correcciones, las
+dos aplicadas de inmediato:
+
+**1. "Programa" es lo que el código llama `cohorts`, no lo que llama `programs`.** Para la
+academia, PTMA-2026-II ya ES "el programa" — no hay, en su cabeza, un nivel intermedio con
+nombre propio entre "PTMA" (el currículo) y "PTMA-2026-II" (el grupo concreto). La pantalla
+`/catalogo` que se acababa de construir mostraba justo ese nivel intermedio (dos entradas,
+PTMA/PFTA, con sus siglas) como si fueran "los programas", y eso resultó confuso — "una broma",
+en sus palabras.
+
+Se corrigió así, **sin tocar el modelo de datos** (`programs`/`cohorts` siguen siendo dos tablas
+distintas por dentro — la separación es real y necesaria, solo la palabra visible cambia):
+- `/catalogo` se renombra **"Catálogo de programas"** y ahora muestra TODOS los programas reales
+  (los 7 `cohorts` existentes, de solo lectura), agrupados bajo su currículo — igual que ya los
+  ve el vendedor en `/(vendedor)/programas`, no las dos entradas de currículo con siglas.
+- Lo que antes se llamaba "crear programa" (con siglas) pasa a llamarse **"Plan de estudio
+  nuevo"** y queda al final de la pantalla, sin protagonismo — es para el caso raro de un
+  currículo nuevo, no el trabajo del día a día.
+- En `/(vendedor)/programas`, `/inscribir` y el selector de programa: toda mención visible de
+  "cohorte" o "corte" pasa a "programa" (avisos, botones, mensajes de error).
+- **Alcance de este cambio, a propósito**: no se tocó la palabra "cohorte" en las pantallas de
+  profesor/estudiante (asistencia, notas, exámenes, malla, perfil) — esas llevan meses
+  funcionando así sin queja, y el cliente se refería concretamente a lo que él usa (inscribir,
+  catálogo, programas). Si también hace falta cambiarlas ahí, es un pedido aparte.
+
+**2. El desplegable de inscribir volvía a mostrar un solo programa — se revirtió R-12 por
+completo.** Con los 7 programas reales cargados, la ventana de 30 días de R-12 dejaba visible
+solo `PTMA-2026-II` (el único que empieza dentro del margen). El cliente probó `/inscribir` y
+encontró el resultado inaceptable: la academia sí necesita poder sumar un estudiante a un
+programa que ya lleva meses corriendo, y decide caso por caso, no con una regla automática.
+
+Se revirtió sin dejar infraestructura sin usar: la vista `v_cohorts_inscribibles` y la fila de
+`system_config['enrollment.ventana_dias']` se borraron (migración `069`). El desplegable vuelve
+a mostrar todo lo que esté `status = 'activa'`, sin más filtro — el mismo criterio de antes de
+la Fase 1. Verificado contra producción: los 7 programas reales aparecen de nuevo.
+
+---
+
 ### FASE 3 — Usuarios y panel
 
 #### R-30 · Sacar los usuarios de prueba de producción — ⚠️ *adelantado a la semana 1 por §2.5*

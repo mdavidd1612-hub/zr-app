@@ -2435,27 +2435,6 @@ export type Database = {
       }
     }
     Views: {
-      v_cohorts_inscribibles: {
-        Row: {
-          code_number: number | null
-          created_at: string | null
-          created_by: string | null
-          current_module_id: string | null
-          days: string | null
-          id: string | null
-          location: string | null
-          name: string | null
-          program_id: string | null
-          schedule: string | null
-          sede: string | null
-          start_date: string | null
-          status: Database["public"]["Enums"]["cohort_status"] | null
-          teacher_id: string | null
-          turno: string | null
-          updated_at: string | null
-        }
-        Relationships: []
-      }
       v_exam_questions_student: {
         Row: {
           exam_id: string | null

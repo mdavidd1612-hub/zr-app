@@ -159,7 +159,7 @@ export default function Configuracion() {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-zr-bg px-5">
         <div className="zr-card max-w-sm p-8 text-center">
-          <p className="text-base font-semibold text-zr-text">Solo dirección académica</p>
+          <p className="text-base font-semibold text-zr-text">Solo super_admin</p>
           <p className="mt-2 text-sm text-zr-text-muted">
             Esta pantalla cambia reglas de negocio de toda la academia. Solo super_admin
             puede entrar.

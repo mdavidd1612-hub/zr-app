@@ -66,7 +66,7 @@ export default function Sesiones() {
           fecha: s.session_date,
           semana: s.week_number,
           estado: s.status,
-          cohorte: s.cohorts?.name ?? 'Cohorte',
+          cohorte: s.cohorts?.name ?? 'Programa',
           modulo: s.modules?.name ?? 'Módulo',
           presentes: s.attendance_events?.length ?? 0,
         })),
@@ -198,7 +198,7 @@ export default function Sesiones() {
         <div className="zr-card animate-rise p-8" style={{ animationDelay: '120ms' }}>
           <p className="text-base font-semibold text-zr-text">No tienes sesiones</p>
           <p className="mt-2 text-sm text-zr-text-muted">
-            Administración programa las sesiones de cada cohorte. Habla con ellos si falta
+            Administración calendariza las sesiones de cada programa. Habla con ellos si falta
             algún sábado.
           </p>
         </div>

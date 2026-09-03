@@ -106,7 +106,7 @@ export default function FichaEstudiante() {
       setMensaje(error.message)
     } else {
       setFicha((f) => (f ? { ...f, cohorteId: nuevaCohorte || null } : f))
-      setMensaje('Cohorte actualizada.')
+      setMensaje('Programa actualizado.')
     }
     setGuardando(false)
   }
@@ -167,21 +167,21 @@ export default function FichaEstudiante() {
         </div>
       </Seccion>
 
-      <Seccion numero={2} titulo="Cohorte" delay={200}>
+      <Seccion numero={2} titulo="Programa" delay={200}>
         <div className="zr-card space-y-4 p-5">
           <select
             value={nuevaCohorte}
             onChange={(e) => setNuevaCohorte(e.target.value)}
             className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
           >
-            <option value="">Sin cohorte</option>
+            <option value="">Sin programa</option>
             {cohortes.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
 
           {mensaje && (
-            <p className={`text-sm font-medium ${mensaje.includes('actualizada') ? 'text-zr-success' : 'text-zr-error'}`}>
+            <p className={`text-sm font-medium ${mensaje.includes('actualizado') ? 'text-zr-success' : 'text-zr-error'}`}>
               {mensaje}
             </p>
           )}
@@ -191,7 +191,7 @@ export default function FichaEstudiante() {
             disabled={guardando || nuevaCohorte === (ficha.cohorteId ?? '')}
             className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-40"
           >
-            {guardando ? 'Guardando…' : 'Cambiar cohorte'}
+            {guardando ? 'Guardando…' : 'Cambiar programa'}
           </button>
         </div>
       </Seccion>

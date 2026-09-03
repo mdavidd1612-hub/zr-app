@@ -663,6 +663,39 @@ Se revirtió sin dejar infraestructura sin usar: la vista `v_cohorts_inscribible
 a mostrar todo lo que esté `status = 'activa'`, sin más filtro — el mismo criterio de antes de
 la Fase 1. Verificado contra producción: los 7 programas reales aparecen de nuevo.
 
+### Segunda corrección del mismo día: "programa" es el corte, "sede" es PTMA/PFTA
+
+El cliente volvió con el modelo completo, y corrigió la primera corrección: "programa" no es un
+nivel intermedio nuevo — es el curso de 18 meses con los 14 módulos (lo que el código llama
+`cohorts`, ej. PTMA-2026-II). Y "PTMA"/"PFTA" no son un tercer concepto ("plan de estudio"): son,
+literalmente, la sede. "PTMA es de La Morita, PFTA es de la UCV — son agrupaciones o nombres de
+los programas por sede." Cada sede tiene su propia sigla, y esa sigla ES el programa que se dicta
+ahí. No hay caso, en su modelo, de una sede con dos siglas ni de dos sedes compartiendo una.
+
+Esto cambia dos cosas más allá de la palabra:
+
+1. **Crear una sede y crear su currículo pasan a ser la misma acción.** El formulario "Plan de
+   estudio nuevo" que se había separado de "Sedes" desapareció: `programs.sede_id` es ahora
+   1 a 1 con `sedes` (migración `070`), y `crear_sede_con_programa()` — una función de base de
+   datos, no tres inserts sueltos desde el cliente, para que no pueda quedar una sede sin su
+   programa si algo falla a mitad de camino — crea la sede, el programa (con su sigla) y copia
+   el currículo de 14 módulos de un programa existente, todo junto. "+ Nueva sede" en
+   `/catalogo` ahora pide también la sigla y el nombre del programa.
+2. **Se completó el rename "cohorte"/"corte" → "programa" en TODA la app** — no solo en
+   inscribir/catálogo/programas como la primera corrección, sino en asistencia, estudiantes,
+   material, notas, exámenes, panel, personal, reportes, y las pantallas de profesor y
+   estudiante (malla, clases, exámenes, perfil, progreso, sesiones). Es una instrucción
+   explícita del cliente: "simplemente todo en los perfiles, queda corte como programa."
+3. **Donde ya existía un filtro/etiqueta "Programa" refiriéndose al nivel de currículo**
+   (`asistencias/historico`, la pantalla huérfana `/cohortes`, `notas-academicas`) **se
+   renombró a "Sede"**, para no terminar con dos cosas distintas llamadas igual en la misma
+   pantalla.
+
+Verificado contra producción con una cuenta de super_admin temporal: crear una sede nueva desde
+`/catalogo` (UI real, no solo la función por SQL) creó la sede, el programa con su sigla, y copió
+los 14 módulos — confirmado por consulta directa. Sede, programa, módulos y cuenta de prueba
+borrados después.
+
 ---
 
 ### FASE 3 — Usuarios y panel

@@ -212,7 +212,7 @@ export default function NuevoExamen() {
 
             <div>
               <label htmlFor="cohorte" className="mb-2 block text-sm font-semibold text-zr-text">
-                Cohorte
+                Programa
               </label>
               <select
                 id="cohorte"
@@ -220,7 +220,7 @@ export default function NuevoExamen() {
                 onChange={(e) => setCohorteId(e.target.value)}
                 className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
               >
-                <option value="">Todas las cohortes</option>
+                <option value="">Todos los programas</option>
                 {cohortes.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}

@@ -159,7 +159,7 @@ export default function Cohortes() {
     if (fallo) {
       setError(
         fallo.code === '23505'
-          ? 'Ya existe una cohorte con ese nombre o ese número de corte en el programa.'
+          ? 'Ya existe un programa con ese nombre o ese número en esta sede.'
           : fallo.message,
       )
       setGuardando(false)
@@ -167,7 +167,7 @@ export default function Cohortes() {
     }
 
     setCreada(
-      `Cohorte "${data.name}" creada: corte ${String(data.code_number).padStart(2, '0')} de ${fechaInicioNueva.slice(0, 4)}.`,
+      `Programa "${data.name}" creado: número ${String(data.code_number).padStart(2, '0')} de ${fechaInicioNueva.slice(0, 4)}.`,
     )
 
     setUbicacionNueva('')
@@ -198,7 +198,7 @@ export default function Cohortes() {
   if (cargando) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando cohortes…</p>
+        <p className="text-sm text-zr-text-muted">Cargando programas…</p>
       </div>
     )
   }
@@ -209,7 +209,7 @@ export default function Cohortes() {
 
       <Encabezado
         sobretitulo="Administración"
-        titulo="Cohortes"
+        titulo="Programas"
         descripcion={`${cohortes.length} en total`}
         accion={
           <button
@@ -232,7 +232,7 @@ export default function Cohortes() {
       {creando && (
         <div className="zr-card space-y-4 p-6">
           <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Programa</label>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Sede</label>
             <select
               value={programaId ?? ''}
               onChange={(e) => setProgramaId(e.target.value || null)}
@@ -255,8 +255,8 @@ export default function Cohortes() {
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
             />
             <p className="mt-1.5 text-xs text-zr-text-muted">
-              El nombre (ej. PTMA-2026-III) y el número de corte los pone el sistema a partir del
-              programa y esta fecha. Se puede renombrar después.
+              El nombre (ej. PTMA-2026-III) y el número los pone el sistema a partir de la
+              sede y esta fecha. Se puede renombrar después.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -361,14 +361,14 @@ export default function Cohortes() {
             disabled={!programaId || !fechaInicioNueva || guardando}
             className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-40"
           >
-            {guardando ? 'Creando…' : 'Crear cohorte'}
+            {guardando ? 'Creando…' : 'Crear programa'}
           </button>
         </div>
       )}
 
       {cohortes.length === 0 ? (
         <div className="zr-card p-8 text-center">
-          <p className="text-base font-semibold text-zr-text">No hay cohortes todavía</p>
+          <p className="text-base font-semibold text-zr-text">No hay programas todavía</p>
         </div>
       ) : (
         <Seccion numero={1} titulo="Todas" delay={120}>
@@ -415,8 +415,8 @@ export default function Cohortes() {
                   {confirmandoAvance === c.id ? (
                     <div className="space-y-2 rounded-lg border border-zr-warning/30 bg-zr-warning/10 p-3">
                       <p className="text-xs text-zr-text">
-                        Esto cambia de golpe el contenido y los exámenes que ve toda la
-                        cohorte. ¿Seguro?
+                        Esto cambia de golpe el contenido y los exámenes que ve todo el
+                        programa. ¿Seguro?
                       </p>
                       <select
                         id={`avance-${c.id}`}

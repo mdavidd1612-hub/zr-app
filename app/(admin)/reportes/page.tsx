@@ -83,7 +83,7 @@ export default function Reportes() {
 
       setAsistencia(
         (filasSesiones ?? []).map((s) => ({
-          cohorte: s.cohorts?.name ?? 'Cohorte',
+          cohorte: s.cohorts?.name ?? 'Programa',
           fecha: s.session_date,
           presentes: s.attendance_events?.length ?? 0,
           inscritos: inscritosPorCohorte.get(s.cohort_id) ?? 0,
@@ -209,7 +209,7 @@ export default function Reportes() {
             alExcel={() =>
               exportarExcel(
                 'asistencia_por_sesion',
-                [{ encabezado: 'Cohorte', ancho: 28 }, { encabezado: 'Fecha' }, { encabezado: 'Presentes' }, { encabezado: 'Inscritos' }],
+                [{ encabezado: 'Programa', ancho: 28 }, { encabezado: 'Fecha' }, { encabezado: 'Presentes' }, { encabezado: 'Inscritos' }],
                 asistencia.map((f) => [f.cohorte, f.fecha, f.presentes, f.inscritos]),
               )
             }
@@ -217,7 +217,7 @@ export default function Reportes() {
               exportarPDF(
                 'Asistencia por sesión',
                 'asistencia_por_sesion',
-                ['Cohorte', 'Fecha', 'Presentes', 'Inscritos'],
+                ['Programa', 'Fecha', 'Presentes', 'Inscritos'],
                 asistencia.map((f) => [f.cohorte, f.fecha, f.presentes, f.inscritos]),
                 `Generado el ${new Date().toLocaleDateString('es-VE')}`,
               )

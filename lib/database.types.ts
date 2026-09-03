@@ -1912,6 +1912,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          sede_id: string
           siglas: string
           total_duration_months: number
           total_modules: number
@@ -1920,6 +1921,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          sede_id: string
           siglas: string
           total_duration_months?: number
           total_modules?: number
@@ -1928,11 +1930,20 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          sede_id?: string
           siglas?: string
           total_duration_months?: number
           total_modules?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "programs_sede_id_fkey"
+            columns: ["sede_id"]
+            isOneToOne: true
+            referencedRelation: "sedes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sedes: {
         Row: {
@@ -2622,6 +2633,10 @@ export type Database = {
       cfg: { Args: { p_key: string }; Returns: Json }
       cfg_int: { Args: { p_default: number; p_key: string }; Returns: number }
       cfg_num: { Args: { p_default: number; p_key: string }; Returns: number }
+      crear_sede_con_programa: {
+        Args: { p_nombre_programa: string; p_nombre_sede: string; p_siglas: string }
+        Returns: string
+      }
       fn_generar_caso_del_dia: { Args: never; Returns: undefined }
       is_admin_up: { Args: never; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }

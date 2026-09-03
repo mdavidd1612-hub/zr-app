@@ -112,7 +112,7 @@ export default function Progreso() {
           <div className="zr-card animate-rise p-8" style={{ animationDelay: '120ms' }}>
             <p className="text-base font-semibold text-zr-text">Aún no hay nada que mostrar</p>
             <p className="mt-2 text-sm text-zr-text-muted">
-              Las competencias aparecen cuando tu cohorte empieza un módulo y las guías están
+              Las competencias aparecen cuando tu programa empieza un módulo y las guías están
               cargadas. Pregúntale a tu profesor si crees que esto es un error.
             </p>
           </div>

@@ -59,7 +59,7 @@ export default function FeedbackClase() {
           fecha: new Date(fila.session_date + 'T12:00:00').toLocaleDateString('es-VE', {
             weekday: 'long', day: 'numeric', month: 'long',
           }),
-          cohorte: fila.cohorts?.name ?? 'Cohorte',
+          cohorte: fila.cohorts?.name ?? 'Programa',
         })
       }
 

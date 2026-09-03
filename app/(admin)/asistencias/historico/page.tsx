@@ -9,8 +9,12 @@ import { EstadoVacio } from '@/components/ui/EstadoVacio'
 
 /**
  * Vista general de asistencia (especificacion-funcional-zrm-academy.md §10.2,
- * Módulo 8): la lista completa, filtrable por programa, módulo, cohorte y
+ * Módulo 8): la lista completa, filtrable por sede, módulo, programa y
  * rango de fechas, con quién registró cada asistencia y el % por estudiante.
+ *
+ * "Sede" aquí es el nivel de currículo (`programs`, PTMA/PFTA) — para la
+ * academia esa sigla ES la sede (migración 070). "Programa" es el corte
+ * concreto (`cohorts`, ej. PTMA-2026-II) — lo que un estudiante cursa.
  *
  * NO reemplaza a /asistencias: esa es la pantalla operativa del sábado
  * (marcar a mano, ver quién falta ahora). Esta es la de consulta, la que la
@@ -302,7 +306,7 @@ export default function AsistenciaHistorico() {
 
     const html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head>
       <body><table border="1"><thead><tr>
-        <th>Estudiante</th><th>Cédula</th><th>Cohorte</th><th>Módulo</th>
+        <th>Estudiante</th><th>Cédula</th><th>Programa</th><th>Módulo</th>
         <th>Fecha de la sesión</th><th>Estado</th><th>Hora</th><th>Registrado por</th><th>Justificación</th>
       </tr></thead><tbody>${cuerpo}</tbody></table></body></html>`
 
@@ -332,7 +336,7 @@ export default function AsistenciaHistorico() {
       <Encabezado
         sobretitulo="Administración"
         titulo="Asistencia general"
-        descripcion="Todo el histórico, filtrable por programa, módulo, cohorte y fechas."
+        descripcion="Todo el histórico, filtrable por sede, módulo, programa y fechas."
       />
 
       <Regla delay={60} />
@@ -349,13 +353,13 @@ export default function AsistenciaHistorico() {
       {/* ------------------------------ Filtros ------------------------------ */}
       <div className="zr-card space-y-4 p-5">
         <div>
-          <label className="mb-2 block text-sm font-semibold text-zr-text">Programa</label>
+          <label className="mb-2 block text-sm font-semibold text-zr-text">Sede</label>
           <select
             value={programaId}
             onChange={(e) => { setProgramaId(e.target.value); setModuloId(''); setCohorteId('') }}
             className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
           >
-            <option value="">Todos los programas</option>
+            <option value="">Todas las sedes</option>
             {programas.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
           </select>
         </div>
@@ -373,13 +377,13 @@ export default function AsistenciaHistorico() {
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-semibold text-zr-text">Cohorte</label>
+          <label className="mb-2 block text-sm font-semibold text-zr-text">Programa</label>
           <select
             value={cohorteId}
             onChange={(e) => setCohorteId(e.target.value)}
             className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
           >
-            <option value="">Todas las cohortes</option>
+            <option value="">Todos los programas</option>
             {cohortesDelPrograma.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
         </div>

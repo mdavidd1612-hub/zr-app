@@ -111,8 +111,8 @@ export default function MallaCurricular() {
 
       {modulos.length === 0 ? (
         <p className="text-sm text-zr-text-muted">
-          Todavía no tienes un programa asignado. Cuando administración te asigne
-          tu cohorte, aquí verás la malla completa.
+          Todavía no tienes un programa asignado. Cuando administración te lo
+          asigne, aquí verás la malla completa.
         </p>
       ) : (
         <ol className="space-y-3">

@@ -300,7 +300,7 @@ export default function ExamenesProfesor() {
                 disabled={ocupado === e.id}
                 className="flex-1 rounded-lg border border-zr-border px-4 py-3 text-sm font-semibold text-zr-text transition-colors hover:border-zr-blue/45 disabled:opacity-40"
               >
-                {ocupado === e.id ? 'Duplicando…' : 'Duplicar para otra cohorte'}
+                {ocupado === e.id ? 'Duplicando…' : 'Duplicar para otro programa'}
               </button>
               <button
                 onClick={async () => {
@@ -386,7 +386,7 @@ export default function ExamenesProfesor() {
         <div className="zr-card animate-rise p-12 text-center" style={{ animationDelay: '120ms' }}>
           <p className="text-lg font-semibold text-zr-text">Todavía no has creado exámenes</p>
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-zr-text-muted">
-            Un examen se arma una vez y se duplica para cada cohorte. Las preguntas de opción
+            Un examen se arma una vez y se duplica para cada programa. Las preguntas de opción
             múltiple y verdadero/falso se califican solas; tú solo revisas las redacciones.
           </p>
           <button

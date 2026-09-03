@@ -124,12 +124,12 @@ export default function PerfilDocente() {
         </div>
       </Seccion>
 
-      <Seccion numero={2} titulo="Mis cohortes" delay={140}>
+      <Seccion numero={2} titulo="Mis programas" delay={140}>
         {cohortes.length === 0 ? (
           <div className="zr-card p-6">
-            <p className="text-base font-semibold text-zr-text">Sin cohortes asignadas</p>
+            <p className="text-base font-semibold text-zr-text">Sin programas asignados</p>
             <p className="mt-2 text-sm text-zr-text-muted">
-              Administración es quien asigna las cohortes. Habla con ellos si crees que esto
+              Administración es quien asigna los programas. Habla con ellos si crees que esto
               es un error.
             </p>
           </div>

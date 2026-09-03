@@ -10,21 +10,25 @@ import { EtiquetaSede } from '@/components/ui/EtiquetaSede'
 /**
  * R-20 y R-21 · docs/19_PLAN_CAMBIOS_POST_DIRECTIVA.md
  *
- * Ajuste hecho el 2 de septiembre de 2026 a pedido del cliente, después de
- * ver la primera versión de esta pantalla: para la academia, "programa" es
- * PTMA-2026-II — lo que el código llama `cohorts`. Esta pantalla mostraba
- * antes las dos entradas de currículo (PTMA/PFTA) con sus siglas como si
- * fueran "los programas", y eso confundía porque no son lo que el vendedor
- * ve ni inscribe. Ahora "Catálogo de programas" muestra TODOS los programas
- * reales (los mismos que /(vendedor)/programas, de solo lectura aquí), y lo
- * que antes se llamaba "crear programa" pasa a "Plan de estudio nuevo" —
- * una herramienta aparte, para el caso raro de sumar un currículo nuevo
- * (otro PTMA/PFTA), no para el día a día de abrir un corte.
+ * Segunda corrección de terminología del 2 de septiembre de 2026, después de
+ * que el cliente explicó el modelo completo:
  *
- * Las siglas siguen alimentando `set_student_code_calc()` (migración 067):
- * antes de esa migración, cualquier plan de estudio que no se llamara
- * "PTMA…" caía en silencio al prefijo "PFTA". La validación de aquí (3-5
- * letras mayúsculas, únicas) es la misma que exige la base.
+ * - "Programa" es el curso de 18 meses con los 14 módulos — lo que el código
+ *   llama `cohorts` (ej. PTMA-2026-II). Es lo que se lista aquí abajo, igual
+ *   que en el perfil de ventas.
+ * - "PTMA" y "PFTA" no son un tercer concepto aparte ("plan de estudio"):
+ *   son, literalmente, la sede. "PTMA es de La Morita, PFTA es de la UCV —
+ *   son agrupaciones o nombres de los programas por sede." Cada sede tiene
+ *   su propia sigla, y esa sigla ES el programa que se dicta ahí.
+ *
+ * Por eso crear una sede y crear su currículo (la tabla `programs`, con su
+ * sigla y sus 14 módulos) pasan a ser LA MISMA acción — "+ Nueva sede" pide
+ * también la sigla y el nombre del programa, y `crear_sede_con_programa()`
+ * (migración 070) los crea juntos en una sola transacción, copiando el
+ * currículo de 14 módulos de un programa existente (todos comparten el
+ * mismo contenido hoy). Ya no existe un formulario "Plan de estudio nuevo"
+ * aparte: no hay caso, en el modelo del cliente, de una sede sin programa ni
+ * de un programa sin sede.
  */
 
 interface ProgramaReal {
@@ -35,7 +39,7 @@ interface ProgramaReal {
   estado: 'activa' | 'finalizada' | 'suspendida'
 }
 
-interface PlanDeEstudio {
+interface GrupoPorSede {
   id: string
   name: string
   siglas: string
@@ -53,23 +57,18 @@ const SIGLAS_RX = /^[A-Z]{3,5}$/
 export default function Catalogo() {
   const router = useRouter()
   const [esSuper, setEsSuper] = useState<boolean | null>(null)
-  const [planes, setPlanes] = useState<PlanDeEstudio[]>([])
+  const [grupos, setGrupos] = useState<GrupoPorSede[]>([])
   const [sedes, setSedes] = useState<Sede[]>([])
   const [cargando, setCargando] = useState(true)
   const [version, setVersion] = useState(0)
 
-  const [creandoPlan, setCreandoPlan] = useState(false)
-  const [nombrePlan, setNombrePlan] = useState('')
-  const [siglas, setSiglas] = useState('')
-  const [totalModulos, setTotalModulos] = useState('14')
-  const [totalMeses, setTotalMeses] = useState('13')
-  const [guardandoPlan, setGuardandoPlan] = useState(false)
-  const [errorPlan, setErrorPlan] = useState<string | null>(null)
-  const [avisoPlan, setAvisoPlan] = useState<string | null>(null)
-
+  const [creandoSede, setCreandoSede] = useState(false)
   const [nombreSede, setNombreSede] = useState('')
-  const [guardandoSede, setGuardandoSede] = useState(false)
-  const [errorSede, setErrorSede] = useState<string | null>(null)
+  const [siglas, setSiglas] = useState('')
+  const [nombrePrograma, setNombrePrograma] = useState('')
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
 
   useEffect(() => {
     let vigente = true
@@ -105,7 +104,7 @@ export default function Catalogo() {
         cohorts: { id: string; name: string; sede: string | null; turno: string | null; status: 'activa' | 'finalizada' | 'suspendida' }[]
       }[]
 
-      setPlanes(filas.map((p) => ({
+      setGrupos(filas.map((p) => ({
         id: p.id,
         name: p.name,
         siglas: p.siglas,
@@ -122,45 +121,31 @@ export default function Catalogo() {
   }, [router, version])
 
   function mensajeDeError(codigo?: string, texto?: string) {
-    if (codigo === '23505') return 'Ya existe un plan de estudio o una sede con ese nombre o esas siglas.'
+    if (codigo === '23505') return 'Ya existe una sede o un programa con ese nombre o esas siglas.'
     return texto ?? 'No se pudo guardar. Revisa tu conexión.'
   }
 
-  async function crearPlan() {
-    setGuardandoPlan(true); setErrorPlan(null); setAvisoPlan(null)
+  async function crearSede() {
+    setGuardando(true); setError(null); setAviso(null)
 
-    const { error: fallo } = await createClient().from('programs').insert({
-      name: nombrePlan.trim(),
-      siglas: siglas.trim().toUpperCase(),
-      total_modules: Number(totalModulos) || 14,
-      total_duration_months: Number(totalMeses) || 13,
+    const { error: fallo } = await createClient().rpc('crear_sede_con_programa', {
+      p_nombre_sede: nombreSede.trim(),
+      p_siglas: siglas.trim().toUpperCase(),
+      p_nombre_programa: nombrePrograma.trim(),
     })
 
     if (fallo) {
-      setErrorPlan(mensajeDeError(fallo.code, fallo.message))
-      setGuardandoPlan(false)
+      setError(mensajeDeError(fallo.code, fallo.message))
+      setGuardando(false)
       return
     }
 
-    setAvisoPlan(`Plan de estudio "${nombrePlan.trim()}" creado con siglas ${siglas.trim().toUpperCase()}.`)
-    setNombrePlan(''); setSiglas(''); setTotalModulos('14'); setTotalMeses('13'); setCreandoPlan(false)
-    setGuardandoPlan(false)
-    setVersion((v) => v + 1)
-  }
-
-  async function crearSede() {
-    setGuardandoSede(true); setErrorSede(null)
-
-    const { error: fallo } = await createClient().from('sedes').insert({ nombre: nombreSede.trim() })
-
-    if (fallo) {
-      setErrorSede(mensajeDeError(fallo.code, fallo.message))
-      setGuardandoSede(false)
-      return
-    }
-
-    setNombreSede('')
-    setGuardandoSede(false)
+    setAviso(
+      `Sede "${nombreSede.trim()}" creada, con su programa ${siglas.trim().toUpperCase()} ` +
+      `("${nombrePrograma.trim()}"). Ya puedes abrir programas de ahí desde el perfil de ventas.`,
+    )
+    setNombreSede(''); setSiglas(''); setNombrePrograma(''); setCreandoSede(false)
+    setGuardando(false)
     setVersion((v) => v + 1)
   }
 
@@ -183,8 +168,8 @@ export default function Catalogo() {
         <div className="zr-card max-w-sm p-8 text-center">
           <p className="text-base font-semibold text-zr-text">Solo super_admin</p>
           <p className="mt-2 text-sm text-zr-text-muted">
-            Un plan de estudio nuevo o una sede nueva cambian el código de carnet de toda la
-            academia. Solo super_admin puede crearlos.
+            Una sede nueva cambia el código de carnet de toda la academia. Solo super_admin
+            puede crearlas.
           </p>
         </div>
         <BotonVolver href="/panel" />
@@ -193,7 +178,7 @@ export default function Catalogo() {
   }
 
   const siglasValidas = SIGLAS_RX.test(siglas.trim().toUpperCase())
-  const planCompleto = Boolean(nombrePlan.trim() && siglasValidas)
+  const sedeCompleta = Boolean(nombreSede.trim() && siglasValidas && nombrePrograma.trim())
 
   return (
     <div className="space-y-11 px-5 pt-14 pb-10">
@@ -201,13 +186,19 @@ export default function Catalogo() {
       <Encabezado sobretitulo="Super admin" titulo="Catálogo de programas" descripcion="Todos los programas de la academia, con sus sedes" />
       <Regla delay={60} />
 
-      {planes.map((plan, i) => (
-        <Seccion key={plan.id} numero={i + 1} titulo={plan.name} delay={100 + i * 60}>
+      {aviso && (
+        <p className="rounded-lg border border-zr-success/30 bg-zr-success/12 px-4 py-3 text-sm font-medium text-zr-success">
+          {aviso}
+        </p>
+      )}
+
+      {grupos.map((grupo, i) => (
+        <Seccion key={grupo.id} numero={i + 1} titulo={grupo.name} delay={100 + i * 60}>
           <div className="space-y-3">
-            {plan.programas.length === 0 && (
-              <p className="zr-card p-5 text-sm text-zr-text-muted">Todavía no hay ningún programa de {plan.siglas}.</p>
+            {grupo.programas.length === 0 && (
+              <p className="zr-card p-5 text-sm text-zr-text-muted">Todavía no hay ningún programa de {grupo.siglas}.</p>
             )}
-            {plan.programas.map((p) => (
+            {grupo.programas.map((p) => (
               <div key={p.id} className="zr-card flex items-center justify-between gap-4 p-5">
                 <div className="min-w-0 space-y-2">
                   <p className="truncate text-sm font-semibold text-zr-text">{p.name}</p>
@@ -224,7 +215,7 @@ export default function Catalogo() {
         </Seccion>
       ))}
 
-      <Seccion numero={planes.length + 1} titulo="Sedes" delay={100 + planes.length * 60}>
+      <Seccion numero={grupos.length + 1} titulo="Sedes" delay={100 + grupos.length * 60}>
         <div className="space-y-3">
           {sedes.map((s) => (
             <div key={s.id} className="zr-card flex items-center justify-between gap-4 p-5">
@@ -242,116 +233,74 @@ export default function Catalogo() {
             </div>
           ))}
 
-          <div className="zr-card space-y-4 p-5">
-            <p className="text-sm font-bold text-zr-text">+ Nueva sede</p>
-            <input
-              value={nombreSede}
-              onChange={(e) => setNombreSede(e.target.value)}
-              placeholder="Nombre de la sede"
-              className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
-            />
-            {errorSede && <p className="text-sm font-medium text-zr-error">{errorSede}</p>}
-            <button
-              onClick={crearSede}
-              disabled={!nombreSede.trim() || guardandoSede}
-              className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-40"
-            >
-              {guardandoSede ? 'Creando…' : 'Crear sede'}
-            </button>
-          </div>
-        </div>
-      </Seccion>
-
-      {/* Aparte, al final y sin protagonismo: crear un plan de estudio nuevo
-          (otro PTMA/PFTA) es raro — casi nunca vas a necesitarlo, y no es lo
-          mismo que abrir un corte nuevo de un plan que ya existe (eso se
-          hace desde el perfil de ventas, en Programas). */}
-      <Seccion numero={planes.length + 2} titulo="Plan de estudio nuevo" delay={100 + (planes.length + 1) * 60}>
-        <p className="mb-3 px-1 text-xs text-zr-text-muted">
-          Esto es distinto de abrir un programa nuevo de PTMA o PFTA — eso se hace desde el
-          perfil de ventas. Usa esto solo si la academia va a dictar un currículo que no existe
-          todavía.
-        </p>
-
-        {avisoPlan && (
-          <p className="mb-3 rounded-lg border border-zr-success/30 bg-zr-success/12 px-4 py-3 text-sm font-medium text-zr-success">
-            {avisoPlan}
-          </p>
-        )}
-
-        {creandoPlan ? (
-          <div className="zr-card space-y-4 p-5">
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-zr-text">Nombre</label>
-              <input
-                value={nombrePlan}
-                onChange={(e) => setNombrePlan(e.target.value)}
-                placeholder="Programa Técnico en Refrigeración"
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-zr-text">Siglas</label>
-              <input
-                value={siglas}
-                onChange={(e) => setSiglas(e.target.value.toUpperCase())}
-                placeholder="PTRE"
-                maxLength={5}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base uppercase text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
-              />
-              <p className="mt-1.5 text-xs text-zr-text-muted">
-                3 a 5 letras mayúsculas. Es el prefijo del carnet de sus estudiantes — no se
-                puede cambiar después de que alguien se inscriba.
+          {creandoSede ? (
+            <div className="zr-card space-y-4 p-5">
+              <p className="text-sm font-bold text-zr-text">+ Nueva sede</p>
+              <p className="text-xs text-zr-text-muted">
+                Cada sede dicta su propio programa (los 14 módulos), como PTMA en La Morita o
+                PFTA en la UCV. Al crear la sede, se crea también su programa.
               </p>
-              {siglas.trim() && !siglasValidas && (
-                <p className="mt-1.5 text-xs text-zr-warning">Deben ser solo letras, 3 a 5.</p>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-2 block text-sm font-semibold text-zr-text">Total de módulos</label>
+                <label className="mb-2 block text-sm font-semibold text-zr-text">Nombre de la sede</label>
                 <input
-                  type="number"
-                  value={totalModulos}
-                  onChange={(e) => setTotalModulos(e.target.value)}
-                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+                  value={nombreSede}
+                  onChange={(e) => setNombreSede(e.target.value)}
+                  placeholder="San Antonio de Los Altos"
+                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-semibold text-zr-text">Duración (meses)</label>
+                <label className="mb-2 block text-sm font-semibold text-zr-text">Siglas de su programa</label>
                 <input
-                  type="number"
-                  value={totalMeses}
-                  onChange={(e) => setTotalMeses(e.target.value)}
-                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+                  value={siglas}
+                  onChange={(e) => setSiglas(e.target.value.toUpperCase())}
+                  placeholder="PTRE"
+                  maxLength={5}
+                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base uppercase text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
+                />
+                <p className="mt-1.5 text-xs text-zr-text-muted">
+                  3 a 5 letras mayúsculas. Es el prefijo del carnet de los estudiantes de esta
+                  sede — no se puede cambiar después de que alguien se inscriba.
+                </p>
+                {siglas.trim() && !siglasValidas && (
+                  <p className="mt-1.5 text-xs text-zr-warning">Deben ser solo letras, 3 a 5.</p>
+                )}
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-zr-text">Nombre del programa</label>
+                <input
+                  value={nombrePrograma}
+                  onChange={(e) => setNombrePrograma(e.target.value)}
+                  placeholder="Programa Técnico en Refrigeración"
+                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
                 />
               </div>
+              {error && <p className="text-sm font-medium text-zr-error">{error}</p>}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setCreandoSede(false)}
+                  className="min-h-14 flex-1 rounded-lg border border-zr-border text-base font-semibold text-zr-text"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={crearSede}
+                  disabled={!sedeCompleta || guardando}
+                  className="min-h-14 flex-1 rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-40"
+                >
+                  {guardando ? 'Creando…' : 'Crear sede'}
+                </button>
+              </div>
             </div>
-            {errorPlan && <p className="text-sm font-medium text-zr-error">{errorPlan}</p>}
-            <div className="flex gap-3">
-              <button
-                onClick={() => setCreandoPlan(false)}
-                className="min-h-14 flex-1 rounded-lg border border-zr-border text-base font-semibold text-zr-text"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={crearPlan}
-                disabled={!planCompleto || guardandoPlan}
-                className="min-h-14 flex-1 rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-40"
-              >
-                {guardandoPlan ? 'Creando…' : 'Crear plan de estudio'}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setCreandoPlan(true)}
-            className="zr-card zr-card-interactive flex min-h-14 w-full items-center justify-center px-6 text-sm font-bold text-zr-blue"
-          >
-            + Plan de estudio nuevo
-          </button>
-        )}
+          ) : (
+            <button
+              onClick={() => setCreandoSede(true)}
+              className="zr-card zr-card-interactive flex min-h-14 w-full items-center justify-center px-6 text-sm font-bold text-zr-blue"
+            >
+              + Nueva sede
+            </button>
+          )}
+        </div>
       </Seccion>
     </div>
   )

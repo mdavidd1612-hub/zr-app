@@ -123,7 +123,7 @@ export default function MiModulo() {
           <div className="zr-card p-7">
             <p className="text-base font-semibold text-zr-text">Todavía no tienes módulo asignado</p>
             <p className="mt-2 text-sm text-zr-text-muted">
-              Cuando la academia te asigne una cohorte, aquí vas a ver en qué módulo estás y qué
+              Cuando la academia te asigne un programa, aquí vas a ver en qué módulo estás y qué
               vas a aprender.
             </p>
           </div>

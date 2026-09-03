@@ -95,7 +95,7 @@ export default function MisInscripciones() {
             <div key={idx} className="flex items-center justify-between gap-4 px-5 py-4">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-zr-text">{i.fullName}</p>
-                <p className="mt-0.5 truncate text-xs text-zr-text-muted">{i.cohortName ?? 'Sin cohorte'}</p>
+                <p className="mt-0.5 truncate text-xs text-zr-text-muted">{i.cohortName ?? 'Sin programa'}</p>
               </div>
               <span className="shrink-0 text-xs font-bold tabular-nums text-zr-blue-mid">{i.studentCode}</span>
             </div>

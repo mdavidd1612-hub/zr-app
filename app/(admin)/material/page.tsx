@@ -285,7 +285,7 @@ export default function MaterialAdmin() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-2 block text-sm font-semibold text-zr-text">Cohorte</label>
+              <label className="mb-2 block text-sm font-semibold text-zr-text">Programa</label>
               <select
                 value={cohorteId}
                 onChange={(e) => setCohorteId(e.target.value)}
@@ -297,8 +297,8 @@ export default function MaterialAdmin() {
               </select>
               <p className="mt-1.5 text-xs text-zr-text-muted">
                 {cohortes.find((c) => c.id === cohorteId)?.moduloNombre
-                  ? `Va al módulo actual de esta cohorte: ${cohortes.find((c) => c.id === cohorteId)?.moduloNombre}`
-                  : 'Esta cohorte no tiene módulo actual asignado'}
+                  ? `Va al módulo actual de este programa: ${cohortes.find((c) => c.id === cohorteId)?.moduloNombre}`
+                  : 'Este programa no tiene módulo actual asignado'}
               </p>
             </div>
             <div>

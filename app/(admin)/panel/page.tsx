@@ -26,8 +26,8 @@ interface SesionHoy {
 const ACCESOS = [
   { href: '/consentimientos', titulo: 'Consentimientos', sub: 'Revisar permisos pendientes', Icono: IconoCandado },
   { href: '/estudiantes',     titulo: 'Estudiantes',      sub: 'Ver y gestionar registros',  Icono: IconoEstudiantes },
-  { href: '/material',        titulo: 'Material',         sub: 'Subir por cohorte',          Icono: IconoDocumento },
-  { href: '/asistencias',     titulo: 'Asistencia',       sub: 'Por cohorte, en vivo',        Icono: IconoCalendario },
+  { href: '/material',        titulo: 'Material',         sub: 'Subir por programa',          Icono: IconoDocumento },
+  { href: '/asistencias',     titulo: 'Asistencia',       sub: 'Por programa, en vivo',        Icono: IconoCalendario },
   { href: '/qr',              titulo: 'QR de asistencia', sub: 'Mostrar en pantalla',          Icono: IconoCarnet },
 ]
 
@@ -36,7 +36,7 @@ const ACCESOS = [
 const ACCESOS_DIRECCION = [
   { href: '/personal',             titulo: 'Personal',                sub: 'Profesores y administradores',      Icono: IconoPersonal },
   { href: '/solicitudes-profesor', titulo: 'Solicitudes de profesor', sub: 'Aprobar o rechazar personal nuevo', Icono: IconoCheck },
-  { href: '/notas-academicas',     titulo: 'Notas',                   sub: 'Calificaciones de cualquier cohorte', Icono: IconoNotas },
+  { href: '/notas-academicas',     titulo: 'Notas',                   sub: 'Calificaciones de cualquier programa', Icono: IconoNotas },
   { href: '/examenes-academicos',  titulo: 'Exámenes',                sub: 'Supervisar evaluaciones',           Icono: IconoExamen },
 ]
 
@@ -101,7 +101,7 @@ export default function Panel() {
           ])
           return {
             sessionId: s.id,
-            cohorteNombre: s.cohorts?.name ?? 'Cohorte',
+            cohorteNombre: s.cohorts?.name ?? 'Programa',
             registrados: registrados ?? 0,
             total: total ?? 0,
           }

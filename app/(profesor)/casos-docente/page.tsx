@@ -158,7 +158,7 @@ export default function CasosDocente() {
       <div className="space-y-11 px-5 pt-14">
         <Encabezado sobretitulo="Panel del profesor" titulo="Casos" />
         <div className="zr-card p-8 text-center">
-          <p className="text-base font-semibold text-zr-text">Todavía no tienes cohorte asignada</p>
+          <p className="text-base font-semibold text-zr-text">Todavía no tienes programa asignado</p>
         </div>
       </div>
     )

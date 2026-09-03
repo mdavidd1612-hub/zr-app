@@ -217,7 +217,7 @@ export default function Asistencias() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `asistencia_${(cohorte?.nombre ?? 'cohorte').replace(/[^a-zA-Z0-9]/g, '_')}_${hoyISO}.xls`
+    a.download = `asistencia_${(cohorte?.nombre ?? 'programa').replace(/[^a-zA-Z0-9]/g, '_')}_${hoyISO}.xls`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -255,12 +255,12 @@ export default function Asistencias() {
 
       <Dato
         valor={filas.filter((f) => f.presente).length}
-        etiqueta={`Registrados hoy · ${cohortes.find((c) => c.id === cohorteId)?.nombre ?? 'esta cohorte'}`}
+        etiqueta={`Registrados hoy · ${cohortes.find((c) => c.id === cohorteId)?.nombre ?? 'este programa'}`}
         tono="exito"
       />
 
       {cohortes.length === 0 ? (
-        <EstadoVacio titulo="Sin cohortes" explicacion="Todavía no hay cohortes creadas." />
+        <EstadoVacio titulo="Sin programas" explicacion="Todavía no hay programas creados." />
       ) : (
         <>
           <div className="flex gap-2 overflow-x-auto pb-1 zr-scroll-x">
@@ -292,7 +292,7 @@ export default function Asistencias() {
               onClick={descargarExcel}
               className="w-full rounded-lg border border-zr-border py-3 text-sm font-semibold text-zr-text"
             >
-              Descargar esta cohorte (Excel)
+              Descargar este programa (Excel)
             </button>
           )}
 
@@ -301,7 +301,7 @@ export default function Asistencias() {
           ) : filasFiltradas.length === 0 ? (
             <EstadoVacio
               titulo="Sin resultados"
-              explicacion={filas.length === 0 ? 'Esta cohorte todavía no tiene estudiantes.' : 'Nadie coincide con la búsqueda.'}
+              explicacion={filas.length === 0 ? 'Este programa todavía no tiene estudiantes.' : 'Nadie coincide con la búsqueda.'}
             />
           ) : (
             <div className="space-y-2">

@@ -114,7 +114,7 @@ export default function Hoy() {
           <div className="zr-card p-10 text-center">
             <p className="text-lg font-semibold text-zr-text">No tienes clases programadas</p>
             <p className="mx-auto mt-2 max-w-sm text-sm text-zr-text-muted">
-              Cuando administración programe la próxima sesión de tu cohorte, aparecerá aquí.
+              Cuando administración programe la próxima sesión de tu programa, aparecerá aquí.
             </p>
           </div>
         ) : (

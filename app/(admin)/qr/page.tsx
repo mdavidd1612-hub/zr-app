@@ -55,7 +55,7 @@ export default function QRAdmin() {
         ])
         return {
           sessionId: s.id,
-          cohorteNombre: s.cohorts?.name ?? 'Cohorte',
+          cohorteNombre: s.cohorts?.name ?? 'Programa',
           registrados: registrados ?? 0,
           total: total ?? 0,
         }

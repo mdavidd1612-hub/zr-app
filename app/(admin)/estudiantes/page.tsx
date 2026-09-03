@@ -158,7 +158,7 @@ export default function Estudiantes() {
     { valor: 'todos', texto: 'Todos' },
     { valor: 'pendientes', texto: 'Pendientes de validar' },
     { valor: 'menores', texto: 'Menores' },
-    { valor: 'sin_cohorte', texto: 'Sin cohorte' },
+    { valor: 'sin_cohorte', texto: 'Sin programa' },
     { valor: 'suspendidos', texto: 'Suspendidos' },
   ]
 
@@ -231,7 +231,7 @@ export default function Estudiantes() {
               <div key={e.id}>
                 {cambioDeCohorte && (
                   <p className="mb-3 mt-6 text-xs font-bold uppercase tracking-wider text-zr-blue-mid first:mt-0">
-                    {e.cohorte ?? 'Sin cohorte'}
+                    {e.cohorte ?? 'Sin programa'}
                   </p>
                 )}
                 <div className="zr-card p-5">
@@ -240,7 +240,7 @@ export default function Estudiantes() {
                       <p className="text-base font-semibold text-zr-text">{e.nombre}</p>
                       <p className="mt-1 text-sm tabular-nums text-zr-text-muted">{e.cedula}</p>
                       <p className="mt-0.5 text-sm text-zr-text-muted">
-                        {e.edad} años · {e.cohorte ?? 'Sin cohorte'}
+                        {e.edad} años · {e.cohorte ?? 'Sin programa'}
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1.5">

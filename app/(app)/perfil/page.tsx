@@ -64,7 +64,7 @@ export default function PerfilEstudiante() {
           fullName: prof.full_name,
           cedula: prof.cedula,
           contactEmail: prof.contact_email,
-          cohorte: estData?.cohorts?.name ?? 'Sin cohorte asignada',
+          cohorte: estData?.cohorts?.name ?? 'Sin programa asignado',
           codigoCarnet: estData?.student_code ?? null,
           modulo: estData?.cohorts?.modules?.name ?? null,
         })

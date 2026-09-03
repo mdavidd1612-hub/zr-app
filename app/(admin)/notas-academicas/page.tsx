@@ -92,7 +92,7 @@ export default function NotasAcademicas() {
   if (cargando || autorizado === null) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando cohortes…</p>
+        <p className="text-sm text-zr-text-muted">Cargando programas…</p>
       </div>
     )
   }
@@ -101,12 +101,12 @@ export default function NotasAcademicas() {
     <div className="space-y-11 px-5 pt-14 pb-10">
       <BotonVolver href="/panel" />
 
-      <Encabezado sobretitulo="Dirección Académica" titulo="Notas" descripcion="Calificaciones por cohorte, agrupadas por programa" />
+      <Encabezado sobretitulo="Dirección Académica" titulo="Notas" descripcion="Calificaciones por programa" />
 
       <Regla delay={60} />
 
       {cohortes.length === 0 ? (
-        <EstadoVacio titulo="Sin cohortes" explicacion="Todavía no hay ninguna cohorte creada." />
+        <EstadoVacio titulo="Sin programas" explicacion="Todavía no hay ningún programa creado." />
       ) : (
         <div className="space-y-3">
           {cohortes.map((c) => (

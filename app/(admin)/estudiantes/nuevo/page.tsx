@@ -137,13 +137,13 @@ export default function NuevoEstudiante() {
           <Campo etiqueta="Teléfono (opcional)" valor={telefono} onChange={setTelefono} placeholder="" />
           <Campo etiqueta="Dirección" valor={direccion} onChange={setDireccion} placeholder="Para la planilla" />
           <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Cohorte</label>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Programa</label>
             <select
               value={cohorteId}
               onChange={(e) => setCohorteId(e.target.value)}
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
             >
-              <option value="">Selecciona una cohorte</option>
+              <option value="">Selecciona un programa</option>
               {cohortes.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}

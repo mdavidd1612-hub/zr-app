@@ -228,8 +228,8 @@ export default function Personal() {
         .eq('id', cohorteId)
 
       avisoCohorte = falloCohorte
-        ? ' No se pudo asignar la cohorte — hazlo desde Cohortes.'
-        : ' Ya tiene su cohorte asignada.'
+        ? ' No se pudo asignar el programa — hazlo desde Programas.'
+        : ' Ya tiene su programa asignado.'
     }
 
     setExito(`Cuenta creada. Cédula ${cedula.trim().toUpperCase()} · contraseña temporal: ${password}.${avisoCohorte}`)
@@ -378,7 +378,7 @@ export default function Personal() {
           {rol === 'profesor' && (
             <div>
               <label className="mb-2 block text-sm font-semibold text-zr-text">
-                Cohorte a cargo <span className="font-normal text-zr-text-muted">(opcional)</span>
+                Programa a cargo <span className="font-normal text-zr-text-muted">(opcional)</span>
               </label>
               <select
                 value={cohorteId}
@@ -393,7 +393,7 @@ export default function Personal() {
                 ))}
               </select>
               <p className="mt-1.5 text-xs text-zr-text-muted">
-                Elegir una cohorte que ya tiene profesor se la quita a quien la tenía antes.
+                Elegir un programa que ya tiene profesor se lo quita a quien lo tenía antes.
               </p>
             </div>
           )}
@@ -448,7 +448,7 @@ export default function Personal() {
                     <p className="mt-1 text-sm tabular-nums text-zr-text-muted">{m.cedula}</p>
                     {m.rol === 'profesor' && (
                       <p className="mt-1 truncate text-xs text-zr-text-muted">
-                        {m.cohortes.length > 0 ? m.cohortes.join(' · ') : 'Sin cohorte asignada'}
+                        {m.cohortes.length > 0 ? m.cohortes.join(' · ') : 'Sin programa asignado'}
                       </p>
                     )}
                   </div>

@@ -242,7 +242,7 @@ export default function Examenes() {
           <div className="zr-card animate-rise p-8" style={{ animationDelay: '120ms' }}>
             <p className="text-base font-semibold text-zr-text">Todavía no hay exámenes</p>
             <p className="mt-2 text-sm text-zr-text-muted">
-              Tu profesor publica los exámenes cuando la cohorte llega a esa parte del módulo.
+              Tu profesor publica los exámenes cuando el programa llega a esa parte del módulo.
               Aparecerán aquí en cuanto lo haga.
             </p>
           </div>

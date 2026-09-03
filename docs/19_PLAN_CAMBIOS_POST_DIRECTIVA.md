@@ -774,14 +774,32 @@ borrados después.
 
 ---
 
-### FASE 5 — Backlog (no bloquea la entrega)
+### FASE 5 — Backlog (no bloquea la entrega) ✅ EJECUTADA (R-50, R-51)
 
-- **R-50 · Que el estudiante cambie su contraseña** desde Perfil. Hoy solo existe recuperación por
-  correo (`/recuperar`), y el correo de contacto de muchos estudiantes es el del representante.
-- **R-51 · Foto del estudiante**. `profiles.avatar_url` ya existe; falta bucket con RLS
-  (la migración `015` solo creó `contenido` y `consentimientos`), captura desde la cámara,
-  y validación de tamaño/formato **en el servidor**. Lo pidió la reunión como «no urgente».
-- **R-52 · Color por sede** — 🚫 descartado por la directiva. No hacer.
+- **R-50 · Cambio de contraseña propio** ✅ — agregado a `BloqueCuenta` (compartido por los tres
+  roles con panel de perfil: estudiante, profesor, admin), usando `auth.updateUser` con sesión
+  activa. Verificado en producción con una cuenta de prueba: cambio exitoso, validación de
+  longitud mínima y de coincidencia entre las dos contraseñas, y re-login con la contraseña nueva
+  confirmado antes de borrar la cuenta de prueba.
+- **R-51 · Foto de perfil del estudiante** ✅ — bucket privado `avatars` (migración `071`) con
+  límite de 3 MB y tipos `image/jpeg|png|webp` forzados en el bucket mismo, no solo en cliente.
+  `profiles.avatar_url` pasa a guardar la ruta dentro del bucket, no una URL pública — son fotos
+  de menores, se sirven con signed URL. Verificado con impersonación SQL (no se pudo probar la
+  selección real de archivo del sistema operativo desde este entorno): el dueño puede subir y leer
+  su propia foto, otro estudiante no puede leer la ajena, el personal (profesor/admin/dirección
+  académica/super_admin) sí puede verlas para identificar al estudiante en persona.
+- **R-52 · Color por sede** — 🚫 descartado por la directiva. No se construyó.
+
+**Hallazgo de seguridad encontrado y corregido en el chequeo a fondo posterior** (no era parte de
+R-50/R-51, apareció al revisar el resto de la app): la política RLS "vendedor: borrar cohortes
+vacias" (migración `046`) evaluaba si un programa estaba vacío con un subquery que corre bajo el
+mismo RLS de `students` que ve el vendedor — y un vendedor solo ve ahí a los estudiantes que él
+mismo inscribió. Un vendedor podía "pasar" esa política en un programa con estudiantes reales,
+mientras esos estudiantes los hubiera inscrito otra persona. No se perdieron datos porque
+`fk_students_cohort` (ON DELETE NO ACTION) frenaba el borrado físico con un error — protección
+accidental, no por diseño. Corregido en migración `072` con una función `security definer` que sí
+ve toda la tabla sin RLS de por medio. Verificado con impersonación SQL, con y sin regresión sobre
+el caso de borrado legítimo.
 
 ---
 

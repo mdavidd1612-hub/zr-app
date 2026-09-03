@@ -801,6 +801,25 @@ accidental, no por diseño. Corregido en migración `072` con una función `secu
 ve toda la tabla sin RLS de por medio. Verificado con impersonación SQL, con y sin regresión sobre
 el caso de borrado legítimo.
 
+**Segundo hallazgo, al probar con cuentas reales de super_admin y dirección académica** (a pedido
+explícito de revisar también esos dos roles): la pantalla de Configuración (solo super_admin)
+siempre mostraba la lista de valores vacía — desde que se creó. Causa: pedía un embed de PostgREST
+`profiles(full_name)` sobre `system_config.updated_by` / `system_config_history.changed_by`, pero
+esas columnas nunca tuvieron llave foránea hacia `profiles`. Corregido en migración `073` con
+`ON DELETE SET NULL`, mismo patrón que el resto de la base. Verificado con la cuenta real: los 14
+valores y el historial completo ya se muestran.
+
+**R-50 extendido**: el cambio de contraseña ya alcanzaba a los seis roles porque vive en
+`BloqueCuenta`, compartido por las cuatro pantallas de perfil — se verificó explícitamente también
+con super_admin y dirección académica (cambio, cierre de sesión, y reingreso con la contraseña
+nueva, los tres confirmados).
+
+**Nuevo (fuera de la Fase 5 original, a pedido explícito)**: cualquier rol puede editar su nombre,
+correo de contacto y teléfono desde el mismo bloque de Cuenta — cédula y rol quedan fuera, ya
+bloqueados en el servidor por `fn_profiles_guard` (migración `004`). Verificado en producción:
+edición, validación (nombre sin abreviar, teléfono con formato venezolano), persistencia en base y
+actualización del encabezado sin recargar.
+
 ---
 
 ## 6. Orden y cronograma sugerido

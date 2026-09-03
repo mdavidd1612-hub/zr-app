@@ -371,7 +371,11 @@ button, a[role='button'], input[type='submit'] {
   }
 
   /* Todo layout de sección (admin/profesor/estudiante/vendedor) envuelve su
-     contenido en `.zr-app-shell` — su ancho máximo se anula al imprimir. */
+     contenido en `.zr-app-shell` — su ancho máximo se anula al imprimir.
+     `.zr-app-shell` también trae su propio `background: var(--zr-bg)` (el
+     fondo oscuro de toda la app) fijado fuera de esta media query — sin
+     anularlo aquí también, ese fondo oscuro se imprimía igual detrás de las
+     tarjetas blancas de la planilla, dondequiera que sobrara alto o ancho. */
   .zr-app-shell,
   .zr-app-main,
   .mx-auto.min-h-dvh.w-full.max-w-\[430px\] {
@@ -379,5 +383,7 @@ button, a[role='button'], input[type='submit'] {
     margin: 0 !important;
     padding: 0 !important;
     display: block !important;
+    background: #ffffff !important;
+    min-height: 0 !important;
   }
 }

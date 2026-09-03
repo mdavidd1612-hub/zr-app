@@ -3,7 +3,10 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { IconoSalir } from '@/components/ui/Iconos'
+import { IconoSalir, IconoCandado } from '@/components/ui/Iconos'
+import { Campo } from '@/components/ui/Campo'
+import { Boton } from '@/components/ui/Boton'
+import { Aviso } from '@/components/ui/Aviso'
 import type { UserRole } from '@/lib/types'
 
 /**
@@ -50,6 +53,8 @@ export function BloqueCuenta({ nombre, cedula, rol, correo }: Props) {
         {correo && <Fila etiqueta="Correo" valor={correo} />}
       </div>
 
+      <CambiarPassword />
+
       {!confirmando ? (
         <button
           onClick={() => setConfirmando(true)}
@@ -81,6 +86,100 @@ export function BloqueCuenta({ nombre, cedula, rol, correo }: Props) {
         </div>
       )}
     </div>
+  )
+}
+
+// R-50 (docs/19_PLAN_CAMBIOS_POST_DIRECTIVA.md, Fase 5): antes solo existía
+// /recuperar por correo, y el correo de contacto de muchos estudiantes es el
+// del representante — no siempre lo tienen a mano. Con sesión activa no hace
+// falta ese rodeo: `auth.updateUser` alcanza.
+function CambiarPassword() {
+  const [abierto, setAbierto] = useState(false)
+  const [nueva, setNueva] = useState('')
+  const [repetida, setRepetida] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [exito, setExito] = useState(false)
+  const [cargando, setCargando] = useState(false)
+
+  async function guardar(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setExito(false)
+
+    if (nueva.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres.')
+      return
+    }
+    if (nueva !== repetida) {
+      setError('Las dos contraseñas no coinciden.')
+      return
+    }
+
+    setCargando(true)
+    const { error: fallo } = await createClient().auth.updateUser({ password: nueva })
+    setCargando(false)
+
+    if (fallo) {
+      setError('No se pudo cambiar la contraseña. Intenta de nuevo.')
+      return
+    }
+
+    setNueva('')
+    setRepetida('')
+    setExito(true)
+    setAbierto(false)
+  }
+
+  if (!abierto) {
+    return (
+      <div className="space-y-3">
+        <button
+          onClick={() => { setAbierto(true); setExito(false) }}
+          className="flex min-h-14 w-full items-center justify-center gap-2.5 rounded-lg border border-zr-border px-6 text-base font-semibold text-zr-text transition-colors active:border-zr-blue/40 active:text-zr-blue"
+        >
+          <IconoCandado size={20} />
+          Cambiar contraseña
+        </button>
+        {exito && <Aviso tipo="exito">Tu contraseña quedó actualizada.</Aviso>}
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={guardar} className="zr-card space-y-4 p-5">
+      <Campo
+        etiqueta="Contraseña nueva"
+        type="password"
+        autoComplete="new-password"
+        value={nueva}
+        onChange={(e) => setNueva(e.target.value)}
+        ayuda="Mínimo 8 caracteres"
+        required
+      />
+      <Campo
+        etiqueta="Repite la contraseña"
+        type="password"
+        autoComplete="new-password"
+        value={repetida}
+        onChange={(e) => setRepetida(e.target.value)}
+        required
+      />
+
+      {error && <Aviso tipo="error">{error}</Aviso>}
+
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={() => { setAbierto(false); setError(null) }}
+          className="min-h-14 flex-1 rounded-lg border border-zr-border text-base font-semibold text-zr-text"
+        >
+          Cancelar
+        </button>
+        <Boton type="submit" cargando={cargando} className="flex-1">
+          Guardar
+        </Boton>
+      </div>
+    </form>
   )
 }
 

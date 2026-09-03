@@ -9,15 +9,18 @@ import { getQRSecret } from '@/lib/qr-secret'
 import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
 import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
+import { FotoPerfil } from '@/components/ui/FotoPerfil'
 import { leerSimulacionSabado, guardarSimulacionSabado } from '@/lib/demo-sabado'
 
 interface Perfil {
+  uid: string
   fullName: string
   cedula: string
   contactEmail: string | null
   cohorte: string
   codigoCarnet: string | null
   modulo: string | null
+  avatarPath: string | null
 }
 
 // Fase 0 (docs/14_FASE0_PLAN_SPRINTS.md, Sprint 6): sede y turno son fijos
@@ -46,7 +49,7 @@ export default function PerfilEstudiante() {
       }
 
       const [{ data: prof }, { data: est }] = await Promise.all([
-        supabase.from('profiles').select('full_name, cedula, contact_email').eq('id', user.id).single(),
+        supabase.from('profiles').select('full_name, cedula, contact_email, avatar_url').eq('id', user.id).single(),
         supabase
           .from('students')
           .select('student_code, cohorts(name, modules(name))')
@@ -61,12 +64,14 @@ export default function PerfilEstudiante() {
 
       if (prof) {
         setPerfil({
+          uid: user.id,
           fullName: prof.full_name,
           cedula: prof.cedula,
           contactEmail: prof.contact_email,
           cohorte: estData?.cohorts?.name ?? 'Sin programa asignado',
           codigoCarnet: estData?.student_code ?? null,
           modulo: estData?.cohorts?.modules?.name ?? null,
+          avatarPath: prof.avatar_url,
         })
 
         // El QR se genera del secreto TOTP del propio estudiante. El código
@@ -160,6 +165,7 @@ export default function PerfilEstudiante() {
 
       {/* 02 — CUENTA */}
       <Seccion numero={2} titulo="Cuenta" delay={200}>
+        <FotoPerfil uid={perfil.uid} rutaInicial={perfil.avatarPath} />
         <BloqueCuenta
           nombre={perfil.fullName}
           cedula={perfil.cedula}

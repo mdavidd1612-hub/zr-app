@@ -307,6 +307,15 @@ export function IconoOjoTachado(p: IconoProps) {
   )
 }
 
+export function IconoCamara(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <path d="M4 8h3l1.6-2.4A2 2 0 0 1 10.3 4.6h3.4a2 2 0 0 1 1.7 1L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" />
+      <circle cx="12" cy="14" r="3.5" />
+    </Base>
+  )
+}
+
 export function IconoDescargar(p: IconoProps) {
   return (
     <Base {...p}>

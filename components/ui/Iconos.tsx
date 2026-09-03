@@ -316,6 +316,15 @@ export function IconoCamara(p: IconoProps) {
   )
 }
 
+export function IconoLapiz(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <path d="M4 20l1-4L16.5 4.5a1.5 1.5 0 0 1 2 0l1 1a1.5 1.5 0 0 1 0 2L8 19l-4 1Z" />
+      <path d="M14 6.5l3.5 3.5" />
+    </Base>
+  )
+}
+
 export function IconoDescargar(p: IconoProps) {
   return (
     <Base {...p}>

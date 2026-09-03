@@ -1,12 +1,13 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { IconoSalir, IconoCandado } from '@/components/ui/Iconos'
+import { IconoSalir, IconoCandado, IconoLapiz } from '@/components/ui/Iconos'
 import { Campo } from '@/components/ui/Campo'
 import { Boton } from '@/components/ui/Boton'
 import { Aviso } from '@/components/ui/Aviso'
+import { nombreCompletoValido, telefonoVenezolanoValido } from '@/lib/validators'
 import type { UserRole } from '@/lib/types'
 
 /**
@@ -31,9 +32,13 @@ interface Props {
   cedula: string
   rol: UserRole
   correo?: string | null
+  /** Se llama después de guardar cambios de nombre o correo, para que la
+   *  pantalla que envuelve este bloque (que muestra el nombre en su propio
+   *  encabezado) también quede al día sin tener que recargar. */
+  onActualizado?: (datos: { nombre: string; correo: string }) => void
 }
 
-export function BloqueCuenta({ nombre, cedula, rol, correo }: Props) {
+export function BloqueCuenta({ nombre, cedula, rol, correo, onActualizado }: Props) {
   const router = useRouter()
   const [confirmando, setConfirmando] = useState(false)
   const [saliendo, setSaliendo] = useState(false)
@@ -46,12 +51,13 @@ export function BloqueCuenta({ nombre, cedula, rol, correo }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="zr-card divide-y divide-zr-border">
-        <Fila etiqueta="Nombre" valor={nombre} />
-        <Fila etiqueta="Cédula" valor={cedula} mono />
-        <Fila etiqueta="Rol" valor={NOMBRE_ROL[rol]} />
-        {correo && <Fila etiqueta="Correo" valor={correo} />}
-      </div>
+      <EditarInformacion
+        nombre={nombre}
+        cedula={cedula}
+        rol={rol}
+        correo={correo ?? ''}
+        onActualizado={onActualizado}
+      />
 
       <CambiarPassword />
 
@@ -86,6 +92,147 @@ export function BloqueCuenta({ nombre, cedula, rol, correo }: Props) {
         </div>
       )}
     </div>
+  )
+}
+
+// Nombre, correo y teléfono los puede editar cualquier rol desde aquí —
+// la cédula y el rol NO, esos los cambia solo administración (bloqueado en
+// el servidor por el trigger fn_profiles_guard, migración 004). El teléfono
+// no llega como prop desde la pantalla que envuelve este bloque (ninguna de
+// las 4 lo necesitaba para otra cosa), así que se busca aparte, una sola vez.
+function EditarInformacion({
+  nombre, cedula, rol, correo, onActualizado,
+}: { nombre: string; cedula: string; rol: UserRole; correo: string; onActualizado?: (d: { nombre: string; correo: string }) => void }) {
+  const [editando, setEditando] = useState(false)
+  const [nombreActual, setNombreActual] = useState(nombre)
+  const [correoActual, setCorreoActual] = useState(correo)
+  const [telefono, setTelefono] = useState('')
+  const [nombreEdit, setNombreEdit] = useState(nombre)
+  const [correoEdit, setCorreoEdit] = useState(correo)
+  const [telefonoEdit, setTelefonoEdit] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [exito, setExito] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+
+  useEffect(() => {
+    let vigente = true
+    async function cargarTelefono() {
+      const { data: { user } } = await createClient().auth.getUser()
+      if (!user) return
+      const { data } = await createClient().from('profiles').select('phone').eq('id', user.id).single()
+      if (vigente && data?.phone) {
+        setTelefono(data.phone)
+        setTelefonoEdit(data.phone)
+      }
+    }
+    cargarTelefono()
+    return () => { vigente = false }
+  }, [])
+
+  function abrir() {
+    setNombreEdit(nombreActual)
+    setCorreoEdit(correoActual)
+    setTelefonoEdit(telefono)
+    setError(null)
+    setExito(false)
+    setEditando(true)
+  }
+
+  async function guardar(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+
+    if (!nombreCompletoValido(nombreEdit)) {
+      setError('Escribe tu nombre completo, sin abreviar (al menos nombre y apellido).')
+      return
+    }
+    if (!/^\S+@\S+\.\S+$/.test(correoEdit.trim())) {
+      setError('Escribe un correo válido.')
+      return
+    }
+    if (telefonoEdit.trim() && !telefonoVenezolanoValido(telefonoEdit)) {
+      setError('El teléfono debe tener formato venezolano, ej. 0412-1234567.')
+      return
+    }
+
+    setGuardando(true)
+    const { data: { user } } = await createClient().auth.getUser()
+    if (!user) { setGuardando(false); return }
+
+    const { error: fallo } = await createClient()
+      .from('profiles')
+      .update({
+        full_name: nombreEdit.trim(),
+        contact_email: correoEdit.trim(),
+        phone: telefonoEdit.trim() || null,
+      })
+      .eq('id', user.id)
+
+    setGuardando(false)
+
+    if (fallo) {
+      setError('No se pudo guardar. Intenta de nuevo.')
+      return
+    }
+
+    setNombreActual(nombreEdit.trim())
+    setCorreoActual(correoEdit.trim())
+    setTelefono(telefonoEdit.trim())
+    setEditando(false)
+    setExito(true)
+    onActualizado?.({ nombre: nombreEdit.trim(), correo: correoEdit.trim() })
+  }
+
+  if (!editando) {
+    return (
+      <div className="space-y-3">
+        <div className="zr-card divide-y divide-zr-border">
+          <Fila etiqueta="Nombre" valor={nombreActual} />
+          <Fila etiqueta="Cédula" valor={cedula} mono />
+          <Fila etiqueta="Rol" valor={NOMBRE_ROL[rol]} />
+          {correoActual && <Fila etiqueta="Correo" valor={correoActual} />}
+          {telefono && <Fila etiqueta="Teléfono" valor={telefono} mono />}
+        </div>
+        <button
+          onClick={abrir}
+          className="flex min-h-14 w-full items-center justify-center gap-2.5 rounded-lg border border-zr-border px-6 text-base font-semibold text-zr-text transition-colors active:border-zr-blue/40 active:text-zr-blue"
+        >
+          <IconoLapiz size={18} />
+          Editar información
+        </button>
+        {exito && <Aviso tipo="exito">Tu información quedó actualizada.</Aviso>}
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={guardar} className="zr-card space-y-4 p-5">
+      <Campo etiqueta="Nombre completo" value={nombreEdit} onChange={(e) => setNombreEdit(e.target.value)} required />
+      <Campo etiqueta="Correo de contacto" type="email" value={correoEdit} onChange={(e) => setCorreoEdit(e.target.value)} required />
+      <Campo
+        etiqueta="Teléfono"
+        type="tel"
+        value={telefonoEdit}
+        onChange={(e) => setTelefonoEdit(e.target.value)}
+        placeholder="0412-1234567"
+        ayuda="Opcional"
+      />
+
+      {error && <Aviso tipo="error">{error}</Aviso>}
+
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={() => { setEditando(false); setError(null) }}
+          className="min-h-14 flex-1 rounded-lg border border-zr-border text-base font-semibold text-zr-text"
+        >
+          Cancelar
+        </button>
+        <Boton type="submit" cargando={guardando} className="flex-1">
+          Guardar
+        </Boton>
+      </div>
+    </form>
   )
 }
 

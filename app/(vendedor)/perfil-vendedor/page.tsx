@@ -63,7 +63,13 @@ export default function PerfilVendedor() {
       <Regla delay={60} />
 
       <Seccion numero={1} titulo="Cuenta" delay={120}>
-        <BloqueCuenta nombre={perfil.nombre} cedula={perfil.cedula} rol={perfil.rol} correo={perfil.correo} />
+        <BloqueCuenta
+          nombre={perfil.nombre}
+          cedula={perfil.cedula}
+          rol={perfil.rol}
+          correo={perfil.correo}
+          onActualizado={(d) => setPerfil((p) => p && { ...p, nombre: d.nombre, correo: d.correo })}
+        />
       </Seccion>
     </div>
   )

@@ -153,6 +153,7 @@ export default function PerfilDocente() {
           cedula={perfil.cedula}
           rol={perfil.rol}
           correo={perfil.correo}
+          onActualizado={(d) => setPerfil((p) => p && { ...p, nombre: d.nombre, correo: d.correo })}
         />
         <BotonActivarPush />
       </Seccion>

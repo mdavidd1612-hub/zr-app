@@ -171,6 +171,7 @@ export default function PerfilEstudiante() {
           cedula={perfil.cedula}
           rol="estudiante"
           correo={perfil.contactEmail}
+          onActualizado={(d) => setPerfil((p) => p && { ...p, fullName: d.nombre, contactEmail: d.correo })}
         />
         <p className="text-xs text-zr-text-muted">{perfil.cohorte}</p>
         <BotonActivarPush />

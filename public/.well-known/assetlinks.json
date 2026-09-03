@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.zrmecademy.app",
+      "sha256_cert_fingerprints": [
+        "86:D8:84:A7:1A:36:FC:BC:9D:18:81:1F:B6:05:8D:1F:FE:0C:6E:D0:D6:92:03:F6:85:43:CB:AB:37:8B:19:B8"
+      ]
+    }
+  }
+]

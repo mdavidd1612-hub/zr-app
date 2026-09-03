@@ -745,21 +745,32 @@ borrados después.
 
 ### FASE 4 — Distribución (independiente, se puede empezar en paralelo desde ya)
 
-#### R-40 · Compilar el APK (TWA / Bubblewrap)
-- Requiere `assetlinks.json` en el dominio de producción y **custodia de la clave de firma**
-  (si se pierde, no se puede publicar una actualización del envoltorio: guardarla fuera del repo).
-- Salida: un `.apk` firmado y versionado.
+#### R-40 · Compilar el APK (TWA / Bubblewrap) ✅ EJECUTADA
+- Envoltorio TWA generado con Bubblewrap (`packageId com.zrmecademy.app`, host
+  `zr-app-ebon.vercel.app`), compilado y **firmado y verificado** (v1/v2/v3 OK con `apksigner verify`).
+- El keystore (`android.keystore`) y sus contraseñas quedan **fuera del repositorio**, en poder del
+  usuario — nunca se subieron a git. Nota importante descubierta en el proceso: el almacén es
+  PKCS12, y en el JDK moderno **no soporta una contraseña de clave distinta a la del almacén**
+  (aunque Bubblewrap pida generar dos, `apksigner` solo acepta la del keystore para ambos campos).
+- `public/.well-known/assetlinks.json` publicado en el repo con la huella SHA-256 real del
+  certificado, para que Android verifique el dominio contra el APK (Digital Asset Links).
+- Pendiente si se necesita una actualización futura del APK: se debe recompilar con el mismo
+  keystore (custodiado por el usuario) para mantener la misma huella de firma.
 
-#### R-41 · Página de descarga
-- Ruta pública `/descargar` en la propia app: APK para Android + instrucciones de instalación de
-  la PWA en PC (Chrome/Edge) y en iPhone (Safari → Compartir → Añadir a inicio; **en iOS no hay
-  APK, es PWA obligatoriamente** — decírselo a la directiva).
-- Advertir del aviso de «orígenes desconocidos» de Android, con captura.
+#### R-41 · Página de descarga ✅ EJECUTADA
+- Ruta pública `/descargar` (agregada a `PUBLIC_ROUTES` en `proxy.ts` junto con `/zr-app.apk` y
+  `/.well-known`, que también deben responder sin sesión): botón de descarga del APK, instrucciones
+  para PC (Chrome/Edge → ícono de instalar en la barra de direcciones) y para iPhone (Safari →
+  Compartir → Añadir a inicio), con aviso de que iOS no tiene APK y es PWA obligatoriamente.
+- Aviso sobre el mensaje de «orígenes desconocidos» de Android incluido como nota, con las dos
+  frases que puede mostrar el sistema («Instalar de todos modos» / «Permitir de esta fuente»).
+- El `.apk` (~1 MB) se sirve como archivo estático desde `public/zr-app.apk`.
 
-#### R-42 · Prueba en dispositivos reales
-- Instalar y hacer login en: un Android de gama baja (es el parque real de la academia), un iPhone
-  y un PC. Verificar que **el escaneo de QR funciona dentro del APK** — es lo que más se puede
-  romper al envolver la PWA, y es el flujo del sábado.
+#### R-42 · Prueba en dispositivos reales — ⚠️ pendiente, requiere hardware físico
+- No se puede completar desde este entorno: hace falta instalar el APK en un Android real (de
+  gama baja, que es el parque real de la academia) y verificar ahí mismo que el escaneo de QR
+  funciona dentro del envoltorio — es el punto que más se puede romper al envolver la PWA, y es
+  el flujo del sábado. También falta probar la instalación de la PWA en un iPhone y un PC reales.
 
 ---
 

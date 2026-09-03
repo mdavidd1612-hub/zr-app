@@ -307,6 +307,16 @@ export function IconoOjoTachado(p: IconoProps) {
   )
 }
 
+export function IconoDescargar(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <path d="M12 3v12" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M4 19h16" />
+    </Base>
+  )
+}
+
 /* --------------------------------------------------------------------------
    Marca
    -------------------------------------------------------------------------- */

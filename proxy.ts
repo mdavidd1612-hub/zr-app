@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 // Ya no hay autoregistro (docs/17_PLAN_CONSOLIDADO..., ajuste post-Sprint 7):
 // toda cuenta la crea administración o ventas desde dentro de la app. Solo
 // quedan públicas login y recuperar contraseña.
-const PUBLIC_ROUTES = ['/login', '/recuperar', '/api/auth/callback']
+const PUBLIC_ROUTES = ['/login', '/recuperar', '/api/auth/callback', '/descargar', '/zr-app.apk', '/.well-known']
 
 // Rutas reales por rol. Los grupos de Next.js como (app), (profesor) o
 // (admin) NUNCA aparecen en la URL — son solo organización de archivos —

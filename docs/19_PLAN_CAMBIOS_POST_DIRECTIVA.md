@@ -700,6 +700,27 @@ borrados después.
 
 ### FASE 3 — Usuarios y panel
 
+> ✅ **EJECUTADA el 3 de septiembre de 2026.**
+>
+> **R-30**: `V-30000001/2/3` y `V-20000001/2` ya no existían en producción — se habían borrado en
+> una sesión anterior. Quedaba `V-10000001`, y seguía teniendo `super_admin` con la contraseña
+> `Prueba123!` publicada en el repo. **Se detectó que esa cuenta se usó para iniciar sesión el
+> mismo día** (probablemente el cliente probando funciones de super_admin) — borrarla a ciegas
+> podía dejarlo fuera de su propia sesión. Se le rotó la contraseña a una aleatoria en vez de
+> borrarla, cerrando la exposición sin arriesgar bloquear a nadie. **Pendiente de decisión del
+> cliente**: si esa cuenta se sigue usando, hay que reemplazarla por una cuenta nombrada de
+> verdad (no un genérico "Dirección Académica" con cédula de prueba); si no, se borra.
+>
+> **R-31**: `/mis-inscripciones` ahora tiene buscador por nombre o cédula, estado de validación
+> (`students.validated_at`), fecha de inscripción, y totales por sigla de programa — calculados
+> de lo que el vendedor realmente inscribió, no de una lista fija de dos, así una sede nueva
+> aparece sola. De paso se corrigió el mismo bug de R-21: el filtro adivinaba PTMA/PFTA con
+> `startsWith` sobre el nombre en vez de leer `programs.siglas`.
+>
+> Verificado contra producción con datos de prueba (creados y borrados en la sesión, sin tocar
+> al estudiante real): el buscador, los totales por sigla y las etiquetas Validado/Pendiente
+> funcionan como se diseñaron.
+
 #### R-30 · Sacar los usuarios de prueba de producción — ⚠️ *adelantado a la semana 1 por §2.5*
 - En `zr-prod` conviven el personal real (Érika Hidalgo, vendedora; Cecilia Suarez, admin; Anyi
   Mejias y Nancy Cardenas, dirección académica; Marco Mejias) **con los usuarios de prueba** de las

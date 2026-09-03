@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { cedulaAEmail } from '@/lib/auth-helpers'
 import { cedulaSchema } from '@/lib/validators'
-import { MarcaZR } from '@/components/ui/Iconos'
+import { MarcaZR, IconoOjo, IconoOjoTachado } from '@/components/ui/Iconos'
 import { SelectorCedula } from '@/components/ui/SelectorCedula'
 
 const INICIO: Record<string, string> = {
@@ -22,6 +22,7 @@ export default function Login() {
   const router = useRouter()
   const [cedula, setCedula] = useState('V-')
   const [password, setPassword] = useState('')
+  const [verPassword, setVerPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(false)
 
@@ -78,15 +79,26 @@ export default function Login() {
           {/* Password Input */}
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-zr-text">Contraseña</label>
-            <input
-              type="password"
-              name="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-5 py-4 bg-zr-surface border border-zr-border rounded-xl text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none focus:ring-2 focus:ring-zr-blue/20 transition-all text-base font-medium"
-            />
+            <div className="relative">
+              <input
+                type={verPassword ? 'text' : 'password'}
+                name="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full px-5 py-4 pr-14 bg-zr-surface border border-zr-border rounded-xl text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none focus:ring-2 focus:ring-zr-blue/20 transition-all text-base font-medium"
+              />
+              <button
+                type="button"
+                onClick={() => setVerPassword((v) => !v)}
+                aria-label={verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                aria-pressed={verPassword}
+                className="absolute inset-y-0 right-0 flex w-14 items-center justify-center text-zr-text-muted hover:text-zr-text"
+              >
+                {verPassword ? <IconoOjoTachado size={22} /> : <IconoOjo size={22} />}
+              </button>
+            </div>
             <p className="text-xs text-zr-text-muted">
               Si eres estudiante y es tu primera vez, es el código de tu carnet (ej. PTMA-2026-02-001).
             </p>

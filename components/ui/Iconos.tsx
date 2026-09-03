@@ -285,6 +285,28 @@ export function IconoCerrar(p: IconoProps) {
   )
 }
 
+// Mostrar/ocultar contraseña. Dos iconos separados (no uno con `strike`
+// dibujado en CSS) porque a 20px una diagonal superpuesta se ve como una
+// mancha, no como un trazo — más fácil de leer como dos siluetas distintas.
+export function IconoOjo(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </Base>
+  )
+}
+
+export function IconoOjoTachado(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <path d="M3 3l18 18" />
+      <path d="M10.6 5.2A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a15.6 15.6 0 0 1-3.4 4.3M6.5 6.5C3.7 8.3 2 12 2 12s3.5 7 10 7c1.4 0 2.6-.3 3.7-.8" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </Base>
+  )
+}
+
 /* --------------------------------------------------------------------------
    Marca
    -------------------------------------------------------------------------- */

@@ -23,7 +23,7 @@ export function BarraLateral({ items }: { items: ItemBarra[] }) {
     href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/')
 
   return (
-    <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col gap-1 overflow-y-auto border-r border-zr-border bg-zr-surface/40 px-3 py-6 lg:flex xl:w-64">
+    <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col gap-1 overflow-y-auto border-r border-zr-border bg-zr-surface/40 px-3 py-6 lg:flex xl:w-64 print:hidden">
       <p className="zr-display px-3 pb-4 text-xl text-zr-text">ZR App</p>
 
       <nav className="flex flex-col gap-1">

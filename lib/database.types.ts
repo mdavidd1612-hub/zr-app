@@ -1912,6 +1912,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          siglas: string
           total_duration_months: number
           total_modules: number
         }
@@ -1919,6 +1920,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          siglas: string
           total_duration_months?: number
           total_modules?: number
         }
@@ -1926,8 +1928,30 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          siglas?: string
           total_duration_months?: number
           total_modules?: number
+        }
+        Relationships: []
+      }
+      sedes: {
+        Row: {
+          activa: boolean
+          created_at: string
+          id: string
+          nombre: string
+        }
+        Insert: {
+          activa?: boolean
+          created_at?: string
+          id?: string
+          nombre: string
+        }
+        Update: {
+          activa?: boolean
+          created_at?: string
+          id?: string
+          nombre?: string
         }
         Relationships: []
       }

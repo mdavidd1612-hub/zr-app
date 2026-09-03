@@ -87,14 +87,16 @@ Deno.serve(async (req) => {
   const cedulaNorm = cedula.trim().toUpperCase()
   const email = `${cedulaNorm}@estudiante.zrmecademy.com`
 
-  if (!['profesor', 'admin', 'super_admin', 'direccion_academica'].includes(role)) {
+  if (!['profesor', 'admin', 'super_admin', 'direccion_academica', 'vendedor'].includes(role)) {
     return errorResponse('INVALID_ROLE', 'Rol inválido', 400)
   }
 
-  // Solo un super_admin puede crear otro admin, super_admin o dirección
-  // académica — son los tres roles de control administrativo/académico.
-  if (['admin', 'super_admin', 'direccion_academica'].includes(role) && profile?.role !== 'super_admin') {
-    return errorResponse('NO_AUTORIZADO', 'Solo super_admin puede crear administradores', 403)
+  // Solo un super_admin puede crear otro admin, super_admin, dirección
+  // académica o vendedor — son roles de control administrativo/académico o
+  // de acceso comercial, no algo que Dirección Académica pueda dar de alta
+  // por su cuenta (R-16, docs/19_PLAN_CAMBIOS_POST_DIRECTIVA.md).
+  if (['admin', 'super_admin', 'direccion_academica', 'vendedor'].includes(role) && profile?.role !== 'super_admin') {
+    return errorResponse('NO_AUTORIZADO', 'Solo super_admin puede crear administradores o vendedores', 403)
   }
 
   const admin = adminClient()

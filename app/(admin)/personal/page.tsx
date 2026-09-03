@@ -61,6 +61,9 @@ const ROLES: { valor: UserRole; etiqueta: string; soloSuper: boolean }[] = [
   { valor: 'admin', etiqueta: 'Administrador', soloSuper: true },
   { valor: 'direccion_academica', etiqueta: 'Dirección Académica', soloSuper: true },
   { valor: 'super_admin', etiqueta: 'Super admin', soloSuper: true },
+  // Solo super_admin (R-16): un vendedor tiene acceso comercial, no es una
+  // decisión de Dirección Académica.
+  { valor: 'vendedor', etiqueta: 'Vendedor', soloSuper: true },
 ]
 
 export default function Personal() {

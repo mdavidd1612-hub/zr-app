@@ -31,8 +31,12 @@ const NAV: ItemBarra[] = [
 // a ser trabajo de Dirección Académica y super_admin (división de trabajo
 // acordada: admin es todo lo de ESTUDIANTES, Dirección Académica es todo lo
 // de PROFESORES/notas/evaluaciones).
+// "Inscribir" (R-17, docs/19_PLAN_CAMBIOS_POST_DIRECTIVA.md): el mismo
+// formulario de ventas, como respaldo — admin, Dirección Académica y
+// super_admin ya podían llamar a create-student, solo faltaba el enlace.
 const TODAS: ItemBarra[] = [
   NAV[0],
+  { href: '/inscribir',       label: 'Inscribir',       Icono: IconoEstudiantes },
   { href: '/estudiantes',     label: 'Estudiantes',     Icono: IconoEstudiantes },
   { href: '/consentimientos', label: 'Consentimientos', Icono: IconoCandado },
   NAV[3],
@@ -44,20 +48,23 @@ const TODAS: ItemBarra[] = [
 // Dirección Académica: profesores, notas de cualquier cohorte, exámenes —
 // pero no Configuración (exclusivo de super_admin).
 const TODAS_DIRECCION: ItemBarra[] = [
-  ...TODAS.slice(0, 6),
+  ...TODAS.slice(0, 7),
   { href: '/personal',             label: 'Personal',     Icono: IconoPersonal },
   { href: '/notas-academicas',     label: 'Notas',        Icono: IconoNotas },
   { href: '/examenes-academicos',  label: 'Exámenes',     Icono: IconoExamen },
-  TODAS[6],
+  TODAS[7],
 ]
 
 const TODAS_SUPER: ItemBarra[] = [
-  ...TODAS.slice(0, 6),
+  ...TODAS.slice(0, 7),
   { href: '/personal',             label: 'Personal',      Icono: IconoPersonal },
   { href: '/notas-academicas',     label: 'Notas',         Icono: IconoNotas },
   { href: '/examenes-academicos',  label: 'Exámenes',      Icono: IconoExamen },
+  // R-20/R-21: crear programas y sedes es exclusivo de super_admin
+  // (migración 066) — el enlace solo aparece en este menú.
+  { href: '/catalogo',             label: 'Catálogo',      Icono: IconoDocumento },
   { href: '/configuracion',        label: 'Configuración', Icono: IconoPanel },
-  TODAS[6],
+  TODAS[7],
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

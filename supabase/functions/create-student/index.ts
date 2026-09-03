@@ -151,7 +151,9 @@ Deno.serve(async (req: Request) => {
   if (!user) return errorResponse('NO_AUTORIZADO', 'No autenticado', 401)
 
   const { data: perfil } = await userSb.from('profiles').select('role').eq('id', user.id).single()
-  if (!perfil || !['admin', 'super_admin', 'vendedor'].includes(perfil.role)) {
+  // R-17: Dirección Académica también puede inscribir, como respaldo del
+  // vendedor — la matriz de roles la incluye junto a admin/super_admin.
+  if (!perfil || !['admin', 'super_admin', 'direccion_academica', 'vendedor'].includes(perfil.role)) {
     return errorResponse('NO_AUTORIZADO', 'Solo administración o ventas crean estudiantes', 403)
   }
   const esVendedor = perfil.role === 'vendedor'

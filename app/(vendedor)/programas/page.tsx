@@ -73,12 +73,16 @@ export default function ProgramasVendedor() {
         return
       }
 
-      const [{ data: progs }, { data: mias }] = await Promise.all([
+      const [{ data: progs }, { data: mias }, { data: sedesActivas }] = await Promise.all([
         supabase
           .from('programs')
-          .select('id, name, cohorts(id, name, sede, turno, start_date, days, schedule, code_number, status, students(id))')
+          .select('id, name, siglas, cohorts(id, name, sede, turno, start_date, days, schedule, code_number, status, students(id))')
           .order('name'),
         supabase.from('students').select('cohort_id').eq('enrolled_by', user.id),
+        // R-20: catálogo de sedes, no las que ya usaron cohortes existentes
+        // (con eso, una sede nueva sin cohortes todavía no aparecía en
+        // ninguna parte para poder escribirla bien la primera vez).
+        supabase.from('sedes').select('nombre').eq('activa', true).order('nombre'),
       ])
 
       const conteoPorCohorte = new Map<string, number>()
@@ -88,7 +92,7 @@ export default function ProgramasVendedor() {
       }
 
       const filas = (progs ?? []) as unknown as {
-        id: string; name: string
+        id: string; name: string; siglas: string
         cohorts: {
           id: string; name: string; sede: string | null; turno: string | null
           start_date: string; days: string | null; schedule: string | null
@@ -100,7 +104,10 @@ export default function ProgramasVendedor() {
       setProgramas(filas.map((p) => ({
         id: p.id,
         name: p.name,
-        siglas: p.name.split(' ')[0],
+        // Siglas reales de la base (migración 067) — nunca derivadas del
+        // nombre en el cliente. Adivinarlas con `split(' ')[0]` es exactamente
+        // el bug que dejaba caer un programa nuevo al prefijo equivocado.
+        siglas: p.siglas,
         cohortes: [...p.cohorts]
           .sort((a, b) => a.name.localeCompare(b.name))
           .map((c) => ({
@@ -118,12 +125,7 @@ export default function ProgramasVendedor() {
           })),
       })))
 
-      // Las sedes salen de las cohortes que ya existen, no de una lista escrita
-      // en el código: así «UCV» y «U.C.V.» no terminan siendo dos sedes
-      // distintas para la base. (El catálogo de sedes propiamente dicho es R-20.)
-      setSedesConocidas([...new Set(
-        filas.flatMap((p) => p.cohorts.map((c) => c.sede)).filter((s): s is string => Boolean(s)),
-      )].sort())
+      setSedesConocidas((sedesActivas ?? []).map((s) => s.nombre))
 
       setCargando(false)
     }

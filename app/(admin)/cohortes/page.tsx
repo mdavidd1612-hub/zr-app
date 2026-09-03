@@ -75,7 +75,7 @@ export default function Cohortes() {
         return
       }
 
-      const [{ data: cohs }, { data: mods }, { data: profs }, { data: programa }] = await Promise.all([
+      const [{ data: cohs }, { data: mods }, { data: profs }, { data: programa }, { data: sedesActivas }] = await Promise.all([
         supabase.from('cohorts').select('id, name, location, sede, turno, current_module_id, teacher_id, status, modules(name), teachers(profiles(full_name)), students(id)'),
         supabase.from('modules').select('id, name, order_index').order('order_index'),
         supabase.from('teachers').select('id, profiles(full_name)').eq('is_active', true),
@@ -84,6 +84,8 @@ export default function Cohortes() {
         // podía quedar colgada de PTMA — y el prefijo del carnet sale del
         // programa. Ahora se eligen todos y el usuario dice cuál.
         supabase.from('programs').select('id, name').order('name'),
+        // R-20: catálogo de sedes, no las que ya usaron cohortes existentes.
+        supabase.from('sedes').select('nombre').eq('activa', true).order('nombre'),
       ])
 
       if (!vigente) return
@@ -119,9 +121,7 @@ export default function Cohortes() {
       setProgramas(programa ?? [])
       setProgramaId((actual) => actual ?? programa?.[0]?.id ?? null)
 
-      setSedesConocidas([...new Set(
-        (filas ?? []).map((c) => c.sede).filter((s): s is string => Boolean(s)),
-      )].sort())
+      setSedesConocidas((sedesActivas ?? []).map((s) => s.nombre))
 
       setCargando(false)
     }

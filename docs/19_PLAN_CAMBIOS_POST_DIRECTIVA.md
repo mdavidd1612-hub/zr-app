@@ -503,15 +503,27 @@ en el navegador, no solo compilando (lección de `docs/18` §2bis).
 
 ### FASE 1.5 — Roles y permisos
 
-> **Objetivo**: que cada rol pueda hacer exactamente lo que dice la matriz, **y nada más**, tanto
-> en la interfaz como en la base de datos.
+> ✅ **EJECUTADA el 2 de septiembre de 2026 — con un ajuste de alcance real frente a este
+> borrador, documentado en la migración `066` y aquí abajo.**
 >
-> ⛔ **No empezar sin las 4 preguntas de §3.5 cerradas.** Escribir 28 políticas de RLS con la
-> matriz equivocada cuesta el doble que esperar la respuesta.
+> Al auditar `app/(admin)/layout.tsx` para hacer R-15, resultó que el modelo que YA está
+> construido no es el de la matriz de §3.5 (dos carriles separados sin solape). Es otro,
+> documentado en un comentario del propio código de una sesión anterior: **Dirección Académica
+> es un SUPERCONJUNTO de Administración** — ve todo lo que ve un admin (Estudiantes,
+> Consentimientos, Asistencia, QR, Material) más Personal/Notas/Exámenes encima. Por la regla de
+> `AGENTS.md` §5 ("código gana sobre spec gana sobre docs"), la migración `066` siguió ESE
+> modelo ya construido, no el borrador de abajo. Efecto: no hizo falta un `is_administracion()`
+> separado — no hay ninguna capacidad que tenga `admin` y no tenga `direccion_academica` hoy.
+> Solo hizo falta `is_academico()`, para lo que sí es exclusivo de Dirección Académica y que
+> hasta ahora un `admin` normal también tenía por culpa de `is_admin_up()` (borrar exámenes, leer
+> feedback, escribir el catálogo de módulos, gestionar asignaciones profesor↔módulo — esta
+> última con una política que ya se llamaba "direccion:" pero estaba implementada con
+> `is_admin_up()`, el nombre decía una cosa y el código hacía otra). Programas y config no
+> pública quedaron exclusivos de `super_admin`, sin cambio de comportamiento visible porque el
+> menú ya solo se los mostraba a super_admin.
 >
-> ⚠️ **Esta es la fase con más riesgo de romper cosas de todo el plan.** `is_admin_up()` sostiene
-> media aplicación: si se estrecha mal, un profesor deja de ver a sus estudiantes o administración
-> pierde la asistencia del sábado. Se ejecuta con pruebas antes, no después.
+> Verificado con impersonación SQL directa contra producción (no con `npm run test:rls`: sigue
+> sin Docker local). R-16, R-17 y R-19 sí siguieron el plan tal cual. Detalle completo abajo.
 
 #### R-14 · Separar `is_admin_up()` en funciones por responsabilidad
 - **Migración `061_roles_separados.sql`**. Reemplazar la función-cajón por funciones con
@@ -579,6 +591,19 @@ en el navegador, no solo compilando (lección de `docs/18` §2bis).
 ---
 
 ### FASE 2 — Programas y sedes
+
+> ✅ **EJECUTADA el 2 de septiembre de 2026.** Pantalla `/catalogo` (solo `super_admin`, migración
+> `066`): crear programas y sedes en un solo lugar. `cohorts.sede` sigue siendo texto libre a
+> propósito — la tabla `sedes` es la fuente de las OPCIONES que ofrecen las pantallas, no una FK;
+> convertirla en FK ahora habría obligado a tocar cada pantalla que ya lee/escribe `sede` como
+> texto por un beneficio chico mientras solo hay dos sedes reales.
+>
+> La advertencia de R-21 sobre el `LIKE 'PTMA%'` era real y ya mordía dos veces: `programs.siglas`
+> (migración `067`) reemplaza tanto el `LIKE` de `set_student_code_calc()` como el
+> `split_part(name,' ',1)` de `fn_set_cohort_code_number()` — las dos funciones adivinaban el
+> prefijo del mismo modo peligroso. Verificado creando un programa de prueba con siglas `ZZZ`: el
+> código que generaría para un estudiante suyo salió `ZZZ-2099-01-XXX`, no `PFTA-…`. Programa,
+> cohorte y estudiante de prueba, borrados después de confirmar.
 
 #### R-20 · Catálogo de sedes
 - Sede es hoy texto libre en `cohorts.sede`. Con dos sedes reales (San Antonio de Los Altos, UCV)

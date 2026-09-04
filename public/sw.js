@@ -49,12 +49,17 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Las API calls y auth: solo red (podrían fallar, está bien)
-  if (
-    event.request.url.includes('/auth/') ||
-    event.request.url.includes('/functions/') ||
-    event.request.url.includes('supabase.co')
-  ) {
+  // Cualquier llamada a otro origen (Supabase, en producción o local, y
+  // cualquier otra API) va solo por red — nunca por la estrategia de caché
+  // de este service worker, que es para los recursos DE ESTA APP. Antes
+  // solo se excluía por texto ("supabase.co", "/auth/", "/functions/"), lo
+  // que dejaba pasar /rest/v1/ sin querer — inofensivo en producción
+  // (mismo dominio supabase.co que sí calzaba), pero en desarrollo local
+  // (Supabase en 127.0.0.1) el service worker interceptaba esas llamadas y,
+  // ante cualquier tropiezo de red, devolvía su "Sin conexión" en vez de
+  // dejarlas pasar — parecía que el backend local fallaba constantemente,
+  // y era esto.
+  if (new URL(event.request.url).origin !== self.location.origin) {
     return
   }
 

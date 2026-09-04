@@ -47,11 +47,38 @@ export default function MiModulo() {
         .from('students')
         .select('cohort_id, cohorts(current_module_id)')
         .eq('id', user.id)
-        .single()
+        .maybeSingle()
 
-      const cohortId = (est as unknown as { cohort_id: string | null } | null)?.cohort_id
-      const moduloId = (est as unknown as { cohorts: { current_module_id: string | null } | null } | null)
-        ?.cohorts?.current_module_id
+      let cohortId = (est as unknown as { cohort_id: string | null } | null)?.cohort_id ?? null
+      let moduloId = (est as unknown as { cohorts: { current_module_id: string | null } | null } | null)
+        ?.cohorts?.current_module_id ?? null
+
+      // Vista de recorrido de super_admin (a pedido explícito del
+      // coordinador): no tiene fila en `students`, así que no hay nada que
+      // mostrarle. En vez de inventar una inscripción falsa (que sí
+      // "chocaría" con datos reales, como dijo el coordinador), se le
+      // muestra en SOLO LECTURA un programa real que ya exista y tenga
+      // módulo asignado — el más poblado, para que se vea con contenido.
+      if (!moduloId) {
+        const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+        if (perfil?.role === 'super_admin') {
+          const { data: cohortesConModulo } = await supabase
+            .from('cohorts')
+            .select('id, current_module_id, students(id)')
+            .not('current_module_id', 'is', null)
+            .eq('status', 'activa')
+
+          const filas = (cohortesConModulo ?? []) as unknown as {
+            id: string; current_module_id: string; students: { id: string }[] | null
+          }[]
+          const mejor = [...filas].sort((a, b) => (b.students?.length ?? 0) - (a.students?.length ?? 0))[0]
+
+          if (mejor) {
+            cohortId = mejor.id
+            moduloId = mejor.current_module_id
+          }
+        }
+      }
 
       if (!moduloId) {
         setCargando(false)

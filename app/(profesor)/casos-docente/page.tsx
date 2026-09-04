@@ -56,9 +56,35 @@ export default function CasosDocente() {
         .limit(1)
         .maybeSingle()
 
-      const cohorteData = cohorte as unknown as {
+      let cohorteData = cohorte as unknown as {
         id: string; current_module_id: string | null; modules: { name: string } | null
       } | null
+
+      // Vista de recorrido de super_admin (a pedido explícito del
+      // coordinador): no tiene ningún programa asignado como profesor, así
+      // que no hay nada que mostrarle. En vez de asignarle uno real (eso sí
+      // "chocaría" con datos reales, como dijo el coordinador), se le
+      // muestra en SOLO LECTURA el programa real más poblado que ya tenga
+      // módulo — sin tocar su asignación de profesor.
+      if (!cohorteData?.current_module_id) {
+        const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+        if (perfil?.role === 'super_admin') {
+          const { data: cohortesConModulo } = await supabase
+            .from('cohorts')
+            .select('id, current_module_id, modules(name), students(id)')
+            .not('current_module_id', 'is', null)
+            .eq('status', 'activa')
+
+          const filas = (cohortesConModulo ?? []) as unknown as {
+            id: string; current_module_id: string; modules: { name: string } | null; students: { id: string }[] | null
+          }[]
+          const mejor = [...filas].sort((a, b) => (b.students?.length ?? 0) - (a.students?.length ?? 0))[0]
+
+          if (mejor) {
+            cohorteData = { id: mejor.id, current_module_id: mejor.current_module_id, modules: mejor.modules }
+          }
+        }
+      }
 
       if (!cohorteData?.current_module_id) {
         setCargando(false)

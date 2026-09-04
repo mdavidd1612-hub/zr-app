@@ -1626,6 +1626,7 @@ export type Database = {
           name: string
           order_index: number
           program_id: string
+          resumen_largo: string | null
         }
         Insert: {
           competencias?: string[] | null
@@ -1638,6 +1639,7 @@ export type Database = {
           name: string
           order_index: number
           program_id: string
+          resumen_largo?: string | null
         }
         Update: {
           competencias?: string[] | null
@@ -1650,6 +1652,7 @@ export type Database = {
           name?: string
           order_index?: number
           program_id?: string
+          resumen_largo?: string | null
         }
         Relationships: [
           {

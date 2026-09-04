@@ -299,10 +299,10 @@ export default function Inicio() {
             // Con "Casos" apagado (lib/flags.ts), este espacio no se deja
             // vacío: a pedido explícito del coordinador, va el resumen corto
             // y las competencias del módulo que está cursando — nada que
-            // dependa de que alguien lo revise o lo actualice a diario,
-            // solo lo mismo que ya muestra la malla curricular.
+            // dependa de que alguien lo revise o lo actualice a diario.
+            // Toca para ver el resumen completo en Mi módulo.
             <button
-              onClick={() => router.push('/malla')}
+              onClick={() => router.push('/clases')}
               className="zr-card overflow-hidden text-left"
             >
               <div className="border-b border-zr-border px-6 py-5">
@@ -324,7 +324,7 @@ export default function Inicio() {
                   </ul>
                 )}
                 <p className="pt-1 text-xs font-bold uppercase tracking-wide text-zr-blue-mid">
-                  Ver la malla curricular completa ›
+                  Ver todo lo que vas a aprender ›
                 </p>
               </div>
             </button>
@@ -337,7 +337,7 @@ export default function Inicio() {
         {modulo && CASOS_HABILITADO && (
           <Seccion numero={2} titulo="Mi módulo" delay={200}>
             <button
-              onClick={() => router.push('/malla')}
+              onClick={() => router.push('/clases')}
               className="zr-card zr-card-interactive w-full overflow-hidden p-0 text-left"
             >
               <div className="px-6 py-5">

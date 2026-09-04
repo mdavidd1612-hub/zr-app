@@ -12,9 +12,15 @@ import type { UserRole } from '@/lib/types'
 
 /**
  * A pedido explícito (fuera del plan post-directiva): editor de los
- * resúmenes de "Mi módulo" que ve el estudiante. Son textos ESTÁTICOS —
+ * resúmenes de módulo que ve el estudiante. Son textos ESTÁTICOS —
  * nadie los genera automáticamente, y no cambian solos con el tiempo ni al
  * crear un programa nuevo. Solo cambian si alguien de aquí los edita.
+ *
+ * Dos textos, no uno (migración 080, pedido explícito del coordinador —
+ * el resumen largo "se ve feo" en la malla curricular, donde van los 14
+ * juntos, pero SÍ tiene sentido en Mi módulo, donde se ve uno a la vez):
+ *   - Resumen corto:  una frase, se ve en la malla curricular (los 14 a la vez).
+ *   - Resumen largo:  el texto extenso, se ve en Mi módulo (uno a la vez).
  *
  * Cada nombre de módulo existe una vez por programa (PTMA, PFTA, el que
  * venga) porque `modules` está atado a `program_id` — pero hoy todos los
@@ -28,6 +34,8 @@ interface Modulo {
   nombre: string
   ordenIndex: number
   descripcion: string
+  resumenLargo: string
+  duracionSemanas: number
   cantidadProgramas: number
 }
 
@@ -38,7 +46,10 @@ export default function EditarModulos() {
   const [modulos, setModulos] = useState<Modulo[]>([])
   const [cargando, setCargando] = useState(true)
   const [editando, setEditando] = useState<string | null>(null)
-  const [texto, setTexto] = useState('')
+  const [textoCorto, setTextoCorto] = useState('')
+  const [textoLargo, setTextoLargo] = useState('')
+  const [semanas, setSemanas] = useState(4)
+  const [horasPorSabado, setHorasPorSabado] = useState(4)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
@@ -67,12 +78,19 @@ export default function EditarModulos() {
         return
       }
 
-      const { data: mods } = await supabase
-        .from('modules')
-        .select('name, order_index, description')
-        .order('order_index')
+      const [{ data: mods }, { data: config }] = await Promise.all([
+        supabase
+          .from('modules')
+          .select('name, order_index, description, resumen_largo, duration_weeks')
+          .order('order_index'),
+        supabase.from('system_config').select('value').eq('key', 'academia.horas_por_sabado').maybeSingle(),
+      ])
+      if (config?.value != null) setHorasPorSabado(Number(config.value))
 
-      const filas = (mods ?? []) as { name: string; order_index: number; description: string | null }[]
+      const filas = (mods ?? []) as {
+        name: string; order_index: number; description: string | null
+        resumen_largo: string | null; duration_weeks: number
+      }[]
 
       // Agrupar por nombre: todos los programas comparten el mismo currículo,
       // así que solo hace falta una fila por módulo en la pantalla — pero se
@@ -87,6 +105,8 @@ export default function EditarModulos() {
             nombre: f.name,
             ordenIndex: f.order_index,
             descripcion: f.description ?? '',
+            resumenLargo: f.resumen_largo ?? '',
+            duracionSemanas: f.duration_weeks,
             cantidadProgramas: 1,
           })
         }
@@ -102,7 +122,9 @@ export default function EditarModulos() {
 
   function abrir(m: Modulo) {
     setEditando(m.nombre)
-    setTexto(m.descripcion)
+    setTextoCorto(m.descripcion)
+    setTextoLargo(m.resumenLargo)
+    setSemanas(m.duracionSemanas)
     setError(null)
     setExito(null)
   }
@@ -113,7 +135,11 @@ export default function EditarModulos() {
 
     const { error: fallo } = await createClient()
       .from('modules')
-      .update({ description: texto.trim() || null })
+      .update({
+        description: textoCorto.trim() || null,
+        resumen_largo: textoLargo.trim() || null,
+        duration_weeks: semanas,
+      })
       .eq('name', nombre)
 
     setGuardando(false)
@@ -124,7 +150,7 @@ export default function EditarModulos() {
     }
 
     setEditando(null)
-    setExito(`Resumen de "${nombre}" actualizado.`)
+    setExito(`"${nombre}" actualizado.`)
     setVersion((v) => v + 1)
   }
 
@@ -157,7 +183,7 @@ export default function EditarModulos() {
       <Encabezado
         sobretitulo={rol === 'super_admin' ? 'Super admin' : 'Dirección académica'}
         titulo="Resúmenes de módulos"
-        descripcion="Lo que cada estudiante ve en Mi módulo. Es texto estático — no cambia solo."
+        descripcion="Resumen corto (malla), resumen largo (Mi módulo) y duración. Texto estático — no cambia solo."
       />
       <Regla delay={60} />
 
@@ -172,13 +198,50 @@ export default function EditarModulos() {
                   <p className="text-sm font-bold text-zr-text">
                     {m.ordenIndex}. {m.nombre}
                   </p>
-                  <textarea
-                    value={texto}
-                    onChange={(e) => setTexto(e.target.value)}
-                    rows={10}
-                    placeholder="Escribe el resumen extenso de este módulo — lo que el estudiante va a ver, trabajar y aprender."
-                    className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-sm leading-relaxed text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
-                  />
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zr-text-muted">
+                      Resumen corto — malla curricular (una frase)
+                    </label>
+                    <textarea
+                      value={textoCorto}
+                      onChange={(e) => setTextoCorto(e.target.value)}
+                      rows={2}
+                      placeholder="Una frase corta: qué se ve en este módulo."
+                      className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-sm leading-relaxed text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zr-text-muted">
+                      Resumen largo — Mi módulo (el que se está cursando)
+                    </label>
+                    <textarea
+                      value={textoLargo}
+                      onChange={(e) => setTextoLargo(e.target.value)}
+                      rows={10}
+                      placeholder="El resumen extenso — lo que el estudiante va a ver, trabajar y aprender."
+                      className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-sm leading-relaxed text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zr-text-muted">
+                      Duración (sábados)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={12}
+                      value={semanas}
+                      onChange={(e) => setSemanas(Math.min(12, Math.max(1, Number(e.target.value) || 1)))}
+                      className="w-28 rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+                    />
+                    <p className="mt-1.5 text-xs text-zr-text-muted">
+                      {semanas * horasPorSabado} horas académicas ({semanas} sábados × {horasPorSabado} horas)
+                    </p>
+                  </div>
+
                   {error && <Aviso tipo="error">{error}</Aviso>}
                   <div className="flex gap-3">
                     <button
@@ -197,6 +260,9 @@ export default function EditarModulos() {
                   <div className="flex items-start justify-between gap-4">
                     <p className="text-sm font-bold text-zr-text">
                       {m.ordenIndex}. {m.nombre}
+                      <span className="ml-2 font-normal text-zr-text-muted">
+                        · {m.duracionSemanas * horasPorSabado}h ({m.duracionSemanas} sábados)
+                      </span>
                     </p>
                     <span className="shrink-0 text-xs font-semibold text-zr-blue">Editar</span>
                   </div>

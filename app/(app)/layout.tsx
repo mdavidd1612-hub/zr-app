@@ -13,17 +13,15 @@ import type { UserRole } from '@/lib/types'
 
 // Fase 0 (docs/14_FASE0_PLAN_SPRINTS.md, Sprints 1, 3 y 4): Exámenes, Notas y
 // Progreso se retiran del menú del estudiante para esta entrega, "Clases" se
-// reemplaza por "Mi módulo" y se agrega Dudas. Las rutas viejas siguen
-// existiendo en el código — no se borran — para retomarlas en la fase
-// siguiente sin rehacer nada.
-//
-// "Mi módulo" (/clases) se retira a pedido explícito del coordinador: pasa a
-// ser la malla curricular (/malla), que ya muestra el módulo actual resaltado
-// dentro del camino completo — no hacía falta una pantalla aparte solo para
-// el módulo de esta semana.
+// reemplaza por "Mi módulo" (el módulo que se está cursando, resumen largo)
+// y se agrega Dudas. La malla curricular completa (los 14 módulos, resumen
+// corto) se ve desde dentro de Mi módulo, no tiene ícono propio en la barra
+// — dos entradas para lo mismo confundía más de lo que ayudaba. Las rutas
+// viejas siguen existiendo en el código — no se borran — para retomarlas en
+// la fase siguiente sin rehacer nada.
 const NAV: ItemBarra[] = [
   { href: '/',          label: 'Inicio',    Icono: IconoInicio },
-  { href: '/malla',     label: 'Malla',     Icono: IconoProgreso },
+  { href: '/clases',    label: 'Mi módulo', Icono: IconoProgreso },
   { href: '/contenido', label: 'Material',  Icono: IconoDocumento },
   { href: '/dudas',     label: 'Dudas',     Icono: IconoDuda },
   { href: '/perfil',    label: 'Perfil',    Icono: IconoPerfil },

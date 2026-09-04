@@ -8,9 +8,13 @@ import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 /**
  * Fase 0 (docs/16_FASE0_PLAN_PROFESOR.md, ajuste): quién trabajó el caso
  * cada día — SIN nombres, solo el % (barra animada, como el HTML de
- * referencia). Los casos ya no se generan por botón: un cron diario
- * (migración 042) genera el caso del día siguiente hábil solo, con un día
- * de margen — el profesor no tiene que hacer nada.
+ * referencia).
+ *
+ * A pedido explícito: el profesor NO tiene ningún control sobre la
+ * generación de casos — ni un botón de prueba. Un cron semanal (migración
+ * 076) genera, cada sábado, los 5 casos de la semana (lunes a viernes) de
+ * cada módulo activo, todos distintos entre sí. El profesor solo ve el
+ * resultado.
  */
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
@@ -36,9 +40,6 @@ export default function CasosDocente() {
   const [cargando, setCargando] = useState(true)
   const [modulo, setModulo] = useState<{ id: string; nombre: string } | null>(null)
   const [dias, setDias] = useState<DiaProgreso[]>([])
-  const [diaPrueba, setDiaPrueba] = useState(1)
-  const [generando, setGenerando] = useState(false)
-  const [avisoPrueba, setAvisoPrueba] = useState<string | null>(null)
 
   useEffect(() => {
     async function cargar() {
@@ -128,49 +129,6 @@ export default function CasosDocente() {
     cargar()
   }, [router])
 
-  // La IA a veces tarda más de un minuto en responder (NVIDIA en capa
-  // gratuita), y algunas redes cortan una conexión que lleva mucho tiempo
-  // esperando. Un reintento silencioso cubre esos casos sin que el
-  // profesor tenga que darse cuenta ni volver a tocar nada.
-  async function probarGeneracion() {
-    if (!modulo) return
-    setGenerando(true)
-    setAvisoPrueba(null)
-    const supabase = createClient()
-
-    let ultimoError: string | null = null
-    for (let intento = 1; intento <= 2; intento++) {
-      const { error } = await supabase.functions.invoke('generar-casos', {
-        body: { moduleId: modulo.id, weekday: diaPrueba },
-      })
-
-      if (!error) {
-        setAvisoPrueba(`Listo — ya puedes verlo como estudiante ese día (${DIAS[diaPrueba - 1]}).`)
-        setGenerando(false)
-        return
-      }
-
-      const contexto = (error as { context?: Response }).context
-      if (contexto) {
-        try {
-          const cuerpo = await contexto.json()
-          ultimoError = cuerpo.error?.message ?? error.message
-        } catch {
-          ultimoError = error.message
-        }
-      } else {
-        // Sin "context": la conexión se cortó antes de que el servidor
-        // respondiera — probablemente todavía estaba generando.
-        ultimoError = `Se tardó demasiado (${error.message || 'sin respuesta'}).`
-      }
-
-      if (intento === 1) setAvisoPrueba('Está tardando más de lo normal, reintentando…')
-    }
-
-    setAvisoPrueba(`${ultimoError} Intenta de nuevo en un momento.`)
-    setGenerando(false)
-  }
-
   if (cargando) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
@@ -202,41 +160,12 @@ export default function CasosDocente() {
 
       <div className="flex gap-3 rounded-lg border border-zr-blue/25 bg-zr-blue/10 p-4">
         <p className="text-sm leading-relaxed text-zr-text">
-          Los casos se generan solos: cada mañana se prepara el del siguiente día hábil, con un
-          día de margen. No hace falta tocar nada aquí.
+          Los casos se generan solos: cada sábado se prepara toda la semana (lunes a viernes),
+          distinta cada día. No hace falta tocar nada aquí.
         </p>
       </div>
 
-      {/* PRUEBA TEMPORAL: dispara la misma función que usa el cron, pero
-          a mano y para el día que quieras — para confirmar que la IA
-          está generando bien, sin esperar al horario automático. */}
-      <Seccion numero={1} titulo="Prueba" delay={100}>
-        <div className="zr-card space-y-3 p-6">
-          <p className="text-sm text-zr-text-muted">
-            Genera un caso ahora mismo, para el día que elijas — la misma función que usa el cron
-            todos los días.
-          </p>
-          <select
-            value={diaPrueba}
-            onChange={(e) => setDiaPrueba(Number(e.target.value))}
-            className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
-          >
-            {DIAS.map((d, i) => (
-              <option key={d} value={i + 1}>{d}</option>
-            ))}
-          </select>
-          {avisoPrueba && <p className="text-sm font-medium text-zr-text">{avisoPrueba}</p>}
-          <button
-            onClick={probarGeneracion}
-            disabled={generando}
-            className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-50"
-          >
-            {generando ? 'Generando… (hasta 1 minuto)' : `Generar caso de ${DIAS[diaPrueba - 1]}`}
-          </button>
-        </div>
-      </Seccion>
-
-      <Seccion numero={2} titulo="Quién trabajó los casos" delay={180}>
+      <Seccion numero={1} titulo="Quién trabajó los casos" delay={180}>
         <div className="space-y-3">
           {dias.map((d) => {
             const pct = d.total > 0 ? Math.round((d.hechos / d.total) * 100) : 0

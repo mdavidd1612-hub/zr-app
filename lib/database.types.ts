@@ -556,12 +556,62 @@ export type Database = {
           },
         ]
       }
+      content_folders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          module_id: string
+          name: string
+          parent_folder_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          module_id: string
+          name: string
+          parent_folder_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          module_id?: string
+          name?: string
+          parent_folder_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_folders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_folders_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_folders_parent_folder_id_fkey"
+            columns: ["parent_folder_id"]
+            isOneToOne: false
+            referencedRelation: "content_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_items: {
         Row: {
           approval_status: Database["public"]["Enums"]["content_approval_status"]
           created_at: string
           description: string | null
           external_url: string | null
+          folder_id: string | null
           id: string
           is_published: boolean
           learning_guide_id: string | null
@@ -583,6 +633,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           external_url?: string | null
+          folder_id?: string | null
           id?: string
           is_published?: boolean
           learning_guide_id?: string | null
@@ -604,6 +655,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           external_url?: string | null
+          folder_id?: string | null
           id?: string
           is_published?: boolean
           learning_guide_id?: string | null
@@ -621,6 +673,13 @@ export type Database = {
           week_number?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "content_items_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "content_folders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "content_items_learning_guide_id_fkey"
             columns: ["learning_guide_id"]

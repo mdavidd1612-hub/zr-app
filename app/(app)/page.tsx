@@ -299,35 +299,43 @@ export default function Inicio() {
             // Con "Casos" apagado (lib/flags.ts), este espacio no se deja
             // vacío: a pedido explícito del coordinador, va el resumen corto
             // y las competencias del módulo que está cursando — nada que
-            // dependa de que alguien lo revise o lo actualice a diario.
-            // Toca para ver el resumen completo en Mi módulo.
-            <button
-              onClick={() => router.push('/clases')}
-              className="zr-card overflow-hidden text-left"
-            >
-              <div className="border-b border-zr-border px-6 py-5">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">Estás cursando</p>
-                <p className="zr-display mt-2 text-xl text-zr-text">{modulo.nombre}</p>
-              </div>
-              <div className="space-y-3 px-6 py-6">
-                {modulo.descripcion && (
-                  <p className="text-sm leading-relaxed text-zr-text-muted">{modulo.descripcion}</p>
-                )}
-                {modulo.competencias && modulo.competencias.length > 0 && (
-                  <ul className="space-y-1.5">
-                    {modulo.competencias.slice(0, 3).map((c, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-zr-text">
-                        <IconoCheck size={14} className="mt-0.5 shrink-0 text-zr-blue-mid" />
-                        <span>{c}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <p className="pt-1 text-xs font-bold uppercase tracking-wide text-zr-blue-mid">
-                  Ver todo lo que vas a aprender ›
-                </p>
-              </div>
-            </button>
+            // dependa de que alguien lo revise o lo actualice a diario. Más
+            // un acceso directo al material adjunto, también pedido.
+            <div className="zr-card overflow-hidden">
+              <button
+                onClick={() => router.push('/clases')}
+                className="w-full text-left"
+              >
+                <div className="border-b border-zr-border px-6 py-5">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">Estás cursando</p>
+                  <p className="zr-display mt-2 text-xl text-zr-text">{modulo.nombre}</p>
+                </div>
+                <div className="space-y-3 px-6 py-6">
+                  {modulo.descripcion && (
+                    <p className="text-sm leading-relaxed text-zr-text-muted">{modulo.descripcion}</p>
+                  )}
+                  {modulo.competencias && modulo.competencias.length > 0 && (
+                    <ul className="space-y-1.5">
+                      {modulo.competencias.slice(0, 3).map((c, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-zr-text">
+                          <IconoCheck size={14} className="mt-0.5 shrink-0 text-zr-blue-mid" />
+                          <span>{c}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="pt-1 text-xs font-bold uppercase tracking-wide text-zr-blue-mid">
+                    Ver todo lo que vas a aprender ›
+                  </p>
+                </div>
+              </button>
+              <button
+                onClick={() => router.push('/contenido')}
+                className="flex min-h-14 w-full items-center justify-center gap-2 border-t border-zr-border text-sm font-bold text-zr-text active:bg-zr-border/30"
+              >
+                📁 Revisar el material del módulo
+              </button>
+            </div>
           ) : null}
         </Seccion>
 

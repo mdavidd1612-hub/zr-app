@@ -7,7 +7,7 @@ import { esAdmin, esDireccionAcademica } from '@/lib/auth-helpers'
 import { type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Marco } from '@/components/ui/Marco'
 import {
-  IconoPanel, IconoEstudiantes, IconoCandado, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet,
+  IconoPanel, IconoEstudiantes, IconoCandado, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoProgreso,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -52,6 +52,9 @@ const TODAS_DIRECCION: ItemBarra[] = [
   { href: '/personal',             label: 'Personal',     Icono: IconoPersonal },
   { href: '/notas-academicas',     label: 'Notas',        Icono: IconoNotas },
   { href: '/examenes-academicos',  label: 'Exámenes',     Icono: IconoExamen },
+  // Resúmenes de "Mi módulo" (estático, a pedido explícito) — is_academico()
+  // ya deja escribir 'modules' a dirección académica y super_admin por igual.
+  { href: '/modulos',              label: 'Módulos',      Icono: IconoProgreso },
   TODAS[7],
 ]
 
@@ -60,6 +63,7 @@ const TODAS_SUPER: ItemBarra[] = [
   { href: '/personal',             label: 'Personal',      Icono: IconoPersonal },
   { href: '/notas-academicas',     label: 'Notas',         Icono: IconoNotas },
   { href: '/examenes-academicos',  label: 'Exámenes',      Icono: IconoExamen },
+  { href: '/modulos',              label: 'Módulos',       Icono: IconoProgreso },
   // R-20/R-21: crear programas y sedes es exclusivo de super_admin
   // (migración 066) — el enlace solo aparece en este menú.
   { href: '/catalogo',             label: 'Catálogo',      Icono: IconoDocumento },

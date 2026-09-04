@@ -135,7 +135,7 @@ export default function MiModulo() {
               </p>
               <p className="zr-display text-xl">{modulo.nombre}</p>
               {modulo.descripcion && (
-                <p className="mt-3 text-sm leading-relaxed text-white/90">{modulo.descripcion}</p>
+                <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-white/90">{modulo.descripcion}</p>
               )}
             </div>
 

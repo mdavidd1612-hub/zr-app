@@ -46,9 +46,11 @@ const TODAS: ItemBarra[] = [
 ]
 
 // Dirección Académica: profesores, notas de cualquier cohorte, exámenes —
-// pero no Configuración (exclusivo de super_admin).
+// pero no Configuración (exclusivo de super_admin). Consentimientos es
+// trabajo de ESTUDIANTES (admin normal), no de PROFESORES/notas — no va en
+// este menú (división de trabajo de la línea 33).
 const TODAS_DIRECCION: ItemBarra[] = [
-  ...TODAS.slice(0, 7),
+  ...TODAS.slice(0, 7).filter((i) => i.href !== '/consentimientos'),
   { href: '/personal',             label: 'Personal',     Icono: IconoPersonal },
   { href: '/notas-academicas',     label: 'Notas',        Icono: IconoNotas },
   { href: '/examenes-academicos',  label: 'Exámenes',     Icono: IconoExamen },
@@ -59,7 +61,7 @@ const TODAS_DIRECCION: ItemBarra[] = [
 ]
 
 const TODAS_SUPER: ItemBarra[] = [
-  ...TODAS.slice(0, 7),
+  ...TODAS.slice(0, 7).filter((i) => i.href !== '/consentimientos'),
   { href: '/personal',             label: 'Personal',      Icono: IconoPersonal },
   { href: '/notas-academicas',     label: 'Notas',         Icono: IconoNotas },
   { href: '/examenes-academicos',  label: 'Exámenes',      Icono: IconoExamen },

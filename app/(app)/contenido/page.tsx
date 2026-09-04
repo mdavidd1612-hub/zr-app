@@ -24,13 +24,13 @@ interface Material {
   titulo: string
   semana: number | null
   tamañoKB: number | null
-  tipo: 'pdf' | 'video' | string
+  tipo: 'pdf' | 'video' | 'presentacion' | string
 }
 
 interface Abierto {
   id: string
   titulo: string
-  tipo: 'pdf' | 'video' | string
+  tipo: 'pdf' | 'video' | 'presentacion' | string
   url: string
 }
 
@@ -53,7 +53,7 @@ export default function Contenido() {
       const { data } = await supabase
         .from('content_items')
         .select('id, title, week_number, size_bytes, type')
-        .in('type', ['pdf', 'video'])
+        .in('type', ['pdf', 'video', 'presentacion'])
         .order('week_number', { ascending: true, nullsFirst: false })
 
       setMateriales(
@@ -98,9 +98,17 @@ export default function Contenido() {
     }
 
     setAbriendo(null)
-    if (firmada?.signedUrl) {
-      setAbierto({ id: m.id, titulo: m.titulo, tipo: m.tipo, url: firmada.signedUrl })
+    if (!firmada?.signedUrl) return
+
+    // El PowerPoint no se puede incrustar en un iframe (el navegador no lo
+    // sabe renderizar) — se abre directo, como cualquier descarga, en vez de
+    // forzar el visor de pantalla completa que sí sirve para PDF y video.
+    if (m.tipo === 'presentacion') {
+      window.open(firmada.signedUrl, '_blank', 'noopener,noreferrer')
+      return
     }
+
+    setAbierto({ id: m.id, titulo: m.titulo, tipo: m.tipo, url: firmada.signedUrl })
   }
 
   if (cargando) {
@@ -195,7 +203,7 @@ export default function Contenido() {
                     )}
                   </div>
                   <span className={`shrink-0 text-xs font-bold uppercase tracking-wide ${m.tipo === 'video' ? 'text-zr-blue/80' : 'text-zr-error/80'}`}>
-                    {abriendo === m.id ? '...' : m.tipo === 'video' ? 'VIDEO' : 'PDF'}
+                    {abriendo === m.id ? '...' : m.tipo === 'video' ? 'VIDEO' : m.tipo === 'presentacion' ? 'PPT' : 'PDF'}
                   </span>
                 </button>
               ))}

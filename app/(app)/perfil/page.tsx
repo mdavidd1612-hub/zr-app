@@ -21,6 +21,7 @@ interface Perfil {
   codigoCarnet: string | null
   modulo: string | null
   avatarPath: string | null
+  rol: string
 }
 
 // Fase 0 (docs/14_FASE0_PLAN_SPRINTS.md, Sprint 6): sede y turno son fijos
@@ -49,7 +50,7 @@ export default function PerfilEstudiante() {
       }
 
       const [{ data: prof }, { data: est }] = await Promise.all([
-        supabase.from('profiles').select('full_name, cedula, contact_email, avatar_url').eq('id', user.id).single(),
+        supabase.from('profiles').select('full_name, cedula, contact_email, avatar_url, role').eq('id', user.id).single(),
         supabase
           .from('students')
           .select('student_code, cohorts(name, modules(name))')
@@ -72,6 +73,7 @@ export default function PerfilEstudiante() {
           codigoCarnet: estData?.student_code ?? null,
           modulo: estData?.cohorts?.modules?.name ?? null,
           avatarPath: prof.avatar_url,
+          rol: prof.role,
         })
 
         // El QR se genera del secreto TOTP del propio estudiante. El código
@@ -177,38 +179,40 @@ export default function PerfilEstudiante() {
         <BotonActivarPush />
       </Seccion>
 
-      {/* 03 — PRUEBA TEMPORAL: interruptor de simulación de sábado, para
-          probar el flujo de asistencia sin esperar al sábado real. Solo de
-          prueba — se quita del todo cuando la academia lo pida
-          (docs/14_FASE0_PLAN_SPRINTS.md). */}
-      <Seccion numero={3} titulo="Prueba" delay={260}>
-        <button
-          onClick={() => {
-            const nuevo = !simulado
-            setSimulado(nuevo)
-            guardarSimulacionSabado(nuevo)
-          }}
-          className="zr-card flex w-full items-center justify-between gap-4 p-5 text-left"
-        >
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-zr-text">Simular que hoy es sábado</p>
-            <p className="mt-0.5 text-xs text-zr-text-muted">
-              Solo para probar Inicio y el lector de asistencia. Se quita antes de la entrega.
-            </p>
-          </div>
-          <span
-            className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
-              simulado ? 'bg-zr-blue' : 'bg-zr-border'
-            }`}
+      {/* 03 — Interruptor de simulación de sábado: solo para super_admin
+          recorriendo la app como si fuera estudiante (vista de recorrido).
+          Un estudiante real nunca lo ve — no tiene sentido simular el día
+          para su propia asistencia real. */}
+      {perfil.rol === 'super_admin' && (
+        <Seccion numero={3} titulo="Prueba" delay={260}>
+          <button
+            onClick={() => {
+              const nuevo = !simulado
+              setSimulado(nuevo)
+              guardarSimulacionSabado(nuevo)
+            }}
+            className="zr-card flex w-full items-center justify-between gap-4 p-5 text-left"
           >
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-zr-text">Simular que hoy es sábado</p>
+              <p className="mt-0.5 text-xs text-zr-text-muted">
+                Solo para probar Inicio y el lector de asistencia en la vista de recorrido.
+              </p>
+            </div>
             <span
-              className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition-transform ${
-                simulado ? 'translate-x-5' : 'translate-x-0.5'
+              className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+                simulado ? 'bg-zr-blue' : 'bg-zr-border'
               }`}
-            />
-          </span>
-        </button>
-      </Seccion>
+            >
+              <span
+                className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition-transform ${
+                  simulado ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </span>
+          </button>
+        </Seccion>
+      )}
     </div>
   )
 }

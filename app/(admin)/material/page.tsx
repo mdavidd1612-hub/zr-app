@@ -110,10 +110,12 @@ export default function MaterialAdmin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router, version])
 
-  const TIPOS_ACEPTADOS: Record<string, 'pdf' | 'video'> = {
+  const TIPOS_ACEPTADOS: Record<string, 'pdf' | 'video' | 'presentacion'> = {
     'application/pdf': 'pdf',
     'video/mp4': 'video',
     'video/webm': 'video',
+    'application/vnd.ms-powerpoint': 'presentacion',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'presentacion',
   }
 
   async function subir() {
@@ -122,7 +124,7 @@ export default function MaterialAdmin() {
 
     const tipo = TIPOS_ACEPTADOS[archivo.type]
     if (!tipo) {
-      setError('Solo se aceptan PDF o video (MP4/WebM).')
+      setError('Solo se aceptan PDF, PowerPoint o video (MP4/WebM).')
       return
     }
 
@@ -264,10 +266,10 @@ export default function MaterialAdmin() {
       {formAbierto && (
         <div className="zr-card space-y-5 p-6">
           <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Archivo (PDF o video)</label>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Archivo (PDF, PowerPoint o video)</label>
             <input
               type="file"
-              accept="application/pdf,video/mp4,video/webm"
+              accept="application/pdf,video/mp4,video/webm,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
               onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-sm text-zr-text file:mr-4 file:rounded file:border-0 file:bg-zr-blue file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
             />

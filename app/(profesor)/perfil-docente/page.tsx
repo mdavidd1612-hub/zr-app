@@ -158,33 +158,37 @@ export default function PerfilDocente() {
         <BotonActivarPush />
       </Seccion>
 
-      {/* PRUEBA TEMPORAL — se quita del todo cuando la academia lo pida. */}
-      <Seccion numero={4} titulo="Prueba" delay={280}>
-        <button
-          onClick={() => {
-            const nuevo = !simulado
-            setSimulado(nuevo)
-            guardarSimulacionSabado(nuevo)
-          }}
-          className="zr-card flex w-full items-center justify-between gap-4 p-5 text-left"
-        >
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-zr-text">Simular que hoy es sábado</p>
-            <p className="mt-0.5 text-xs text-zr-text-muted">Solo para probar pantallas sin esperar al sábado real.</p>
-          </div>
-          <span
-            className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
-              simulado ? 'bg-zr-blue' : 'bg-zr-border'
-            }`}
+      {/* Interruptor de simulación de sábado: solo para super_admin
+          recorriendo la app como si fuera profesor (vista de recorrido). Un
+          profesor real nunca lo ve. */}
+      {perfil.rol === 'super_admin' && (
+        <Seccion numero={4} titulo="Prueba" delay={280}>
+          <button
+            onClick={() => {
+              const nuevo = !simulado
+              setSimulado(nuevo)
+              guardarSimulacionSabado(nuevo)
+            }}
+            className="zr-card flex w-full items-center justify-between gap-4 p-5 text-left"
           >
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-zr-text">Simular que hoy es sábado</p>
+              <p className="mt-0.5 text-xs text-zr-text-muted">Solo para probar pantallas en la vista de recorrido.</p>
+            </div>
             <span
-              className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition-transform ${
-                simulado ? 'translate-x-5' : 'translate-x-0.5'
+              className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+                simulado ? 'bg-zr-blue' : 'bg-zr-border'
               }`}
-            />
-          </span>
-        </button>
-      </Seccion>
+            >
+              <span
+                className={`absolute top-0.5 h-6 w-6 rounded-full bg-white transition-transform ${
+                  simulado ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </span>
+          </button>
+        </Seccion>
+      )}
     </div>
   )
 }

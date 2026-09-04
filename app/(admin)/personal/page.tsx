@@ -86,6 +86,7 @@ export default function Personal() {
   const [password, setPassword] = useState('')
   const [rol, setRol] = useState<UserRole>('profesor')
   const [cohorteId, setCohorteId] = useState('')
+  const [modulosNuevo, setModulosNuevo] = useState<Set<string>>(new Set())
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
@@ -215,30 +216,50 @@ export default function Personal() {
       return
     }
 
-    // Asignar la cohorte es un paso aparte, no algo que create-staff-user
+    // Asignar módulos/cohorte son pasos aparte, no algo que create-staff-user
     // deba saber hacer — esa función solo crea cuentas. Si esto falla, la
-    // cuenta ya existe y se puede asignar después desde /cohortes; no vale
-    // la pena deshacer la creación por un problema en el segundo paso.
-    let avisoCohorte = ''
+    // cuenta ya existe y se puede asignar después desde aquí mismo o desde
+    // Programas; no vale la pena deshacer la creación por un problema en un
+    // segundo paso.
+    let avisoAsignacion = ''
     const nuevoId = (data as { userId?: string } | null)?.userId
-    if (rol === 'profesor' && cohorteId && nuevoId) {
-      const { error: falloCohorte } = await supabase
-        .from('cohorts')
-        .update({ teacher_id: nuevoId })
-        .eq('id', cohorteId)
 
-      avisoCohorte = falloCohorte
-        ? ' No se pudo asignar el programa — hazlo desde Programas.'
-        : ' Ya tiene su programa asignado.'
+    if (rol === 'profesor' && nuevoId) {
+      // Lo normal es que un profesor dicte módulos específicos (a veces en
+      // más de un programa), no que "sea dueño" de un programa completo —
+      // pedido explícito del coordinador. La cohorte sigue siendo aparte
+      // porque cohorts.teacher_id es lo que de verdad controla asistencia y
+      // sesiones (migración 056); los módulos son solo para saber qué dicta.
+      if (modulosNuevo.size > 0) {
+        const { error: falloModulos } = await supabase
+          .from('teacher_module_assignments')
+          .insert([...modulosNuevo].map((moduleId) => ({ teacher_id: nuevoId, module_id: moduleId })))
+
+        avisoAsignacion += falloModulos
+          ? ' No se pudieron guardar los módulos — hazlo desde aquí abajo.'
+          : ` Ya tiene ${modulosNuevo.size} módulo${modulosNuevo.size === 1 ? '' : 's'} asignado${modulosNuevo.size === 1 ? '' : 's'}.`
+      }
+
+      if (cohorteId) {
+        const { error: falloCohorte } = await supabase
+          .from('cohorts')
+          .update({ teacher_id: nuevoId })
+          .eq('id', cohorteId)
+
+        avisoAsignacion += falloCohorte
+          ? ' No se pudo asignar el programa — hazlo desde Programas.'
+          : ' Ya tiene su programa asignado.'
+      }
     }
 
-    setExito(`Cuenta creada. Cédula ${cedula.trim().toUpperCase()} · contraseña temporal: ${password}.${avisoCohorte}`)
+    setExito(`Cuenta creada. Cédula ${cedula.trim().toUpperCase()} · contraseña temporal: ${password}.${avisoAsignacion}`)
     setNombre('')
     setCedula('')
     setCorreo('')
     setPassword('')
     setRol('profesor')
     setCohorteId('')
+    setModulosNuevo(new Set())
     setCreando(false)
     setGuardando(false)
     setVersion((v) => v + 1)
@@ -376,26 +397,66 @@ export default function Personal() {
           </div>
 
           {rol === 'profesor' && (
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-zr-text">
-                Programa a cargo <span className="font-normal text-zr-text-muted">(opcional)</span>
-              </label>
-              <select
-                value={cohorteId}
-                onChange={(e) => setCohorteId(e.target.value)}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
-              >
-                <option value="">Sin asignar por ahora</option>
-                {cohortes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}{c.moduloNombre ? ` · ${c.moduloNombre}` : ''}{c.profesorId ? ' (ya tiene profesor)' : ''}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1.5 text-xs text-zr-text-muted">
-                Elegir un programa que ya tiene profesor se lo quita a quien lo tenía antes.
-              </p>
-            </div>
+            <>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-zr-text">
+                  Módulos que dicta <span className="font-normal text-zr-text-muted">(opcional)</span>
+                </label>
+                <p className="mb-2 text-xs text-zr-text-muted">
+                  Lo normal: un profesor dicta módulos concretos, no un programa completo — puede
+                  repetir el mismo módulo en varios programas.
+                </p>
+                <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-zr-border bg-zr-bg p-2">
+                  {modulos.map((mod) => {
+                    const activo = modulosNuevo.has(mod.id)
+                    return (
+                      <button
+                        key={mod.id}
+                        type="button"
+                        onClick={() =>
+                          setModulosNuevo((prev) => {
+                            const copia = new Set(prev)
+                            if (activo) copia.delete(mod.id); else copia.add(mod.id)
+                            return copia
+                          })
+                        }
+                        className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                          activo ? 'bg-zr-blue/15 text-zr-blue' : 'text-zr-text-muted active:bg-zr-border/40'
+                        }`}
+                      >
+                        <span className="min-w-0 truncate">
+                          {mod.orden}. {mod.nombre}
+                          <span className="ml-1.5 text-xs text-zr-text-muted">· {mod.programa}</span>
+                        </span>
+                        {activo && <span className="shrink-0 text-xs font-bold">✓</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-zr-text">
+                  Cohorte que atiende esta semana <span className="font-normal text-zr-text-muted">(opcional)</span>
+                </label>
+                <select
+                  value={cohorteId}
+                  onChange={(e) => setCohorteId(e.target.value)}
+                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+                >
+                  <option value="">Sin asignar por ahora</option>
+                  {cohortes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre}{c.moduloNombre ? ` · ${c.moduloNombre}` : ''}{c.profesorId ? ' (ya tiene profesor)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1.5 text-xs text-zr-text-muted">
+                  Aparte de los módulos: es lo que de verdad abre la sesión y controla la asistencia
+                  de ese programa. Elegir uno que ya tiene profesor se lo quita a quien lo tenía antes.
+                </p>
+              </div>
+            </>
           )}
 
           <div>

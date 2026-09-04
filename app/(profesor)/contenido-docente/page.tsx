@@ -9,11 +9,16 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 /**
  * T-401 · Subida de material de estudio por el profesor.
  *
- * Solo PDF en Fase 1 (ver AGENTS.md §1). El archivo va al bucket privado
- * 'contenido'; la fila en content_items es lo que decide si el estudiante lo
- * ve — is_published en falso lo deja como borrador aunque el archivo ya esté
- * subido.
+ * PDF o PowerPoint. El archivo va al bucket privado 'contenido'; la fila en
+ * content_items es lo que decide si el estudiante lo ve — is_published en
+ * falso lo deja como borrador aunque el archivo ya esté subido.
  */
+
+const TIPOS_ACEPTADOS: Record<string, 'pdf' | 'presentacion'> = {
+  'application/pdf': 'pdf',
+  'application/vnd.ms-powerpoint': 'presentacion',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'presentacion',
+}
 
 interface Material {
   id: string
@@ -103,8 +108,9 @@ export default function ContenidoProfesor() {
 
   async function subir() {
     if (!archivo || !titulo.trim() || !moduloId) return
-    if (archivo.type !== 'application/pdf') {
-      setError('Solo se aceptan archivos PDF en esta fase.')
+    const tipo = TIPOS_ACEPTADOS[archivo.type]
+    if (!tipo) {
+      setError('Solo se aceptan archivos PDF o PowerPoint.')
       return
     }
 
@@ -123,7 +129,7 @@ export default function ContenidoProfesor() {
 
     const { error: falloSubida } = await supabase.storage
       .from('contenido')
-      .upload(ruta, archivo, { contentType: 'application/pdf' })
+      .upload(ruta, archivo, { contentType: archivo.type })
 
     if (falloSubida) {
       setError(`No se pudo subir el archivo: ${falloSubida.message}`)
@@ -138,7 +144,7 @@ export default function ContenidoProfesor() {
       module_id: moduloId,
       week_number: semana === '' ? null : semana,
       title: titulo.trim(),
-      type: 'pdf',
+      type: tipo,
       storage_path: ruta,
       size_bytes: archivo.size,
       uploaded_by: user.id,
@@ -193,7 +199,7 @@ export default function ContenidoProfesor() {
             onClick={() => setFormAbierto((f) => !f)}
             className="rounded-lg bg-zr-blue px-5 py-3.5 text-sm font-bold text-white"
           >
-            {formAbierto ? 'Cancelar' : '+ Subir PDF'}
+            {formAbierto ? 'Cancelar' : '+ Subir archivo'}
           </button>
         }
       />
@@ -203,10 +209,10 @@ export default function ContenidoProfesor() {
       {formAbierto && (
         <div className="zr-card space-y-5 p-6">
           <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Archivo (PDF)</label>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Archivo (PDF o PowerPoint)</label>
             <input
               type="file"
-              accept="application/pdf"
+              accept="application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
               onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-sm text-zr-text file:mr-4 file:rounded file:border-0 file:bg-zr-blue file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
             />
@@ -271,7 +277,7 @@ export default function ContenidoProfesor() {
         <div className="zr-card p-8 text-center">
           <p className="text-base font-semibold text-zr-text">Todavía no has subido material</p>
           <p className="mt-2 text-sm text-zr-text-muted">
-            Sube guías en PDF para que tus estudiantes las consulten antes de cada clase.
+            Sube guías en PDF o PowerPoint para que tus estudiantes las consulten antes de cada clase.
           </p>
         </div>
       ) : (

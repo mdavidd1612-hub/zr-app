@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Dato } from '@/components/ui/Editorial'
-import { IconoEstudiantes, IconoCandado, IconoNotas, IconoPanel, IconoPersonal, IconoCheck, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet } from '@/components/ui/Iconos'
+import { IconoEstudiantes, IconoCandado, IconoNotas, IconoPanel, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet } from '@/components/ui/Iconos'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { leerSimulacionSabado } from '@/lib/demo-sabado'
 import type { UserRole } from '@/lib/types'
@@ -33,9 +33,13 @@ const ACCESOS = [
 
 // Exclusivo de Dirección Académica y super_admin: profesores, notas y
 // evaluaciones de CUALQUIER cohorte (no solo la propia).
+//
+// "Solicitudes de profesor" (auto-registro + aprobación) se quitó: la única
+// vía real para que exista personal es /personal (dado de alta directo por
+// Dirección Académica/super_admin) — ese flujo de solicitud nunca se llegó
+// a construir del lado del estudiante y quedaba como un enlace muerto.
 const ACCESOS_DIRECCION = [
   { href: '/personal',             titulo: 'Personal',                sub: 'Profesores y administradores',      Icono: IconoPersonal },
-  { href: '/solicitudes-profesor', titulo: 'Solicitudes de profesor', sub: 'Aprobar o rechazar personal nuevo', Icono: IconoCheck },
   { href: '/notas-academicas',     titulo: 'Notas',                   sub: 'Calificaciones de cualquier programa', Icono: IconoNotas },
   { href: '/examenes-academicos',  titulo: 'Exámenes',                sub: 'Supervisar evaluaciones',           Icono: IconoExamen },
 ]

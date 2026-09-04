@@ -209,7 +209,7 @@ export default function Inicio() {
       <div className="space-y-11">
         <header className="animate-rise" style={{ animationDelay: '0ms' }}>
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
-            ZR Mecademy
+            Panel del estudiante
           </p>
           <h1 className="zr-display mt-3 text-4xl text-zr-text">{primerNombre}</h1>
         </header>

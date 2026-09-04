@@ -129,7 +129,7 @@ export default function Panel() {
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
           Administración
         </p>
-        <h1 className="zr-display mt-3 text-4xl text-zr-text">Panel</h1>
+        <h1 className="zr-display mt-3 text-4xl text-zr-text">Panel de administración</h1>
         <p className="mt-3 text-base text-zr-text-muted">Academia ZR Mecademy</p>
       </header>
 

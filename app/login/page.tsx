@@ -67,8 +67,10 @@ export default function Login() {
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-zr-border bg-zr-surface text-zr-blue">
             <MarcaZR size={30} />
           </div>
-          <h1 className="zr-display text-4xl text-zr-text">ZR App</h1>
-          <p className="text-base font-medium text-zr-text-muted">Academia ZR Mecademy</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
+            ZR App · Academia ZR Mecademy
+          </p>
+          <h1 className="zr-display text-4xl text-zr-text">Iniciar sesión</h1>
         </div>
 
         {/* Login Form */}

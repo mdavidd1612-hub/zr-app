@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla } from '@/components/ui/Editorial'
 
@@ -15,6 +16,7 @@ import { Encabezado, Regla } from '@/components/ui/Editorial'
  */
 
 interface Inscrito {
+  id: string
   fullName: string
   cedula: string
   studentCode: string | null
@@ -47,11 +49,12 @@ export default function MisInscripciones() {
       // cuál usar y la consulta vuelve vacía en silencio.
       const { data: est } = await supabase
         .from('students')
-        .select('student_code, enrollment_date, validated_at, profiles!students_id_fkey(full_name, cedula), cohorts(name, programs(siglas))')
+        .select('id, student_code, enrollment_date, validated_at, profiles!students_id_fkey(full_name, cedula), cohorts(name, programs(siglas))')
         .eq('enrolled_by', user.id)
         .order('created_at', { ascending: false })
 
       const filas = (est ?? []) as unknown as {
+        id: string
         student_code: string | null
         enrollment_date: string | null
         validated_at: string | null
@@ -60,6 +63,7 @@ export default function MisInscripciones() {
       }[]
 
       setInscritos(filas.map((f) => ({
+        id: f.id,
         fullName: f.profiles?.full_name ?? '—',
         cedula: f.profiles?.cedula ?? '',
         studentCode: f.student_code,
@@ -149,8 +153,12 @@ export default function MisInscripciones() {
         </p>
       ) : (
         <div className="zr-card divide-y divide-zr-border">
-          {filtrados.map((i, idx) => (
-            <div key={idx} className="flex items-center justify-between gap-4 px-5 py-4">
+          {filtrados.map((i) => (
+            <Link
+              key={i.id}
+              href={`/estudiante/${i.id}`}
+              className="flex items-center justify-between gap-4 px-5 py-4 transition-colors active:bg-white/5"
+            >
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-zr-text">{i.fullName}</p>
                 <p className="mt-0.5 truncate text-xs text-zr-text-muted">
@@ -170,7 +178,7 @@ export default function MisInscripciones() {
                   {i.validado ? 'Validado' : 'Pendiente'}
                 </span>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

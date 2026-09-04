@@ -17,6 +17,14 @@ export interface ItemBarra {
   href: string
   label: string
   Icono: (p: { size?: number }) => React.ReactElement
+  /**
+   * Encabezado del grupo al que pertenece, solo para la hoja de "Todas las
+   * secciones" y la barra lateral de escritorio — la píldora de 5 iconos
+   * nunca los muestra (no hay espacio, y esos 5 ya son autoexplicativos).
+   * A pedido explícito del coordinador: una lista larga sin agrupar (once
+   * botones seguidos en el menú de super_admin) "no se explica para qué".
+   */
+  grupo?: string
 }
 
 interface Props {
@@ -111,20 +119,27 @@ export function BarraFlotante({ items, todasLasSecciones, deslizable = true }: P
             </div>
 
             <div className="mt-3 max-h-[55vh] space-y-1 overflow-y-auto px-3">
-              {todasLasSecciones.map((s) => {
+              {todasLasSecciones.map((s, i) => {
                 const on = activo(s.href)
+                const grupoNuevo = s.grupo && s.grupo !== todasLasSecciones[i - 1]?.grupo
                 return (
-                  <button
-                    key={s.href}
-                    onClick={() => router.push(s.href)}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-3.5 text-left transition-colors ${
-                      on ? 'bg-zr-blue/15 text-zr-blue' : 'text-zr-text active:bg-zr-border/40'
-                    }`}
-                  >
-                    <s.Icono size={20} />
-                    <span className="text-base font-medium">{s.label}</span>
-                    {on && <span className="ml-auto text-xs font-bold uppercase tracking-wider">Aquí</span>}
-                  </button>
+                  <div key={s.href}>
+                    {grupoNuevo && (
+                      <p className={`px-3 pb-1.5 text-xs font-bold uppercase tracking-wider text-zr-text-muted ${i === 0 ? '' : 'pt-3'}`}>
+                        {s.grupo}
+                      </p>
+                    )}
+                    <button
+                      onClick={() => router.push(s.href)}
+                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-3.5 text-left transition-colors ${
+                        on ? 'bg-zr-blue/15 text-zr-blue' : 'text-zr-text active:bg-zr-border/40'
+                      }`}
+                    >
+                      <s.Icono size={20} />
+                      <span className="text-base font-medium">{s.label}</span>
+                      {on && <span className="ml-auto text-xs font-bold uppercase tracking-wider">Aquí</span>}
+                    </button>
+                  </div>
                 )
               })}
             </div>

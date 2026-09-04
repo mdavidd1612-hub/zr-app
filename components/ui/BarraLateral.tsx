@@ -27,22 +27,29 @@ export function BarraLateral({ items }: { items: ItemBarra[] }) {
       <p className="zr-display px-3 pb-4 text-xl text-zr-text">ZR App</p>
 
       <nav className="flex flex-col gap-1">
-        {items.map((item) => {
+        {items.map((item, i) => {
           const on = activo(item.href)
+          const grupoNuevo = item.grupo && item.grupo !== items[i - 1]?.grupo
           return (
-            <button
-              key={item.href}
-              onClick={() => router.push(item.href)}
-              aria-current={on ? 'page' : undefined}
-              className={`flex items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors ${
-                on
-                  ? 'bg-zr-blue/15 text-zr-blue'
-                  : 'text-zr-text-muted hover:bg-white/5 hover:text-zr-text'
-              }`}
-            >
-              <item.Icono size={20} />
-              <span className="truncate text-sm font-semibold">{item.label}</span>
-            </button>
+            <div key={item.href}>
+              {grupoNuevo && (
+                <p className={`truncate px-3 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-zr-text-muted/70 ${i === 0 ? '' : 'pt-3'}`}>
+                  {item.grupo}
+                </p>
+              )}
+              <button
+                onClick={() => router.push(item.href)}
+                aria-current={on ? 'page' : undefined}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors ${
+                  on
+                    ? 'bg-zr-blue/15 text-zr-blue'
+                    : 'text-zr-text-muted hover:bg-white/5 hover:text-zr-text'
+                }`}
+              >
+                <item.Icono size={20} />
+                <span className="truncate text-sm font-semibold">{item.label}</span>
+              </button>
+            </div>
           )
         })}
       </nav>

@@ -157,31 +157,74 @@ export default function Panel() {
         </Seccion>
       )}
 
-      <Seccion numero={esSabado ? 2 : 1} titulo="Accesos" delay={200}>
-        <div className="space-y-3">
-          {(
-            esDireccionAcademica(rol)
-              ? rol === 'super_admin'
-                ? [...ACCESOS, ...ACCESOS_DIRECCION, ACCESO_CONFIG, ACCESO_VENTAS, ACCESO_ESTUDIANTE, ACCESO_PROFESOR]
-                : [...ACCESOS, ...ACCESOS_DIRECCION]
-              : ACCESOS
-          ).map((a) => (
-            <button
-              key={a.href}
-              onClick={() => router.push(a.href)}
-              className="zr-card zr-card-interactive flex w-full items-center gap-4 p-5 text-left"
-            >
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-zr-border text-zr-blue">
-                <a.Icono size={20} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-base font-semibold text-zr-text">{a.titulo}</p>
-                <p className="mt-0.5 text-sm text-zr-text-muted">{a.sub}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-      </Seccion>
+      {/* Agrupado por qué resuelve cada cosa, no una sola lista de once
+          botones seguidos — a pedido explícito del coordinador ("no se
+          explica para qué"). */}
+      <GrupoAccesos numero={esSabado ? 2 : 1} titulo="Estudiantes" accesos={ACCESOS} delay={200} />
+
+      {esDireccionAcademica(rol) && (
+        <GrupoAccesos
+          numero={esSabado ? 3 : 2}
+          titulo="Dirección académica"
+          accesos={ACCESOS_DIRECCION}
+          delay={240}
+        />
+      )}
+
+      {rol === 'super_admin' && (
+        <>
+          <GrupoAccesos
+            numero={esSabado ? 4 : 3}
+            titulo="Solo super admin"
+            accesos={[ACCESO_CONFIG]}
+            delay={280}
+          />
+          <GrupoAccesos
+            numero={esSabado ? 5 : 4}
+            titulo="Vista de recorrido"
+            descripcion="Recorre la app como la ve cada rol, sin crear cuentas de prueba — sigues siendo tú."
+            accesos={[ACCESO_VENTAS, ACCESO_ESTUDIANTE, ACCESO_PROFESOR]}
+            delay={320}
+          />
+        </>
+      )}
     </div>
+  )
+}
+
+interface Acceso {
+  href: string
+  titulo: string
+  sub: string
+  Icono: (p: { size?: number }) => React.ReactElement
+}
+
+function GrupoAccesos({
+  numero, titulo, descripcion, accesos, delay,
+}: {
+  numero: number; titulo: string; descripcion?: string; accesos: Acceso[]; delay: number
+}) {
+  const router = useRouter()
+  return (
+    <Seccion numero={numero} titulo={titulo} delay={delay}>
+      {descripcion && <p className="text-sm text-zr-text-muted">{descripcion}</p>}
+      <div className="space-y-3">
+        {accesos.map((a) => (
+          <button
+            key={a.href}
+            onClick={() => router.push(a.href)}
+            className="zr-card zr-card-interactive flex w-full items-center gap-4 p-5 text-left"
+          >
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-zr-border text-zr-blue">
+              <a.Icono size={20} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-base font-semibold text-zr-text">{a.titulo}</p>
+              <p className="mt-0.5 text-sm text-zr-text-muted">{a.sub}</p>
+            </div>
+          </button>
+        ))}
+      </div>
+    </Seccion>
   )
 }

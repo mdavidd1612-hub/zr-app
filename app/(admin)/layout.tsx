@@ -38,39 +38,44 @@ const NAV: ItemBarra[] = [
 // "Inscribir" (R-17, docs/19_PLAN_CAMBIOS_POST_DIRECTIVA.md): el mismo
 // formulario de ventas, como respaldo — admin, Dirección Académica y
 // super_admin ya podían llamar a create-student, solo faltaba el enlace.
+//
+// Cada entrada lleva `grupo` — a pedido explícito del coordinador: once
+// botones seguidos sin agrupar en el menú de super_admin "no se explica
+// para qué". La hoja ☰ y la barra de escritorio ya saben pintar el
+// encabezado de grupo cuando cambia respecto al anterior.
 const TODAS: ItemBarra[] = [
-  NAV[0],
-  { href: '/inscribir',       label: 'Inscribir',       Icono: IconoEstudiantes },
-  { href: '/estudiantes',     label: 'Estudiantes',     Icono: IconoEstudiantes },
-  NAV[3],
-  NAV[1],
-  NAV[2],
-  NAV[4],
+  { ...NAV[0], grupo: 'General' },
+  { href: '/inscribir',       label: 'Inscribir',       Icono: IconoEstudiantes, grupo: 'Estudiantes' },
+  { href: '/estudiantes',     label: 'Estudiantes',     Icono: IconoEstudiantes, grupo: 'Estudiantes' },
+  { ...NAV[3], grupo: 'Clase de hoy' },
+  { ...NAV[1], grupo: 'Clase de hoy' },
+  { ...NAV[2], grupo: 'Clase de hoy' },
+  { ...NAV[4], grupo: 'Cuenta' },
 ]
 
 // Dirección Académica: profesores, notas de cualquier cohorte, exámenes —
 // pero no Configuración (exclusivo de super_admin).
 const TODAS_DIRECCION: ItemBarra[] = [
   ...TODAS.slice(0, 6),
-  { href: '/personal',             label: 'Personal',     Icono: IconoPersonal },
-  { href: '/notas-academicas',     label: 'Notas',        Icono: IconoNotas },
-  { href: '/examenes-academicos',  label: 'Exámenes',     Icono: IconoExamen },
+  { href: '/personal',             label: 'Personal',     Icono: IconoPersonal, grupo: 'Dirección académica' },
+  { href: '/notas-academicas',     label: 'Notas',        Icono: IconoNotas,    grupo: 'Dirección académica' },
+  { href: '/examenes-academicos',  label: 'Exámenes',     Icono: IconoExamen,   grupo: 'Dirección académica' },
   // Resúmenes de "Mi módulo" (estático, a pedido explícito) — is_academico()
   // ya deja escribir 'modules' a dirección académica y super_admin por igual.
-  { href: '/modulos',              label: 'Módulos',      Icono: IconoProgreso },
+  { href: '/modulos',              label: 'Módulos',      Icono: IconoProgreso, grupo: 'Dirección académica' },
   TODAS[6],
 ]
 
 const TODAS_SUPER: ItemBarra[] = [
   ...TODAS.slice(0, 6),
-  { href: '/personal',             label: 'Personal',      Icono: IconoPersonal },
-  { href: '/notas-academicas',     label: 'Notas',         Icono: IconoNotas },
-  { href: '/examenes-academicos',  label: 'Exámenes',      Icono: IconoExamen },
-  { href: '/modulos',              label: 'Módulos',       Icono: IconoProgreso },
+  { href: '/personal',             label: 'Personal',      Icono: IconoPersonal, grupo: 'Dirección académica' },
+  { href: '/notas-academicas',     label: 'Notas',         Icono: IconoNotas,    grupo: 'Dirección académica' },
+  { href: '/examenes-academicos',  label: 'Exámenes',      Icono: IconoExamen,   grupo: 'Dirección académica' },
+  { href: '/modulos',              label: 'Módulos',       Icono: IconoProgreso, grupo: 'Dirección académica' },
   // R-20/R-21: crear programas y sedes es exclusivo de super_admin
   // (migración 066) — el enlace solo aparece en este menú.
-  { href: '/catalogo',             label: 'Catálogo',      Icono: IconoDocumento },
-  { href: '/configuracion',        label: 'Configuración', Icono: IconoPanel },
+  { href: '/catalogo',             label: 'Catálogo',      Icono: IconoDocumento, grupo: 'Solo super admin' },
+  { href: '/configuracion',        label: 'Configuración', Icono: IconoPanel,     grupo: 'Solo super admin' },
   TODAS[6],
 ]
 

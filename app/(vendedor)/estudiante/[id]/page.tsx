@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EditarDatosEstudiante } from '@/components/ui/EditarDatosEstudiante'
+import { BotonRestablecerPassword } from '@/components/ui/BotonRestablecerPassword'
 import { Aviso } from '@/components/ui/Aviso'
 
 /**
@@ -146,6 +147,7 @@ export default function FichaEstudianteVendedor() {
           telefonoInicial={ficha.telefono}
           onGuardado={(d) => setFicha((f) => (f ? { ...f, nombre: d.nombre, correo: d.correo, telefono: d.telefono || null } : f))}
         />
+        <BotonRestablecerPassword estudianteId={id} />
       </Seccion>
 
       <Seccion numero={2} titulo="Programa" delay={160}>

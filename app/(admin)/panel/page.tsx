@@ -42,6 +42,13 @@ const ACCESOS_DIRECCION = [
 
 const ACCESO_CONFIG = { href: '/configuracion', titulo: 'Configuración', sub: 'Umbrales y reglas de negocio', Icono: IconoPanel }
 
+// A pedido explícito del coordinador (transcripción de audio,
+// docs/19_PLAN_CAMBIOS_POST_DIRECTIVA.md): entrar a recorrer la app como la
+// ve Ventas, sin crear una cuenta de prueba aparte. Solo super_admin —
+// admin normal ya ve prácticamente lo mismo que Ventas necesita para su
+// propio trabajo de inscripción, así que no hace falta duplicarlo ahí.
+const ACCESO_VENTAS = { href: '/carga-ventas', titulo: 'Vista de Ventas', sub: 'Recorrer la app como la ve un vendedor', Icono: IconoEstudiantes }
+
 export default function Panel() {
   const router = useRouter()
   const [stats, setStats] = useState<Estadisticas | null>(null)
@@ -176,7 +183,7 @@ export default function Panel() {
           {(
             esDireccionAcademica(rol)
               ? rol === 'super_admin'
-                ? [...ACCESOS, ...ACCESOS_DIRECCION, ACCESO_CONFIG]
+                ? [...ACCESOS, ...ACCESOS_DIRECCION, ACCESO_CONFIG, ACCESO_VENTAS]
                 : [...ACCESOS, ...ACCESOS_DIRECCION]
               : ACCESOS
           ).map((a) => (

@@ -24,6 +24,14 @@ const NAV: ItemBarra[] = [
 export default function VendedorLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [verificando, setVerificando] = useState(true)
+  // A pedido explícito del coordinador (transcripción de audio,
+  // docs/19_PLAN_CAMBIOS_POST_DIRECTIVA.md): que super_admin pueda entrar a
+  // ver cómo es la app para ventas, sin tener que crear una cuenta de
+  // prueba aparte. Es solo el menú y las pantallas — los datos que ve y
+  // puede tocar siguen siendo los que su propio rol de super_admin ya
+  // permite (más amplio que un vendedor real), así que el banner de abajo
+  // deja claro que esto es una vista de recorrido, no una cuenta distinta.
+  const [simulando, setSimulando] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -38,7 +46,11 @@ export default function VendedorLayout({ children }: { children: React.ReactNode
       const { data: perfil } = await supabase
         .from('profiles').select('role').eq('id', user.id).single()
 
-      if (!esVendedor(perfil?.role as UserRole | undefined)) {
+      const rol = perfil?.role as UserRole | undefined
+
+      if (rol === 'super_admin') {
+        setSimulando(true)
+      } else if (!esVendedor(rol)) {
         router.replace('/')
         return
       }
@@ -59,6 +71,11 @@ export default function VendedorLayout({ children }: { children: React.ReactNode
 
   return (
     <Marco items={NAV} deslizable={false} campanita={false}>
+      {simulando && (
+        <div className="sticky top-0 z-30 border-b border-zr-warning/40 bg-zr-warning/15 px-4 py-2.5 text-center text-xs font-bold text-zr-warning">
+          Vista de recorrido: así se ve la app para Ventas · estás dentro con tu cuenta de super_admin
+        </div>
+      )}
       {children}
     </Marco>
   )

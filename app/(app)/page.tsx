@@ -74,12 +74,15 @@ export default function Inicio() {
       }
 
       const { data: perfil } = await supabase
-        .from('profiles').select('full_name').eq('id', user.id).single()
+        .from('profiles').select('full_name, role').eq('id', user.id).single()
       if (perfil) setNombre(perfil.full_name)
 
       const { data: estValidacion } = await supabase
         .from('students').select('validated_at').eq('id', user.id).maybeSingle()
-      const yaValidado = Boolean(estValidacion?.validated_at)
+      // super_admin en la vista de recorrido (a pedido explícito del
+      // coordinador) no tiene fila en `students` — sin esto, se quedaba
+      // atascado viendo "Tu cuenta está siendo validada".
+      const yaValidado = Boolean(estValidacion?.validated_at) || perfil?.role === 'super_admin'
       setValidado(yaValidado)
 
       // Sin validar todavía no tiene sentido cargar horario, módulo ni

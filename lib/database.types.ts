@@ -2282,6 +2282,7 @@ export type Database = {
           id: string
           onboarding_status: Database["public"]["Enums"]["onboarding_status"]
           student_code: string | null
+          tour_completed_at: string | null
           trust_level: number | null
           updated_at: string
           validated_at: string | null
@@ -2299,6 +2300,7 @@ export type Database = {
           id: string
           onboarding_status?: Database["public"]["Enums"]["onboarding_status"]
           student_code?: string | null
+          tour_completed_at?: string | null
           trust_level?: number | null
           updated_at?: string
           validated_at?: string | null
@@ -2316,6 +2318,7 @@ export type Database = {
           id?: string
           onboarding_status?: Database["public"]["Enums"]["onboarding_status"]
           student_code?: string | null
+          tour_completed_at?: string | null
           trust_level?: number | null
           updated_at?: string
           validated_at?: string | null
@@ -2733,6 +2736,7 @@ export type Database = {
       }
       fn_generar_caso_del_dia: { Args: never; Returns: undefined }
       fn_generar_sesion_semanal: { Args: never; Returns: undefined }
+      fn_marcar_tour_visto: { Args: never; Returns: undefined }
       is_academico: { Args: never; Returns: boolean }
       is_admin_up: { Args: never; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }

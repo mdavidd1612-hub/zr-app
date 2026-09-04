@@ -8,6 +8,7 @@ import { CASOS, diaSemanaISO, lunesDeLaSemana, fechaISO } from '@/lib/casos-fase
 import { leerSimulacionSabado } from '@/lib/demo-sabado'
 import { CASOS_HABILITADO } from '@/lib/flags'
 import { IconoCarnet, IconoCheck } from '@/components/ui/Iconos'
+import { TourEstudiante } from '@/components/ui/TourEstudiante'
 
 interface ProximoSabado {
   sessionId: string
@@ -45,6 +46,10 @@ export default function Inicio() {
   // de sessionStorage y se autooculta solo, no hace falta que el estudiante
   // haga nada.
   const [avisoAsistencia, setAvisoAsistencia] = useState<'ok' | 'duplicado' | null>(null)
+  // Tour del primer ingreso (migración 084): solo estudiante real, nunca en
+  // la vista de recorrido de super_admin (no tiene fila en `students`, así
+  // que no hay nada que marcar como "visto").
+  const [mostrarTour, setMostrarTour] = useState(false)
 
   const hoy = new Date()
   const diaHoy = simulado ? 6 : diaSemanaISO(hoy)
@@ -80,12 +85,16 @@ export default function Inicio() {
       if (perfil) setNombre(perfil.full_name)
 
       const { data: estValidacion } = await supabase
-        .from('students').select('validated_at').eq('id', user.id).maybeSingle()
+        .from('students').select('validated_at, tour_completed_at').eq('id', user.id).maybeSingle()
       // super_admin en la vista de recorrido (a pedido explícito del
       // coordinador) no tiene fila en `students` — sin esto, se quedaba
       // atascado viendo "Tu cuenta está siendo validada".
       const yaValidado = Boolean(estValidacion?.validated_at) || perfil?.role === 'super_admin'
       setValidado(yaValidado)
+
+      if (yaValidado && perfil?.role !== 'super_admin' && !estValidacion?.tour_completed_at) {
+        setMostrarTour(true)
+      }
 
       // Sin validar todavía no tiene sentido cargar horario, módulo ni
       // casos — la cuenta apenas la creó ventas, puede que ni tenga cohorte
@@ -233,7 +242,7 @@ export default function Inicio() {
           titulo={`Hoy, ${NOMBRE_DIA[diaHoy].toLowerCase()} ${hoy.getDate()} de ${hoy.toLocaleDateString('es-VE', { month: 'long' })}`}
           delay={120}
         >
-          <div className="grid grid-cols-6 gap-1.5">
+          <div id="tour-semana" className="grid grid-cols-6 gap-1.5">
             {diasSemana.map(({ d, iso, estado }, i) => (
               <div
                 key={iso}
@@ -369,7 +378,7 @@ export default function Inicio() {
 
         {/* 03 — ACCESOS */}
         <Seccion numero={3} titulo="Accesos" delay={280}>
-          <div className="space-y-3">
+          <div id="tour-accesos" className="space-y-3">
             <button
               onClick={() => router.push('/perfil')}
               className="w-full overflow-hidden rounded-lg bg-gradient-to-r from-zr-blue-deep to-zr-blue px-6 py-5 text-left transition-all hover:shadow-lg hover:shadow-zr-blue/25"
@@ -395,6 +404,8 @@ export default function Inicio() {
           </div>
         </Seccion>
       </div>
+
+      {mostrarTour && <TourEstudiante onTerminado={() => setMostrarTour(false)} />}
     </div>
   )
 }

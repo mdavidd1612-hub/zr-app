@@ -24,7 +24,6 @@
     "@types/pdf-parse": "^1.1.5",
     "@zxing/browser": "^0.2.1",
     "date-fns": "^4.4.0",
-    "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "jszip": "^3.10.1",

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Marco } from '@/components/ui/Marco'
 import { BannerSimulacion } from '@/components/ui/BannerSimulacion'
+import { TourEstudiante } from '@/components/ui/TourEstudiante'
 import {
   IconoInicio, IconoPerfil, IconoProgreso, IconoDocumento, IconoDuda,
 } from '@/components/ui/Iconos'
@@ -43,6 +44,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // recorrido (a pedido explícito del coordinador).
   const [rol, setRol] = useState<UserRole | null | undefined>(undefined)
   const simulando = rol === 'super_admin'
+  // Tour del primer ingreso (migración 084): vive aquí, no en una page.tsx
+  // suelta, para que su progreso sobreviva la navegación entre Inicio, Mi
+  // módulo, Material, Dudas y Perfil — un layout no se remonta al cambiar de
+  // ruta dentro del mismo grupo. Nunca en la vista de recorrido de
+  // super_admin (no tiene fila en `students`, no hay nada que marcar).
+  const [mostrarTour, setMostrarTour] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -124,9 +131,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const { data: est } = await supabase
-        .from('students').select('validated_at').eq('id', user.id).maybeSingle()
+        .from('students').select('validated_at, tour_completed_at').eq('id', user.id).maybeSingle()
       const yaValidado = Boolean(est?.validated_at)
       setValidado(yaValidado)
+      if (yaValidado && !est?.tour_completed_at) setMostrarTour(true)
       const rutasPermitidasPendiente = ['/', '/perfil', '/completar-perfil', '/aceptar-terminos']
       if (!yaValidado && !rutasPermitidasPendiente.includes(pathname)) {
         router.replace('/')
@@ -147,6 +155,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     >
       {simulando && <BannerSimulacion etiqueta="Estudiante" />}
       {children}
+      {mostrarTour && <TourEstudiante onTerminado={() => setMostrarTour(false)} />}
     </Marco>
   )
 }

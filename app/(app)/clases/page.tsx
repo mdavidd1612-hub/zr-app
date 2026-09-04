@@ -137,7 +137,7 @@ export default function MiModulo() {
           </div>
         ) : (
           <>
-            <div className="animate-rise overflow-hidden rounded-xl bg-gradient-to-br from-zr-blue-deep to-zr-blue p-6 text-white">
+            <div id="tour-modulo" className="animate-rise overflow-hidden rounded-xl bg-gradient-to-br from-zr-blue-deep to-zr-blue p-6 text-white">
               <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">
                 Módulo · Semana {modulo.semanaActual} de {modulo.duracionSemanas}
               </p>

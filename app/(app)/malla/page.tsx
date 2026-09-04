@@ -161,7 +161,7 @@ export default function MallaCurricular() {
           asigne, aquí verás la malla completa.
         </p>
       ) : (
-        <ol className="space-y-3">
+        <ol id="tour-malla" className="space-y-3">
           {modulos.map((m) => (
             <li
               key={m.id}

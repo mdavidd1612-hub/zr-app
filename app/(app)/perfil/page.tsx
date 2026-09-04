@@ -118,7 +118,7 @@ export default function PerfilEstudiante() {
 
       {/* 01 — CARNET */}
       <Seccion numero={1} titulo="Carnet digital" delay={120}>
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-zr-navy via-zr-navy to-zr-blue-deep p-4 shadow-md">
+        <div id="tour-carnet" className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-zr-navy via-zr-navy to-zr-blue-deep p-4 shadow-md">
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/50">ZR Mecademy</p>
             <span className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[10px] font-bold text-white/70">

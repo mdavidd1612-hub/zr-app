@@ -177,7 +177,7 @@ export default function Contenido() {
       <div className="space-y-9">
         <BotonVolver href="/" />
 
-        <div>
+        <div id="tour-material">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
             Repositorio
           </p>

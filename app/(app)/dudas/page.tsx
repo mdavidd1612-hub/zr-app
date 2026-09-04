@@ -107,7 +107,7 @@ export default function Dudas() {
         <BotonVolver href="/" />
 
         <Seccion numero={1} titulo="Mandar una duda" delay={60}>
-          <div className="zr-card space-y-4 p-5">
+          <div id="tour-dudas" className="zr-card space-y-4 p-5">
             <div>
               <label htmlFor="d-txt" className="mb-2 block text-sm font-semibold text-zr-text">
                 ¿Qué es lo que no te quedó claro? Escríbelo como pregunta.

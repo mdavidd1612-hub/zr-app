@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
+import { descargarPlanillasDelPrograma } from '@/lib/planilla-pdf-bulk'
 import type { UserRole } from '@/lib/types'
 
 /**
@@ -29,6 +30,28 @@ interface Estudiante {
 
 type Filtro = 'todos' | 'pendientes' | 'menores' | 'sin_cohorte' | 'suspendidos'
 
+interface GrupoCohorte {
+  cohorteId: string | null
+  cohorte: string | null
+  estudiantes: Estudiante[]
+}
+
+// La lista ya llega ordenada por cohort_id desde la consulta — esto solo
+// junta los estudiantes consecutivos de la misma cohorte en un grupo, para
+// poder poner "Descargar todas las planillas" al final de cada uno.
+function agruparPorCohorte(estudiantes: Estudiante[]): GrupoCohorte[] {
+  const grupos: GrupoCohorte[] = []
+  for (const e of estudiantes) {
+    const ultimo = grupos[grupos.length - 1]
+    if (ultimo && ultimo.cohorteId === e.cohorteId) {
+      ultimo.estudiantes.push(e)
+    } else {
+      grupos.push({ cohorteId: e.cohorteId, cohorte: e.cohorte, estudiantes: [e] })
+    }
+  }
+  return grupos
+}
+
 export default function Estudiantes() {
   const router = useRouter()
   const [estudiantes, setEstudiantes] = useState<Estudiante[]>([])
@@ -38,6 +61,10 @@ export default function Estudiantes() {
   const [ocupado, setOcupado] = useState<string | null>(null)
   const [miRol, setMiRol] = useState<UserRole | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Descarga masiva de planillas por programa (pedido explícito del
+  // coordinador): guarda cuál cohorte está generando y cuántas lleva, para
+  // mostrar el progreso — con 19 estudiantes puede tardar unos segundos.
+  const [descargando, setDescargando] = useState<{ cohorteId: string; hecho: number; total: number } | null>(null)
 
   useEffect(() => {
     let vigente = true
@@ -123,6 +150,22 @@ export default function Estudiantes() {
 
     setEstudiantes((es) => es.filter((e) => e.id !== id))
     setOcupado(null)
+  }
+
+  async function descargarTodas(cohorteId: string, nombreCohorte: string, grupo: Estudiante[]) {
+    setError(null)
+    setDescargando({ cohorteId, hecho: 0, total: grupo.length })
+    const { generadas, fallidas } = await descargarPlanillasDelPrograma(
+      grupo.map((e) => ({ id: e.id, nombre: e.nombre, cedula: e.cedula })),
+      nombreCohorte,
+      (hecho, total) => setDescargando({ cohorteId, hecho, total }),
+    )
+    setDescargando(null)
+    if (fallidas.length > 0) {
+      setError(
+        `Se descargaron ${generadas} planillas. No se pudo generar la de: ${fallidas.join(', ')}.`,
+      )
+    }
   }
 
   if (cargando) {
@@ -215,64 +258,79 @@ export default function Estudiantes() {
           }
         />
       ) : (
-        <div className="space-y-3">
-          {filtrados.map((e, i) => {
-            const cambioDeCohorte = i === 0 || filtrados[i - 1].cohorteId !== e.cohorteId
-            return (
-              <div key={e.id}>
-                {cambioDeCohorte && (
-                  <p className="mb-3 mt-6 text-xs font-bold uppercase tracking-wider text-zr-blue-mid first:mt-0">
-                    {e.cohorte ?? 'Sin programa'}
-                  </p>
-                )}
-                <div className="zr-card p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-base font-semibold text-zr-text">{e.nombre}</p>
-                      <p className="mt-1 text-sm tabular-nums text-zr-text-muted">{e.cedula}</p>
-                      <p className="mt-0.5 text-sm text-zr-text-muted">
-                        {e.edad} años · {e.cohorte ?? 'Sin programa'}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1.5">
-                      {!e.validado && <Etiqueta tono="aviso">Pendiente de validar</Etiqueta>}
-                      {e.estado === 'suspendido' && <Etiqueta tono="error">Suspendido</Etiqueta>}
-                      {e.esMenor && <Etiqueta tono="info">Menor de edad</Etiqueta>}
-                    </div>
-                  </div>
+        <div className="space-y-8">
+          {agruparPorCohorte(filtrados).map((grupo) => (
+            <div key={grupo.cohorteId ?? 'sin-programa'}>
+              <p className="mb-3 text-xs font-bold uppercase tracking-wider text-zr-blue-mid">
+                {grupo.cohorte ?? 'Sin programa'}
+              </p>
 
-                  <div className="mt-4 flex gap-2 border-t border-zr-border/60 pt-4">
-                    <button
-                      onClick={() => router.push(`/estudiantes/${e.id}`)}
-                      className="flex-1 rounded-lg border border-zr-border px-3 py-2.5 text-sm font-semibold text-zr-text"
-                    >
-                      Ver
-                    </button>
-                    <button
-                      onClick={() => suspender(e.id, e.estado)}
-                      disabled={ocupado === e.id}
-                      className={`flex-1 rounded-lg border px-3 py-2.5 text-sm font-semibold disabled:opacity-50 ${
-                        e.estado === 'suspendido'
-                          ? 'border-zr-success/30 bg-zr-success/10 text-zr-success'
-                          : 'border-zr-error/30 bg-zr-error/10 text-zr-error'
-                      }`}
-                    >
-                      {ocupado === e.id ? '…' : e.estado === 'suspendido' ? 'Reactivar' : 'Suspender'}
-                    </button>
-                    {(miRol === 'super_admin' || miRol === 'admin' || miRol === 'direccion_academica') && (
+              <div className="space-y-3">
+                {grupo.estudiantes.map((e) => (
+                  <div key={e.id} className="zr-card p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-base font-semibold text-zr-text">{e.nombre}</p>
+                        <p className="mt-1 text-sm tabular-nums text-zr-text-muted">{e.cedula}</p>
+                        <p className="mt-0.5 text-sm text-zr-text-muted">
+                          {e.edad} años · {e.cohorte ?? 'Sin programa'}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1.5">
+                        {!e.validado && <Etiqueta tono="aviso">Pendiente de validar</Etiqueta>}
+                        {e.estado === 'suspendido' && <Etiqueta tono="error">Suspendido</Etiqueta>}
+                        {e.esMenor && <Etiqueta tono="info">Menor de edad</Etiqueta>}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex gap-2 border-t border-zr-border/60 pt-4">
                       <button
-                        onClick={() => eliminar(e.id, e.nombre)}
-                        disabled={ocupado === e.id}
-                        className="rounded-lg border border-zr-error/40 px-3 py-2.5 text-sm font-semibold text-zr-error disabled:opacity-50"
+                        onClick={() => router.push(`/estudiantes/${e.id}`)}
+                        className="flex-1 rounded-lg border border-zr-border px-3 py-2.5 text-sm font-semibold text-zr-text"
                       >
-                        Eliminar
+                        Ver
                       </button>
-                    )}
+                      <button
+                        onClick={() => suspender(e.id, e.estado)}
+                        disabled={ocupado === e.id}
+                        className={`flex-1 rounded-lg border px-3 py-2.5 text-sm font-semibold disabled:opacity-50 ${
+                          e.estado === 'suspendido'
+                            ? 'border-zr-success/30 bg-zr-success/10 text-zr-success'
+                            : 'border-zr-error/30 bg-zr-error/10 text-zr-error'
+                        }`}
+                      >
+                        {ocupado === e.id ? '…' : e.estado === 'suspendido' ? 'Reactivar' : 'Suspender'}
+                      </button>
+                      {(miRol === 'super_admin' || miRol === 'admin' || miRol === 'direccion_academica') && (
+                        <button
+                          onClick={() => eliminar(e.id, e.nombre)}
+                          disabled={ocupado === e.id}
+                          className="rounded-lg border border-zr-error/40 px-3 py-2.5 text-sm font-semibold text-zr-error disabled:opacity-50"
+                        >
+                          Eliminar
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
-            )
-          })}
+
+              {/* Descarga masiva (pedido explícito del coordinador): antes
+                  había que entrar estudiante por estudiante y descargar la
+                  planilla una por una. */}
+              {grupo.cohorteId && (
+                <button
+                  onClick={() => descargarTodas(grupo.cohorteId as string, grupo.cohorte ?? 'programa', grupo.estudiantes)}
+                  disabled={descargando?.cohorteId === grupo.cohorteId}
+                  className="mt-3 flex min-h-14 w-full items-center justify-center gap-2 rounded-lg border border-zr-blue/30 bg-zr-blue/10 text-sm font-bold text-zr-blue disabled:opacity-60"
+                >
+                  {descargando?.cohorteId === grupo.cohorteId
+                    ? `Generando planillas… ${descargando.hecho} de ${descargando.total}`
+                    : `📄 Descargar todas las planillas (${grupo.estudiantes.length})`}
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

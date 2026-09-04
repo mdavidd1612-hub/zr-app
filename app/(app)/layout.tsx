@@ -5,9 +5,11 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Marco } from '@/components/ui/Marco'
+import { BannerSimulacion } from '@/components/ui/BannerSimulacion'
 import {
   IconoInicio, IconoPerfil, IconoProgreso, IconoDocumento, IconoDuda,
 } from '@/components/ui/Iconos'
+import type { UserRole } from '@/lib/types'
 
 // Fase 0 (docs/14_FASE0_PLAN_SPRINTS.md, Sprints 1, 3 y 4): Exámenes, Notas y
 // Progreso se retiran del menú del estudiante para esta entrega, "Clases" se
@@ -31,6 +33,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const [validado, setValidado] = useState(true)
+  // `undefined` = todavía no se sabe. Todo lo demás en este layout (formulario
+  // de primer login, términos, validación) espera a saber el rol antes de
+  // decidir nada — así super_admin, que no tiene fila en `students` ni en
+  // `student_profile_details`, no cae en esas pantallas al usar la vista de
+  // recorrido (a pedido explícito del coordinador).
+  const [rol, setRol] = useState<UserRole | null | undefined>(undefined)
+  const simulando = rol === 'super_admin'
 
   useEffect(() => {
     const supabase = createClient()
@@ -39,6 +48,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     })
     return () => subscription?.unsubscribe()
   }, [router])
+
+  useEffect(() => {
+    const supabase = createClient()
+    async function cargarRol() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      setRol((perfil?.role as UserRole) ?? null)
+    }
+    cargarRol()
+  }, [])
 
   // Formulario del primer login (Sprint 6, docs/17_...): mientras el
   // estudiante no lo llene, no puede usar el resto de la app.
@@ -50,6 +70,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // entrara derecho a la app sin llenar nada. La señal real es si ya existe
   // su fila en student_profile_details.
   useEffect(() => {
+    if (rol === undefined || simulando) return
     if (pathname === '/completar-perfil') return
     const supabase = createClient()
     async function verificarPerfilCompleto() {
@@ -60,13 +81,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       if (!yaLleno) router.replace('/completar-perfil')
     }
     verificarPerfilCompleto()
-  }, [pathname, router])
+  }, [pathname, router, rol, simulando])
 
   // Términos y condiciones (B-1, docs/18_BRECHAS_SPEC_FUNCIONAL_ZRM.md, spec
   // §20): independiente del formulario de arriba. Si system_config sube
   // terms.version, el estudiante cae aquí de nuevo en su próximo ingreso,
   // sin importar que ya haya aceptado una versión anterior.
   useEffect(() => {
+    if (rol === undefined || simulando) return
     if (pathname === '/completar-perfil' || pathname === '/aceptar-terminos') return
     const supabase = createClient()
     async function verificarTerminos() {
@@ -84,7 +106,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       if (!aceptado) router.replace('/aceptar-terminos')
     }
     verificarTerminos()
-  }, [pathname, router])
+  }, [pathname, router, rol, simulando])
 
   // Validación de administración (firma física de la planilla): es
   // INDEPENDIENTE de lo de arriba — el estudiante puede llenar su formulario
@@ -92,6 +114,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // navegación: sin validar, solo Inicio y Perfil tienen sentido, y
   // cualquier otra ruta de estudiante rebota a Inicio.
   useEffect(() => {
+    if (rol === undefined) return
+    if (simulando) { setValidado(true); return }
     const supabase = createClient()
     async function verificarValidacion() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -106,7 +130,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }
     }
     verificarValidacion()
-  }, [pathname, router])
+  }, [pathname, router, rol, simulando])
 
   // Dentro de un examen no se desliza: el gesto de pasar de sección chocaría
   // con el de pasar de pregunta y el estudiante saldría del examen a medias.
@@ -118,6 +142,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       deslizable={validado}
       sinNavegacion={enExamen}
     >
+      {simulando && <BannerSimulacion etiqueta="Estudiante" />}
       {children}
     </Marco>
   )

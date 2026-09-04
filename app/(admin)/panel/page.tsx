@@ -44,10 +44,13 @@ const ACCESO_CONFIG = { href: '/configuracion', titulo: 'Configuración', sub: '
 
 // A pedido explícito del coordinador (transcripción de audio,
 // docs/19_PLAN_CAMBIOS_POST_DIRECTIVA.md): entrar a recorrer la app como la
-// ve Ventas, sin crear una cuenta de prueba aparte. Solo super_admin —
-// admin normal ya ve prácticamente lo mismo que Ventas necesita para su
-// propio trabajo de inscripción, así que no hace falta duplicarlo ahí.
-const ACCESO_VENTAS = { href: '/carga-ventas', titulo: 'Vista de Ventas', sub: 'Recorrer la app como la ve un vendedor', Icono: IconoEstudiantes }
+// ve cada rol, sin crear cuentas de prueba aparte. Solo super_admin — admin
+// normal ya ve prácticamente lo mismo que necesita para su propio trabajo,
+// así que no hace falta duplicarlo ahí. No hay "vista de admin": super_admin
+// ya ve ese mismo menú (y más) con su propia cuenta.
+const ACCESO_VENTAS =     { href: '/carga-ventas', titulo: 'Vista de Ventas',      sub: 'Recorrer la app como la ve un vendedor', Icono: IconoEstudiantes }
+const ACCESO_ESTUDIANTE = { href: '/',             titulo: 'Vista de Estudiante',  sub: 'Recorrer la app como la ve un estudiante', Icono: IconoCarnet }
+const ACCESO_PROFESOR =   { href: '/hoy',          titulo: 'Vista de Profesor',    sub: 'Recorrer la app como la ve un profesor', Icono: IconoNotas }
 
 export default function Panel() {
   const router = useRouter()
@@ -183,7 +186,7 @@ export default function Panel() {
           {(
             esDireccionAcademica(rol)
               ? rol === 'super_admin'
-                ? [...ACCESOS, ...ACCESOS_DIRECCION, ACCESO_CONFIG, ACCESO_VENTAS]
+                ? [...ACCESOS, ...ACCESOS_DIRECCION, ACCESO_CONFIG, ACCESO_VENTAS, ACCESO_ESTUDIANTE, ACCESO_PROFESOR]
                 : [...ACCESOS, ...ACCESOS_DIRECCION]
               : ACCESOS
           ).map((a) => (

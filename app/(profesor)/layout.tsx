@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { esPersonal } from '@/lib/auth-helpers'
 import { Marco } from '@/components/ui/Marco'
+import { BannerSimulacion } from '@/components/ui/BannerSimulacion'
 import {
   IconoPanel, IconoDuda, IconoProgreso, IconoDocumento, IconoPerfil,
 } from '@/components/ui/Iconos'
@@ -30,6 +31,9 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
   const router = useRouter()
   const pathname = usePathname()
   const [verificando, setVerificando] = useState(true)
+  // A pedido explícito del coordinador: super_admin puede recorrer la
+  // vista de profesor sin crear una cuenta de prueba aparte.
+  const [simulando, setSimulando] = useState(false)
 
   // La pantalla de escaneo necesita cada centímetro: es la que se usa de
   // pie, con una mano, mientras entran los estudiantes. La barra flotante
@@ -49,10 +53,13 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
       const { data: perfil } = await supabase
         .from('profiles').select('role').eq('id', user.id).single()
 
+      const rol = perfil?.role as UserRole | undefined
+      if (rol === 'super_admin') setSimulando(true)
+
       // Un estudiante que escriba /calificar en la barra de direcciones se va a
       // su pantalla. La RLS ya lo bloquea en la base; esto solo evita que vea
       // un panel vacío y crea que la app está rota.
-      if (!esPersonal(perfil?.role as UserRole | undefined)) {
+      if (!esPersonal(rol)) {
         router.replace('/')
         return
       }
@@ -73,6 +80,7 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
 
   return (
     <Marco items={NAV} sinNavegacion={escaneando}>
+      {simulando && <BannerSimulacion etiqueta="Profesor" />}
       {children}
     </Marco>
   )

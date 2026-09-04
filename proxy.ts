@@ -92,10 +92,14 @@ export async function proxy(request: NextRequest) {
   const esRutaDeProfesor = empiezaConAlguna(pathname, RUTAS_PROFESOR) || esNotasProfesor(pathname)
   const esRutaDeAdmin = empiezaConAlguna(pathname, RUTAS_ADMIN)
 
-  if (esRutaDeEstudiante && role !== 'estudiante') {
+  // super_admin puede entrar a las vistas de recorrido de estudiante y
+  // profesor (a pedido explícito del coordinador, docs/19_...) — el layout
+  // de cada una ya sabe mostrar el banner de "vista de recorrido" y saltarse
+  // los pasos que no le aplican (onboarding, validación, etc).
+  if (esRutaDeEstudiante && role !== 'estudiante' && role !== 'super_admin') {
     return NextResponse.redirect(new URL(inicioPorRol[role] ?? '/', request.url))
   }
-  if (esRutaDeProfesor && role !== 'profesor') {
+  if (esRutaDeProfesor && role !== 'profesor' && role !== 'super_admin') {
     return NextResponse.redirect(new URL(inicioPorRol[role] ?? '/', request.url))
   }
   if (esRutaDeAdmin && !['admin', 'super_admin', 'direccion_academica'].includes(role)) {

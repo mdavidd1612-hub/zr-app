@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { esVendedor } from '@/lib/auth-helpers'
 import { type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Marco } from '@/components/ui/Marco'
+import { BannerSimulacion } from '@/components/ui/BannerSimulacion'
 import { IconoEstudiantes, IconoNotas, IconoPanel, IconoPerfil } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -71,11 +72,7 @@ export default function VendedorLayout({ children }: { children: React.ReactNode
 
   return (
     <Marco items={NAV} deslizable={false} campanita={false}>
-      {simulando && (
-        <div className="sticky top-0 z-30 border-b border-zr-warning/40 bg-zr-warning/15 px-4 py-2.5 text-center text-xs font-bold text-zr-warning">
-          Vista de recorrido: así se ve la app para Ventas · estás dentro con tu cuenta de super_admin
-        </div>
-      )}
+      {simulando && <BannerSimulacion etiqueta="Ventas" />}
       {children}
     </Marco>
   )

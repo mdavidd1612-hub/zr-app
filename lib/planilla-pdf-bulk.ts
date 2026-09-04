@@ -83,10 +83,15 @@ export function generarPdfEstudiante(datos: DatosPlanilla, logoDataUrl: string |
   let y = margen
 
   function encabezado(conTitulo: boolean) {
+    // El logo real es un rectángulo ancho (958×254 px, ~3.77:1) — meterlo en
+    // un cuadrado de 14×14 lo achataba. Se calcula el alto a partir del
+    // ancho para que guarde su proporción real.
+    const anchoLogo = 24
+    const altoLogo = anchoLogo * (254 / 958)
     if (logoDataUrl) {
-      try { doc.addImage(logoDataUrl, 'PNG', margen, y - 2, 14, 14) } catch { /* logo opcional */ }
+      try { doc.addImage(logoDataUrl, 'PNG', margen, y, anchoLogo, altoLogo) } catch { /* logo opcional */ }
     }
-    const xTexto = margen + (logoDataUrl ? 18 : 0)
+    const xTexto = margen + (logoDataUrl ? anchoLogo + 5 : 0)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(11)
     doc.setTextColor(...AZUL)

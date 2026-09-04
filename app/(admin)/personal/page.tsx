@@ -89,6 +89,15 @@ export default function Personal() {
   const [expandidoRoles, setExpandidoRoles] = useState<string | null>(null)
   const [guardandoRol, setGuardandoRol] = useState<string | null>(null)
 
+  // Sedes por administrador (migración 087 — pedido explícito del
+  // coordinador): un admin sin sede asignada ve todo, sin restringir nada —
+  // esto es solo para los dos administradores reales (Cecilia, con las dos
+  // sedes; Erika, solo UCV) que sí necesitan sus listas separadas.
+  const [sedes, setSedes] = useState<{ id: string; nombre: string }[]>([])
+  const [sedesAsignadas, setSedesAsignadas] = useState<Map<string, Set<string>>>(new Map())
+  const [expandidoSedes, setExpandidoSedes] = useState<string | null>(null)
+  const [guardandoSede, setGuardandoSede] = useState<string | null>(null)
+
   const [creando, setCreando] = useState(false)
   const [nombre, setNombre] = useState('')
   const [cedula, setCedula] = useState('')
@@ -126,7 +135,7 @@ export default function Personal() {
       }
       setMiRol(rolActual)
 
-      const [{ data }, { data: cohs }, { data: mods }, { data: asigs }, { data: rolesExtraData }] = await Promise.all([
+      const [{ data }, { data: cohs }, { data: mods }, { data: asigs }, { data: rolesExtraData }, { data: sedesData }, { data: adminSedesData }] = await Promise.all([
         supabase
           .from('profiles')
           .select('id, cedula, full_name, contact_email, role')
@@ -146,6 +155,8 @@ export default function Personal() {
         supabase.from('modules').select('id, name, order_index, programs(name)').order('order_index'),
         supabase.from('teacher_module_assignments').select('teacher_id, module_id'),
         supabase.from('profile_roles').select('profile_id, role'),
+        supabase.from('sedes').select('id, nombre').eq('activa', true).order('nombre'),
+        supabase.from('admin_sedes').select('profile_id, sede_id'),
       ])
 
       if (!vigente) return
@@ -182,6 +193,15 @@ export default function Personal() {
         mapaRolesExtra.set(r.profile_id, set)
       }
       setRolesExtra(mapaRolesExtra)
+
+      setSedes(sedesData ?? [])
+      const mapaSedes = new Map<string, Set<string>>()
+      for (const s of adminSedesData ?? []) {
+        const set = mapaSedes.get(s.profile_id) ?? new Set<string>()
+        set.add(s.sede_id)
+        mapaSedes.set(s.profile_id, set)
+      }
+      setSedesAsignadas(mapaSedes)
 
       setEquipo(
         (data ?? []).map((p) => ({
@@ -348,6 +368,28 @@ export default function Personal() {
       return copia
     })
     setGuardandoRol(null)
+  }
+
+  async function alternarSede(profileId: string, sedeId: string) {
+    const claveOcupado = `${profileId}|${sedeId}`
+    setGuardandoSede(claveOcupado)
+    const supabase = createClient()
+    const yaAsignada = sedesAsignadas.get(profileId)?.has(sedeId) ?? false
+
+    if (yaAsignada) {
+      await supabase.from('admin_sedes').delete().eq('profile_id', profileId).eq('sede_id', sedeId)
+    } else {
+      await supabase.from('admin_sedes').insert({ profile_id: profileId, sede_id: sedeId })
+    }
+
+    setSedesAsignadas((prev) => {
+      const copia = new Map(prev)
+      const set = new Set(copia.get(profileId) ?? [])
+      if (yaAsignada) set.delete(sedeId); else set.add(sedeId)
+      copia.set(profileId, set)
+      return copia
+    })
+    setGuardandoSede(null)
   }
 
   async function eliminar(id: string, nombre: string) {
@@ -668,6 +710,49 @@ export default function Personal() {
                                   {r.etiqueta}
                                   {esActivo && <span className="ml-1.5 text-xs text-zr-text-muted">· rol activo ahora</span>}
                                 </span>
+                                {activo && <span className="shrink-0 text-xs font-bold">✓</span>}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
+
+                {/* Sedes asignadas (migración 087): solo aplica al rol
+                    admin — super_admin y dirección académica siempre ven
+                    todo, y un admin sin ninguna sede marcada tampoco se
+                    restringe (para no dejar a nadie afuera por accidente). */}
+                {m.rol === 'admin' && (() => {
+                  const misSedes = sedesAsignadas.get(m.id) ?? new Set<string>()
+                  return (
+                    <div className="border-t border-zr-border/60 pt-3">
+                      <button
+                        onClick={() => setExpandidoSedes((e) => (e === m.id ? null : m.id))}
+                        className="text-xs font-bold uppercase tracking-wide text-zr-blue-mid"
+                      >
+                        {expandidoSedes === m.id ? 'Ocultar sedes' : `Sedes asignadas (${misSedes.size})`}
+                      </button>
+                      <p className="mt-1 text-xs text-zr-text-muted">
+                        Sin ninguna marcada, ve estudiantes y asistencia de todas las sedes.
+                      </p>
+
+                      {expandidoSedes === m.id && (
+                        <div className="mt-3 space-y-1">
+                          {sedes.map((sede) => {
+                            const activo = misSedes.has(sede.id)
+                            const ocupado = guardandoSede === `${m.id}|${sede.id}`
+                            return (
+                              <button
+                                key={sede.id}
+                                onClick={() => alternarSede(m.id, sede.id)}
+                                disabled={ocupado}
+                                className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors disabled:opacity-50 ${
+                                  activo ? 'bg-zr-blue/15 text-zr-blue' : 'text-zr-text-muted active:bg-zr-border/40'
+                                }`}
+                              >
+                                <span className="min-w-0 truncate">{sede.nombre}</span>
                                 {activo && <span className="shrink-0 text-xs font-bold">✓</span>}
                               </button>
                             )

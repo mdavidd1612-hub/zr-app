@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_sedes: {
+        Row: {
+          created_at: string
+          id: string
+          profile_id: string
+          sede_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          profile_id: string
+          sede_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          profile_id?: string
+          sede_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_sedes_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_sedes_sede_id_fkey"
+            columns: ["sede_id"]
+            isOneToOne: false
+            referencedRelation: "sedes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admins: {
         Row: {
           can_issue_certificates: boolean
@@ -2736,6 +2772,9 @@ export type Database = {
     }
     Functions: {
       a_romano: { Args: { n: number }; Returns: string }
+      admin_ve_cohorte: { Args: { p_cohort_id: string }; Returns: boolean }
+      admin_ve_estudiante: { Args: { p_student_id: string }; Returns: boolean }
+      admin_ve_sede: { Args: { p_sede_id: string }; Returns: boolean }
       age_years: { Args: { p_birth_date: string }; Returns: number }
       auth_role: {
         Args: never

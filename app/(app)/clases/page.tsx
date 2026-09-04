@@ -161,19 +161,17 @@ export default function MiModulo() {
                 Módulo · Semana {modulo.semanaActual} de {modulo.duracionSemanas}
               </p>
               <p className="zr-display text-xl">{modulo.nombre}</p>
-              {modulo.descripcion && (
-                <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-white/90">{modulo.descripcion}</p>
-              )}
             </div>
 
             <Regla delay={60} />
 
+            {/* El resumen del módulo (redactado por dirección académica en
+                /modulos) ES el contenido de "lo que se aprende aquí" — no hay
+                un mensaje de "sin cargar" mientras exista un resumen escrito.
+                Las guías semana a semana (learning_guides) son más
+                específicas y tienen prioridad cuando ya están digitalizadas. */}
             <Seccion numero={1} titulo="Lo que se aprende aquí" delay={120}>
-              {competencias.length === 0 ? (
-                <p className="text-sm text-zr-text-muted">
-                  Todavía no se ha cargado el contenido de este módulo.
-                </p>
-              ) : (
+              {competencias.length > 0 ? (
                 <div className="space-y-3">
                   {competencias.map((c, i) => (
                     <div key={i} className="zr-card flex gap-3 p-4">
@@ -188,16 +186,24 @@ export default function MiModulo() {
                       </div>
                     </div>
                   ))}
-                </div>
-              )}
 
-              <div className="flex gap-3 rounded-lg border border-zr-blue/25 bg-zr-blue/10 p-4">
-                <IconoAviso size={18} className="mt-0.5 shrink-0 text-zr-blue-mid" />
-                <p className="text-sm leading-relaxed text-zr-text">
-                  Las competencias <b>no se califican en esta fase</b>. Están aquí para que sepas
-                  hacia dónde vas.
+                  <div className="flex gap-3 rounded-lg border border-zr-blue/25 bg-zr-blue/10 p-4">
+                    <IconoAviso size={18} className="mt-0.5 shrink-0 text-zr-blue-mid" />
+                    <p className="text-sm leading-relaxed text-zr-text">
+                      Las competencias <b>no se califican en esta fase</b>. Están aquí para que sepas
+                      hacia dónde vas.
+                    </p>
+                  </div>
+                </div>
+              ) : modulo.descripcion ? (
+                <p className="zr-card whitespace-pre-line p-5 text-sm leading-relaxed text-zr-text">
+                  {modulo.descripcion}
                 </p>
-              </div>
+              ) : (
+                <p className="text-sm text-zr-text-muted">
+                  Todavía no se ha cargado el contenido de este módulo.
+                </p>
+              )}
             </Seccion>
 
             {/* Módulo 7 de la spec funcional: el camino completo del programa,

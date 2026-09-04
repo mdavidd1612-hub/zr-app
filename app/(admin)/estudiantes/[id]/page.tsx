@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
-import { EditarDatosEstudiante } from '@/components/ui/EditarDatosEstudiante'
+import { EditarFichaCompleta, type Representante } from '@/components/ui/EditarFichaCompleta'
 import { BotonRestablecerPassword } from '@/components/ui/BotonRestablecerPassword'
 import Link from 'next/link'
 
@@ -14,12 +14,14 @@ interface Ficha {
   cedula: string
   correo: string
   telefono: string | null
+  direccion: string | null
   edad: number
   esMenor: boolean
   cohorteId: string | null
   estado: string
   ingreso: string
   validadoEn: string | null
+  representante: Representante | null
 }
 
 export default function FichaEstudiante() {
@@ -44,12 +46,19 @@ export default function FichaEstudiante() {
         return
       }
 
-      const [{ data: est }, { data: cohs }] = await Promise.all([
+      const [{ data: est }, { data: estudianteAddr }, { data: rep }, { data: cohs }] = await Promise.all([
         supabase
           .from('v_students')
           .select('full_name, cedula, contact_email, phone, age_years, is_minor, cohort_id, status, enrollment_date, validated_at')
           .eq('id', id)
           .single(),
+        supabase.from('students').select('address').eq('id', id).single(),
+        supabase
+          .from('parental_consents')
+          .select('representative_name, representative_cedula, representative_phone, representative_email, representative_relationship, representative_age, representative_nationality, representative_occupation')
+          .eq('student_id', id)
+          .eq('consent_type', 'account_creation')
+          .maybeSingle(),
         supabase.from('cohorts').select('id, name').eq('status', 'activa'),
       ])
 
@@ -59,12 +68,23 @@ export default function FichaEstudiante() {
           cedula: est.cedula ?? '—',
           correo: est.contact_email ?? '—',
           telefono: est.phone,
+          direccion: estudianteAddr?.address ?? null,
           edad: est.age_years ?? 0,
           esMenor: est.is_minor ?? false,
           cohorteId: est.cohort_id,
           estado: est.status ?? 'activo',
           ingreso: est.enrollment_date ?? '',
           validadoEn: est.validated_at,
+          representante: rep ? {
+            nombre: rep.representative_name ?? '',
+            cedula: rep.representative_cedula ?? 'V-',
+            telefono: rep.representative_phone ?? '',
+            correo: rep.representative_email ?? '',
+            parentesco: rep.representative_relationship ?? '',
+            edad: rep.representative_age != null ? String(rep.representative_age) : '',
+            nacionalidad: rep.representative_nationality ?? '',
+            profesion: rep.representative_occupation ?? '',
+          } : null,
         })
         setNuevaCohorte(est.cohort_id ?? '')
       }
@@ -158,7 +178,11 @@ export default function FichaEstudiante() {
           <Fila etiqueta="Cédula" valor={ficha.cedula} mono />
           <Fila etiqueta="Correo de contacto" valor={ficha.correo} />
           <Fila etiqueta="Teléfono" valor={ficha.telefono ?? '—'} />
+          <Fila etiqueta="Dirección" valor={ficha.direccion ?? '—'} />
           <Fila etiqueta="Edad" valor={`${ficha.edad} años${ficha.esMenor ? ' · menor de edad' : ''}`} />
+          {ficha.representante && (
+            <Fila etiqueta="Representante" valor={`${ficha.representante.nombre || '—'}${ficha.representante.parentesco ? ` (${ficha.representante.parentesco})` : ''}`} />
+          )}
           <Fila etiqueta="Ingreso" valor={new Date(ficha.ingreso + 'T12:00:00').toLocaleDateString('es-VE')} />
           <div className="flex items-center justify-between px-5 py-4">
             <span className="text-xs font-bold uppercase tracking-wider text-zr-text-muted">Estado</span>
@@ -167,12 +191,23 @@ export default function FichaEstudiante() {
             </Etiqueta>
           </div>
         </div>
-        <EditarDatosEstudiante
+        <EditarFichaCompleta
           estudianteId={id}
           nombreInicial={ficha.nombre}
+          cedulaInicial={ficha.cedula}
           correoInicial={ficha.correo}
           telefonoInicial={ficha.telefono}
-          onGuardado={(d) => setFicha((f) => (f ? { ...f, nombre: d.nombre, correo: d.correo, telefono: d.telefono || null } : f))}
+          direccionInicial={ficha.direccion}
+          representanteInicial={ficha.representante}
+          onGuardado={(d) => setFicha((f) => (f ? {
+            ...f,
+            nombre: d.nombre,
+            cedula: d.cedula,
+            correo: d.correo,
+            telefono: d.telefono || null,
+            direccion: d.direccion || null,
+            representante: d.representante,
+          } : f))}
         />
         <BotonRestablecerPassword estudianteId={id} />
       </Seccion>

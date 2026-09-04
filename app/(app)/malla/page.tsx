@@ -55,6 +55,37 @@ export default function MallaCurricular() {
       } | null)?.cohorts
 
       if (!cohorte?.programs) {
+        // Sin programa asignado todavía (o vista de recorrido de super_admin,
+        // sin fila en students): el contenido de los 14 módulos es el mismo
+        // en PTMA y PFTA — se muestra la malla completa estática, sin
+        // estados de cursado/actual (no hay una cohorte real de la que
+        // derivarlos), en vez de un mensaje vacío.
+        const { data: todos } = await supabase
+          .from('modules')
+          .select('order_index, name, description, duration_weeks, inces_homologado')
+          .order('order_index', { ascending: true })
+
+        interface ModuloCrudo {
+          order_index: number; name: string; description: string | null
+          duration_weeks: number; inces_homologado: boolean
+        }
+        const unicos = new Map<number, ModuloCrudo>()
+        for (const m of (todos ?? []) as ModuloCrudo[]) {
+          if (!unicos.has(m.order_index)) unicos.set(m.order_index, m)
+        }
+
+        setPrograma(null)
+        setModulos(
+          [...unicos.values()].map((m) => ({
+            id: `estatico-${m.order_index}`,
+            orden: m.order_index,
+            nombre: m.name,
+            descripcion: m.description,
+            semanas: m.duration_weeks,
+            homologado: m.inces_homologado,
+            estado: 'pendiente',
+          })),
+        )
         setCargando(false)
         return
       }
@@ -102,9 +133,13 @@ export default function MallaCurricular() {
       <BotonVolver />
 
       <Encabezado
-        sobretitulo={programa ?? 'Programa'}
+        sobretitulo={programa ?? 'Todos los programas'}
         titulo="Malla curricular"
-        descripcion="Todos los módulos del programa, en el orden en que se cursan."
+        descripcion={
+          programa
+            ? 'Todos los módulos del programa, en el orden en que se cursan.'
+            : 'Los 14 módulos del plan de estudio — el contenido es el mismo en PTMA y PFTA.'
+        }
       />
 
       <Regla delay={60} />

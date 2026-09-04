@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
 import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
+import { CambiarRol } from '@/components/ui/CambiarRol'
 import { leerSimulacionSabado, guardarSimulacionSabado } from '@/lib/demo-sabado'
 import type { UserRole } from '@/lib/types'
 
@@ -142,8 +143,10 @@ export default function PerfilAdmin() {
         <BotonActivarPush />
       </Seccion>
 
+      <CambiarRol rolActual={perfil.rol} numero={2} />
+
       {/* PRUEBA TEMPORAL — se quita del todo cuando la academia lo pida. */}
-      <Seccion numero={2} titulo="Prueba" delay={200}>
+      <Seccion numero={3} titulo="Prueba" delay={200}>
         <button
           onClick={alternarSimulacion}
           disabled={preparando}

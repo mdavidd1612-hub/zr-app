@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
+import { CambiarRol } from '@/components/ui/CambiarRol'
 import type { UserRole } from '@/lib/types'
 
 interface Perfil {
@@ -71,6 +72,8 @@ export default function PerfilVendedor() {
           onActualizado={(d) => setPerfil((p) => p && { ...p, nombre: d.nombre, correo: d.correo })}
         />
       </Seccion>
+
+      <CambiarRol rolActual={perfil.rol} numero={2} />
     </div>
   )
 }

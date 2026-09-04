@@ -19,6 +19,8 @@ interface Cohorte {
   nombre: string
 }
 
+type EstadoSesion = 'programada' | 'abierta' | 'cerrada' | 'reprogramada' | 'cancelada'
+
 interface Fila {
   id: string
   nombre: string
@@ -35,6 +37,8 @@ export default function Asistencias() {
   const [cohortes, setCohortes] = useState<Cohorte[]>([])
   const [cohorteId, setCohorteId] = useState('')
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [estadoSesion, setEstadoSesion] = useState<EstadoSesion | null>(null)
+  const [cambiandoEstado, setCambiandoEstado] = useState(false)
   const [filas, setFilas] = useState<Fila[]>([])
   const [busqueda, setBusqueda] = useState('')
   const [cargando, setCargando] = useState(true)
@@ -62,6 +66,34 @@ export default function Asistencias() {
     cargar()
   }, [router])
 
+  // Crea la sesión de hoy para esta cohorte si todavía no existe — mismo
+  // criterio que "marcar a mano" y que el cron de la migración 077, para que
+  // el botón de abrir/cerrar exista aunque el cron aún no haya corrido o la
+  // cohorte no tenga profesor asignado.
+  async function asegurarSesion(supabase: ReturnType<typeof createClient>): Promise<{ id: string; status: EstadoSesion } | null> {
+    const { data: cohorte } = await supabase
+      .from('cohorts').select('current_module_id').eq('id', cohorteId).single()
+    if (!cohorte?.current_module_id) return null
+
+    const { data: ultima } = await supabase
+      .from('class_sessions').select('week_number').eq('cohort_id', cohorteId)
+      .order('week_number', { ascending: false }).limit(1).maybeSingle()
+
+    const { data: nueva } = await supabase
+      .from('class_sessions')
+      .insert({
+        cohort_id: cohorteId,
+        module_id: cohorte.current_module_id,
+        session_date: hoyISO,
+        week_number: (ultima?.week_number ?? 0) + 1,
+        status: 'programada',
+      })
+      .select('id, status')
+      .single()
+
+    return nueva as { id: string; status: EstadoSesion } | null
+  }
+
   async function cargarLista() {
     if (!cohorteId) return
     setCargandoLista(true)
@@ -70,7 +102,7 @@ export default function Asistencias() {
     const [{ data: sesion }, { data: estudiantes }] = await Promise.all([
       supabase
         .from('class_sessions')
-        .select('id')
+        .select('id, status')
         .eq('cohort_id', cohorteId)
         .eq('session_date', hoyISO)
         .maybeSingle(),
@@ -81,6 +113,7 @@ export default function Asistencias() {
     ])
 
     setSessionId(sesion?.id ?? null)
+    setEstadoSesion((sesion?.status as EstadoSesion) ?? null)
 
     const alumnos = (estudiantes ?? []) as unknown as {
       id: string; profiles: { full_name: string; cedula: string; phone: string | null } | null
@@ -136,28 +169,10 @@ export default function Asistencias() {
     if (!idSesion) {
       // No hay sesión de hoy para esta cohorte todavía: se crea, igual que
       // hace la pantalla de QR — nadie tiene que "abrir clase" a mano.
-      const { data: cohorte } = await supabase
-        .from('cohorts').select('current_module_id').eq('id', cohorteId).single()
-      if (!cohorte?.current_module_id) {
-        setMarcando(null)
-        return
-      }
-      const { data: ultima } = await supabase
-        .from('class_sessions').select('week_number').eq('cohort_id', cohorteId)
-        .order('week_number', { ascending: false }).limit(1).maybeSingle()
-      const { data: nueva } = await supabase
-        .from('class_sessions')
-        .insert({
-          cohort_id: cohorteId,
-          module_id: cohorte.current_module_id,
-          session_date: hoyISO,
-          week_number: (ultima?.week_number ?? 0) + 1,
-          status: 'programada',
-        })
-        .select('id')
-        .single()
+      const nueva = await asegurarSesion(supabase)
       idSesion = nueva?.id ?? null
       setSessionId(idSesion)
+      setEstadoSesion(nueva?.status ?? null)
     }
 
     if (!idSesion) {
@@ -176,6 +191,30 @@ export default function Asistencias() {
 
     await cargarLista()
     setMarcando(null)
+  }
+
+  // Solo importa para la entrega de refrigerio (claim-snack exige la sesión
+  // "abierta"); la asistencia por QR ya funciona con la sesión "programada".
+  // Respaldo por si el profesor todavía no tiene cuenta creada un sábado.
+  async function abrirOCerrar() {
+    setCambiandoEstado(true)
+    const supabase = createClient()
+
+    let idSesion = sessionId
+    if (!idSesion) {
+      const nueva = await asegurarSesion(supabase)
+      idSesion = nueva?.id ?? null
+      setSessionId(idSesion)
+    }
+    if (!idSesion) {
+      setCambiandoEstado(false)
+      return
+    }
+
+    const nuevoEstado: EstadoSesion = estadoSesion === 'abierta' ? 'cerrada' : 'abierta'
+    await supabase.from('class_sessions').update({ status: nuevoEstado }).eq('id', idSesion)
+    setEstadoSesion(nuevoEstado)
+    setCambiandoEstado(false)
   }
 
   // Tabla de Excel sin depender de ninguna librería externa (npm audit marcó
@@ -258,6 +297,30 @@ export default function Asistencias() {
         etiqueta={`Registrados hoy · ${cohortes.find((c) => c.id === cohorteId)?.nombre ?? 'este programa'}`}
         tono="exito"
       />
+
+      {cohortes.length > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-zr-border bg-zr-surface px-5 py-4">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-zr-text">
+              Sesión {estadoSesion === 'abierta' ? 'abierta' : estadoSesion === 'cerrada' ? 'cerrada' : 'sin abrir'}
+            </p>
+            <p className="mt-0.5 text-xs text-zr-text-muted">
+              Solo hace falta abrirla para entregar refrigerio. El QR de asistencia funciona igual sin esto.
+            </p>
+          </div>
+          <button
+            onClick={abrirOCerrar}
+            disabled={cambiandoEstado}
+            className={`shrink-0 rounded-lg px-4 py-2.5 text-sm font-bold disabled:opacity-50 ${
+              estadoSesion === 'abierta'
+                ? 'border border-zr-border text-zr-text'
+                : 'bg-zr-blue text-white'
+            }`}
+          >
+            {cambiandoEstado ? '…' : estadoSesion === 'abierta' ? 'Cerrar' : 'Abrir'}
+          </button>
+        </div>
+      )}
 
       {cohortes.length === 0 ? (
         <EstadoVacio titulo="Sin programas" explicacion="Todavía no hay programas creados." />

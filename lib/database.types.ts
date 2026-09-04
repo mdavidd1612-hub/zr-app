@@ -1940,6 +1940,35 @@ export type Database = {
           },
         ]
       }
+      profile_roles: {
+        Row: {
+          created_at: string
+          id: string
+          profile_id: string
+          role: Database["public"]["Enums"]["user_role"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          profile_id: string
+          role: Database["public"]["Enums"]["user_role"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          profile_id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_roles_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -2733,6 +2762,10 @@ export type Database = {
           p_siglas: string
         }
         Returns: string
+      }
+      fn_cambiar_mi_rol: {
+        Args: { nuevo_rol: Database["public"]["Enums"]["user_role"] }
+        Returns: undefined
       }
       fn_generar_caso_del_dia: { Args: never; Returns: undefined }
       fn_generar_sesion_semanal: { Args: never; Returns: undefined }

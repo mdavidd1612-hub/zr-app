@@ -1,5 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
+import { INICIO_POR_ROL } from '@/lib/auth-helpers'
+import type { UserRole } from '@/lib/types'
 
 // Ya no hay autoregistro (docs/17_PLAN_CONSOLIDADO..., ajuste post-Sprint 7):
 // toda cuenta la crea administración o ventas desde dentro de la app. Solo
@@ -70,15 +72,7 @@ export async function proxy(request: NextRequest) {
     .eq('id', user.id)
     .single()
 
-  const role = profile?.role || 'estudiante'
-
-  const inicioPorRol: Record<string, string> = {
-    estudiante: '/',
-    profesor: '/hoy',
-    admin: '/panel',
-    super_admin: '/panel',
-    direccion_academica: '/panel',
-  }
+  const role = (profile?.role || 'estudiante') as UserRole
 
   // El consentimiento parental (LOPNNA) ya no se autogestiona desde la app —
   // lo captura el vendedor al momento de la venta (Módulo 1), junto con el
@@ -97,13 +91,13 @@ export async function proxy(request: NextRequest) {
   // de cada una ya sabe mostrar el banner de "vista de recorrido" y saltarse
   // los pasos que no le aplican (onboarding, validación, etc).
   if (esRutaDeEstudiante && role !== 'estudiante' && role !== 'super_admin') {
-    return NextResponse.redirect(new URL(inicioPorRol[role] ?? '/', request.url))
+    return NextResponse.redirect(new URL(INICIO_POR_ROL[role] ?? '/', request.url))
   }
   if (esRutaDeProfesor && role !== 'profesor' && role !== 'super_admin') {
-    return NextResponse.redirect(new URL(inicioPorRol[role] ?? '/', request.url))
+    return NextResponse.redirect(new URL(INICIO_POR_ROL[role] ?? '/', request.url))
   }
   if (esRutaDeAdmin && !['admin', 'super_admin', 'direccion_academica'].includes(role)) {
-    return NextResponse.redirect(new URL(inicioPorRol[role] ?? '/', request.url))
+    return NextResponse.redirect(new URL(INICIO_POR_ROL[role] ?? '/', request.url))
   }
 
   return response

@@ -48,6 +48,31 @@ export function esVendedor(role?: UserRole | null) {
   return role === 'vendedor'
 }
 
+// A dónde entra cada rol al iniciar sesión (login), al cambiar de rol activo
+// (elegir-rol) y a dónde lo manda proxy.ts si intenta una ruta que no es la
+// suya. Un solo lugar — antes estaba repetido en login/page.tsx y proxy.ts,
+// y ya habían quedado ligeramente distintos entre sí (uno sin 'vendedor').
+export const INICIO_POR_ROL: Record<UserRole, string> = {
+  estudiante: '/',
+  profesor: '/hoy',
+  admin: '/panel',
+  super_admin: '/panel',
+  direccion_academica: '/panel',
+  vendedor: '/carga-ventas',
+}
+
+// Cómo se le llama a cada rol en pantalla (selector de rol, Personal). La
+// base y el código siguen en inglés (CLAUDE.md §9); esto es lo único que ve
+// el usuario.
+export const ETIQUETA_ROL: Record<UserRole, string> = {
+  estudiante: 'Estudiante',
+  profesor: 'Profesor',
+  admin: 'Administración',
+  super_admin: 'Super admin',
+  direccion_academica: 'Dirección académica',
+  vendedor: 'Vendedor',
+}
+
 // Calcula la edad cumplida. Se usa en el registro para decidir si hace falta
 // el consentimiento del representante legal (LOPNNA).
 export function edadCumplida(nacimiento: Date, hoy = new Date()): number {

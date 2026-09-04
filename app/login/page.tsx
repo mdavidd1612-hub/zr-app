@@ -4,19 +4,10 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { cedulaAEmail } from '@/lib/auth-helpers'
+import { cedulaAEmail, INICIO_POR_ROL } from '@/lib/auth-helpers'
 import { cedulaSchema } from '@/lib/validators'
 import { MarcaZR, IconoOjo, IconoOjoTachado } from '@/components/ui/Iconos'
 import { SelectorCedula } from '@/components/ui/SelectorCedula'
-
-const INICIO: Record<string, string> = {
-  estudiante:  '/',
-  profesor:    '/hoy',
-  admin:       '/panel',
-  super_admin: '/panel',
-  direccion_academica: '/panel',
-  vendedor: '/carga-ventas',
-}
 
 export default function Login() {
   const router = useRouter()
@@ -55,7 +46,18 @@ export default function Login() {
     const { data: perfil } = await supabase
       .from('profiles').select('role').eq('id', data.user.id).single()
 
-    router.push(INICIO[perfil?.role ?? 'estudiante'] ?? '/')
+    // Cuentas con más de un rol asignado (p. ej. vendedor + administración,
+    // migración 085 — pedido explícito del coordinador): no se entra directo,
+    // se le pregunta con cuál de los dos quiere trabajar esta vez.
+    const { count } = await supabase
+      .from('profile_roles').select('*', { count: 'exact', head: true }).eq('profile_id', data.user.id)
+
+    if ((count ?? 0) > 1) {
+      router.push('/elegir-rol')
+      return
+    }
+
+    router.push(INICIO_POR_ROL[perfil?.role ?? 'estudiante'] ?? '/')
     router.refresh()
   }
 

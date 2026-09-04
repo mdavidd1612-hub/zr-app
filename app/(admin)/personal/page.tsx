@@ -32,6 +32,13 @@ interface Miembro {
   cohortes: string[]
 }
 
+// Roles adicionales por cuenta (migración 085 — pedido explícito del
+// coordinador): Erika Hidalgo, vendedora, también necesita entrar como
+// administración sin una segunda cuenta (la cédula es única por persona).
+// `rol` sigue siendo el rol ACTIVO de cada quien; esto es la lista de roles
+// que además tiene permitido usar — al iniciar sesión, si tiene más de uno,
+// elige con cuál entra (app/elegir-rol).
+
 interface Cohorte {
   id: string
   nombre: string
@@ -78,6 +85,9 @@ export default function Personal() {
   const [asignaciones, setAsignaciones] = useState<Map<string, Set<string>>>(new Map())
   const [expandido, setExpandido] = useState<string | null>(null)
   const [guardandoModulo, setGuardandoModulo] = useState<string | null>(null)
+  const [rolesExtra, setRolesExtra] = useState<Map<string, Set<UserRole>>>(new Map())
+  const [expandidoRoles, setExpandidoRoles] = useState<string | null>(null)
+  const [guardandoRol, setGuardandoRol] = useState<string | null>(null)
 
   const [creando, setCreando] = useState(false)
   const [nombre, setNombre] = useState('')
@@ -116,7 +126,7 @@ export default function Personal() {
       }
       setMiRol(rolActual)
 
-      const [{ data }, { data: cohs }, { data: mods }, { data: asigs }] = await Promise.all([
+      const [{ data }, { data: cohs }, { data: mods }, { data: asigs }, { data: rolesExtraData }] = await Promise.all([
         supabase
           .from('profiles')
           .select('id, cedula, full_name, contact_email, role')
@@ -135,6 +145,7 @@ export default function Personal() {
         // un profesor puede tener módulos propios asignados (spec §7).
         supabase.from('modules').select('id, name, order_index, programs(name)').order('order_index'),
         supabase.from('teacher_module_assignments').select('teacher_id, module_id'),
+        supabase.from('profile_roles').select('profile_id, role'),
       ])
 
       if (!vigente) return
@@ -163,6 +174,14 @@ export default function Personal() {
         mapaAsignaciones.set(a.teacher_id, set)
       }
       setAsignaciones(mapaAsignaciones)
+
+      const mapaRolesExtra = new Map<string, Set<UserRole>>()
+      for (const r of rolesExtraData ?? []) {
+        const set = mapaRolesExtra.get(r.profile_id) ?? new Set<UserRole>()
+        set.add(r.role as UserRole)
+        mapaRolesExtra.set(r.profile_id, set)
+      }
+      setRolesExtra(mapaRolesExtra)
 
       setEquipo(
         (data ?? []).map((p) => ({
@@ -288,6 +307,47 @@ export default function Personal() {
       return copia
     })
     setGuardandoModulo(null)
+  }
+
+  async function alternarRol(miembro: Miembro, rol: UserRole) {
+    // El rol activo de la cuenta (miembro.rol) siempre debe seguir en su
+    // lista de roles permitidos — si no, fn_cambiar_mi_rol jamás la dejaría
+    // volver a él. Se ignora el click en vez de dejar que alguien se quite
+    // sin querer el único rol con el que puede entrar hoy.
+    if (rol === miembro.rol) return
+
+    const claveOcupado = `${miembro.id}|${rol}`
+    setGuardandoRol(claveOcupado)
+    const supabase = createClient()
+    const yaAsignado = rolesExtra.get(miembro.id)?.has(rol) ?? false
+
+    if (yaAsignado) {
+      await supabase.from('profile_roles').delete().eq('profile_id', miembro.id).eq('role', rol)
+    } else {
+      // Además del rol nuevo, se asegura que su rol activo actual también
+      // esté en la lista (upsert, sin duplicar) — cuentas creadas después de
+      // la migración 085 no lo tienen todavía, y sin esto se quedarían sin
+      // forma de volver a su rol de siempre desde el selector al iniciar
+      // sesión.
+      await supabase.from('profile_roles').upsert(
+        [{ profile_id: miembro.id, role: rol }, { profile_id: miembro.id, role: miembro.rol }],
+        { onConflict: 'profile_id,role', ignoreDuplicates: true },
+      )
+    }
+
+    setRolesExtra((prev) => {
+      const copia = new Map(prev)
+      const set = new Set(copia.get(miembro.id) ?? [])
+      if (yaAsignado) {
+        set.delete(rol)
+      } else {
+        set.add(rol)
+        set.add(miembro.rol)
+      }
+      copia.set(miembro.id, set)
+      return copia
+    })
+    setGuardandoRol(null)
   }
 
   async function eliminar(id: string, nombre: string) {
@@ -571,6 +631,52 @@ export default function Personal() {
                     )}
                   </div>
                 )}
+
+                {/* Roles adicionales (migración 085): la misma cuenta puede
+                    entrar con más de un rol — pedido explícito del
+                    coordinador para Erika Hidalgo (vendedor + admin). El rol
+                    activo (la etiqueta de arriba) no se puede desmarcar aquí:
+                    dejarla sin ningún rol permitido la trabaría afuera. */}
+                {(() => {
+                  const misRolesExtra = rolesExtra.get(m.id) ?? new Set<UserRole>()
+                  const extrasSinActivo = [...misRolesExtra].filter((r) => r !== m.rol)
+                  return (
+                    <div className="border-t border-zr-border/60 pt-3">
+                      <button
+                        onClick={() => setExpandidoRoles((e) => (e === m.id ? null : m.id))}
+                        className="text-xs font-bold uppercase tracking-wide text-zr-blue-mid"
+                      >
+                        {expandidoRoles === m.id ? 'Ocultar roles' : `Roles adicionales (${extrasSinActivo.length})`}
+                      </button>
+
+                      {expandidoRoles === m.id && (
+                        <div className="mt-3 space-y-1">
+                          {rolesDisponibles.map((r) => {
+                            const esActivo = r.valor === m.rol
+                            const activo = esActivo || misRolesExtra.has(r.valor)
+                            const ocupado = guardandoRol === `${m.id}|${r.valor}`
+                            return (
+                              <button
+                                key={r.valor}
+                                onClick={() => alternarRol(m, r.valor)}
+                                disabled={ocupado || esActivo}
+                                className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors disabled:opacity-50 ${
+                                  activo ? 'bg-zr-blue/15 text-zr-blue' : 'text-zr-text-muted active:bg-zr-border/40'
+                                }`}
+                              >
+                                <span className="min-w-0 truncate">
+                                  {r.etiqueta}
+                                  {esActivo && <span className="ml-1.5 text-xs text-zr-text-muted">· rol activo ahora</span>}
+                                </span>
+                                {activo && <span className="shrink-0 text-xs font-bold">✓</span>}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
               )
             })}

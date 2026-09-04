@@ -21,6 +21,7 @@ interface ProximoSabado {
 interface Modulo {
   nombre: string
   descripcion: string | null
+  competencias: string[] | null
 }
 
 const NOMBRE_DIA = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
@@ -124,10 +125,10 @@ export default function Inicio() {
       if (moduloId) {
         const { data: mod } = await supabase
           .from('modules')
-          .select('name, description')
+          .select('name, description, competencias')
           .eq('id', moduloId)
           .single()
-        if (mod) setModulo({ nombre: mod.name, descripcion: mod.description })
+        if (mod) setModulo({ nombre: mod.name, descripcion: mod.description, competencias: mod.competencias })
       }
 
       // Qué días de esta semana ya se trabajaron. Fase 0 (Sprint 2) los
@@ -294,11 +295,46 @@ export default function Inicio() {
                 </button>
               </div>
             </div>
+          ) : modulo ? (
+            // Con "Casos" apagado (lib/flags.ts), este espacio no se deja
+            // vacío: a pedido explícito del coordinador, va el resumen corto
+            // y las competencias del módulo que está cursando — nada que
+            // dependa de que alguien lo revise o lo actualice a diario,
+            // solo lo mismo que ya muestra la malla curricular.
+            <button
+              onClick={() => router.push('/malla')}
+              className="zr-card overflow-hidden text-left"
+            >
+              <div className="border-b border-zr-border px-6 py-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">Estás cursando</p>
+                <p className="zr-display mt-2 text-xl text-zr-text">{modulo.nombre}</p>
+              </div>
+              <div className="space-y-3 px-6 py-6">
+                {modulo.descripcion && (
+                  <p className="text-sm leading-relaxed text-zr-text-muted">{modulo.descripcion}</p>
+                )}
+                {modulo.competencias && modulo.competencias.length > 0 && (
+                  <ul className="space-y-1.5">
+                    {modulo.competencias.slice(0, 3).map((c, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-zr-text">
+                        <IconoCheck size={14} className="mt-0.5 shrink-0 text-zr-blue-mid" />
+                        <span>{c}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="pt-1 text-xs font-bold uppercase tracking-wide text-zr-blue-mid">
+                  Ver la malla curricular completa ›
+                </p>
+              </div>
+            </button>
           ) : null}
         </Seccion>
 
-        {/* 02 — MI MÓDULO */}
-        {modulo && (
+        {/* 02 — MI MÓDULO: solo con "Casos" activo (lib/flags.ts) — si está
+            apagado, la sección 01 ya muestra el módulo actual y repetirlo
+            aquí sería lo mismo dos veces en la misma pantalla. */}
+        {modulo && CASOS_HABILITADO && (
           <Seccion numero={2} titulo="Mi módulo" delay={200}>
             <button
               onClick={() => router.push('/malla')}

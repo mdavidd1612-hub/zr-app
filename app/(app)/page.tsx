@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla } from '@/components/ui/Editorial'
 import { CASOS, diaSemanaISO, lunesDeLaSemana, fechaISO } from '@/lib/casos-fase0'
 import { leerSimulacionSabado } from '@/lib/demo-sabado'
+import { CASOS_HABILITADO } from '@/lib/flags'
 import { IconoCarnet, IconoCheck } from '@/components/ui/Iconos'
 
 interface ProximoSabado {
@@ -270,7 +271,7 @@ export default function Inicio() {
                 </button>
               </div>
             </div>
-          ) : (
+          ) : CASOS_HABILITADO ? (
             <div className="zr-card overflow-hidden">
               <div className="border-b border-zr-border px-6 py-5">
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">El caso de hoy</p>
@@ -293,7 +294,7 @@ export default function Inicio() {
                 </button>
               </div>
             </div>
-          )}
+          ) : null}
         </Seccion>
 
         {/* 02 — MI MÓDULO */}

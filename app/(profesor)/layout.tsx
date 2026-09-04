@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { esPersonal } from '@/lib/auth-helpers'
+import { CASOS_HABILITADO } from '@/lib/flags'
 import { Marco } from '@/components/ui/Marco'
 import { BannerSimulacion } from '@/components/ui/BannerSimulacion'
 import {
@@ -19,13 +20,18 @@ import type { UserRole } from '@/lib/types'
  * menú ☰.
  */
 
-const NAV = [
+const NAV_BASE = [
   { href: '/hoy',                label: 'Hoy',      Icono: IconoPanel },
   { href: '/dudas-docente',      label: 'Dudas',    Icono: IconoDuda },
   { href: '/casos-docente',      label: 'Casos',    Icono: IconoProgreso },
   { href: '/contenido-docente',  label: 'Material',  Icono: IconoDocumento },
   { href: '/perfil-docente',     label: 'Perfil',    Icono: IconoPerfil },
 ]
+
+// "Casos" apagado a pedido del coordinador (lib/flags.ts): la IA todavía no
+// pasó revisión de los profesores. Se quita del menú, no solo de la pantalla
+// — un ícono que lleva a nada confunde más que no tenerlo.
+const NAV = CASOS_HABILITADO ? NAV_BASE : NAV_BASE.filter((i) => i.href !== '/casos-docente')
 
 export default function ProfesorLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()

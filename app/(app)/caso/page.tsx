@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { CASOS, diaSemanaISO, fechaISO, type Caso, type PasoCaso } from '@/lib/casos-fase0'
+import { CASOS_HABILITADO } from '@/lib/flags'
 import { IconoFlechaAtras, IconoCheck } from '@/components/ui/Iconos'
 
 // Fase 0 (docs/16_FASE0_PLAN_PROFESOR.md, Sprint D): si el profesor ya
@@ -77,6 +78,13 @@ export default function TrabajarCaso() {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) {
         router.replace('/login')
+        return
+      }
+      // Apagado a pedido del coordinador (lib/flags.ts) hasta que los
+      // profesores revisen los casos generados por IA. Redirige por si
+      // alguien llega por un enlace guardado — Inicio ya no ofrece el botón.
+      if (!CASOS_HABILITADO) {
+        router.replace('/')
         return
       }
       setCaso(await cargarCaso(dia))

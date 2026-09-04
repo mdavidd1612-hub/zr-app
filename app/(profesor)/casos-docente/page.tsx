@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { CASOS_HABILITADO } from '@/lib/flags'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 
 /**
@@ -47,6 +48,15 @@ export default function CasosDocente() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.replace('/login')
+        return
+      }
+
+      // Apagado a pedido del coordinador (lib/flags.ts) hasta que los
+      // profesores revisen los casos generados por IA. Redirige por si
+      // alguien llega por un enlace guardado o escribe la URL directo — el
+      // menú ya no la ofrece.
+      if (!CASOS_HABILITADO) {
+        router.replace('/hoy')
         return
       }
 

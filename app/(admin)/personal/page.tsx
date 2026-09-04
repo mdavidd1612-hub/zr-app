@@ -723,8 +723,12 @@ export default function Personal() {
                 {/* Sedes asignadas (migración 087): solo aplica al rol
                     admin — super_admin y dirección académica siempre ven
                     todo, y un admin sin ninguna sede marcada tampoco se
-                    restringe (para no dejar a nadie afuera por accidente). */}
-                {m.rol === 'admin' && (() => {
+                    restringe (para no dejar a nadie afuera por accidente).
+                    Se fija en TODOS los roles de la cuenta (rolesExtra), no
+                    solo en el activo ahora mismo — Erika, por ejemplo,
+                    entra normalmente como vendedor, pero igual necesita su
+                    sede asignada para cuando use su rol de administración. */}
+                {(m.rol === 'admin' || rolesExtra.get(m.id)?.has('admin')) && (() => {
                   const misSedes = sedesAsignadas.get(m.id) ?? new Set<string>()
                   return (
                     <div className="border-t border-zr-border/60 pt-3">

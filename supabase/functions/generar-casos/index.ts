@@ -100,33 +100,49 @@ Reglas estrictas:
 Responde SOLO con un objeto JSON con esta forma exacta, sin explicación adicional:
 {"titulo": "...", "escenario": "...", "preguntas": [{"pregunta": "...", "opciones": ["...","...","...","..."], "correcta": 0}, {"pregunta": "...", "opciones": ["...","...","...","..."], "correcta": 0}], "reflexion": "...", "referencia": {"que": "...", "porQueNo": ["...","...","..."], "quedaClaro": "..."}}`
 
-    const respuesta = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'meta/llama-3.2-11b-vision-instruct',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.6,
-        max_tokens: 700,
-      }),
-    })
+    // La IA (capa gratuita de NVIDIA) a veces responde con un HTTP no-ok, o
+    // con un texto que no es JSON válido — no es raro, pasaba antes también,
+    // solo que el profesor lo tapaba con su botón de "reintentar a mano".
+    // Ahora que nadie toca esto (a pedido explícito), el reintento tiene que
+    // vivir aquí: hasta 2 intentos antes de rendirse, para que un tropiezo
+    // puntual de la IA no deje un día entero sin caso hasta el sábado
+    // siguiente.
+    let caso: Record<string, unknown> | null = null
+    let ultimoError: { code: string; message: string } | null = null
 
-    if (!respuesta.ok) {
-      const detalle = await respuesta.text()
-      console.error('generar-casos: NVIDIA respondió', respuesta.status, detalle)
-      return errorResponse('IA_NO_DISPONIBLE', 'No se pudo generar el caso ahora mismo', 502)
+    for (let intento = 1; intento <= 2 && !caso; intento++) {
+      const respuesta = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'meta/llama-3.2-11b-vision-instruct',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.6,
+          max_tokens: 700,
+        }),
+      })
+
+      if (!respuesta.ok) {
+        const detalle = await respuesta.text()
+        console.error(`generar-casos: intento ${intento}, NVIDIA respondió`, respuesta.status, detalle)
+        ultimoError = { code: 'IA_NO_DISPONIBLE', message: 'No se pudo generar el caso ahora mismo' }
+        continue
+      }
+
+      const cuerpo = await respuesta.json()
+      const texto = cuerpo.choices?.[0]?.message?.content ?? '{}'
+
+      try {
+        const match = texto.match(/\{[\s\S]*\}/)
+        caso = JSON.parse(match ? match[0] : texto)
+      } catch {
+        console.error(`generar-casos: intento ${intento}, no se pudo parsear la respuesta de la IA`, texto)
+        ultimoError = { code: 'IA_RESPUESTA_INVALIDA', message: 'La IA no devolvió un formato válido' }
+      }
     }
 
-    const cuerpo = await respuesta.json()
-    const texto = cuerpo.choices?.[0]?.message?.content ?? '{}'
-
-    let caso: Record<string, unknown> = {}
-    try {
-      const match = texto.match(/\{[\s\S]*\}/)
-      caso = JSON.parse(match ? match[0] : texto)
-    } catch {
-      console.error('generar-casos: no se pudo parsear la respuesta de la IA', texto)
-      return errorResponse('IA_RESPUESTA_INVALIDA', 'La IA no devolvió un formato válido', 502)
+    if (!caso) {
+      return errorResponse(ultimoError?.code ?? 'IA_NO_DISPONIBLE', ultimoError?.message ?? 'No se pudo generar el caso ahora mismo', 502)
     }
 
     const { error: guardarError } = await admin.from('ai_cases').upsert({

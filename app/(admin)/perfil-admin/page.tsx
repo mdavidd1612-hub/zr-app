@@ -77,20 +77,21 @@ export default function PerfilAdmin() {
 
     const { data: cohortesConEstudiantes } = await supabase
       .from('students')
-      .select('cohort_id, cohorts(id, current_module_id)')
+      .select('cohort_id, cohorts(id, current_module_id, teacher_id)')
       .not('cohort_id', 'is', null)
 
     const filas = (cohortesConEstudiantes ?? []) as unknown as {
-      cohort_id: string; cohorts: { id: string; current_module_id: string | null } | null
+      cohort_id: string
+      cohorts: { id: string; current_module_id: string | null; teacher_id: string | null } | null
     }[]
 
     const cohortesUnicas = new Map(
       filas
         .filter((f) => f.cohorts?.current_module_id)
-        .map((f) => [f.cohort_id, f.cohorts!.current_module_id!]),
+        .map((f) => [f.cohort_id, { moduloId: f.cohorts!.current_module_id!, profesorId: f.cohorts!.teacher_id }]),
     )
 
-    for (const [cohorteId, moduloId] of cohortesUnicas) {
+    for (const [cohorteId, { moduloId, profesorId }] of cohortesUnicas) {
       const { data: existente } = await supabase
         .from('class_sessions').select('id').eq('cohort_id', cohorteId).eq('session_date', hoyISO).maybeSingle()
       if (existente) continue
@@ -102,6 +103,7 @@ export default function PerfilAdmin() {
       await supabase.from('class_sessions').insert({
         cohort_id: cohorteId,
         module_id: moduloId,
+        teacher_id: profesorId,
         session_date: hoyISO,
         week_number: (ultima?.week_number ?? 0) + 1,
         status: 'programada',

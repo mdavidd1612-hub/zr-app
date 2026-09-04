@@ -200,20 +200,41 @@ export default function Configuracion() {
                 <p className="text-xs font-bold tabular-nums text-zr-blue-mid">{c.key}</p>
                 <p className="mt-1.5 text-sm text-zr-text-muted">{c.description}</p>
 
-                <div className="mt-3 flex gap-2">
-                  <input
-                    value={valorMostrado}
-                    onChange={(e) => setBorradores((b) => ({ ...b, [c.key]: e.target.value }))}
-                    className="min-w-0 flex-1 rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
-                  />
-                  <button
-                    onClick={() => guardar(c.key)}
-                    disabled={!cambio || guardando === c.key}
-                    className="shrink-0 rounded-lg bg-zr-blue px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    {guardando === c.key ? '…' : 'Guardar'}
-                  </button>
-                </div>
+                {/* Un valor largo (ej. terms.text) es texto para leer, no un
+                    número — se edita en un textarea, no en un input de una
+                    sola línea donde no se vería nada. */}
+                {valorMostrado.length > 80 ? (
+                  <div className="mt-3 space-y-2">
+                    <textarea
+                      value={valorMostrado}
+                      onChange={(e) => setBorradores((b) => ({ ...b, [c.key]: e.target.value }))}
+                      rows={10}
+                      className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm leading-relaxed text-zr-text focus:border-zr-blue focus:outline-none"
+                    />
+                    <button
+                      onClick={() => guardar(c.key)}
+                      disabled={!cambio || guardando === c.key}
+                      className="w-full rounded-lg bg-zr-blue px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      {guardando === c.key ? 'Guardando…' : 'Guardar'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      value={valorMostrado}
+                      onChange={(e) => setBorradores((b) => ({ ...b, [c.key]: e.target.value }))}
+                      className="min-w-0 flex-1 rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+                    />
+                    <button
+                      onClick={() => guardar(c.key)}
+                      disabled={!cambio || guardando === c.key}
+                      className="shrink-0 rounded-lg bg-zr-blue px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      {guardando === c.key ? '…' : 'Guardar'}
+                    </button>
+                  </div>
+                )}
 
                 <p className="mt-2 text-xs text-zr-text-muted">
                   {c.actualizadoPor ? `Último cambio: ${c.actualizadoPor}, ` : ''}

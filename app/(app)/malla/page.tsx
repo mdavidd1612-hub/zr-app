@@ -180,7 +180,7 @@ export default function MallaCurricular() {
                   {m.orden}
                 </span>
 
-                <div className="min-w-0 flex-1 space-y-2">
+                <div className="min-w-0 flex-1 space-y-2.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-base font-bold text-zr-text">{m.nombre}</p>
                     {m.estado === 'actual' && <Etiqueta tono="info">Cursando ahora</Etiqueta>}
@@ -192,18 +192,30 @@ export default function MallaCurricular() {
                     <p className="text-sm leading-relaxed text-zr-text-muted">{m.descripcion}</p>
                   )}
 
+                  {/* Máximo 3 a la vista — con las 6 completas de algunos
+                      módulos, la tarjeta se veía sobrecargada (pedido
+                      explícito del coordinador). El resto sigue completo en
+                      Mi módulo para el módulo que se está cursando. */}
                   {m.competencias && m.competencias.length > 0 && (
-                    <ul className="space-y-1 pt-1">
-                      {m.competencias.map((c, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-zr-text">
-                          <IconoCheck size={14} className="mt-0.5 shrink-0 text-zr-blue-mid" />
-                          <span>{c}</span>
-                        </li>
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {m.competencias.slice(0, 3).map((c, i) => (
+                        <span
+                          key={i}
+                          className="inline-flex items-center gap-1 rounded-full border border-zr-blue/20 bg-zr-blue/8 px-2.5 py-1 text-xs font-medium text-zr-text"
+                        >
+                          <IconoCheck size={12} className="shrink-0 text-zr-blue-mid" />
+                          {c}
+                        </span>
                       ))}
-                    </ul>
+                      {m.competencias.length > 3 && (
+                        <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold text-zr-text-muted">
+                          +{m.competencias.length - 3} más
+                        </span>
+                      )}
+                    </div>
                   )}
 
-                  <p className="text-xs font-semibold text-zr-text-muted">
+                  <p className="pt-0.5 text-xs font-bold uppercase tracking-wide text-zr-blue-mid">
                     {m.semanas * horasPorSabado} horas académicas · {m.semanas} {m.semanas === 1 ? 'sábado' : 'sábados'}
                   </p>
                 </div>

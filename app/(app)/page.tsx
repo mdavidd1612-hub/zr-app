@@ -120,8 +120,29 @@ export default function Inicio() {
         .select('cohorts(current_module_id)')
         .eq('id', user.id)
         .single()
-      const moduloId = (est as unknown as { cohorts: { current_module_id: string | null } | null } | null)
+      let moduloId = (est as unknown as { cohorts: { current_module_id: string | null } | null } | null)
         ?.cohorts?.current_module_id
+
+      // Vista de recorrido de super_admin (a pedido explícito del
+      // coordinador): no tiene fila en `students`, así que no hay módulo
+      // propio que leer. En vez de dejar este espacio vacío (que es
+      // exactamente lo que pasaba antes de este ajuste), se muestra en solo
+      // lectura el módulo de una cohorte real que ya tenga uno asignado —
+      // igual que ya hacían /clases y /malla.
+      if (!moduloId && perfil?.role === 'super_admin') {
+        const { data: cohortesConModulo } = await supabase
+          .from('cohorts')
+          .select('current_module_id, students(id)')
+          .not('current_module_id', 'is', null)
+          .eq('status', 'activa')
+
+        const filas = (cohortesConModulo ?? []) as unknown as {
+          current_module_id: string; students: { id: string }[] | null
+        }[]
+        const mejor = [...filas].sort((a, b) => (b.students?.length ?? 0) - (a.students?.length ?? 0))[0]
+        if (mejor) moduloId = mejor.current_module_id
+      }
+
       if (moduloId) {
         const { data: mod } = await supabase
           .from('modules')

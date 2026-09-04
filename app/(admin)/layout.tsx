@@ -7,14 +7,18 @@ import { esAdmin, esDireccionAcademica } from '@/lib/auth-helpers'
 import { type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Marco } from '@/components/ui/Marco'
 import {
-  IconoPanel, IconoEstudiantes, IconoCandado, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoProgreso,
+  IconoPanel, IconoEstudiantes, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoProgreso,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
 // Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, ajuste): las 5 secciones principales
 // del día a día van fijas en la barra — Panel, Asistencia, QR, Material y
-// Perfil. Estudiantes y Consentimientos se usan menos seguido y quedan en
-// el menú ☰.
+// Perfil. Estudiantes se usa menos seguido y queda en el menú ☰.
+//
+// "Consentimientos" se quitó del todo (pedido del coordinador): el bloqueo
+// real por LOPNNA ya se había quitado de la base desde la migración 051 —
+// esta pantalla solo quedaba mostrando una cola y un aviso de bloqueo que ya
+// no era cierto.
 const NAV: ItemBarra[] = [
   { href: '/panel',        label: 'Panel',      Icono: IconoPanel },
   { href: '/asistencias',  label: 'Asistencia', Icono: IconoCalendario },
@@ -38,7 +42,6 @@ const TODAS: ItemBarra[] = [
   NAV[0],
   { href: '/inscribir',       label: 'Inscribir',       Icono: IconoEstudiantes },
   { href: '/estudiantes',     label: 'Estudiantes',     Icono: IconoEstudiantes },
-  { href: '/consentimientos', label: 'Consentimientos', Icono: IconoCandado },
   NAV[3],
   NAV[1],
   NAV[2],
@@ -46,22 +49,20 @@ const TODAS: ItemBarra[] = [
 ]
 
 // Dirección Académica: profesores, notas de cualquier cohorte, exámenes —
-// pero no Configuración (exclusivo de super_admin). Consentimientos es
-// trabajo de ESTUDIANTES (admin normal), no de PROFESORES/notas — no va en
-// este menú (división de trabajo de la línea 33).
+// pero no Configuración (exclusivo de super_admin).
 const TODAS_DIRECCION: ItemBarra[] = [
-  ...TODAS.slice(0, 7).filter((i) => i.href !== '/consentimientos'),
+  ...TODAS.slice(0, 6),
   { href: '/personal',             label: 'Personal',     Icono: IconoPersonal },
   { href: '/notas-academicas',     label: 'Notas',        Icono: IconoNotas },
   { href: '/examenes-academicos',  label: 'Exámenes',     Icono: IconoExamen },
   // Resúmenes de "Mi módulo" (estático, a pedido explícito) — is_academico()
   // ya deja escribir 'modules' a dirección académica y super_admin por igual.
   { href: '/modulos',              label: 'Módulos',      Icono: IconoProgreso },
-  TODAS[7],
+  TODAS[6],
 ]
 
 const TODAS_SUPER: ItemBarra[] = [
-  ...TODAS.slice(0, 7).filter((i) => i.href !== '/consentimientos'),
+  ...TODAS.slice(0, 6),
   { href: '/personal',             label: 'Personal',      Icono: IconoPersonal },
   { href: '/notas-academicas',     label: 'Notas',         Icono: IconoNotas },
   { href: '/examenes-academicos',  label: 'Exámenes',      Icono: IconoExamen },
@@ -70,7 +71,7 @@ const TODAS_SUPER: ItemBarra[] = [
   // (migración 066) — el enlace solo aparece en este menú.
   { href: '/catalogo',             label: 'Catálogo',      Icono: IconoDocumento },
   { href: '/configuracion',        label: 'Configuración', Icono: IconoPanel },
-  TODAS[7],
+  TODAS[6],
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

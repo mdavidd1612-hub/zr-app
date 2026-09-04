@@ -4,14 +4,10 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Dato } from '@/components/ui/Editorial'
-import { IconoEstudiantes, IconoCandado, IconoNotas, IconoPanel, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet } from '@/components/ui/Iconos'
+import { IconoEstudiantes, IconoNotas, IconoPanel, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet } from '@/components/ui/Iconos'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { leerSimulacionSabado } from '@/lib/demo-sabado'
 import type { UserRole } from '@/lib/types'
-
-interface Estadisticas {
-  consentimientosPendientes: number
-}
 
 interface SesionHoy {
   sessionId: string
@@ -21,10 +17,8 @@ interface SesionHoy {
 }
 
 // Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, Sprint A): Cohortes y Reportes se
-// retiran de los accesos (código intacto, se retoman después). Consentimientos
-// queda como el único acceso directo a esa pantalla — ya no está en la barra.
+// retiran de los accesos (código intacto, se retoman después).
 const ACCESOS = [
-  { href: '/consentimientos', titulo: 'Consentimientos', sub: 'Revisar permisos pendientes', Icono: IconoCandado },
   { href: '/estudiantes',     titulo: 'Estudiantes',      sub: 'Ver y gestionar registros',  Icono: IconoEstudiantes },
   { href: '/material',        titulo: 'Material',         sub: 'Subir por programa',          Icono: IconoDocumento },
   { href: '/asistencias',     titulo: 'Asistencia',       sub: 'Por programa, en vivo',        Icono: IconoCalendario },
@@ -58,7 +52,6 @@ const ACCESO_PROFESOR =   { href: '/hoy',          titulo: 'Vista de Profesor', 
 
 export default function Panel() {
   const router = useRouter()
-  const [stats, setStats] = useState<Estadisticas | null>(null)
   const [rol, setRol] = useState<UserRole | null>(null)
   const [sesionesHoy, setSesionesHoy] = useState<SesionHoy[]>([])
   const [cargando, setCargando] = useState(true)
@@ -85,14 +78,6 @@ export default function Panel() {
 
       const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
       setRol((perfil?.role as UserRole) ?? null)
-
-      // v_students_blocked ya filtra por "menor de edad Y (sin consentimiento
-      // O sin verificar)". Contar por onboarding_status daría un número que
-      // no corresponde a lo que /consentimientos realmente muestra.
-      const { count: pendientes } = await supabase
-        .from('v_students_blocked').select('id', { count: 'exact', head: true })
-
-      setStats({ consentimientosPendientes: pendientes ?? 0 })
 
       // Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, Sprint D): el sábado, calendario
       // de las sesiones de hoy, una tarjeta por cohorte, con registrados
@@ -130,7 +115,7 @@ export default function Panel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
-  if (cargando || !stats) {
+  if (cargando) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
         <p className="text-sm text-zr-text-muted">Cargando panel…</p>
@@ -152,19 +137,6 @@ export default function Panel() {
 
       {esSabado && (
         <Seccion numero={1} titulo={`Hoy, sábado ${hoy.getDate()}`} delay={120}>
-          {stats.consentimientosPendientes > 0 && (
-            <button
-              onClick={() => router.push('/consentimientos')}
-              className="zr-card w-full border-zr-warning/30 bg-zr-warning/8 p-5 text-left"
-            >
-              <p className="text-base font-semibold text-zr-text">
-                {stats.consentimientosPendientes} consentimiento
-                {stats.consentimientosPendientes === 1 ? '' : 's'} pendiente
-                {stats.consentimientosPendientes === 1 ? '' : 's'}
-              </p>
-              <p className="mt-1 text-sm text-zr-text-muted">Toca para revisarlos</p>
-            </button>
-          )}
           {sesionesHoy.length === 0 ? (
             <div className="zr-card p-6">
               <p className="text-sm text-zr-text-muted">No hay sesiones de clase programadas para hoy.</p>

@@ -24,8 +24,6 @@ interface Estudiante {
   cohorteId: string | null
   estado: string
   esMenor: boolean
-  tieneConsentimiento: boolean
-  consentimientoVerificado: boolean
   validado: boolean
 }
 
@@ -55,21 +53,16 @@ export default function Estudiantes() {
       const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
       if (vigente) setMiRol((perfil?.role as UserRole) ?? null)
 
-      const [{ data }, { data: consentimientos }] = await Promise.all([
-        // Ordenado por cohorte y luego por nombre — Fase 0
-        // (docs/15_FASE0_PLAN_ADMIN.md, Sprint B). Postgrest ordena nulls al
-        // final por defecto, así que "Sin cohorte" queda agrupado al final.
-        supabase
-          .from('v_students')
-          .select('id, full_name, cedula, cohort_id, status, age_years, is_minor, validated_at, cohorts(name)')
-          .order('cohort_id', { nullsFirst: false })
-          .order('full_name'),
-        supabase.from('parental_consents').select('student_id, verified_at').eq('consent_type', 'account_creation'),
-      ])
+      // Ordenado por cohorte y luego por nombre — Fase 0
+      // (docs/15_FASE0_PLAN_ADMIN.md, Sprint B). Postgrest ordena nulls al
+      // final por defecto, así que "Sin cohorte" queda agrupado al final.
+      const { data } = await supabase
+        .from('v_students')
+        .select('id, full_name, cedula, cohort_id, status, age_years, is_minor, validated_at, cohorts(name)')
+        .order('cohort_id', { nullsFirst: false })
+        .order('full_name')
 
       if (!vigente) return
-
-      const porEstudiante = new Map((consentimientos ?? []).map((c) => [c.student_id, c.verified_at]))
 
       const filas = data as unknown as {
         id: string; full_name: string; cedula: string; cohort_id: string | null
@@ -87,8 +80,6 @@ export default function Estudiantes() {
           cohorteId: e.cohort_id,
           estado: e.status,
           esMenor: e.is_minor,
-          tieneConsentimiento: porEstudiante.has(e.id),
-          consentimientoVerificado: porEstudiante.get(e.id) != null,
           validado: Boolean(e.validated_at),
         })),
       )
@@ -246,11 +237,7 @@ export default function Estudiantes() {
                     <div className="flex shrink-0 flex-col items-end gap-1.5">
                       {!e.validado && <Etiqueta tono="aviso">Pendiente de validar</Etiqueta>}
                       {e.estado === 'suspendido' && <Etiqueta tono="error">Suspendido</Etiqueta>}
-                      {e.esMenor && (
-                        <Etiqueta tono={e.consentimientoVerificado ? 'exito' : e.tieneConsentimiento ? 'aviso' : 'error'}>
-                          {e.consentimientoVerificado ? 'Consentimiento OK' : e.tieneConsentimiento ? 'Sin verificar' : 'Sin consentimiento'}
-                        </Etiqueta>
-                      )}
+                      {e.esMenor && <Etiqueta tono="info">Menor de edad</Etiqueta>}
                     </div>
                   </div>
 

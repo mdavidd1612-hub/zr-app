@@ -301,7 +301,7 @@ export default function Inicio() {
         {modulo && (
           <Seccion numero={2} titulo="Mi módulo" delay={200}>
             <button
-              onClick={() => router.push('/clases')}
+              onClick={() => router.push('/malla')}
               className="zr-card zr-card-interactive w-full overflow-hidden p-0 text-left"
             >
               <div className="px-6 py-5">

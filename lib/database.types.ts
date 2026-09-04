@@ -527,6 +527,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "cohorts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "cohorts_current_module_id_fkey"
             columns: ["current_module_id"]
             isOneToOne: false
@@ -1609,6 +1616,7 @@ export type Database = {
       }
       modules: {
         Row: {
+          competencias: string[] | null
           created_at: string
           description: string | null
           duration_weeks: number
@@ -1620,6 +1628,7 @@ export type Database = {
           program_id: string
         }
         Insert: {
+          competencias?: string[] | null
           created_at?: string
           description?: string | null
           duration_weeks?: number
@@ -1631,6 +1640,7 @@ export type Database = {
           program_id: string
         }
         Update: {
+          competencias?: string[] | null
           created_at?: string
           description?: string | null
           duration_weeks?: number
@@ -1945,27 +1955,6 @@ export type Database = {
           },
         ]
       }
-      sedes: {
-        Row: {
-          activa: boolean
-          created_at: string
-          id: string
-          nombre: string
-        }
-        Insert: {
-          activa?: boolean
-          created_at?: string
-          id?: string
-          nombre: string
-        }
-        Update: {
-          activa?: boolean
-          created_at?: string
-          id?: string
-          nombre?: string
-        }
-        Relationships: []
-      }
       push_subscriptions: {
         Row: {
           auth: string
@@ -2003,6 +1992,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sedes: {
+        Row: {
+          activa: boolean
+          created_at: string
+          id: string
+          nombre: string
+        }
+        Insert: {
+          activa?: boolean
+          created_at?: string
+          id?: string
+          nombre: string
+        }
+        Update: {
+          activa?: boolean
+          created_at?: string
+          id?: string
+          nombre?: string
+        }
+        Relationships: []
       }
       session_checkin_codes: {
         Row: {
@@ -2305,7 +2315,15 @@ export type Database = {
           updated_by?: string | null
           value?: Json
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "system_config_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       system_config_history: {
         Row: {
@@ -2332,7 +2350,15 @@ export type Database = {
           new_value?: Json
           old_value?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "system_config_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       teacher_module_assignments: {
         Row: {
@@ -2615,6 +2641,7 @@ export type Database = {
       }
     }
     Functions: {
+      a_romano: { Args: { n: number }; Returns: string }
       age_years: { Args: { p_birth_date: string }; Returns: number }
       auth_role: {
         Args: never
@@ -2633,11 +2660,18 @@ export type Database = {
       cfg: { Args: { p_key: string }; Returns: Json }
       cfg_int: { Args: { p_default: number; p_key: string }; Returns: number }
       cfg_num: { Args: { p_default: number; p_key: string }; Returns: number }
+      cohorte_esta_vacia: { Args: { p_cohort_id: string }; Returns: boolean }
       crear_sede_con_programa: {
-        Args: { p_nombre_programa: string; p_nombre_sede: string; p_siglas: string }
+        Args: {
+          p_nombre_programa: string
+          p_nombre_sede: string
+          p_siglas: string
+        }
         Returns: string
       }
       fn_generar_caso_del_dia: { Args: never; Returns: undefined }
+      fn_generar_sesion_semanal: { Args: never; Returns: undefined }
+      is_academico: { Args: never; Returns: boolean }
       is_admin_up: { Args: never; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
       is_student: { Args: never; Returns: boolean }
@@ -2715,12 +2749,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2744,11 +2778,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2769,11 +2803,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2794,11 +2828,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2811,11 +2845,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

@@ -5,12 +5,15 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { IconoCheck } from '@/components/ui/Iconos'
 
 /**
  * Malla curricular (especificacion-funcional-zrm-academy.md §9, Módulo 7):
- * todos los módulos del programa y el ORDEN en que se cursan. El estudiante
- * necesita ver el camino completo, no solo el módulo de esta semana — que es
- * lo único que muestra /clases.
+ * todos los módulos del programa y el ORDEN en que se cursan — reemplaza a
+ * "Mi módulo" del todo, a pedido explícito del coordinador ("que esa
+ * sección sea una malla curricular"). El resumen es corto (2-3 frases) más
+ * las competencias que se adquieren — nada de párrafos largos, "nadie los
+ * lee" (pedido explícito, migración 079).
  *
  * No es "Mi progreso" ni el mapa de dominio: aquí no hay competencias
  * dominadas ni notas, solo tres estados derivados de dónde está su cohorte
@@ -24,6 +27,7 @@ interface ModuloMalla {
   orden: number
   nombre: string
   descripcion: string | null
+  competencias: string[] | null
   semanas: number
   homologado: boolean
   estado: Estado
@@ -33,6 +37,7 @@ export default function MallaCurricular() {
   const router = useRouter()
   const [programa, setPrograma] = useState<string | null>(null)
   const [modulos, setModulos] = useState<ModuloMalla[]>([])
+  const [horasPorSabado, setHorasPorSabado] = useState(4)
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
@@ -44,6 +49,10 @@ export default function MallaCurricular() {
         return
       }
 
+      const { data: config } = await supabase
+        .from('system_config').select('value').eq('key', 'academia.horas_por_sabado').maybeSingle()
+      if (config?.value != null) setHorasPorSabado(Number(config.value))
+
       const { data: est } = await supabase
         .from('students')
         .select('cohorts(current_module_id, programs(id, name))')
@@ -54,6 +63,8 @@ export default function MallaCurricular() {
         cohorts: { current_module_id: string | null; programs: { id: string; name: string } | null } | null
       } | null)?.cohorts
 
+      const columnas = 'id, order_index, name, description, competencias, duration_weeks, inces_homologado'
+
       if (!cohorte?.programs) {
         // Sin programa asignado todavía (o vista de recorrido de super_admin,
         // sin fila en students): el contenido de los 14 módulos es el mismo
@@ -61,16 +72,14 @@ export default function MallaCurricular() {
         // estados de cursado/actual (no hay una cohorte real de la que
         // derivarlos), en vez de un mensaje vacío.
         const { data: todos } = await supabase
-          .from('modules')
-          .select('order_index, name, description, duration_weeks, inces_homologado')
-          .order('order_index', { ascending: true })
+          .from('modules').select(columnas).order('order_index', { ascending: true })
 
         interface ModuloCrudo {
-          order_index: number; name: string; description: string | null
+          order_index: number; name: string; description: string | null; competencias: string[] | null
           duration_weeks: number; inces_homologado: boolean
         }
         const unicos = new Map<number, ModuloCrudo>()
-        for (const m of (todos ?? []) as ModuloCrudo[]) {
+        for (const m of (todos ?? []) as unknown as ModuloCrudo[]) {
           if (!unicos.has(m.order_index)) unicos.set(m.order_index, m)
         }
 
@@ -81,6 +90,7 @@ export default function MallaCurricular() {
             orden: m.order_index,
             nombre: m.name,
             descripcion: m.description,
+            competencias: m.competencias,
             semanas: m.duration_weeks,
             homologado: m.inces_homologado,
             estado: 'pendiente',
@@ -92,7 +102,7 @@ export default function MallaCurricular() {
 
       const { data: mods } = await supabase
         .from('modules')
-        .select('id, order_index, name, description, duration_weeks, inces_homologado')
+        .select(columnas)
         .eq('program_id', cohorte.programs.id)
         .order('order_index', { ascending: true })
 
@@ -106,6 +116,7 @@ export default function MallaCurricular() {
         orden: m.order_index,
         nombre: m.name,
         descripcion: m.description,
+        competencias: m.competencias,
         semanas: m.duration_weeks,
         homologado: m.inces_homologado,
         estado:
@@ -169,7 +180,7 @@ export default function MallaCurricular() {
                   {m.orden}
                 </span>
 
-                <div className="min-w-0 flex-1 space-y-1.5">
+                <div className="min-w-0 flex-1 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-base font-bold text-zr-text">{m.nombre}</p>
                     {m.estado === 'actual' && <Etiqueta tono="info">Cursando ahora</Etiqueta>}
@@ -181,8 +192,19 @@ export default function MallaCurricular() {
                     <p className="text-sm leading-relaxed text-zr-text-muted">{m.descripcion}</p>
                   )}
 
-                  <p className="text-xs text-zr-text-muted">
-                    {m.semanas} {m.semanas === 1 ? 'semana' : 'semanas'}
+                  {m.competencias && m.competencias.length > 0 && (
+                    <ul className="space-y-1 pt-1">
+                      {m.competencias.map((c, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-zr-text">
+                          <IconoCheck size={14} className="mt-0.5 shrink-0 text-zr-blue-mid" />
+                          <span>{c}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <p className="text-xs font-semibold text-zr-text-muted">
+                    {m.semanas * horasPorSabado} horas académicas · {m.semanas} {m.semanas === 1 ? 'sábado' : 'sábados'}
                   </p>
                 </div>
               </div>

@@ -3,7 +3,6 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { esPersonal } from '@/lib/auth-helpers'
 import { CASOS_HABILITADO } from '@/lib/flags'
 import { Marco } from '@/components/ui/Marco'
 import { BannerSimulacion } from '@/components/ui/BannerSimulacion'
@@ -37,8 +36,9 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
   const router = useRouter()
   const pathname = usePathname()
   const [verificando, setVerificando] = useState(true)
-  // A pedido explícito del coordinador: super_admin puede recorrer la
-  // vista de profesor sin crear una cuenta de prueba aparte.
+  // A pedido explícito del coordinador: dirección académica y super_admin
+  // pueden recorrer la vista de profesor sin crear una cuenta de prueba
+  // aparte (administración NO — esta vista es solo de las dos anteriores).
   const [simulando, setSimulando] = useState(false)
 
   // La pantalla de escaneo necesita cada centímetro: es la que se usa de
@@ -60,12 +60,13 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
         .from('profiles').select('role').eq('id', user.id).single()
 
       const rol = perfil?.role as UserRole | undefined
-      if (rol === 'super_admin') setSimulando(true)
+      if (rol === 'super_admin' || rol === 'direccion_academica') setSimulando(true)
 
-      // Un estudiante que escriba /calificar en la barra de direcciones se va a
-      // su pantalla. La RLS ya lo bloquea en la base; esto solo evita que vea
-      // un panel vacío y crea que la app está rota.
-      if (!esPersonal(rol)) {
+      // Un estudiante (o administración, que no tiene vista de profesor) que
+      // escriba /calificar en la barra de direcciones se va a su pantalla. La
+      // RLS ya lo bloquea en la base; esto solo evita que vea un panel vacío
+      // y crea que la app está rota.
+      if (rol !== 'profesor' && rol !== 'direccion_academica' && rol !== 'super_admin') {
         router.replace('/')
         return
       }

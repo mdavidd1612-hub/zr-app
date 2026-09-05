@@ -25,13 +25,13 @@ const NAV: ItemBarra[] = [
 export default function VendedorLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [verificando, setVerificando] = useState(true)
-  // A pedido explícito del coordinador (transcripción de audio,
-  // docs/19_PLAN_CAMBIOS_POST_DIRECTIVA.md): que super_admin pueda entrar a
-  // ver cómo es la app para ventas, sin tener que crear una cuenta de
-  // prueba aparte. Es solo el menú y las pantallas — los datos que ve y
-  // puede tocar siguen siendo los que su propio rol de super_admin ya
-  // permite (más amplio que un vendedor real), así que el banner de abajo
-  // deja claro que esto es una vista de recorrido, no una cuenta distinta.
+  // A pedido explícito del coordinador: administración y super_admin pueden
+  // entrar a ver cómo es la app para ventas, sin tener que crear una cuenta
+  // de prueba aparte (dirección académica NO — esta vista es solo de las
+  // dos anteriores). Es solo el menú y las pantallas — los datos que ve y
+  // puede tocar siguen siendo los que su propio rol ya permite, así que el
+  // banner de abajo deja claro que esto es una vista de recorrido, no una
+  // cuenta distinta.
   const [simulando, setSimulando] = useState(false)
 
   useEffect(() => {
@@ -49,7 +49,7 @@ export default function VendedorLayout({ children }: { children: React.ReactNode
 
       const rol = perfil?.role as UserRole | undefined
 
-      if (rol === 'super_admin') {
+      if (rol === 'super_admin' || rol === 'admin') {
         setSimulando(true)
       } else if (!esVendedor(rol)) {
         router.replace('/')

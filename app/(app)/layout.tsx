@@ -39,11 +39,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [validado, setValidado] = useState(true)
   // `undefined` = todavía no se sabe. Todo lo demás en este layout (formulario
   // de primer login, términos, validación) espera a saber el rol antes de
-  // decidir nada — así super_admin, que no tiene fila en `students` ni en
-  // `student_profile_details`, no cae en esas pantallas al usar la vista de
-  // recorrido (a pedido explícito del coordinador).
+  // decidir nada — así administración/dirección académica/super_admin, que
+  // no tienen fila en `students` ni en `student_profile_details`, no caen en
+  // esas pantallas al usar la vista de recorrido (a pedido explícito del
+  // coordinador: los tres pueden recorrer la vista de estudiante).
   const [rol, setRol] = useState<UserRole | null | undefined>(undefined)
-  const simulando = rol === 'super_admin'
+  const simulando = rol === 'super_admin' || rol === 'admin' || rol === 'direccion_academica'
   // Tour del primer ingreso (migración 084): vive aquí, no en una page.tsx
   // suelta, para que su progreso sobreviva la navegación entre Inicio, Mi
   // módulo, Material, Dudas y Perfil — un layout no se remonta al cambiar de

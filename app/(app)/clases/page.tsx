@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { IconoCheck } from '@/components/ui/Iconos'
+import { esAdmin } from '@/lib/auth-helpers'
+import type { UserRole } from '@/lib/types'
 
 /**
  * "Mi módulo": el módulo que el estudiante está cursando ahora mismo, con
@@ -48,14 +50,14 @@ export default function MiModulo() {
       let moduloId = (est as unknown as { cohorts: { current_module_id: string | null } | null } | null)
         ?.cohorts?.current_module_id ?? null
 
-      // Vista de recorrido de super_admin (a pedido explícito del
-      // coordinador): no tiene fila en `students`, así que no hay nada que
-      // mostrarle. En vez de inventar una inscripción falsa, se le muestra
-      // en SOLO LECTURA un programa real que ya exista y tenga módulo
-      // asignado — el más poblado, para que se vea con contenido.
+      // Vista de recorrido (admin, dirección académica y super_admin): no
+      // tienen fila en `students`, así que no hay nada que mostrarles. En
+      // vez de inventar una inscripción falsa, se les muestra en SOLO
+      // LECTURA un programa real que ya exista y tenga módulo asignado — el
+      // más poblado, para que se vea con contenido.
       if (!moduloId) {
         const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-        if (perfil?.role === 'super_admin') {
+        if (esAdmin(perfil?.role as UserRole | undefined)) {
           const { data: cohortesConModulo } = await supabase
             .from('cohorts')
             .select('id, current_module_id, students(id)')

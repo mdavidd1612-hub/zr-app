@@ -8,6 +8,8 @@ import { CASOS, diaSemanaISO, lunesDeLaSemana, fechaISO } from '@/lib/casos-fase
 import { leerSimulacionSabado } from '@/lib/demo-sabado'
 import { CASOS_HABILITADO } from '@/lib/flags'
 import { IconoCarnet, IconoCheck } from '@/components/ui/Iconos'
+import { esAdmin } from '@/lib/auth-helpers'
+import type { UserRole } from '@/lib/types'
 
 interface ProximoSabado {
   sessionId: string
@@ -81,10 +83,11 @@ export default function Inicio() {
 
       const { data: estValidacion } = await supabase
         .from('students').select('validated_at').eq('id', user.id).maybeSingle()
-      // super_admin en la vista de recorrido (a pedido explícito del
-      // coordinador) no tiene fila en `students` — sin esto, se quedaba
-      // atascado viendo "Tu cuenta está siendo validada".
-      const yaValidado = Boolean(estValidacion?.validated_at) || perfil?.role === 'super_admin'
+      // Vista de recorrido (a pedido explícito del coordinador: admin,
+      // dirección académica y super_admin pueden recorrer esta vista) — esas
+      // cuentas no tienen fila en `students`, así que sin esto se quedaban
+      // atascadas viendo "Tu cuenta está siendo validada".
+      const yaValidado = Boolean(estValidacion?.validated_at) || esAdmin(perfil?.role as UserRole | undefined)
       setValidado(yaValidado)
 
       // Sin validar todavía no tiene sentido cargar horario, módulo ni
@@ -123,13 +126,12 @@ export default function Inicio() {
       let moduloId = (est as unknown as { cohorts: { current_module_id: string | null } | null } | null)
         ?.cohorts?.current_module_id
 
-      // Vista de recorrido de super_admin (a pedido explícito del
-      // coordinador): no tiene fila en `students`, así que no hay módulo
-      // propio que leer. En vez de dejar este espacio vacío (que es
-      // exactamente lo que pasaba antes de este ajuste), se muestra en solo
-      // lectura el módulo de una cohorte real que ya tenga uno asignado —
-      // igual que ya hacían /clases y /malla.
-      if (!moduloId && perfil?.role === 'super_admin') {
+      // Vista de recorrido (admin, dirección académica y super_admin): no
+      // tienen fila en `students`, así que no hay módulo propio que leer. En
+      // vez de dejar este espacio vacío, se muestra en solo lectura el
+      // módulo de una cohorte real que ya tenga uno asignado — igual que ya
+      // hacían /clases y /malla.
+      if (!moduloId && esAdmin(perfil?.role as UserRole | undefined)) {
         const { data: cohortesConModulo } = await supabase
           .from('cohorts')
           .select('current_module_id, students(id)')

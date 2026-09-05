@@ -20,7 +20,7 @@ const PUBLIC_ROUTES = ['/login', '/recuperar', '/api/auth/callback', '/descargar
 // hacer match de prefijo con el otro rol por accidente.
 const RUTAS_ESTUDIANTE = ['/', '/clases', '/contenido', '/examenes', '/perfil', '/progreso', '/completar-perfil', '/aceptar-terminos', '/malla']
 const RUTAS_PROFESOR = ['/hoy', '/sesiones', '/crear-examen', '/calificar', '/perfil-docente', '/contenido-docente', '/dominio', '/escanear', '/feedback-clase']
-const RUTAS_ADMIN = ['/panel', '/estudiantes', '/consentimientos', '/cohortes', '/reportes', '/perfil-admin', '/configuracion', '/personal', '/notas-academicas', '/examenes-academicos']
+const RUTAS_ADMIN = ['/panel', '/estudiantes', '/consentimientos', '/cohortes', '/reportes', '/perfil-admin', '/configuracion', '/personal', '/notas-academicas', '/examenes-academicos', '/cobertura-modulos']
 
 function empiezaConAlguna(pathname: string, rutas: string[]) {
   return rutas.some((r) => pathname === r || pathname.startsWith(r + '/'))
@@ -86,14 +86,15 @@ export async function proxy(request: NextRequest) {
   const esRutaDeProfesor = empiezaConAlguna(pathname, RUTAS_PROFESOR) || esNotasProfesor(pathname)
   const esRutaDeAdmin = empiezaConAlguna(pathname, RUTAS_ADMIN)
 
-  // super_admin puede entrar a las vistas de recorrido de estudiante y
-  // profesor (a pedido explícito del coordinador, docs/19_...) — el layout
-  // de cada una ya sabe mostrar el banner de "vista de recorrido" y saltarse
-  // los pasos que no le aplican (onboarding, validación, etc).
-  if (esRutaDeEstudiante && role !== 'estudiante' && role !== 'super_admin') {
+  // Vistas de recorrido (a pedido explícito del coordinador, docs/19_...):
+  // administración, dirección académica y super_admin pueden recorrer la
+  // vista de estudiante; dirección académica y super_admin también la de
+  // profesor. El layout de cada una ya sabe mostrar el banner de "vista de
+  // recorrido" y saltarse los pasos que no le aplican (onboarding, etc).
+  if (esRutaDeEstudiante && !['estudiante', 'admin', 'direccion_academica', 'super_admin'].includes(role)) {
     return NextResponse.redirect(new URL(INICIO_POR_ROL[role] ?? '/', request.url))
   }
-  if (esRutaDeProfesor && role !== 'profesor' && role !== 'super_admin') {
+  if (esRutaDeProfesor && !['profesor', 'direccion_academica', 'super_admin'].includes(role)) {
     return NextResponse.redirect(new URL(INICIO_POR_ROL[role] ?? '/', request.url))
   }
   if (esRutaDeAdmin && !['admin', 'super_admin', 'direccion_academica'].includes(role)) {

@@ -62,6 +62,7 @@ const TODAS: ItemBarra[] = [
 const TODAS_DIRECCION: ItemBarra[] = [
   ...TODAS.slice(0, 6),
   { href: '/personal',             label: 'Personal',     Icono: IconoPersonal, grupo: 'Dirección académica' },
+  { href: '/cobertura-modulos',    label: 'Cobertura',    Icono: IconoProgreso, grupo: 'Dirección académica' },
   { href: '/notas-academicas',     label: 'Notas',        Icono: IconoNotas,    grupo: 'Dirección académica' },
   { href: '/examenes-academicos',  label: 'Exámenes',     Icono: IconoExamen,   grupo: 'Dirección académica' },
   // Resúmenes de "Mi módulo" (estático, a pedido explícito) — is_academico()
@@ -73,6 +74,7 @@ const TODAS_DIRECCION: ItemBarra[] = [
 const TODAS_SUPER: ItemBarra[] = [
   ...TODAS.slice(0, 6),
   { href: '/personal',             label: 'Personal',      Icono: IconoPersonal, grupo: 'Dirección académica' },
+  { href: '/cobertura-modulos',    label: 'Cobertura',     Icono: IconoProgreso, grupo: 'Dirección académica' },
   { href: '/notas-academicas',     label: 'Notas',         Icono: IconoNotas,    grupo: 'Dirección académica' },
   { href: '/examenes-academicos',  label: 'Exámenes',      Icono: IconoExamen,   grupo: 'Dirección académica' },
   { href: '/modulos',              label: 'Módulos',       Icono: IconoProgreso, grupo: 'Dirección académica' },

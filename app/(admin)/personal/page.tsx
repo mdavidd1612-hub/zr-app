@@ -31,6 +31,7 @@ interface Miembro {
   cedula: string
   nombre: string
   correo: string | null
+  telefono: string | null
   rol: UserRole
   cohortes: string[]
 }
@@ -88,7 +89,6 @@ export default function Personal() {
   const [asignaciones, setAsignaciones] = useState<Map<string, Set<string>>>(new Map())
   const [expandido, setExpandido] = useState<string | null>(null)
   const [guardandoModulo, setGuardandoModulo] = useState<string | null>(null)
-  const [guardandoAsignacionModulo, setGuardandoAsignacionModulo] = useState<string | null>(null)
   const [rolesExtra, setRolesExtra] = useState<Map<string, Set<UserRole>>>(new Map())
   const [expandidoRoles, setExpandidoRoles] = useState<string | null>(null)
   const [guardandoRol, setGuardandoRol] = useState<string | null>(null)
@@ -114,6 +114,13 @@ export default function Personal() {
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
   const [eliminando, setEliminando] = useState<string | null>(null)
+
+  // Editar nombre/cédula/correo/teléfono de una cuenta ya creada (pedido
+  // explícito del coordinador) — exclusivo de super_admin.
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [formEdicion, setFormEdicion] = useState({ nombre: '', cedula: '', correo: '', telefono: '' })
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false)
+  const [errorEdicion, setErrorEdicion] = useState<string | null>(null)
 
   useEffect(() => {
     let vigente = true
@@ -152,7 +159,7 @@ export default function Personal() {
       const [{ data }, { data: cohs }, { data: mods }, { data: asigs }, { data: rolesExtraData }, { data: sedesData }, { data: adminSedesData }] = await Promise.all([
         supabase
           .from('profiles')
-          .select('id, cedula, full_name, contact_email, role')
+          .select('id, cedula, full_name, contact_email, phone, role')
           .in('role', rolesVisibles)
           .order('role'),
         // "A qué curso da clase" es, en el modelo de datos, "qué cohorte
@@ -223,6 +230,7 @@ export default function Personal() {
           cedula: p.cedula,
           nombre: p.full_name,
           correo: p.contact_email,
+          telefono: p.phone,
           rol: p.role as UserRole,
           cohortes: cohortesMapeadas.filter((c) => c.profesorId === p.id).map((c) => c.nombre),
         })),
@@ -343,45 +351,6 @@ export default function Personal() {
     setGuardandoModulo(null)
   }
 
-  // Vista "por módulo" (pedido explícito del coordinador): en vez de ir
-  // profesor por profesor marcando módulos sueltos, aquí se recorre el
-  // programa completo módulo por módulo y se elige un solo profesor para
-  // cada uno — más fácil de ver qué módulos quedaron sin cubrir. Escribe
-  // en la misma tabla (teacher_module_assignments) que el toggle de abajo;
-  // asignar aquí reemplaza cualquier profesor anterior de ese módulo.
-  async function asignarProfesorDelModulo(moduloId: string, nuevoProfesorId: string) {
-    setGuardandoAsignacionModulo(moduloId)
-    const supabase = createClient()
-
-    const profesoresAnteriores = [...asignaciones.entries()]
-      .filter(([, mods]) => mods.has(moduloId))
-      .map(([teacherId]) => teacherId)
-
-    await supabase.from('teacher_module_assignments').delete().eq('module_id', moduloId)
-
-    if (nuevoProfesorId) {
-      const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('teacher_module_assignments')
-        .insert({ teacher_id: nuevoProfesorId, module_id: moduloId, assigned_by: user?.id ?? null })
-    }
-
-    setAsignaciones((prev) => {
-      const copia = new Map(prev)
-      for (const teacherId of profesoresAnteriores) {
-        const set = new Set(copia.get(teacherId) ?? [])
-        set.delete(moduloId)
-        copia.set(teacherId, set)
-      }
-      if (nuevoProfesorId) {
-        const set = new Set(copia.get(nuevoProfesorId) ?? [])
-        set.add(moduloId)
-        copia.set(nuevoProfesorId, set)
-      }
-      return copia
-    })
-    setGuardandoAsignacionModulo(null)
-  }
-
   async function alternarRol(miembro: Miembro, rol: UserRole) {
     // El rol activo de la cuenta (miembro.rol) siempre debe seguir en su
     // lista de roles permitidos — si no, fn_cambiar_mi_rol jamás la dejaría
@@ -443,6 +412,39 @@ export default function Personal() {
       return copia
     })
     setGuardandoSede(null)
+  }
+
+  function abrirEdicion(m: Miembro) {
+    setEditandoId(m.id)
+    setFormEdicion({ nombre: m.nombre, cedula: m.cedula, correo: m.correo ?? '', telefono: m.telefono ?? '' })
+    setErrorEdicion(null)
+  }
+
+  async function guardarEdicion(id: string) {
+    setGuardandoEdicion(true)
+    setErrorEdicion(null)
+
+    const { error } = await createClient()
+      .from('profiles')
+      .update({
+        full_name: formEdicion.nombre.trim(),
+        cedula: formEdicion.cedula.trim().toUpperCase(),
+        contact_email: formEdicion.correo.trim(),
+        phone: formEdicion.telefono.trim() || null,
+      })
+      .eq('id', id)
+
+    if (error) {
+      setErrorEdicion('No se pudo guardar. Revisa que la cédula no esté repetida.')
+      setGuardandoEdicion(false)
+      return
+    }
+
+    setEquipo((eq) => eq.map((m) => (m.id === id
+      ? { ...m, nombre: formEdicion.nombre.trim(), cedula: formEdicion.cedula.trim().toUpperCase(), correo: formEdicion.correo.trim(), telefono: formEdicion.telefono.trim() || null }
+      : m)))
+    setEditandoId(null)
+    setGuardandoEdicion(false)
   }
 
   async function eliminar(id: string, nombre: string) {
@@ -510,6 +512,19 @@ export default function Personal() {
       />
 
       <Regla delay={60} />
+
+      {/* Cobertura de módulos vive en su propia pantalla (pedido explícito
+          del coordinador: "una sección aparte, diferente completamente de
+          la de personal") — este es solo el enlace. */}
+      {esDireccionAcademica(miRol) && (
+        <button
+          onClick={() => router.push('/cobertura-modulos')}
+          className="flex min-h-14 w-full items-center justify-between rounded-lg border border-zr-border bg-zr-surface px-5 text-base font-bold text-zr-text"
+        >
+          Cobertura de módulos por profesor
+          <span aria-hidden className="text-zr-text-muted">›</span>
+        </button>
+      )}
 
       {exito && (
         <p className="rounded-lg border border-zr-success/30 bg-zr-success/12 px-4 py-3 text-sm font-medium text-zr-success">
@@ -656,66 +671,12 @@ export default function Personal() {
         </div>
       )}
 
-      {/* Cobertura de módulos (pedido explícito del coordinador): en vez de
-          asignar módulos profesor por profesor, aquí se ve el programa
-          completo y por cada módulo se elige un solo profesor — así queda
-          claro de un vistazo cuáles todavía no tienen a nadie asignado. Solo
-          Dirección Académica/super_admin la ven; es trabajo académico, no
-          administrativo. */}
-      {esDireccionAcademica(miRol) && (() => {
-        const profesores = equipo.filter((m) => m.rol === 'profesor')
-        const programas = [...new Set(modulos.map((m) => m.programa))]
-        return (
-          <Seccion numero={1} titulo="Cobertura de módulos" delay={120}>
-            <div className="space-y-6">
-              {programas.map((programa) => (
-                <div key={programa} className="space-y-2">
-                  <p className="text-xs font-bold uppercase tracking-wider text-zr-text-muted">{programa}</p>
-                  <div className="space-y-2">
-                    {modulos
-                      .filter((m) => m.programa === programa)
-                      .sort((a, b) => a.orden - b.orden)
-                      .map((m) => {
-                        const profesorActualId = [...asignaciones.entries()]
-                          .find(([, mods]) => mods.has(m.id))?.[0] ?? ''
-                        const sinCubrir = !profesorActualId
-                        const ocupado = guardandoAsignacionModulo === m.id
-                        return (
-                          <div
-                            key={m.id}
-                            className={`zr-card flex items-center justify-between gap-3 p-4 ${sinCubrir ? 'border-zr-warning/40 bg-zr-warning/8' : ''}`}
-                          >
-                            <p className="min-w-0 flex-1 truncate text-sm font-semibold text-zr-text">
-                              {m.orden}. {m.nombre}
-                            </p>
-                            <select
-                              value={profesorActualId}
-                              onChange={(e) => asignarProfesorDelModulo(m.id, e.target.value)}
-                              disabled={ocupado}
-                              className="shrink-0 max-w-[45%] rounded-lg border border-zr-border bg-zr-bg px-3 py-2 text-sm text-zr-text disabled:opacity-50"
-                            >
-                              <option value="">Sin profesor asignado</option>
-                              {profesores.map((p) => (
-                                <option key={p.id} value={p.id}>{p.nombre}</option>
-                              ))}
-                            </select>
-                          </div>
-                        )
-                      })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Seccion>
-        )
-      })()}
-
       {equipo.length === 0 ? (
         <div className="zr-card p-8 text-center">
           <p className="text-base font-semibold text-zr-text">Todavía no hay personal registrado</p>
         </div>
       ) : (
-        <Seccion numero={esDireccionAcademica(miRol) ? 2 : 1} titulo="Equipo" delay={120}>
+        <Seccion numero={1} titulo="Equipo" delay={120}>
           <div className="space-y-3">
             {equipo.map((m) => {
               const misModulos = asignaciones.get(m.id) ?? new Set<string>()
@@ -751,8 +712,64 @@ export default function Personal() {
                         </button>
                       ) : null
                     })()}
+                    {miRol === 'super_admin' && (
+                      <button
+                        onClick={() => (editandoId === m.id ? setEditandoId(null) : abrirEdicion(m))}
+                        className="rounded-lg border border-zr-border px-3 py-1.5 text-xs font-semibold text-zr-text"
+                      >
+                        {editandoId === m.id ? 'Cancelar' : 'Editar'}
+                      </button>
+                    )}
                   </div>
                 </div>
+
+                {/* Editar nombre/cédula/correo/teléfono (pedido explícito
+                    del coordinador) — exclusivo de super_admin. */}
+                {editandoId === m.id && (
+                  <div className="space-y-3 border-t border-zr-border/60 pt-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-zr-text-muted">Nombre completo</label>
+                      <input
+                        value={formEdicion.nombre}
+                        onChange={(e) => setFormEdicion((f) => ({ ...f, nombre: e.target.value }))}
+                        className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-zr-text-muted">Cédula</label>
+                      <input
+                        value={formEdicion.cedula}
+                        onChange={(e) => setFormEdicion((f) => ({ ...f, cedula: e.target.value.toUpperCase() }))}
+                        className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-zr-text-muted">Correo</label>
+                      <input
+                        type="email"
+                        value={formEdicion.correo}
+                        onChange={(e) => setFormEdicion((f) => ({ ...f, correo: e.target.value }))}
+                        className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-zr-text-muted">Teléfono</label>
+                      <input
+                        value={formEdicion.telefono}
+                        onChange={(e) => setFormEdicion((f) => ({ ...f, telefono: e.target.value }))}
+                        className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+                      />
+                    </div>
+                    {errorEdicion && <p className="text-xs font-medium text-zr-error">{errorEdicion}</p>}
+                    <button
+                      onClick={() => guardarEdicion(m.id)}
+                      disabled={guardandoEdicion || !formEdicion.nombre.trim() || !formEdicion.cedula.trim()}
+                      className="min-h-11 w-full rounded-lg bg-zr-blue text-sm font-bold text-white disabled:opacity-40"
+                    >
+                      {guardandoEdicion ? 'Guardando…' : 'Guardar cambios'}
+                    </button>
+                  </div>
+                )}
 
                 {m.rol === 'profesor' && (
                   <div className="border-t border-zr-border/60 pt-3">

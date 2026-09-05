@@ -7,6 +7,7 @@ import { Seccion, Regla, Dato } from '@/components/ui/Editorial'
 import { IconoEstudiantes, IconoNotas, IconoPanel, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet } from '@/components/ui/Iconos'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { leerSimulacionSabado } from '@/lib/demo-sabado'
+import { activarVistaRecorrido, type VistaRecorrido } from '@/lib/vista-recorrido'
 import type { UserRole } from '@/lib/types'
 
 interface SesionHoy {
@@ -40,15 +41,21 @@ const ACCESOS_DIRECCION = [
 
 const ACCESO_CONFIG = { href: '/configuracion', titulo: 'Configuración', sub: 'Umbrales y reglas de negocio', Icono: IconoPanel }
 
-// A pedido explícito del coordinador (transcripción de audio,
-// docs/19_PLAN_CAMBIOS_POST_DIRECTIVA.md): entrar a recorrer la app como la
-// ve cada rol, sin crear cuentas de prueba aparte. Solo super_admin — admin
-// normal ya ve prácticamente lo mismo que necesita para su propio trabajo,
-// así que no hace falta duplicarlo ahí. No hay "vista de admin": super_admin
-// ya ve ese mismo menú (y más) con su propia cuenta.
-const ACCESO_VENTAS =     { href: '/carga-ventas', titulo: 'Vista de Ventas',      sub: 'Recorrer la app como la ve un vendedor', Icono: IconoEstudiantes }
-const ACCESO_ESTUDIANTE = { href: '/',             titulo: 'Vista de Estudiante',  sub: 'Recorrer la app como la ve un estudiante', Icono: IconoCarnet }
-const ACCESO_PROFESOR =   { href: '/hoy',          titulo: 'Vista de Profesor',    sub: 'Recorrer la app como la ve un profesor', Icono: IconoNotas }
+// A pedido explícito del coordinador: entrar a recorrer la app como la ve
+// cada rol, sin crear cuentas de prueba aparte. Quién ve cuál (reafirmado en
+// audio posterior): administración → estudiante y ventas; dirección
+// académica → estudiante y profesor; super_admin → las tres. No hay "vista
+// de admin": super_admin ya ve ese mismo menú (y más) con su propia cuenta.
+//
+// `vista` es la cookie que activarVistaRecorrido() prende antes de navegar
+// (lib/vista-recorrido.ts) — bug reportado por el coordinador: sin ella,
+// proxy.ts no podía distinguir "elegí ver como estudiante" de "abrí la PWA
+// de cero" (su start_url es "/", la misma ruta), así que administración
+// siempre terminaba entrando derecho a la vista de estudiante en vez de a
+// su panel.
+const ACCESO_VENTAS =     { href: '/carga-ventas', titulo: 'Vista de Ventas',      sub: 'Recorrer la app como la ve un vendedor',   Icono: IconoEstudiantes, vista: 'vendedor' as VistaRecorrido }
+const ACCESO_ESTUDIANTE = { href: '/',             titulo: 'Vista de Estudiante',  sub: 'Recorrer la app como la ve un estudiante', Icono: IconoCarnet,      vista: 'estudiante' as VistaRecorrido }
+const ACCESO_PROFESOR =   { href: '/hoy',          titulo: 'Vista de Profesor',    sub: 'Recorrer la app como la ve un profesor',   Icono: IconoNotas,       vista: 'profesor' as VistaRecorrido }
 
 export default function Panel() {
   const router = useRouter()
@@ -135,59 +142,73 @@ export default function Panel() {
 
       <Regla delay={60} />
 
-      {esSabado && (
-        <Seccion numero={1} titulo={`Hoy, sábado ${hoy.getDate()}`} delay={120}>
-          {sesionesHoy.length === 0 ? (
-            <div className="zr-card p-6">
-              <p className="text-sm text-zr-text-muted">No hay sesiones de clase programadas para hoy.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {sesionesHoy.map((s) => (
-                <div key={s.sessionId} className="zr-card p-5">
-                  <p className="text-sm font-semibold text-zr-blue-mid">{s.cohorteNombre}</p>
-                  <div className="mt-3 grid grid-cols-2 gap-3">
-                    <Dato valor={s.registrados} etiqueta="Registrados" tono="exito" />
-                    <Dato valor={Math.max(s.total - s.registrados, 0)} etiqueta="Faltan" tono="neutro" />
+      {/* Numeración de secciones: algunas son condicionales (sábado, dirección
+          académica, super_admin), así que se cuenta en orden en vez de fijar
+          números — evitaba que "Vista de recorrido" quedara con un número
+          repetido o salteado según el rol. */}
+      {(() => {
+        let n = 0
+        const nHoy = esSabado ? ++n : 0
+        const nEstudiantes = ++n
+        const nDireccion = esDireccionAcademica(rol) ? ++n : 0
+        const nSuper = rol === 'super_admin' ? ++n : 0
+        const nRecorrido = ++n
+        return (
+          <>
+            {esSabado && (
+              <Seccion numero={nHoy} titulo={`Hoy, sábado ${hoy.getDate()}`} delay={120}>
+                {sesionesHoy.length === 0 ? (
+                  <div className="zr-card p-6">
+                    <p className="text-sm text-zr-text-muted">No hay sesiones de clase programadas para hoy.</p>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Seccion>
-      )}
+                ) : (
+                  <div className="space-y-3">
+                    {sesionesHoy.map((s) => (
+                      <div key={s.sessionId} className="zr-card p-5">
+                        <p className="text-sm font-semibold text-zr-blue-mid">{s.cohorteNombre}</p>
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                          <Dato valor={s.registrados} etiqueta="Registrados" tono="exito" />
+                          <Dato valor={Math.max(s.total - s.registrados, 0)} etiqueta="Faltan" tono="neutro" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Seccion>
+            )}
 
-      {/* Agrupado por qué resuelve cada cosa, no una sola lista de once
-          botones seguidos — a pedido explícito del coordinador ("no se
-          explica para qué"). */}
-      <GrupoAccesos numero={esSabado ? 2 : 1} titulo="Estudiantes" accesos={ACCESOS} delay={200} />
+            {/* Agrupado por qué resuelve cada cosa, no una sola lista de once
+                botones seguidos — a pedido explícito del coordinador ("no se
+                explica para qué"). */}
+            <GrupoAccesos numero={nEstudiantes} titulo="Estudiantes" accesos={ACCESOS} delay={200} />
 
-      {esDireccionAcademica(rol) && (
-        <GrupoAccesos
-          numero={esSabado ? 3 : 2}
-          titulo="Dirección académica"
-          accesos={ACCESOS_DIRECCION}
-          delay={240}
-        />
-      )}
+            {esDireccionAcademica(rol) && (
+              <GrupoAccesos numero={nDireccion} titulo="Dirección académica" accesos={ACCESOS_DIRECCION} delay={240} />
+            )}
 
-      {rol === 'super_admin' && (
-        <>
-          <GrupoAccesos
-            numero={esSabado ? 4 : 3}
-            titulo="Solo super admin"
-            accesos={[ACCESO_CONFIG]}
-            delay={280}
-          />
-          <GrupoAccesos
-            numero={esSabado ? 5 : 4}
-            titulo="Vista de recorrido"
-            descripcion="Recorre la app como la ve cada rol, sin crear cuentas de prueba — sigues siendo tú."
-            accesos={[ACCESO_VENTAS, ACCESO_ESTUDIANTE, ACCESO_PROFESOR]}
-            delay={320}
-          />
-        </>
-      )}
+            {rol === 'super_admin' && (
+              <GrupoAccesos numero={nSuper} titulo="Solo super admin" accesos={[ACCESO_CONFIG]} delay={280} />
+            )}
+
+            {/* Vista de recorrido: quién ve cuál, reafirmado explícitamente
+                por el coordinador — admin: estudiante y ventas; dirección
+                académica: estudiante y profesor; super_admin: las tres. */}
+            {rol && (
+              <GrupoAccesos
+                numero={nRecorrido}
+                titulo="Vista de recorrido"
+                descripcion="Recorre la app como la ve cada rol, sin crear cuentas de prueba — sigues siendo tú."
+                accesos={[
+                  ACCESO_ESTUDIANTE,
+                  ...(rol === 'admin' || rol === 'super_admin' ? [ACCESO_VENTAS] : []),
+                  ...(rol === 'direccion_academica' || rol === 'super_admin' ? [ACCESO_PROFESOR] : []),
+                ]}
+                delay={320}
+              />
+            )}
+          </>
+        )
+      })()}
     </div>
   )
 }
@@ -197,6 +218,7 @@ interface Acceso {
   titulo: string
   sub: string
   Icono: (p: { size?: number }) => React.ReactElement
+  vista?: VistaRecorrido
 }
 
 function GrupoAccesos({
@@ -212,7 +234,10 @@ function GrupoAccesos({
         {accesos.map((a) => (
           <button
             key={a.href}
-            onClick={() => router.push(a.href)}
+            onClick={() => {
+              if (a.vista) activarVistaRecorrido(a.vista)
+              router.push(a.href)
+            }}
             className="zr-card zr-card-interactive flex w-full items-center gap-4 p-5 text-left"
           >
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-zr-border text-zr-blue">

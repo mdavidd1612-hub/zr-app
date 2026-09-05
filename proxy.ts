@@ -91,11 +91,28 @@ export async function proxy(request: NextRequest) {
   // vista de estudiante; dirección académica y super_admin también la de
   // profesor. El layout de cada una ya sabe mostrar el banner de "vista de
   // recorrido" y saltarse los pasos que no le aplican (onboarding, etc).
-  if (esRutaDeEstudiante && !['estudiante', 'admin', 'direccion_academica', 'super_admin'].includes(role)) {
-    return NextResponse.redirect(new URL(INICIO_POR_ROL[role] ?? '/', request.url))
+  //
+  // OJO: además del rol, se exige la cookie zr_vista (lib/vista-recorrido.ts)
+  // — bug reportado por el coordinador: la PWA arranca en "/" (start_url,
+  // app/manifest.ts), la MISMA ruta que "Vista de Estudiante", así que sin
+  // esta cookie no había forma de distinguir "abrí la app de cero" de
+  // "elegí ver como estudiante" — administración quedaba entrando siempre a
+  // la vista de estudiante en vez de a su propio panel. La cookie solo se
+  // prende al tocar el botón correspondiente en el panel (nunca aparece
+  // sola), y sin ella cualquier rol de personal va derecho a lo suyo.
+  const vistaRecorrido = request.cookies.get('zr_vista')?.value
+
+  if (esRutaDeEstudiante && role !== 'estudiante') {
+    const puedeRecorrer = ['admin', 'direccion_academica', 'super_admin'].includes(role) && vistaRecorrido === 'estudiante'
+    if (!puedeRecorrer) {
+      return NextResponse.redirect(new URL(INICIO_POR_ROL[role] ?? '/', request.url))
+    }
   }
-  if (esRutaDeProfesor && !['profesor', 'direccion_academica', 'super_admin'].includes(role)) {
-    return NextResponse.redirect(new URL(INICIO_POR_ROL[role] ?? '/', request.url))
+  if (esRutaDeProfesor && role !== 'profesor') {
+    const puedeRecorrer = ['direccion_academica', 'super_admin'].includes(role) && vistaRecorrido === 'profesor'
+    if (!puedeRecorrer) {
+      return NextResponse.redirect(new URL(INICIO_POR_ROL[role] ?? '/', request.url))
+    }
   }
   if (esRutaDeAdmin && !['admin', 'super_admin', 'direccion_academica'].includes(role)) {
     return NextResponse.redirect(new URL(INICIO_POR_ROL[role] ?? '/', request.url))

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { esAdmin, esDireccionAcademica } from '@/lib/auth-helpers'
+import { salirDeVistaRecorrido } from '@/lib/vista-recorrido'
 import { type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Marco } from '@/components/ui/Marco'
 import {
@@ -107,6 +108,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         router.replace('/')
         return
       }
+
+      // Llegar aquí (a su propia área real, no de recorrido) significa que
+      // ya no está "viendo como" nadie más — se apaga la cookie por si
+      // había quedado prendida de una vista de recorrido anterior sin
+      // haber tocado "Salir a mi panel" (p. ej. navegó para atrás en vez de
+      // usar el botón). Sin esto, la próxima vez que abriera la app podía
+      // volver a caer en esa vista vieja en vez de en su panel real.
+      salirDeVistaRecorrido()
 
       setRol((perfil?.role as UserRole) ?? null)
       setVerificando(false)

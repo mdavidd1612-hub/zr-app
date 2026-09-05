@@ -3,7 +3,8 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { esVendedor } from '@/lib/auth-helpers'
+import { esVendedor, INICIO_POR_ROL } from '@/lib/auth-helpers'
+import { leerVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import { type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Marco } from '@/components/ui/Marco'
 import { BannerSimulacion } from '@/components/ui/BannerSimulacion'
@@ -48,11 +49,15 @@ export default function VendedorLayout({ children }: { children: React.ReactNode
         .from('profiles').select('role').eq('id', user.id).single()
 
       const rol = perfil?.role as UserRole | undefined
+      const enRecorrido = leerVistaRecorridoCookie() === 'vendedor'
 
-      if (rol === 'super_admin' || rol === 'admin') {
+      if ((rol === 'super_admin' || rol === 'admin') && enRecorrido) {
         setSimulando(true)
       } else if (!esVendedor(rol)) {
-        router.replace('/')
+        // Sin la cookie (p. ej. abrió la app de cero, no vino del botón
+        // "Vista de Ventas" de su panel), cualquiera se va derecho a lo
+        // suyo — nunca cae aquí sin haberlo elegido.
+        router.replace(INICIO_POR_ROL[rol ?? 'estudiante'] ?? '/')
         return
       }
 

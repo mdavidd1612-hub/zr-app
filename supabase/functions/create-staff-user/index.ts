@@ -1,5 +1,12 @@
 // T-112: Create Staff User · Edge Function
-// Solo un super_admin puede crear otros usuarios de personal (profesor, admin, super_admin)
+//
+// División de trabajo reafirmada por el coordinador: un admin normal solo
+// puede dar de alta OTRAS cuentas de Administración (nada de profesores,
+// vendedores, dirección académica o super_admin); Dirección Académica solo
+// profesores; super_admin, cualquier rol. Ver `puedeCrear` más abajo — es
+// la única fuente de verdad de esta regla, el filtro del cliente
+// (app/(admin)/personal/page.tsx) es solo para no ofrecer una opción que
+// el servidor va a rechazar.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -60,11 +67,10 @@ Deno.serve(async (req) => {
     .eq('id', userData.user.id)
     .single()
 
-  // Gestionar personal (crear profesores, admins, etc.) es trabajo de
-  // Dirección Académica y super_admin — un admin normal ya no da de alta
-  // profesores, eso pasó a ser académico, no administrativo.
-  if (!['direccion_academica', 'super_admin'].includes(profile?.role ?? '')) {
-    return errorResponse('NO_AUTORIZADO', 'Solo Dirección Académica o super_admin', 403)
+  const rolLlamador = profile?.role ?? ''
+
+  if (!['admin', 'direccion_academica', 'super_admin'].includes(rolLlamador)) {
+    return errorResponse('NO_AUTORIZADO', 'Solo Administración, Dirección Académica o super_admin', 403)
   }
 
   // 2. Parsear el body
@@ -91,12 +97,19 @@ Deno.serve(async (req) => {
     return errorResponse('INVALID_ROLE', 'Rol inválido', 400)
   }
 
-  // Solo un super_admin puede crear otro admin, super_admin, dirección
-  // académica o vendedor — son roles de control administrativo/académico o
-  // de acceso comercial, no algo que Dirección Académica pueda dar de alta
-  // por su cuenta (R-16, docs/19_PLAN_CAMBIOS_POST_DIRECTIVA.md).
-  if (['admin', 'super_admin', 'direccion_academica', 'vendedor'].includes(role) && profile?.role !== 'super_admin') {
-    return errorResponse('NO_AUTORIZADO', 'Solo super_admin puede crear administradores o vendedores', 403)
+  // Matriz de quién puede crear qué (única fuente de verdad — ver
+  // comentario de arriba). super_admin: cualquier rol. Dirección Académica:
+  // solo profesor (R-16, docs/19_PLAN_CAMBIOS_POST_DIRECTIVA.md — vendedor,
+  // admin y otro dirección académica siguen siendo de control exclusivo de
+  // super_admin). Admin: solo otra cuenta de Administración.
+  const puedeCrear =
+    rolLlamador === 'super_admin' ? true
+    : rolLlamador === 'direccion_academica' ? role === 'profesor'
+    : rolLlamador === 'admin' ? role === 'admin'
+    : false
+
+  if (!puedeCrear) {
+    return errorResponse('NO_AUTORIZADO', 'No tienes permiso para crear ese tipo de cuenta', 403)
   }
 
   const admin = adminClient()

@@ -31,10 +31,13 @@ const NAV: ItemBarra[] = [
 // fase siguiente — mismo criterio que Exámenes/Notas/Progreso en Fase 0
 // estudiante).
 //
-// "Personal" (dar de alta profesores/admins) ya NO es de admin normal — pasó
-// a ser trabajo de Dirección Académica y super_admin (división de trabajo
-// acordada: admin es todo lo de ESTUDIANTES, Dirección Académica es todo lo
-// de PROFESORES/notas/evaluaciones).
+// División de trabajo reafirmada por el coordinador: administración lleva
+// estudiantes, asistencia y refrigerios, y valida quién ya firmó su planilla
+// en persona; Dirección Académica lleva profesores, material, notas y
+// evaluaciones. "Personal" ahora SÍ tiene una entrada de admin normal —
+// puede dar de alta y ver otras cuentas de Administración (nada más; ni
+// profesores, ni roles, ni sedes de terceros — eso sigue siendo de
+// Dirección Académica/super_admin, filtrado dentro de la propia pantalla).
 // "Inscribir" (R-17, docs/19_PLAN_CAMBIOS_POST_DIRECTIVA.md): el mismo
 // formulario de ventas, como respaldo — admin, Dirección Académica y
 // super_admin ya podían llamar a create-student, solo faltaba el enlace.
@@ -50,6 +53,7 @@ const TODAS: ItemBarra[] = [
   { ...NAV[3], grupo: 'Clase de hoy' },
   { ...NAV[1], grupo: 'Clase de hoy' },
   { ...NAV[2], grupo: 'Clase de hoy' },
+  { href: '/personal',        label: 'Personal',        Icono: IconoPersonal,    grupo: 'Administración' },
   { ...NAV[4], grupo: 'Cuenta' },
 ]
 
@@ -63,7 +67,7 @@ const TODAS_DIRECCION: ItemBarra[] = [
   // Resúmenes de "Mi módulo" (estático, a pedido explícito) — is_academico()
   // ya deja escribir 'modules' a dirección académica y super_admin por igual.
   { href: '/modulos',              label: 'Módulos',      Icono: IconoProgreso, grupo: 'Dirección académica' },
-  TODAS[6],
+  TODAS[TODAS.length - 1],
 ]
 
 const TODAS_SUPER: ItemBarra[] = [
@@ -76,7 +80,7 @@ const TODAS_SUPER: ItemBarra[] = [
   // (migración 066) — el enlace solo aparece en este menú.
   { href: '/catalogo',             label: 'Catálogo',      Icono: IconoDocumento, grupo: 'Solo super admin' },
   { href: '/configuracion',        label: 'Configuración', Icono: IconoPanel,     grupo: 'Solo super admin' },
-  TODAS[6],
+  TODAS[TODAS.length - 1],
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

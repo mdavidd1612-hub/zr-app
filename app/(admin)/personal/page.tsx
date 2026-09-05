@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
-import { esDireccionAcademica } from '@/lib/auth-helpers'
+import { esAdmin, esDireccionAcademica } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
 
 /**
@@ -17,10 +17,13 @@ import type { UserRole } from '@/lib/types'
  * construido: la Edge Function existía y estaba desplegada sin que nada en
  * la app pudiera invocarla.
  *
- * Un admin normal puede dar de alta profesores. Solo un super_admin puede
- * dar de alta otro admin o super_admin — la Edge Function es la que de
- * verdad lo exige; el filtro de aquí es solo para no ofrecer una opción
- * que el servidor va a rechazar.
+ * División de trabajo reafirmada por el coordinador: un admin normal solo
+ * da de alta (y ve) otras cuentas de Administración; Dirección Académica da
+ * de alta profesores y les asigna módulos/programa; solo super_admin puede
+ * dar de alta admin, dirección académica, vendedor u otro super_admin. La
+ * Edge Function (create-staff-user) es la que de verdad lo exige — el
+ * filtro de aquí es solo para no ofrecer una opción que el servidor va a
+ * rechazar.
  */
 
 interface Miembro {
@@ -85,6 +88,7 @@ export default function Personal() {
   const [asignaciones, setAsignaciones] = useState<Map<string, Set<string>>>(new Map())
   const [expandido, setExpandido] = useState<string | null>(null)
   const [guardandoModulo, setGuardandoModulo] = useState<string | null>(null)
+  const [guardandoAsignacionModulo, setGuardandoAsignacionModulo] = useState<string | null>(null)
   const [rolesExtra, setRolesExtra] = useState<Map<string, Set<UserRole>>>(new Map())
   const [expandidoRoles, setExpandidoRoles] = useState<string | null>(null)
   const [guardandoRol, setGuardandoRol] = useState<string | null>(null)
@@ -126,20 +130,30 @@ export default function Personal() {
       if (!vigente) return
 
       const rolActual = (perfil?.role as UserRole) ?? null
-      // Gestionar personal es de Dirección Académica y super_admin — un
-      // admin normal ya no da de alta profesores (eso pasó a ser trabajo
-      // académico, no administrativo).
-      if (!esDireccionAcademica(rolActual)) {
+      // División de trabajo reafirmada por el coordinador: profesores,
+      // asignación de módulos y roles/sedes de terceros siguen siendo de
+      // Dirección Académica y super_admin. Un admin normal SÍ entra aquí,
+      // pero solo para dar de alta y ver otras cuentas de Administración
+      // (nada de profesores, nada de asignar roles o sedes ajenas) — se
+      // filtra más abajo con `soloAdmin`.
+      if (!esAdmin(rolActual)) {
         router.replace('/panel')
         return
       }
       setMiRol(rolActual)
 
+      // Un admin normal solo ve (y da de alta) otras cuentas de
+      // Administración — nada de profesores, dirección académica, super
+      // admin o vendedor, eso lo sigue gestionando Dirección Académica.
+      const rolesVisibles: UserRole[] = rolActual === 'admin'
+        ? ['admin']
+        : ['profesor', 'admin', 'super_admin', 'direccion_academica', 'vendedor']
+
       const [{ data }, { data: cohs }, { data: mods }, { data: asigs }, { data: rolesExtraData }, { data: sedesData }, { data: adminSedesData }] = await Promise.all([
         supabase
           .from('profiles')
           .select('id, cedula, full_name, contact_email, role')
-          .in('role', ['profesor', 'admin', 'super_admin', 'direccion_academica', 'vendedor'])
+          .in('role', rolesVisibles)
           .order('role'),
         // "A qué curso da clase" es, en el modelo de datos, "qué cohorte
         // tiene asignada": cohorts.teacher_id es lo único que vincula a un
@@ -329,6 +343,45 @@ export default function Personal() {
     setGuardandoModulo(null)
   }
 
+  // Vista "por módulo" (pedido explícito del coordinador): en vez de ir
+  // profesor por profesor marcando módulos sueltos, aquí se recorre el
+  // programa completo módulo por módulo y se elige un solo profesor para
+  // cada uno — más fácil de ver qué módulos quedaron sin cubrir. Escribe
+  // en la misma tabla (teacher_module_assignments) que el toggle de abajo;
+  // asignar aquí reemplaza cualquier profesor anterior de ese módulo.
+  async function asignarProfesorDelModulo(moduloId: string, nuevoProfesorId: string) {
+    setGuardandoAsignacionModulo(moduloId)
+    const supabase = createClient()
+
+    const profesoresAnteriores = [...asignaciones.entries()]
+      .filter(([, mods]) => mods.has(moduloId))
+      .map(([teacherId]) => teacherId)
+
+    await supabase.from('teacher_module_assignments').delete().eq('module_id', moduloId)
+
+    if (nuevoProfesorId) {
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('teacher_module_assignments')
+        .insert({ teacher_id: nuevoProfesorId, module_id: moduloId, assigned_by: user?.id ?? null })
+    }
+
+    setAsignaciones((prev) => {
+      const copia = new Map(prev)
+      for (const teacherId of profesoresAnteriores) {
+        const set = new Set(copia.get(teacherId) ?? [])
+        set.delete(moduloId)
+        copia.set(teacherId, set)
+      }
+      if (nuevoProfesorId) {
+        const set = new Set(copia.get(nuevoProfesorId) ?? [])
+        set.add(moduloId)
+        copia.set(nuevoProfesorId, set)
+      }
+      return copia
+    })
+    setGuardandoAsignacionModulo(null)
+  }
+
   async function alternarRol(miembro: Miembro, rol: UserRole) {
     // El rol activo de la cuenta (miembro.rol) siempre debe seguir en su
     // lista de roles permitidos — si no, fn_cambiar_mi_rol jamás la dejaría
@@ -418,7 +471,12 @@ export default function Personal() {
     setEliminando(null)
   }
 
-  const rolesDisponibles = ROLES.filter((r) => !r.soloSuper || miRol === 'super_admin')
+  // Un admin normal solo puede dar de alta (y asignar como rol adicional)
+  // otras cuentas de Administración — todo lo demás sigue siendo de
+  // Dirección Académica/super_admin.
+  const rolesDisponibles = miRol === 'admin'
+    ? ROLES.filter((r) => r.valor === 'admin')
+    : ROLES.filter((r) => !r.soloSuper || miRol === 'super_admin')
   const formularioCompleto = nombre.trim() && cedula.trim() && correo.trim() && password.trim().length >= 8
 
   if (cargando) {
@@ -436,7 +494,11 @@ export default function Personal() {
       <Encabezado
         sobretitulo="Administración"
         titulo="Personal"
-        descripcion={`${equipo.length} en total. Un profesor nunca se registra solo — así se crea su cuenta.`}
+        descripcion={
+          miRol === 'admin'
+            ? `${equipo.length} cuenta${equipo.length === 1 ? '' : 's'} de Administración.`
+            : `${equipo.length} en total. Un profesor nunca se registra solo — así se crea su cuenta.`
+        }
         accion={
           <button
             onClick={() => { setCreando((c) => !c); setExito(null); setError(null) }}
@@ -594,12 +656,66 @@ export default function Personal() {
         </div>
       )}
 
+      {/* Cobertura de módulos (pedido explícito del coordinador): en vez de
+          asignar módulos profesor por profesor, aquí se ve el programa
+          completo y por cada módulo se elige un solo profesor — así queda
+          claro de un vistazo cuáles todavía no tienen a nadie asignado. Solo
+          Dirección Académica/super_admin la ven; es trabajo académico, no
+          administrativo. */}
+      {esDireccionAcademica(miRol) && (() => {
+        const profesores = equipo.filter((m) => m.rol === 'profesor')
+        const programas = [...new Set(modulos.map((m) => m.programa))]
+        return (
+          <Seccion numero={1} titulo="Cobertura de módulos" delay={120}>
+            <div className="space-y-6">
+              {programas.map((programa) => (
+                <div key={programa} className="space-y-2">
+                  <p className="text-xs font-bold uppercase tracking-wider text-zr-text-muted">{programa}</p>
+                  <div className="space-y-2">
+                    {modulos
+                      .filter((m) => m.programa === programa)
+                      .sort((a, b) => a.orden - b.orden)
+                      .map((m) => {
+                        const profesorActualId = [...asignaciones.entries()]
+                          .find(([, mods]) => mods.has(m.id))?.[0] ?? ''
+                        const sinCubrir = !profesorActualId
+                        const ocupado = guardandoAsignacionModulo === m.id
+                        return (
+                          <div
+                            key={m.id}
+                            className={`zr-card flex items-center justify-between gap-3 p-4 ${sinCubrir ? 'border-zr-warning/40 bg-zr-warning/8' : ''}`}
+                          >
+                            <p className="min-w-0 flex-1 truncate text-sm font-semibold text-zr-text">
+                              {m.orden}. {m.nombre}
+                            </p>
+                            <select
+                              value={profesorActualId}
+                              onChange={(e) => asignarProfesorDelModulo(m.id, e.target.value)}
+                              disabled={ocupado}
+                              className="shrink-0 max-w-[45%] rounded-lg border border-zr-border bg-zr-bg px-3 py-2 text-sm text-zr-text disabled:opacity-50"
+                            >
+                              <option value="">Sin profesor asignado</option>
+                              {profesores.map((p) => (
+                                <option key={p.id} value={p.id}>{p.nombre}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )
+                      })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Seccion>
+        )
+      })()}
+
       {equipo.length === 0 ? (
         <div className="zr-card p-8 text-center">
           <p className="text-base font-semibold text-zr-text">Todavía no hay personal registrado</p>
         </div>
       ) : (
-        <Seccion numero={1} titulo="Equipo" delay={120}>
+        <Seccion numero={esDireccionAcademica(miRol) ? 2 : 1} titulo="Equipo" delay={120}>
           <div className="space-y-3">
             {equipo.map((m) => {
               const misModulos = asignaciones.get(m.id) ?? new Set<string>()
@@ -727,8 +843,10 @@ export default function Personal() {
                     Se fija en TODOS los roles de la cuenta (rolesExtra), no
                     solo en el activo ahora mismo — Erika, por ejemplo,
                     entra normalmente como vendedor, pero igual necesita su
-                    sede asignada para cuando use su rol de administración. */}
-                {(m.rol === 'admin' || rolesExtra.get(m.id)?.has('admin')) && (() => {
+                    sede asignada para cuando use su rol de administración.
+                    Asignar sede es cosa de Dirección Académica/super_admin
+                    — un admin normal no le toca la sede a otro admin. */}
+                {esDireccionAcademica(miRol) && (m.rol === 'admin' || rolesExtra.get(m.id)?.has('admin')) && (() => {
                   const misSedes = sedesAsignadas.get(m.id) ?? new Set<string>()
                   return (
                     <div className="border-t border-zr-border/60 pt-3">

@@ -374,18 +374,23 @@ export default function MaterialAdmin() {
         titulo="Material"
         descripcion="Organizado en carpetas por programa, como Classroom."
         accion={
-          <button
-            onClick={() => setFormAbierto((f) => !f)}
-            className="rounded-lg bg-zr-blue px-5 py-3.5 text-sm font-bold text-white"
-          >
-            {formAbierto ? 'Cancelar' : '+ Subir archivo'}
-          </button>
+          // Subir y aprobar material es de Dirección Académica/super_admin
+          // (reafirmado explícitamente por el coordinador) — un admin
+          // normal navega y descarga, pero no publica ni aprueba nada.
+          puedeCrearCarpetas ? (
+            <button
+              onClick={() => setFormAbierto((f) => !f)}
+              className="rounded-lg bg-zr-blue px-5 py-3.5 text-sm font-bold text-white"
+            >
+              {formAbierto ? 'Cancelar' : '+ Subir archivo'}
+            </button>
+          ) : undefined
         }
       />
 
       <Regla delay={60} />
 
-      {pendientes.length > 0 && (
+      {puedeCrearCarpetas && pendientes.length > 0 && (
         <Seccion numero={1} titulo="Pendientes de aprobación" delay={80}>
           <div className="space-y-3">
             {pendientes.map((m) => (
@@ -424,7 +429,7 @@ export default function MaterialAdmin() {
         </Seccion>
       )}
 
-      <Seccion numero={pendientes.length > 0 ? 2 : 1} titulo="Explorador de material" delay={120}>
+      <Seccion numero={puedeCrearCarpetas && pendientes.length > 0 ? 2 : 1} titulo="Explorador de material" delay={120}>
         <div>
           <label className="mb-2 block text-sm font-semibold text-zr-text">Programa</label>
           <select

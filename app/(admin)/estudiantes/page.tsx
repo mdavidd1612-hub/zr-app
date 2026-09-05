@@ -203,14 +203,16 @@ export default function Estudiantes() {
         titulo="Estudiantes"
         descripcion={`${estudiantes.length} registrados`}
         accion={
-          miRol !== 'direccion_academica' ? (
-            <button
-              onClick={() => router.push('/estudiantes/nuevo')}
-              className="rounded-lg bg-zr-blue px-5 py-3.5 text-sm font-bold text-white transition-colors active:bg-zr-blue-deep"
-            >
-              + Nuevo
-            </button>
-          ) : undefined
+          // Reafirmado explícitamente por el coordinador: Dirección
+          // Académica también crea/modifica estudiantes, igual que admin y
+          // super_admin — antes se escondía el botón aquí sin que hubiera
+          // ninguna razón real (la pantalla de creación nunca la bloqueó).
+          <button
+            onClick={() => router.push('/estudiantes/nuevo')}
+            className="rounded-lg bg-zr-blue px-5 py-3.5 text-sm font-bold text-white transition-colors active:bg-zr-blue-deep"
+          >
+            + Nuevo
+          </button>
         }
       />
 

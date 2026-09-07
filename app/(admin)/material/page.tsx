@@ -347,6 +347,15 @@ export default function MaterialAdmin() {
   const [descargando, setDescargando] = useState<string | null>(null)
   const [eliminando, setEliminando] = useState<string | null>(null)
 
+  // Editar carpeta (renombrar) y material (título/semana) — pedido explícito
+  // del coordinador: quien puede crear/subir tiene que poder corregirlo
+  // después sin tener que borrar y rehacer todo.
+  const [editandoCarpetaId, setEditandoCarpetaId] = useState<string | null>(null)
+  const [nombreEdicionCarpeta, setNombreEdicionCarpeta] = useState('')
+  const [editandoMaterialId, setEditandoMaterialId] = useState<string | null>(null)
+  const [formEdicionMaterial, setFormEdicionMaterial] = useState<{ titulo: string; semana: number | '' }>({ titulo: '', semana: '' })
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false)
+
   // window.open(url, '_blank') después de un await casi siempre lo bloquea
   // el navegador — para cuando la promesa se resuelve, ya pasó la ventana
   // corta en la que un click cuenta como "gesto del usuario". Un <a download>
@@ -386,6 +395,52 @@ export default function MaterialAdmin() {
       setError('No se pudo borrar la carpeta. Intenta de nuevo.')
       return
     }
+    setVersion((v) => v + 1)
+  }
+
+  function abrirEdicionCarpeta(c: Carpeta) {
+    setEditandoCarpetaId(c.id)
+    setNombreEdicionCarpeta(c.nombre)
+  }
+
+  async function guardarNombreCarpeta(c: Carpeta) {
+    const nuevoNombre = nombreEdicionCarpeta.trim()
+    if (!nuevoNombre || nuevoNombre === c.nombre) {
+      setEditandoCarpetaId(null)
+      return
+    }
+    setGuardandoEdicion(true)
+    const { error: fallo } = await createClient().from('content_folders').update({ name: nuevoNombre }).eq('id', c.id)
+    setGuardandoEdicion(false)
+    if (fallo) {
+      setError('No se pudo renombrar la carpeta. Intenta de nuevo.')
+      return
+    }
+    setEditandoCarpetaId(null)
+    setVersion((v) => v + 1)
+  }
+
+  function abrirEdicionMaterial(m: Material) {
+    setEditandoMaterialId(m.id)
+    setFormEdicionMaterial({ titulo: m.titulo, semana: m.semana ?? '' })
+  }
+
+  async function guardarEdicionMaterial(m: Material) {
+    if (!formEdicionMaterial.titulo.trim()) return
+    setGuardandoEdicion(true)
+    const { error: fallo } = await createClient()
+      .from('content_items')
+      .update({
+        title: formEdicionMaterial.titulo.trim(),
+        week_number: formEdicionMaterial.semana === '' ? null : formEdicionMaterial.semana,
+      })
+      .eq('id', m.id)
+    setGuardandoEdicion(false)
+    if (fallo) {
+      setError('No se pudo guardar el material. Intenta de nuevo.')
+      return
+    }
+    setEditandoMaterialId(null)
     setVersion((v) => v + 1)
   }
 
@@ -570,63 +625,141 @@ export default function MaterialAdmin() {
               <div className="space-y-2">
                 {subcarpetas.map((c) => (
                   <div key={c.id} className="zr-card flex items-center gap-3 p-4">
-                    <button
-                      onClick={() => abrirCarpeta(c)}
-                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                    >
-                      <span className="text-xl">📁</span>
-                      <span className="truncate text-sm font-semibold text-zr-text">{c.nombre}</span>
-                    </button>
-                    {puedeCrearCarpetas && (
-                      <button
-                        onClick={() => eliminarCarpeta(c)}
-                        disabled={eliminando === c.id}
-                        className="shrink-0 rounded-full border border-zr-error/40 px-3 py-1.5 text-xs font-bold text-zr-error disabled:opacity-50"
-                      >
-                        {eliminando === c.id ? '…' : 'Borrar'}
-                      </button>
+                    {editandoCarpetaId === c.id ? (
+                      <>
+                        <input
+                          autoFocus
+                          value={nombreEdicionCarpeta}
+                          onChange={(e) => setNombreEdicionCarpeta(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && guardarNombreCarpeta(c)}
+                          className="min-w-0 flex-1 rounded-lg border border-zr-border bg-zr-bg px-3 py-2 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+                        />
+                        <button
+                          onClick={() => guardarNombreCarpeta(c)}
+                          disabled={guardandoEdicion}
+                          className="shrink-0 rounded-full bg-zr-blue px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                        >
+                          Guardar
+                        </button>
+                        <button
+                          onClick={() => setEditandoCarpetaId(null)}
+                          className="shrink-0 rounded-full border border-zr-border px-3 py-1.5 text-xs font-semibold text-zr-text"
+                        >
+                          Cancelar
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => abrirCarpeta(c)}
+                          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                        >
+                          <span className="text-xl">📁</span>
+                          <span className="truncate text-sm font-semibold text-zr-text">{c.nombre}</span>
+                        </button>
+                        {puedeCrearCarpetas && (
+                          <>
+                            <button
+                              onClick={() => abrirEdicionCarpeta(c)}
+                              className="shrink-0 rounded-full border border-zr-border px-3 py-1.5 text-xs font-bold text-zr-text"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => eliminarCarpeta(c)}
+                              disabled={eliminando === c.id}
+                              className="shrink-0 rounded-full border border-zr-error/40 px-3 py-1.5 text-xs font-bold text-zr-error disabled:opacity-50"
+                            >
+                              {eliminando === c.id ? '…' : 'Borrar'}
+                            </button>
+                          </>
+                        )}
+                      </>
                     )}
                   </div>
                 ))}
 
                 {materiales.map((m) => (
-                  <div key={m.id} className="zr-card flex items-center justify-between gap-4 p-4">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <IconoDocumento size={20} className="shrink-0 text-zr-text-muted" />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-zr-text">{m.titulo}</p>
-                        <p className="mt-0.5 text-xs text-zr-text-muted">
-                          {m.autor ? `${m.autor} · ` : ''}
-                          {m.semana ? `Semana ${m.semana}` : ''}
-                          {m.tamañoKB ? ` · ${(m.tamañoKB / 1024).toFixed(1)} MB` : ''}
-                        </p>
+                  <div key={m.id} className="zr-card p-4">
+                    {editandoMaterialId === m.id ? (
+                      <div className="space-y-2.5">
+                        <input
+                          autoFocus
+                          value={formEdicionMaterial.titulo}
+                          onChange={(e) => setFormEdicionMaterial((f) => ({ ...f, titulo: e.target.value }))}
+                          placeholder="Título"
+                          className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+                        />
+                        <input
+                          type="number"
+                          min={1}
+                          value={formEdicionMaterial.semana}
+                          onChange={(e) => setFormEdicionMaterial((f) => ({ ...f, semana: e.target.value === '' ? '' : Number(e.target.value) }))}
+                          placeholder="Semana (opcional)"
+                          className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2 text-sm tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => guardarEdicionMaterial(m)}
+                            disabled={guardandoEdicion || !formEdicionMaterial.titulo.trim()}
+                            className="flex-1 rounded-lg bg-zr-blue py-2 text-sm font-bold text-white disabled:opacity-50"
+                          >
+                            Guardar
+                          </button>
+                          <button
+                            onClick={() => setEditandoMaterialId(null)}
+                            className="flex-1 rounded-lg border border-zr-border py-2 text-sm font-semibold text-zr-text"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <button
-                        onClick={() => descargar(m)}
-                        disabled={descargando === m.id || !m.rutaStorage}
-                        className="rounded-full border border-zr-border px-3 py-1.5 text-xs font-bold text-zr-text disabled:opacity-50"
-                      >
-                        {descargando === m.id ? '…' : 'Descargar'}
-                      </button>
-                      <button
-                        onClick={() => eliminarMaterial(m)}
-                        disabled={eliminando === m.id}
-                        className="rounded-full border border-zr-error/40 px-3 py-1.5 text-xs font-bold text-zr-error disabled:opacity-50"
-                      >
-                        {eliminando === m.id ? '…' : 'Borrar'}
-                      </button>
-                      {m.estadoAprobacion === 'rechazado' ? (
-                        <Etiqueta tono="error">Rechazado</Etiqueta>
-                      ) : (
-                        <button onClick={() => alternarPublicado(m)}>
-                          <Etiqueta tono={m.publicado ? 'exito' : 'neutro'}>
-                            {m.publicado ? 'Publicado' : 'Borrador'}
-                          </Etiqueta>
-                        </button>
-                      )}
-                    </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <IconoDocumento size={20} className="shrink-0 text-zr-text-muted" />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-zr-text">{m.titulo}</p>
+                            <p className="mt-0.5 text-xs text-zr-text-muted">
+                              {m.autor ? `${m.autor} · ` : ''}
+                              {m.semana ? `Semana ${m.semana}` : ''}
+                              {m.tamañoKB ? ` · ${(m.tamañoKB / 1024).toFixed(1)} MB` : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                          <button
+                            onClick={() => descargar(m)}
+                            disabled={descargando === m.id || !m.rutaStorage}
+                            className="rounded-full border border-zr-border px-3 py-1.5 text-xs font-bold text-zr-text disabled:opacity-50"
+                          >
+                            {descargando === m.id ? '…' : 'Descargar'}
+                          </button>
+                          <button
+                            onClick={() => abrirEdicionMaterial(m)}
+                            className="rounded-full border border-zr-border px-3 py-1.5 text-xs font-bold text-zr-text"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => eliminarMaterial(m)}
+                            disabled={eliminando === m.id}
+                            className="rounded-full border border-zr-error/40 px-3 py-1.5 text-xs font-bold text-zr-error disabled:opacity-50"
+                          >
+                            {eliminando === m.id ? '…' : 'Borrar'}
+                          </button>
+                          {m.estadoAprobacion === 'rechazado' ? (
+                            <Etiqueta tono="error">Rechazado</Etiqueta>
+                          ) : (
+                            <button onClick={() => alternarPublicado(m)}>
+                              <Etiqueta tono={m.publicado ? 'exito' : 'neutro'}>
+                                {m.publicado ? 'Publicado' : 'Borrador'}
+                              </Etiqueta>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

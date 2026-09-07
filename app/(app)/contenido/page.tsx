@@ -289,11 +289,7 @@ export default function Contenido() {
 
             {materiales.map((m) => (
               <div key={m.id} className="zr-card p-4">
-                <button
-                  onClick={() => abrir(m)}
-                  disabled={abriendo === m.id}
-                  className="flex w-full items-start gap-3 text-left disabled:opacity-60"
-                >
+                <div className="flex items-start gap-3">
                   {m.tipo === 'video'
                     ? <IconoVideo size={22} className="mt-0.5 shrink-0 text-zr-blue" />
                     : <IconoDocumento size={22} className="mt-0.5 shrink-0 text-zr-error" />}
@@ -305,16 +301,30 @@ export default function Contenido() {
                     </p>
                   </div>
                   <span className={`shrink-0 text-xs font-bold uppercase tracking-wide ${m.tipo === 'video' ? 'text-zr-blue/80' : 'text-zr-error/80'}`}>
-                    {abriendo === m.id ? '...' : m.tipo === 'video' ? 'VIDEO' : m.tipo === 'presentacion' ? 'PPT' : 'PDF'}
+                    {m.tipo === 'video' ? 'VIDEO' : m.tipo === 'presentacion' ? 'PPT' : 'PDF'}
                   </span>
-                </button>
-                <button
-                  onClick={() => descargar(m)}
-                  disabled={descargando === m.id}
-                  className="mt-3 flex min-h-11 w-full items-center justify-center rounded-lg border border-zr-border text-sm font-semibold text-zr-text disabled:opacity-50"
-                >
-                  {descargando === m.id ? 'Descargando…' : 'Descargar'}
-                </button>
+                </div>
+                {/* Dos botones aparte (pedido explícito): "Ver" abre el
+                    archivo dentro de la misma app (iframe/video embebido, o
+                    pestaña nueva solo para PPT, que el navegador no sabe
+                    incrustar) — "Descargar" es la única que de verdad baja
+                    el archivo al teléfono. */}
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={() => abrir(m)}
+                    disabled={abriendo === m.id}
+                    className="flex min-h-11 flex-1 items-center justify-center rounded-lg bg-zr-blue text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    {abriendo === m.id ? 'Abriendo…' : 'Ver'}
+                  </button>
+                  <button
+                    onClick={() => descargar(m)}
+                    disabled={descargando === m.id}
+                    className="flex min-h-11 flex-1 items-center justify-center rounded-lg border border-zr-border text-sm font-semibold text-zr-text disabled:opacity-50"
+                  >
+                    {descargando === m.id ? 'Descargando…' : 'Descargar'}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -332,7 +342,7 @@ export default function Contenido() {
             Consejo
           </p>
           <p className="text-sm text-zr-text-muted">
-            Puedes verlos directo aquí, sin descargar — tócalos para abrirlos.
+            Toca "Ver" para revisarlo directo aquí, sin descargar nada.
           </p>
         </div>
       </div>

@@ -345,16 +345,66 @@ export default function MaterialAdmin() {
   }
 
   const [descargando, setDescargando] = useState<string | null>(null)
+  const [eliminando, setEliminando] = useState<string | null>(null)
+
+  // window.open(url, '_blank') después de un await casi siempre lo bloquea
+  // el navegador — para cuando la promesa se resuelve, ya pasó la ventana
+  // corta en la que un click cuenta como "gesto del usuario". Un <a download>
+  // clickeado por código no tiene ese problema (no abre pestaña, descarga
+  // directo), y con { download: true } el propio Storage manda el nombre de
+  // archivo correcto en la respuesta.
+  function descargarDesdeUrl(url: string, nombre: string) {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = nombre
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
 
   async function descargar(m: Material) {
     if (!m.rutaStorage) return
     setDescargando(m.id)
     const supabase = createClient()
-    const { data: firmada } = await supabase.storage.from('contenido').createSignedUrl(m.rutaStorage, 300)
+    const { data: firmada } = await supabase.storage
+      .from('contenido')
+      .createSignedUrl(m.rutaStorage, 300, { download: true })
     setDescargando(null)
     if (firmada?.signedUrl) {
-      window.open(firmada.signedUrl, '_blank', 'noopener,noreferrer')
+      descargarDesdeUrl(firmada.signedUrl, m.titulo)
+    } else {
+      setError('No se pudo descargar el archivo. Intenta de nuevo.')
     }
+  }
+
+  async function eliminarCarpeta(c: Carpeta) {
+    if (!confirm(`¿Borrar la carpeta "${c.nombre}"? El material que tenga adentro no se borra, queda suelto en la carpeta anterior.`)) return
+    setEliminando(c.id)
+    const { error: fallo } = await createClient().from('content_folders').delete().eq('id', c.id)
+    setEliminando(null)
+    if (fallo) {
+      setError('No se pudo borrar la carpeta. Intenta de nuevo.')
+      return
+    }
+    setVersion((v) => v + 1)
+  }
+
+  async function eliminarMaterial(m: Material) {
+    if (!confirm(`¿Borrar "${m.titulo}"? Esto no se puede deshacer.`)) return
+    setEliminando(m.id)
+    const supabase = createClient()
+
+    if (m.rutaStorage) {
+      await supabase.storage.from('contenido').remove([m.rutaStorage])
+    }
+    const { error: fallo } = await supabase.from('content_items').delete().eq('id', m.id)
+
+    setEliminando(null)
+    if (fallo) {
+      setError('No se pudo borrar el material. Intenta de nuevo.')
+      return
+    }
+    setVersion((v) => v + 1)
   }
 
   if (cargando) {
@@ -430,6 +480,14 @@ export default function MaterialAdmin() {
       )}
 
       <Seccion numero={puedeCrearCarpetas && pendientes.length > 0 ? 2 : 1} titulo="Explorador de material" delay={120}>
+        {/* Antes este aviso solo vivía dentro del formulario de subida — un
+            error al borrar o descargar (con el formulario cerrado, el caso
+            normal) no se veía en ningún lado. */}
+        {error && !formAbierto && (
+          <p className="rounded-lg border border-zr-error/30 bg-zr-error/12 px-4 py-3 text-sm font-medium text-zr-error">
+            {error}
+          </p>
+        )}
         <div>
           <label className="mb-2 block text-sm font-semibold text-zr-text">Programa</label>
           <select
@@ -511,14 +569,24 @@ export default function MaterialAdmin() {
             ) : (
               <div className="space-y-2">
                 {subcarpetas.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => abrirCarpeta(c)}
-                    className="zr-card zr-card-interactive flex w-full items-center gap-3 p-4 text-left"
-                  >
-                    <span className="text-xl">📁</span>
-                    <span className="text-sm font-semibold text-zr-text">{c.nombre}</span>
-                  </button>
+                  <div key={c.id} className="zr-card flex items-center gap-3 p-4">
+                    <button
+                      onClick={() => abrirCarpeta(c)}
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    >
+                      <span className="text-xl">📁</span>
+                      <span className="truncate text-sm font-semibold text-zr-text">{c.nombre}</span>
+                    </button>
+                    {puedeCrearCarpetas && (
+                      <button
+                        onClick={() => eliminarCarpeta(c)}
+                        disabled={eliminando === c.id}
+                        className="shrink-0 rounded-full border border-zr-error/40 px-3 py-1.5 text-xs font-bold text-zr-error disabled:opacity-50"
+                      >
+                        {eliminando === c.id ? '…' : 'Borrar'}
+                      </button>
+                    )}
+                  </div>
                 ))}
 
                 {materiales.map((m) => (
@@ -541,6 +609,13 @@ export default function MaterialAdmin() {
                         className="rounded-full border border-zr-border px-3 py-1.5 text-xs font-bold text-zr-text disabled:opacity-50"
                       >
                         {descargando === m.id ? '…' : 'Descargar'}
+                      </button>
+                      <button
+                        onClick={() => eliminarMaterial(m)}
+                        disabled={eliminando === m.id}
+                        className="rounded-full border border-zr-error/40 px-3 py-1.5 text-xs font-bold text-zr-error disabled:opacity-50"
+                      >
+                        {eliminando === m.id ? '…' : 'Borrar'}
                       </button>
                       {m.estadoAprobacion === 'rechazado' ? (
                         <Etiqueta tono="error">Rechazado</Etiqueta>

@@ -232,11 +232,27 @@ export function TourEstudiante({ onTerminado }: { onTerminado: () => void }) {
             }}
           />
           <div
-            className="absolute left-1/2 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 space-y-4 rounded-xl border border-zr-border bg-zr-surface p-6 shadow-2xl"
+            className="absolute left-1/2 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 space-y-4 overflow-y-auto rounded-xl border border-zr-border bg-zr-surface p-6 shadow-2xl"
             style={
+              // `bottom` (caso "arriba") o `top` solo (caso "abajo") dejan
+              // que el navegador acomode la altura de la tarjeta él solo,
+              // creciendo desde ese borde — a diferencia de un
+              // top+translate(-100%), que necesita saber de antemano cuánto
+              // mide la tarjeta para no salirse por arriba. Con textos más
+              // largos (los pasos de Mi módulo, Material, etc. — antes solo
+              // había 4 pasos, todos en Inicio, con textos parecidos) esa
+              // cuenta fallaba y la tarjeta se cortaba contra el borde de la
+              // pantalla. maxHeight + overflow-y-auto es el respaldo final:
+              // si de verdad no cabe, la tarjeta scrollea en vez de salirse.
               arriba
-                ? { top: Math.min(rect.top + rect.height + pad * 2 + 12, window.innerHeight - 260) }
-                : { top: Math.max(rect.top - pad - 12, 16), transform: 'translate(-50%, -100%)' }
+                ? (() => {
+                    const top = Math.min(rect.top + rect.height + pad * 2 + 12, window.innerHeight - 120)
+                    return { top, maxHeight: window.innerHeight - top - 16 }
+                  })()
+                : (() => {
+                    const espacioArriba = Math.max(rect.top - pad - 12, 120)
+                    return { bottom: window.innerHeight - espacioArriba, maxHeight: espacioArriba - 16 }
+                  })()
             }
           >
             {tarjeta}

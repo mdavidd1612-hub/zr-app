@@ -48,7 +48,9 @@ export default function Contenido() {
   const [materiales, setMateriales] = useState<Material[]>([])
   const [cargando, setCargando] = useState(true)
   const [abriendo, setAbriendo] = useState<string | null>(null)
+  const [descargando, setDescargando] = useState<string | null>(null)
   const [abierto, setAbierto] = useState<Abierto | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const carpetaActual = pilaCarpetas[pilaCarpetas.length - 1]?.id ?? null
 
@@ -111,22 +113,36 @@ export default function Contenido() {
   }
 
   async function abrir(m: Material) {
+    setError(null)
     setAbriendo(m.id)
+
+    // El PowerPoint se abre en una pestaña nueva (no se puede incrustar en
+    // un iframe). window.open() DESPUÉS de un await casi siempre lo bloquea
+    // el navegador — para cuando la promesa se resuelve, ya pasó la ventana
+    // corta en la que un click cuenta como "gesto del usuario" y deja de
+    // contar como pestaña pedida por la persona. Por eso la pestaña se abre
+    // en blanco aquí, ANTES de cualquier await, y se le pone la URL real
+    // cuando ya la tenemos — a los ojos del navegador sigue siendo "el
+    // click abrió la pestaña", así que no la bloquea.
+    const pestañaNueva = m.tipo === 'presentacion' ? window.open('', '_blank') : null
+
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
-    const { data: item } = await supabase
+    const { data: item, error: falloItem } = await supabase
       .from('content_items')
       .select('storage_path')
       .eq('id', m.id)
       .single()
 
-    if (!item?.storage_path) {
+    if (falloItem || !item?.storage_path) {
+      pestañaNueva?.close()
       setAbriendo(null)
+      setError('No se pudo abrir el archivo. Intenta de nuevo.')
       return
     }
 
-    const { data: firmada } = await supabase.storage
+    const { data: firmada, error: falloUrl } = await supabase.storage
       .from('contenido')
       .createSignedUrl(item.storage_path, 300)
 
@@ -137,17 +153,55 @@ export default function Contenido() {
     }
 
     setAbriendo(null)
-    if (!firmada?.signedUrl) return
 
-    // El PowerPoint no se puede incrustar en un iframe (el navegador no lo
-    // sabe renderizar) — se abre directo, como cualquier descarga, en vez de
-    // forzar el visor de pantalla completa que sí sirve para PDF y video.
+    if (falloUrl || !firmada?.signedUrl) {
+      pestañaNueva?.close()
+      setError('No se pudo abrir el archivo. Intenta de nuevo.')
+      return
+    }
+
     if (m.tipo === 'presentacion') {
-      window.open(firmada.signedUrl, '_blank', 'noopener,noreferrer')
+      if (pestañaNueva) pestañaNueva.location.href = firmada.signedUrl
+      else window.open(firmada.signedUrl, '_blank', 'noopener,noreferrer')
       return
     }
 
     setAbierto({ id: m.id, titulo: m.titulo, tipo: m.tipo, url: firmada.signedUrl })
+  }
+
+  // <a download> clickeado por código no abre pestaña, así que no lo
+  // bloquea el navegador — y con { download: true } el propio Storage
+  // manda el nombre de archivo correcto en la respuesta.
+  async function descargar(m: Material) {
+    setError(null)
+    setDescargando(m.id)
+    const supabase = createClient()
+
+    const { data: item } = await supabase
+      .from('content_items').select('storage_path').eq('id', m.id).single()
+
+    if (!item?.storage_path) {
+      setDescargando(null)
+      setError('No se pudo descargar el archivo. Intenta de nuevo.')
+      return
+    }
+
+    const { data: firmada } = await supabase.storage
+      .from('contenido')
+      .createSignedUrl(item.storage_path, 300, { download: true })
+
+    setDescargando(null)
+    if (!firmada?.signedUrl) {
+      setError('No se pudo descargar el archivo. Intenta de nuevo.')
+      return
+    }
+
+    const a = document.createElement('a')
+    a.href = firmada.signedUrl
+    a.download = m.titulo
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
   }
 
   return (
@@ -234,28 +288,42 @@ export default function Contenido() {
             ))}
 
             {materiales.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => abrir(m)}
-                disabled={abriendo === m.id}
-                className="zr-card zr-card-interactive flex w-full items-start gap-3 p-4 text-left disabled:opacity-60"
-              >
-                {m.tipo === 'video'
-                  ? <IconoVideo size={22} className="mt-0.5 shrink-0 text-zr-blue" />
-                  : <IconoDocumento size={22} className="mt-0.5 shrink-0 text-zr-error" />}
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-zr-text">{m.titulo}</p>
-                  <p className="mt-1 text-xs text-zr-text-muted">
-                    {m.semana ? `Semana ${m.semana}` : ''}
-                    {m.tamañoKB ? `${m.semana ? ' · ' : ''}${(m.tamañoKB / 1024).toFixed(1)} MB` : ''}
-                  </p>
-                </div>
-                <span className={`shrink-0 text-xs font-bold uppercase tracking-wide ${m.tipo === 'video' ? 'text-zr-blue/80' : 'text-zr-error/80'}`}>
-                  {abriendo === m.id ? '...' : m.tipo === 'video' ? 'VIDEO' : m.tipo === 'presentacion' ? 'PPT' : 'PDF'}
-                </span>
-              </button>
+              <div key={m.id} className="zr-card p-4">
+                <button
+                  onClick={() => abrir(m)}
+                  disabled={abriendo === m.id}
+                  className="flex w-full items-start gap-3 text-left disabled:opacity-60"
+                >
+                  {m.tipo === 'video'
+                    ? <IconoVideo size={22} className="mt-0.5 shrink-0 text-zr-blue" />
+                    : <IconoDocumento size={22} className="mt-0.5 shrink-0 text-zr-error" />}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-zr-text">{m.titulo}</p>
+                    <p className="mt-1 text-xs text-zr-text-muted">
+                      {m.semana ? `Semana ${m.semana}` : ''}
+                      {m.tamañoKB ? `${m.semana ? ' · ' : ''}${(m.tamañoKB / 1024).toFixed(1)} MB` : ''}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 text-xs font-bold uppercase tracking-wide ${m.tipo === 'video' ? 'text-zr-blue/80' : 'text-zr-error/80'}`}>
+                    {abriendo === m.id ? '...' : m.tipo === 'video' ? 'VIDEO' : m.tipo === 'presentacion' ? 'PPT' : 'PDF'}
+                  </span>
+                </button>
+                <button
+                  onClick={() => descargar(m)}
+                  disabled={descargando === m.id}
+                  className="mt-3 flex min-h-11 w-full items-center justify-center rounded-lg border border-zr-border text-sm font-semibold text-zr-text disabled:opacity-50"
+                >
+                  {descargando === m.id ? 'Descargando…' : 'Descargar'}
+                </button>
+              </div>
             ))}
           </div>
+        )}
+
+        {error && (
+          <p className="rounded-lg border border-zr-error/30 bg-zr-error/12 px-4 py-3 text-sm font-medium text-zr-error">
+            {error}
+          </p>
         )}
 
         <div className="space-y-2 rounded-lg border border-zr-blue/30 bg-zr-blue/10 p-5">

@@ -15,7 +15,12 @@ import { Aviso } from '@/components/ui/Aviso'
  */
 
 const TIPOS_PERMITIDOS = ['image/jpeg', 'image/png', 'image/webp']
-const TAMANO_MAXIMO = 3 * 1024 * 1024
+// 3 MB rechazaba fotos normales de cámara de teléfono (pedido explícito del
+// coordinador: "una foto normal no se puede subir porque pesa mucho") — una
+// foto de un celular moderno, sin comprimir, ronda 4-10 MB fácil. El límite
+// del bucket (storage.buckets.file_size_limit, migración 071) tiene que
+// subirse igual del lado de la base — ver migración 088.
+const TAMANO_MAXIMO = 10 * 1024 * 1024
 
 interface Props {
   uid: string
@@ -46,7 +51,7 @@ export function FotoPerfil({ uid, rutaInicial }: Props) {
       return
     }
     if (archivo.size > TAMANO_MAXIMO) {
-      setError('La foto pesa demasiado. El máximo es 3 MB.')
+      setError('La foto pesa demasiado. El máximo es 10 MB.')
       return
     }
 

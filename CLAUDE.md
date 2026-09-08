@@ -223,3 +223,34 @@ Cosas que parecen decisiones libres pero no lo son:
 3. Si es una regla de la academia, busca en `docs/00_CONTEXTO_MAESTRO_AGENTE.md`.
 4. Si de verdad no está escrito en ningún lado: **detente y pregunta.** No adivines. Una
    decisión inventada cuesta días de retrabajo; una pregunta cuesta cinco minutos.
+
+---
+
+## 11. RAMAS Y ENTORNOS
+
+Desde septiembre de 2026 hay dos entornos, no uno. Antes de esto, todo se trabajaba directo
+sobre `main` contra la base de producción — eso se terminó.
+
+| Rama | Qué es | Base de datos | Deploy |
+|---|---|---|---|
+| `main` | Producción. Lo que usan los estudiantes reales. | `zr-prod` (`hagbqhnittynxebdssua`) | Automático a producción en cada push. |
+| `develop` | Donde se trabaja de ahora en más. | `zr-staging` (`iazqmnfekulxjcqelzog`) | Automático a un entorno de prueba aparte. |
+
+**Reglas:**
+
+1. Todo cambio nuevo — features, pruebas, casos sintéticos — se hace en `develop`, nunca directo
+   en `main`. `main` solo recibe merges de `develop` ya probados, o un hotfix directo cuando algo
+   en producción está roto y no puede esperar.
+2. Las migraciones se crean y se aplican primero contra `zr-staging` (`develop`), se prueban ahí
+   con datos falsos, y solo después se aplican contra `zr-prod` al mergear a `main`. Sigue
+   aplicando la regla §2.6 tal cual: nunca se edita una migración ya aplicada, en ningún entorno.
+3. Nunca se sincronizan datos reales de estudiantes hacia `zr-staging`. El entorno de prueba
+   existe justamente para no arriesgar esos datos.
+4. Si una migración necesita `ALTER TYPE ... ADD VALUE`, va SOLA en su propio archivo, sin nada
+   más en la misma transacción que consulte ese valor nuevo — Postgres no lo permite en la misma
+   transacción. Ejemplo real: la migración `021_direccion_academica.sql` tuvo que aplicarse en dos
+   partes por esto.
+5. `supabase/seed/seed_dev.sql` describe un esquema antiguo (13 módulos genéricos, sin las
+   columnas que exige el currículo real de PTMA/PFTA) y no se puede correr tal cual contra el
+   esquema actual. No usarlo como referencia de qué datos de prueba crear — antes de tocarlo, hay
+   que reescribirlo para que coincida con las migraciones vigentes.

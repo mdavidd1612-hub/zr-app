@@ -130,10 +130,13 @@ ZR App/
     ├── 10_ESQUEMA_BASE_DATOS_V2.md        el esquema explicado en prosa
     ├── 11_PLAN_EJECUCION_FASE1.md         el cronograma
     ├── 13_DISENO_DE_PRODUCTO_ESTUDIANTE.md  qué gana el estudiante y por qué
-    └── 18_BRECHAS_SPEC_FUNCIONAL_ZRM.md   ← LÉELO ANTES DE TOCAR inscripción,
-                                             planilla, malla, asistencia u Odoo:
-                                             qué falta, qué ya se hizo y qué NO
-                                             hay que "corregir"
+    ├── 18_BRECHAS_SPEC_FUNCIONAL_ZRM.md   ← LÉELO ANTES DE TOCAR inscripción,
+    │                                        planilla, malla, asistencia u Odoo:
+    │                                        qué falta, qué ya se hizo y qué NO
+    │                                        hay que "corregir"
+    └── 20_INDUCCION_METODOLOGIA.md        ← empieza por aquí si eres nuevo en
+                                             el equipo: ramas, accesos, dónde
+                                             está cada cosa (Vercel/Supabase/GitHub)
 ```
 
 **Jerarquía cuando dos archivos se contradicen:**

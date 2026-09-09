@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Seccion, Regla, Dato } from '@/components/ui/Editorial'
+import { Seccion, SeccionColegable, Regla, Dato } from '@/components/ui/Editorial'
 import { IconoEstudiantes, IconoNotas, IconoPanel, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet } from '@/components/ui/Iconos'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { leerSimulacionSabado } from '@/lib/demo-sabado'
@@ -192,7 +192,11 @@ export default function Panel() {
 
             {/* Vista de recorrido: quién ve cuál, reafirmado explícitamente
                 por el coordinador — admin: estudiante y ventas; dirección
-                académica: estudiante y profesor; super_admin: las tres. */}
+                académica: estudiante y profesor; super_admin: las tres.
+                Colapsada por defecto (Fase 5, plan de estabilización de
+                sept. 2026): es una herramienta de prueba, no algo que haga
+                falta ver cada vez que se abre el panel un sábado — que no
+                compita por atención con lo operativo del día. */}
             {rol && (
               <GrupoAccesos
                 numero={nRecorrido}
@@ -204,6 +208,7 @@ export default function Panel() {
                   ...(rol === 'direccion_academica' || rol === 'super_admin' ? [ACCESO_PROFESOR] : []),
                 ]}
                 delay={320}
+                colegable
               />
             )}
           </>
@@ -222,13 +227,14 @@ interface Acceso {
 }
 
 function GrupoAccesos({
-  numero, titulo, descripcion, accesos, delay,
+  numero, titulo, descripcion, accesos, delay, colegable = false,
 }: {
-  numero: number; titulo: string; descripcion?: string; accesos: Acceso[]; delay: number
+  numero: number; titulo: string; descripcion?: string; accesos: Acceso[]; delay: number; colegable?: boolean
 }) {
   const router = useRouter()
+  const ContenedorSeccion = colegable ? SeccionColegable : Seccion
   return (
-    <Seccion numero={numero} titulo={titulo} delay={delay}>
+    <ContenedorSeccion numero={numero} titulo={titulo} delay={delay}>
       {descripcion && <p className="text-sm text-zr-text-muted">{descripcion}</p>}
       <div className="space-y-3">
         {accesos.map((a) => (
@@ -250,6 +256,6 @@ function GrupoAccesos({
           </button>
         ))}
       </div>
-    </Seccion>
+    </ContenedorSeccion>
   )
 }

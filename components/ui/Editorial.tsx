@@ -1,3 +1,5 @@
+'use client'
+
 /**
  * Piezas del sistema editorial.
  *
@@ -9,6 +11,9 @@
  * Regla: si una pantalla necesita un encabezado, lo pide aquí. No se escriben
  * `text-xs tracking-widest` sueltos en las páginas.
  */
+
+import { useState } from 'react'
+import { IconoChevron } from './Iconos'
 
 interface SeccionProps {
   /** Número de orden dentro de la pantalla. Se rellena a dos dígitos. */
@@ -32,6 +37,45 @@ export function Seccion({ numero, titulo, children, delay = 0, className = '' }:
         {String(numero).padStart(2, '0')} — {titulo}
       </p>
       {children}
+    </section>
+  )
+}
+
+interface SeccionColegableProps extends SeccionProps {
+  /** Cerrada por defecto: para secciones que no hace falta ver cada vez que
+   * se abre la pantalla (herramientas de prueba, ajustes poco usados) — el
+   * contenido operativo del día a día no debería competir por atención con
+   * esto en la primera pantallada. */
+  abiertaPorDefecto?: boolean
+}
+
+/** Igual que `Seccion`, pero el bloque se pliega detrás de su propio rótulo.
+ * Usa `useState` local: no hace falta recordar el estado entre visitas, cada
+ * vez que se entra a la pantalla vuelve a `abiertaPorDefecto`. */
+export function SeccionColegable({
+  numero, titulo, children, delay = 0, className = '', abiertaPorDefecto = false,
+}: SeccionColegableProps) {
+  const [abierta, setAbierta] = useState(abiertaPorDefecto)
+  return (
+    <section
+      className={`animate-rise space-y-5 ${className}`}
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      <button
+        type="button"
+        onClick={() => setAbierta((v) => !v)}
+        aria-expanded={abierta}
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <p className="zr-eyebrow">
+          {String(numero).padStart(2, '0')} — {titulo}
+        </p>
+        <IconoChevron
+          size={18}
+          className={`shrink-0 text-zr-text-muted transition-transform ${abierta ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {abierta && children}
     </section>
   )
 }

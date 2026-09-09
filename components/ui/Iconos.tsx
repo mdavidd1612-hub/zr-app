@@ -277,6 +277,15 @@ export function IconoFlechaAtras(p: IconoProps) {
   )
 }
 
+/** Chevron hacia abajo. Gira 180° por CSS cuando la sección que acompaña está abierta. */
+export function IconoChevron(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <path d="m6 9 6 6 6-6" />
+    </Base>
+  )
+}
+
 export function IconoCerrar(p: IconoProps) {
   return (
     <Base {...p}>

@@ -138,6 +138,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       todasLasSecciones={
         rol === 'super_admin' ? TODAS_SUPER : esDireccionAcademica(rol) ? TODAS_DIRECCION : TODAS
       }
+      // Bug real de producción (sept. 2026): `deslizable` viene en `true`
+      // por defecto (pensado para la barra del estudiante, donde deslizar
+      // cambia de sección). Nadie lo apagó aquí, así que cualquier gesto
+      // horizontal en una pantalla de administración -- por ejemplo deslizar
+      // la fila de programas (PTMA/PFTA) en Asistencia -- se interpretaba
+      // como "cambiar de sección" y mandaba a otra pantalla sin que nadie lo
+      // pidiera. El personal nunca pidió deslizar para navegar; se apaga.
+      deslizable={false}
       imprimible
     >
       {children}

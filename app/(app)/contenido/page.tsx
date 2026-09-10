@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { IconoDocumento, IconoVideo, IconoAviso, IconoCerrar } from '@/components/ui/Iconos'
+import { IconoDocumento, IconoVideo, IconoAviso } from '@/components/ui/Iconos'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 
 /**
@@ -15,10 +15,12 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
  * se filtran solas por su propio módulo (migración 081). Aquí no se repite
  * ese filtro, solo se navega y se pide la data.
  *
- * B-4 (docs/18_BRECHAS_SPEC_FUNCIONAL_ZRM.md, spec §6): el visor queda
- * embebido en la misma pantalla (iframe para PDF, <video> para video) en vez
- * de abrir una pestaña nueva — la spec pide explícitamente "minimizar
- * fricción, que no tenga que descargar cada archivo".
+ * Bug real de producción (sept. 2026): el visor embebido (iframe para PDF)
+ * se quedaba en blanco cargando para siempre en Android -- probado y
+ * confirmado por el coordinador en un teléfono real. "Descargar" sí
+ * funciona bien en iOS y Android por igual, así que a pedido explícito se
+ * quita el botón "Ver" hasta que ese visor se pueda arreglar de verdad; por
+ * ahora solo se descarga.
  */
 
 interface Carpeta {
@@ -34,22 +36,13 @@ interface Material {
   tipo: 'pdf' | 'video' | 'presentacion' | string
 }
 
-interface Abierto {
-  id: string
-  titulo: string
-  tipo: 'pdf' | 'video' | 'presentacion' | string
-  url: string
-}
-
 export default function Contenido() {
   const router = useRouter()
   const [pilaCarpetas, setPilaCarpetas] = useState<Carpeta[]>([])
   const [subcarpetas, setSubcarpetas] = useState<Carpeta[]>([])
   const [materiales, setMateriales] = useState<Material[]>([])
   const [cargando, setCargando] = useState(true)
-  const [abriendo, setAbriendo] = useState<string | null>(null)
   const [descargando, setDescargando] = useState<string | null>(null)
-  const [abierto, setAbierto] = useState<Abierto | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const carpetaActual = pilaCarpetas[pilaCarpetas.length - 1]?.id ?? null
@@ -112,63 +105,6 @@ export default function Contenido() {
     setPilaCarpetas((p) => p.slice(0, indice + 1))
   }
 
-  async function abrir(m: Material) {
-    setError(null)
-    setAbriendo(m.id)
-
-    // El PowerPoint se abre en una pestaña nueva (no se puede incrustar en
-    // un iframe). window.open() DESPUÉS de un await casi siempre lo bloquea
-    // el navegador — para cuando la promesa se resuelve, ya pasó la ventana
-    // corta en la que un click cuenta como "gesto del usuario" y deja de
-    // contar como pestaña pedida por la persona. Por eso la pestaña se abre
-    // en blanco aquí, ANTES de cualquier await, y se le pone la URL real
-    // cuando ya la tenemos — a los ojos del navegador sigue siendo "el
-    // click abrió la pestaña", así que no la bloquea.
-    const pestañaNueva = m.tipo === 'presentacion' ? window.open('', '_blank') : null
-
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    const { data: item, error: falloItem } = await supabase
-      .from('content_items')
-      .select('storage_path')
-      .eq('id', m.id)
-      .single()
-
-    if (falloItem || !item?.storage_path) {
-      pestañaNueva?.close()
-      setAbriendo(null)
-      setError('No se pudo abrir el archivo. Intenta de nuevo.')
-      return
-    }
-
-    const { data: firmada, error: falloUrl } = await supabase.storage
-      .from('contenido')
-      .createSignedUrl(item.storage_path, 300)
-
-    // Se registra la vista sin bloquear la apertura: si falla, el estudiante
-    // igual debe poder ver el archivo.
-    if (user) {
-      void supabase.from('content_views').insert({ content_item_id: m.id, student_id: user.id })
-    }
-
-    setAbriendo(null)
-
-    if (falloUrl || !firmada?.signedUrl) {
-      pestañaNueva?.close()
-      setError('No se pudo abrir el archivo. Intenta de nuevo.')
-      return
-    }
-
-    if (m.tipo === 'presentacion') {
-      if (pestañaNueva) pestañaNueva.location.href = firmada.signedUrl
-      else window.open(firmada.signedUrl, '_blank', 'noopener,noreferrer')
-      return
-    }
-
-    setAbierto({ id: m.id, titulo: m.titulo, tipo: m.tipo, url: firmada.signedUrl })
-  }
-
   // Bug real de producción (sept. 2026): el truco de <a download> clickeado
   // por código no sirve dentro de una PWA instalada en iOS -- WebKit en modo
   // standalone ignora el atributo `download` con una URL de otro dominio (la
@@ -213,28 +149,6 @@ export default function Contenido() {
 
   return (
     <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
-      {abierto && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black">
-          <div className="flex items-center justify-between gap-3 bg-zr-surface px-5 py-4">
-            <p className="min-w-0 truncate text-sm font-semibold text-zr-text">{abierto.titulo}</p>
-            <button
-              onClick={() => setAbierto(null)}
-              aria-label="Cerrar"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zr-text-muted active:bg-zr-border/50"
-            >
-              <IconoCerrar size={18} />
-            </button>
-          </div>
-          <div className="flex-1">
-            {abierto.tipo === 'video' ? (
-              <video src={abierto.url} controls autoPlay className="h-full w-full bg-black" />
-            ) : (
-              <iframe src={abierto.url} title={abierto.titulo} className="h-full w-full border-0 bg-white" />
-            )}
-          </div>
-        </div>
-      )}
-
       <div className="space-y-9">
         <BotonVolver href="/" />
 
@@ -311,23 +225,14 @@ export default function Contenido() {
                     {m.tipo === 'video' ? 'VIDEO' : m.tipo === 'presentacion' ? 'PPT' : 'PDF'}
                   </span>
                 </div>
-                {/* Dos botones aparte (pedido explícito): "Ver" abre el
-                    archivo dentro de la misma app (iframe/video embebido, o
-                    pestaña nueva solo para PPT, que el navegador no sabe
-                    incrustar) — "Descargar" es la única que de verdad baja
-                    el archivo al teléfono. */}
-                <div className="mt-3 flex gap-2">
-                  <button
-                    onClick={() => abrir(m)}
-                    disabled={abriendo === m.id}
-                    className="flex min-h-11 flex-1 items-center justify-center rounded-lg bg-zr-blue text-sm font-bold text-white disabled:opacity-50"
-                  >
-                    {abriendo === m.id ? 'Abriendo…' : 'Ver'}
-                  </button>
+                {/* Solo "Descargar" por ahora (pedido explícito, sept.
+                    2026): el visor embebido se quedaba en blanco cargando
+                    para siempre en Android. Ver la nota del componente. */}
+                <div className="mt-3">
                   <button
                     onClick={() => descargar(m)}
                     disabled={descargando === m.id}
-                    className="flex min-h-11 flex-1 items-center justify-center rounded-lg border border-zr-border text-sm font-semibold text-zr-text disabled:opacity-50"
+                    className="flex min-h-11 w-full items-center justify-center rounded-lg bg-zr-blue text-sm font-bold text-white disabled:opacity-50"
                   >
                     {descargando === m.id ? 'Descargando…' : 'Descargar'}
                   </button>
@@ -349,7 +254,7 @@ export default function Contenido() {
             Consejo
           </p>
           <p className="text-sm text-zr-text-muted">
-            Toca "Ver" para revisarlo directo aquí, sin descargar nada.
+            Toca "Descargar" y luego ábrelo desde tus descargas o notificaciones.
           </p>
         </div>
       </div>

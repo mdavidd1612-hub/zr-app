@@ -130,7 +130,27 @@ export function TourEstudiante({ onTerminado }: { onTerminado: () => void }) {
 
     function medir(el: HTMLElement) {
       const r = el.getBoundingClientRect()
-      setRect({ top: r.top, left: r.left, width: r.width, height: r.height })
+      // Bug real de producción (sept. 2026): "La malla curricular" resalta
+      // el <ol> completo de los 14 módulos -- mucho más alto que la
+      // pantalla. scrollIntoView lo centra, así que su top queda muy
+      // negativo y su bottom muy por debajo del viewport; la cuenta de
+      // "arriba o abajo" de más adelante entonces no le deja casi nada de
+      // alto a la tarjeta, y esta terminaba cortada contra el borde de
+      // la pantalla con los botones de "Siguiente"/"Omitir" invisibles --
+      // el estudiante se quedaba sin forma de avanzar el tour.
+      // Se acota el rectángulo a lo que de verdad es visible, y si eso deja
+      // menos de ~170 px libres arriba o abajo (el elemento ocupa casi toda
+      // la pantalla), se renuncia al recuadro: la tarjeta cae al mismo
+      // respaldo centrado que ya usan la bienvenida y el cierre.
+      const top = Math.max(r.top, 0)
+      const bottom = Math.min(r.bottom, window.innerHeight)
+      const height = Math.max(bottom - top, 0)
+      const espacioLibre = Math.max(top, window.innerHeight - bottom)
+      if (espacioLibre < 170) {
+        setRect(null)
+        return
+      }
+      setRect({ top, left: r.left, width: r.width, height })
     }
 
     // Si la página recién se montó (venimos de navegar a otra ruta del

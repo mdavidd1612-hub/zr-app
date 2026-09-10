@@ -160,12 +160,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // acepta términos, no tiene sentido ir a ningún otro lado todavía.
   const enOnboarding = pathname === '/completar-perfil' || pathname === '/aceptar-terminos'
 
+  // Sin la barra de navegación durante el onboarding (arreglo de arriba),
+  // no queda ninguna forma de cerrar sesión si hace falta salir a mitad de
+  // camino -- a pedido explícito del coordinador, después de quedarse sin
+  // salida probando la cuenta de un estudiante real.
+  async function salir() {
+    await createClient().auth.signOut()
+    router.replace('/login')
+  }
+
   return (
     <Marco
       items={validado ? NAV : NAV_PENDIENTE}
       deslizable={validado}
       sinNavegacion={enExamen || enOnboarding}
     >
+      {enOnboarding && (
+        <button
+          onClick={salir}
+          className="fixed right-3 z-50 rounded-full bg-zr-error px-4 py-2 text-xs font-bold text-white shadow-lg lg:absolute lg:right-8 lg:top-8"
+          style={{ top: 'calc(0.75rem + env(safe-area-inset-top))' }}
+        >
+          Salir
+        </button>
+      )}
       {simulando && <BannerSimulacion etiqueta="Estudiante" />}
       {children}
       {mostrarTour && <TourEstudiante onTerminado={() => setMostrarTour(false)} />}

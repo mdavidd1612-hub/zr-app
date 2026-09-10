@@ -135,7 +135,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         .from('students').select('validated_at, tour_completed_at').eq('id', user.id).maybeSingle()
       const yaValidado = Boolean(est?.validated_at)
       setValidado(yaValidado)
-      if (yaValidado && !est?.tour_completed_at) setMostrarTour(true)
+      // Nunca mientras todavía está en el formulario de primer ingreso o en
+      // aceptar términos -- ver el bug real de producción documentado en
+      // TourEstudiante.tsx: si el tour llega a montarse ahí, deja el scroll
+      // de esa pantalla bloqueado aunque no dibuje nada visible.
+      const enOnboarding = pathname === '/completar-perfil' || pathname === '/aceptar-terminos'
+      if (yaValidado && !est?.tour_completed_at && !enOnboarding) setMostrarTour(true)
       const rutasPermitidasPendiente = ['/', '/perfil', '/completar-perfil', '/aceptar-terminos']
       if (!yaValidado && !rutasPermitidasPendiente.includes(pathname)) {
         router.replace('/')
@@ -148,11 +153,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // con el de pasar de pregunta y el estudiante saldría del examen a medias.
   const enExamen = /^\/examenes\/[^/]+$/.test(pathname)
 
+  // Bug real de producción (sept. 2026), reportado por el coordinador: con
+  // la barra de navegación visible durante el formulario de primer ingreso,
+  // el estudiante tocaba "Perfil" o "Dudas" a mitad de llenarlo y la app lo
+  // rebotaba de vuelta de forma confusa. Mientras completa su perfil o
+  // acepta términos, no tiene sentido ir a ningún otro lado todavía.
+  const enOnboarding = pathname === '/completar-perfil' || pathname === '/aceptar-terminos'
+
   return (
     <Marco
       items={validado ? NAV : NAV_PENDIENTE}
       deslizable={validado}
-      sinNavegacion={enExamen}
+      sinNavegacion={enExamen || enOnboarding}
     >
       {simulando && <BannerSimulacion etiqueta="Estudiante" />}
       {children}

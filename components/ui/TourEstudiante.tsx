@@ -101,10 +101,19 @@ export function TourEstudiante({ onTerminado }: { onTerminado: () => void }) {
   const esUltimo = paso === PASOS.length - 1
   const enRutaCorrecta = pathname === actual.ruta
 
+  // Bug real de producción (sept. 2026): esto corría sin condición alguna
+  // mientras el componente estuviera montado, sin importar la ruta. Como el
+  // tour se activa apenas el estudiante queda validado y todavía no lo vio
+  // -- que es EXACTAMENTE el caso de quien está llenando /completar-perfil
+  // por primera vez -- esa pantalla quedaba con el scroll bloqueado del
+  // todo, en iOS y Android por igual (es un bug de CSS, no de plataforma).
+  // Ahora solo se bloquea el scroll cuando el tour de verdad se está
+  // mostrando en la ruta actual.
   useEffect(() => {
+    if (!enRutaCorrecta) return
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = '' }
-  }, [])
+  }, [enRutaCorrecta])
 
   useEffect(() => {
     if (!enRutaCorrecta) {

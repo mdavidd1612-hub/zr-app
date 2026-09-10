@@ -169,18 +169,28 @@ export default function Contenido() {
     setAbierto({ id: m.id, titulo: m.titulo, tipo: m.tipo, url: firmada.signedUrl })
   }
 
-  // <a download> clickeado por código no abre pestaña, así que no lo
-  // bloquea el navegador — y con { download: true } el propio Storage
-  // manda el nombre de archivo correcto en la respuesta.
+  // Bug real de producción (sept. 2026): el truco de <a download> clickeado
+  // por código no sirve dentro de una PWA instalada en iOS -- WebKit en modo
+  // standalone ignora el atributo `download` con una URL de otro dominio (la
+  // de Storage), así que "se descargaba" sin ningún indicio visible: no
+  // abría nada, no mostraba progreso, no dejaba salir de la PWA. Mismo
+  // arreglo que ya usa `abrir()` para presentaciones: pestaña en blanco
+  // ANTES del await (para que el navegador siga contando el click como
+  // gesto del usuario) y se le pone la URL real después. Al ser una
+  // navegación real, el sistema operativo se encarga de mostrar el archivo o
+  // el diálogo de "abrir con" -- ya no depende de que WebKit honre `download`.
   async function descargar(m: Material) {
     setError(null)
     setDescargando(m.id)
-    const supabase = createClient()
 
+    const pestañaNueva = window.open('', '_blank')
+
+    const supabase = createClient()
     const { data: item } = await supabase
       .from('content_items').select('storage_path').eq('id', m.id).single()
 
     if (!item?.storage_path) {
+      pestañaNueva?.close()
       setDescargando(null)
       setError('No se pudo descargar el archivo. Intenta de nuevo.')
       return
@@ -192,16 +202,13 @@ export default function Contenido() {
 
     setDescargando(null)
     if (!firmada?.signedUrl) {
+      pestañaNueva?.close()
       setError('No se pudo descargar el archivo. Intenta de nuevo.')
       return
     }
 
-    const a = document.createElement('a')
-    a.href = firmada.signedUrl
-    a.download = m.titulo
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    if (pestañaNueva) pestañaNueva.location.href = firmada.signedUrl
+    else window.open(firmada.signedUrl, '_blank', 'noopener,noreferrer')
   }
 
   return (

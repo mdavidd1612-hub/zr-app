@@ -1,51 +1,75 @@
 'use client'
 
-import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Encabezado, Regla, Etiqueta, Dato } from '@/components/ui/Editorial'
+import { Encabezado, Regla, Dato } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
+import { IconoCheck } from '@/components/ui/Iconos'
 
 /**
- * Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, ajuste): asistencia de hoy, filtrada
- * por cohorte, con buscador, marcado manual y descarga en CSV — se reinicia
- * sola cada sábado porque todo se lee por `session_date = hoy`.
+ * Asistencia — cuadro completo (sept. 2026, pedido explícito del
+ * coordinador, con foto de la planilla física de referencia): antes esta
+ * pantalla solo mostraba el día de hoy, y para ver cualquier fecha pasada
+ * había que entrar a una pantalla aparte ("Ver asistencia general e
+ * histórico") con filtros de sede/módulo/rango de fechas. Esa pantalla
+ * aparte se elimina — "lo principal no se puede ocultar lo que ya pasó".
+ *
+ * Ahora es UN SOLO cuadro, igual que la hoja de firmas en papel: cada fila
+ * un estudiante (con cédula y teléfono, como en la planilla), cada columna
+ * una fecha de sábado ya dada de la cohorte elegida, la celda dice si vino,
+ * a qué hora, o si está justificado — y se puede justificar una ausencia
+ * directo desde ahí, sin ir a otra pantalla.
+ *
+ * En computadora se ve como tabla completa (columna de nombre fija, fechas
+ * deslizables si son muchas). En teléfono una tabla así no cabe, así que
+ * cada estudiante es una tarjeta con una tira horizontal de chips, uno por
+ * fecha — mismos datos, otra forma de leerlos.
  */
 
-interface Cohorte {
-  id: string
-  nombre: string
-}
+interface Cohorte { id: string; nombre: string }
+interface Sesion { id: string; fecha: string; status: string }
+interface Estudiante { id: string; nombre: string; cedula: string; telefono: string | null }
 
-type EstadoSesion = 'programada' | 'abierta' | 'cerrada' | 'reprogramada' | 'cancelada'
+type Estado = 'presente' | 'tarde' | 'ausente' | 'justificado'
 
-interface Fila {
-  id: string
-  nombre: string
-  cedula: string
-  telefono: string | null
-  presente: boolean
+interface Celda {
+  sessionId: string
+  fecha: string
+  estado: Estado
   hora: string | null
+  justificacion: string | null
+  esHoy: boolean
 }
 
 const RAZON_MANUAL = 'Registrado a mano desde el panel de administración'
+
+function fechaCorta(iso: string) {
+  const [, m, d] = iso.split('-')
+  return `${d}/${m}`
+}
+
+const ETIQUETA_ESTADO: Record<Estado, string> = {
+  presente: 'Presente', tarde: 'Tarde', ausente: 'Ausente', justificado: 'Justificado',
+}
 
 export default function Asistencias() {
   const router = useRouter()
   const [cohortes, setCohortes] = useState<Cohorte[]>([])
   const [cohorteId, setCohorteId] = useState('')
-  const [sessionId, setSessionId] = useState<string | null>(null)
-  const [estadoSesion, setEstadoSesion] = useState<EstadoSesion | null>(null)
-  const [cambiandoEstado, setCambiandoEstado] = useState(false)
-  const [filas, setFilas] = useState<Fila[]>([])
+  const [sesiones, setSesiones] = useState<Sesion[]>([])
+  const [estudiantes, setEstudiantes] = useState<Estudiante[]>([])
+  const [eventos, setEventos] = useState<Map<string, { hora: string; estado: Estado }>>(new Map())
+  const [justificaciones, setJustificaciones] = useState<Map<string, string>>(new Map())
   const [busqueda, setBusqueda] = useState('')
   const [cargando, setCargando] = useState(true)
-  const [cargandoLista, setCargandoLista] = useState(false)
+  const [cargandoCuadro, setCargandoCuadro] = useState(false)
+  const [cambiandoEstado, setCambiandoEstado] = useState(false)
   const [marcando, setMarcando] = useState<string | null>(null)
 
   const hoyISO = new Date().toISOString().slice(0, 10)
+  const sesionHoy = sesiones.find((s) => s.fecha === hoyISO) ?? null
 
   useEffect(() => {
     async function cargar() {
@@ -67,10 +91,10 @@ export default function Asistencias() {
   }, [router])
 
   // Crea la sesión de hoy para esta cohorte si todavía no existe — mismo
-  // criterio que "marcar a mano" y que el cron de la migración 077, para que
-  // el botón de abrir/cerrar exista aunque el cron aún no haya corrido o la
-  // cohorte no tenga profesor asignado.
-  async function asegurarSesion(supabase: ReturnType<typeof createClient>): Promise<{ id: string; status: EstadoSesion } | null> {
+  // criterio que ya usaba esta pantalla y que el cron de la migración 077,
+  // para que "marcar a mano" y "abrir/cerrar" funcionen aunque el cron aún
+  // no haya corrido o la cohorte no tenga profesor asignado.
+  async function asegurarSesionDeHoy(supabase: ReturnType<typeof createClient>): Promise<{ id: string; status: string } | null> {
     const { data: cohorte } = await supabase
       .from('cohorts').select('current_module_id').eq('id', cohorteId).single()
     if (!cohorte?.current_module_id) return null
@@ -91,90 +115,87 @@ export default function Asistencias() {
       .select('id, status')
       .single()
 
-    return nueva as { id: string; status: EstadoSesion } | null
+    return nueva as { id: string; status: string } | null
   }
 
-  async function cargarLista() {
+  const cargarCuadro = useCallback(async () => {
     if (!cohorteId) return
-    setCargandoLista(true)
+    setCargandoCuadro(true)
     const supabase = createClient()
 
-    const [{ data: sesion }, { data: estudiantes }] = await Promise.all([
+    const [{ data: sesionesRaw }, { data: alumnosRaw }] = await Promise.all([
       supabase
         .from('class_sessions')
-        .select('id, status')
+        .select('id, session_date, status')
         .eq('cohort_id', cohorteId)
-        .eq('session_date', hoyISO)
-        .maybeSingle(),
+        .order('session_date', { ascending: true }),
       supabase
         .from('students')
         .select('id, profiles!students_id_fkey(full_name, cedula, phone)')
         .eq('cohort_id', cohorteId),
     ])
 
-    setSessionId(sesion?.id ?? null)
-    setEstadoSesion((sesion?.status as EstadoSesion) ?? null)
+    const listaSesiones = (sesionesRaw ?? []).map((s) => ({ id: s.id, fecha: s.session_date, status: s.status }))
+    setSesiones(listaSesiones)
 
-    const alumnos = (estudiantes ?? []) as unknown as {
-      id: string; profiles: { full_name: string; cedula: string; phone: string | null } | null
-    }[]
-
-    if (!sesion) {
-      setFilas(
-        alumnos.map((a) => ({
+    setEstudiantes(
+      ((alumnosRaw ?? []) as unknown as {
+        id: string; profiles: { full_name: string; cedula: string; phone: string | null } | null
+      }[])
+        .map((a) => ({
           id: a.id, nombre: a.profiles?.full_name ?? '', cedula: a.profiles?.cedula ?? '',
-          telefono: a.profiles?.phone ?? null, presente: false, hora: null,
-        })).sort((x, y) => x.nombre.localeCompare(y.nombre)),
-      )
-      setCargandoLista(false)
+          telefono: a.profiles?.phone ?? null,
+        }))
+        .sort((x, y) => x.nombre.localeCompare(y.nombre)),
+    )
+
+    if (listaSesiones.length === 0) {
+      setEventos(new Map())
+      setJustificaciones(new Map())
+      setCargandoCuadro(false)
       return
     }
 
-    const { data: presentes } = await supabase
-      .from('attendance_events')
-      .select('student_id, scanned_at')
-      .eq('session_id', sesion.id)
+    const sessionIds = listaSesiones.map((s) => s.id)
+    const [{ data: eventosRaw }, { data: justifsRaw }] = await Promise.all([
+      supabase
+        .from('attendance_events')
+        .select('session_id, student_id, scanned_at, status')
+        .in('session_id', sessionIds),
+      supabase
+        .from('attendance_justifications')
+        .select('session_id, student_id, reason')
+        .in('session_id', sessionIds),
+    ])
 
-    const porEstudiante = new Map((presentes ?? []).map((p) => [p.student_id, p.scanned_at]))
+    setEventos(new Map(
+      ((eventosRaw ?? []) as { session_id: string; student_id: string; scanned_at: string; status: string | null }[])
+        .map((e) => [`${e.session_id}|${e.student_id}`, {
+          hora: new Date(e.scanned_at).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }),
+          estado: (e.status === 'tarde' ? 'tarde' : 'presente') as Estado,
+        }]),
+    ))
+    setJustificaciones(new Map(
+      ((justifsRaw ?? []) as { session_id: string; student_id: string; reason: string }[])
+        .map((j) => [`${j.session_id}|${j.student_id}`, j.reason]),
+    ))
 
-    setFilas(
-      alumnos
-        .map((a) => ({
-          id: a.id,
-          nombre: a.profiles?.full_name ?? '',
-          cedula: a.profiles?.cedula ?? '',
-          telefono: a.profiles?.phone ?? null,
-          presente: porEstudiante.has(a.id),
-          hora: porEstudiante.get(a.id)
-            ? new Date(porEstudiante.get(a.id)!).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })
-            : null,
-        }))
-        .sort((x, y) => Number(y.presente) - Number(x.presente) || x.nombre.localeCompare(y.nombre)),
-    )
-    setCargandoLista(false)
-  }
+    setCargandoCuadro(false)
+  }, [cohorteId])
 
   useEffect(() => {
-    void (async () => {
-      await cargarLista()
-    })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cohorteId])
+    void cargarCuadro()
+  }, [cargarCuadro])
 
   async function marcarAMano(estudianteId: string) {
     setMarcando(estudianteId)
     const supabase = createClient()
 
-    let idSesion = sessionId
+    let idSesion = sesionHoy?.id ?? null
     if (!idSesion) {
-      // No hay sesión de hoy para esta cohorte todavía: se crea, igual que
-      // hace la pantalla de QR — nadie tiene que "abrir clase" a mano.
-      const nueva = await asegurarSesion(supabase)
+      const nueva = await asegurarSesionDeHoy(supabase)
       idSesion = nueva?.id ?? null
-      setSessionId(idSesion)
-      setEstadoSesion(nueva?.status ?? null)
     }
-
     if (!idSesion) {
       setMarcando(null)
       return
@@ -189,8 +210,26 @@ export default function Asistencias() {
       manual_reason: RAZON_MANUAL,
     })
 
-    await cargarLista()
+    await cargarCuadro()
     setMarcando(null)
+  }
+
+  async function justificar(sessionId: string, estudianteId: string) {
+    const motivo = window.prompt('Motivo de la justificación (ej. reposo médico, fallecimiento familiar):')
+    if (!motivo || !motivo.trim()) return
+
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error } = await supabase.from('attendance_justifications').insert({
+      session_id: sessionId,
+      student_id: estudianteId,
+      reason: motivo.trim(),
+      justified_by: user?.id ?? null,
+    })
+
+    if (!error) {
+      setJustificaciones((prev) => new Map(prev).set(`${sessionId}|${estudianteId}`, motivo.trim()))
+    }
   }
 
   // Solo importa para la entrega de refrigerio (claim-snack exige la sesión
@@ -200,22 +239,50 @@ export default function Asistencias() {
     setCambiandoEstado(true)
     const supabase = createClient()
 
-    let idSesion = sessionId
+    let idSesion = sesionHoy?.id ?? null
     if (!idSesion) {
-      const nueva = await asegurarSesion(supabase)
+      const nueva = await asegurarSesionDeHoy(supabase)
       idSesion = nueva?.id ?? null
-      setSessionId(idSesion)
     }
     if (!idSesion) {
       setCambiandoEstado(false)
       return
     }
 
-    const nuevoEstado: EstadoSesion = estadoSesion === 'abierta' ? 'cerrada' : 'abierta'
+    const nuevoEstado = sesionHoy?.status === 'abierta' ? 'cerrada' : 'abierta'
     await supabase.from('class_sessions').update({ status: nuevoEstado }).eq('id', idSesion)
-    setEstadoSesion(nuevoEstado)
+    await cargarCuadro()
     setCambiandoEstado(false)
   }
+
+  // El cruce estudiante × sesión: la ausencia no es una fila en la base, es
+  // la falta de un evento. Si esa ausencia tiene justificación, se muestra
+  // "justificado" en vez de "ausente".
+  const filas = useMemo(() => estudiantes.map((e) => ({
+    ...e,
+    celdas: sesiones.map((s): Celda => {
+      const clave = `${s.id}|${e.id}`
+      const evento = eventos.get(clave)
+      const justificacion = justificaciones.get(clave) ?? null
+      return {
+        sessionId: s.id,
+        fecha: s.fecha,
+        estado: evento ? evento.estado : (justificacion ? 'justificado' : 'ausente'),
+        hora: evento?.hora ?? null,
+        justificacion,
+        esHoy: s.fecha === hoyISO,
+      }
+    }),
+  })), [estudiantes, sesiones, eventos, justificaciones, hoyISO])
+
+  const texto = busqueda.trim().toLowerCase()
+  const filasFiltradas = filas.filter(
+    (f) => !texto || f.nombre.toLowerCase().includes(texto) || f.cedula.toLowerCase().includes(texto),
+  )
+
+  const registradosHoy = sesionHoy
+    ? filas.filter((f) => f.celdas.some((c) => c.esHoy && (c.estado === 'presente' || c.estado === 'tarde'))).length
+    : 0
 
   // Tabla de Excel sin depender de ninguna librería externa (npm audit marcó
   // la única disponible, `xlsx`/SheetJS, con vulnerabilidades altas sin
@@ -225,13 +292,19 @@ export default function Asistencias() {
     const cohorte = cohortes.find((c) => c.id === cohorteId)
     const escapar = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-    const filasHTML = filas
+    const encabezados = `<th>Nombre y apellido</th><th>Cédula</th><th>Teléfono</th>`
+      + sesiones.map((s) => `<th>${s.fecha}</th>`).join('')
+
+    const filasHTML = filasFiltradas
       .map((f) => `<tr>
         <td>${escapar(f.nombre)}</td>
         <td>${escapar(f.cedula)}</td>
         <td>${escapar(f.telefono ?? '')}</td>
-        <td>${hoyISO}</td>
-        <td>${f.presente ? 'Sí' : 'No'}</td>
+        ${f.celdas.map((c) => `<td>${
+          c.estado === 'presente' || c.estado === 'tarde' ? `Sí (${c.hora})`
+          : c.estado === 'justificado' ? 'Justificado'
+          : 'No'
+        }</td>`).join('')}
       </tr>`)
       .join('')
 
@@ -244,9 +317,7 @@ export default function Asistencias() {
       </head>
       <body>
         <table border="1">
-          <thead><tr>
-            <th>Nombre y apellido</th><th>Cédula</th><th>Número</th><th>Fecha</th><th>Asistió</th>
-          </tr></thead>
+          <thead><tr>${encabezados}</tr></thead>
           <tbody>${filasHTML}</tbody>
         </table>
       </body>
@@ -256,7 +327,7 @@ export default function Asistencias() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `asistencia_${(cohorte?.nombre ?? 'programa').replace(/[^a-zA-Z0-9]/g, '_')}_${hoyISO}.xls`
+    a.download = `asistencia_${(cohorte?.nombre ?? 'programa').replace(/[^a-zA-Z0-9]/g, '_')}.xls`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -269,40 +340,31 @@ export default function Asistencias() {
     )
   }
 
-  const texto = busqueda.trim().toLowerCase()
-  const filasFiltradas = filas.filter(
-    (f) => !texto || f.nombre.toLowerCase().includes(texto) || f.cedula.toLowerCase().includes(texto),
-  )
-
   return (
     <div className="space-y-11 px-5 pt-14">
       <BotonVolver href="/panel" />
 
-      <Encabezado sobretitulo="Administración" titulo="Asistencia de hoy" />
+      <Encabezado
+        sobretitulo="Administración"
+        titulo="Asistencia"
+        descripcion="Todas las fechas, de un vistazo — igual que la hoja de firmas."
+      />
 
       <Regla delay={60} />
 
-      {/* La vista general con filtros e histórico vive aparte para no
-          estorbar el flujo del sábado, que es marcar rápido y seguir. */}
-      <Link
-        href="/asistencias/historico"
-        className="flex min-h-14 items-center justify-between rounded-lg border border-zr-border bg-zr-surface px-5 text-base font-bold text-zr-text"
-      >
-        Ver asistencia general e histórico
-        <span aria-hidden className="text-zr-text-muted">›</span>
-      </Link>
-
-      <Dato
-        valor={filas.filter((f) => f.presente).length}
-        etiqueta={`Registrados hoy · ${cohortes.find((c) => c.id === cohorteId)?.nombre ?? 'este programa'}`}
-        tono="exito"
-      />
+      {sesionHoy && (
+        <Dato
+          valor={registradosHoy}
+          etiqueta={`Registrados hoy · ${cohortes.find((c) => c.id === cohorteId)?.nombre ?? 'este programa'}`}
+          tono="exito"
+        />
+      )}
 
       {cohortes.length > 0 && (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-zr-border bg-zr-surface px-5 py-4">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-zr-text">
-              Sesión {estadoSesion === 'abierta' ? 'abierta' : estadoSesion === 'cerrada' ? 'cerrada' : 'sin abrir'}
+              Sesión de hoy {sesionHoy?.status === 'abierta' ? 'abierta' : sesionHoy?.status === 'cerrada' ? 'cerrada' : 'sin abrir'}
             </p>
             <p className="mt-0.5 text-xs text-zr-text-muted">
               Solo hace falta abrirla para entregar refrigerio. El QR de asistencia funciona igual sin esto.
@@ -312,12 +374,12 @@ export default function Asistencias() {
             onClick={abrirOCerrar}
             disabled={cambiandoEstado}
             className={`shrink-0 rounded-lg px-4 py-2.5 text-sm font-bold disabled:opacity-50 ${
-              estadoSesion === 'abierta'
+              sesionHoy?.status === 'abierta'
                 ? 'border border-zr-border text-zr-text'
                 : 'bg-zr-blue text-white'
             }`}
           >
-            {cambiandoEstado ? '…' : estadoSesion === 'abierta' ? 'Cerrar' : 'Abrir'}
+            {cambiandoEstado ? '…' : sesionHoy?.status === 'abierta' ? 'Cerrar' : 'Abrir'}
           </button>
         </div>
       )}
@@ -350,7 +412,7 @@ export default function Asistencias() {
             className="w-full rounded-lg border border-zr-border bg-zr-surface px-5 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
           />
 
-          {filas.length > 0 && (
+          {filasFiltradas.length > 0 && (
             <button
               onClick={descargarExcel}
               className="w-full rounded-lg border border-zr-border py-3 text-sm font-semibold text-zr-text"
@@ -359,38 +421,170 @@ export default function Asistencias() {
             </button>
           )}
 
-          {cargandoLista ? (
+          {cargandoCuadro ? (
             <p className="text-sm text-zr-text-muted">Cargando…</p>
           ) : filasFiltradas.length === 0 ? (
             <EstadoVacio
               titulo="Sin resultados"
               explicacion={filas.length === 0 ? 'Este programa todavía no tiene estudiantes.' : 'Nadie coincide con la búsqueda.'}
             />
+          ) : sesiones.length === 0 ? (
+            <EstadoVacio
+              titulo="Todavía no hay sesiones"
+              explicacion="En cuanto exista la primera sesión de este programa, aquí aparece la primera columna."
+            />
           ) : (
-            <div className="space-y-2">
-              {filasFiltradas.map((f) => (
-                <div key={f.id} className="zr-card flex items-center justify-between gap-3 p-4">
-                  <div className="min-w-0">
+            <>
+              {/* Computadora (≥1024px): tabla completa, columna de nombre
+                  fija, fechas deslizables. */}
+              <div className="hidden overflow-x-auto rounded-lg border border-zr-border lg:block">
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-zr-surface">
+                      <th className="sticky left-0 z-10 min-w-[220px] border-b border-r border-zr-border bg-zr-surface px-4 py-3 text-left font-bold text-zr-text">
+                        Estudiante
+                      </th>
+                      {sesiones.map((s) => (
+                        <th
+                          key={s.id}
+                          className={`min-w-[92px] border-b border-zr-border px-3 py-3 text-center font-bold text-zr-text-muted ${
+                            s.fecha === hoyISO ? 'bg-zr-blue/10 text-zr-blue' : ''
+                          }`}
+                        >
+                          {fechaCorta(s.fecha)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filasFiltradas.map((f) => (
+                      <tr key={f.id} className="border-b border-zr-border last:border-b-0">
+                        <td className="sticky left-0 z-10 border-r border-zr-border bg-zr-surface px-4 py-3">
+                          <p className="truncate font-semibold text-zr-text">{f.nombre}</p>
+                          <p className="text-xs tabular-nums text-zr-text-muted">{f.cedula} · {f.telefono ?? 'sin teléfono'}</p>
+                        </td>
+                        {f.celdas.map((c) => (
+                          <CeldaAsistencia
+                            key={c.sessionId}
+                            celda={c}
+                            marcando={marcando === f.id}
+                            onMarcar={() => marcarAMano(f.id)}
+                            onJustificar={() => justificar(c.sessionId, f.id)}
+                          />
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Teléfono: una tarjeta por estudiante, con una tira
+                  horizontal de chips (uno por fecha) en vez de una tabla
+                  que no cabría en la pantalla. */}
+              <div className="space-y-3 lg:hidden">
+                {filasFiltradas.map((f) => (
+                  <div key={f.id} className="zr-card p-4">
                     <p className="truncate text-sm font-semibold text-zr-text">{f.nombre}</p>
-                    <p className="text-xs tabular-nums text-zr-text-muted">{f.cedula}</p>
+                    <p className="text-xs tabular-nums text-zr-text-muted">{f.cedula} · {f.telefono ?? 'sin teléfono'}</p>
+                    <div className="mt-3 flex gap-2 overflow-x-auto pb-1 zr-scroll-x">
+                      {f.celdas.map((c) => (
+                        <ChipAsistencia
+                          key={c.sessionId}
+                          celda={c}
+                          marcando={marcando === f.id}
+                          onMarcar={() => marcarAMano(f.id)}
+                          onJustificar={() => justificar(c.sessionId, f.id)}
+                        />
+                      ))}
+                    </div>
                   </div>
-                  {f.presente ? (
-                    <Etiqueta tono="exito">Presente · {f.hora}</Etiqueta>
-                  ) : (
-                    <button
-                      onClick={() => marcarAMano(f.id)}
-                      disabled={marcando === f.id}
-                      className="shrink-0 rounded-full border border-zr-blue/40 px-3 py-1.5 text-xs font-bold text-zr-blue-mid disabled:opacity-50"
-                    >
-                      {marcando === f.id ? 'Marcando…' : 'Marcar a mano'}
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </>
           )}
         </>
       )}
     </div>
+  )
+}
+
+function CeldaAsistencia({
+  celda, marcando, onMarcar, onJustificar,
+}: { celda: Celda; marcando: boolean; onMarcar: () => void; onJustificar: () => void }) {
+  if (celda.estado === 'presente' || celda.estado === 'tarde') {
+    return (
+      <td className="border-l border-zr-border px-2 py-3 text-center" title={ETIQUETA_ESTADO[celda.estado]}>
+        <div className="flex flex-col items-center gap-0.5">
+          <IconoCheck size={16} className={celda.estado === 'tarde' ? 'text-zr-warning' : 'text-zr-success'} />
+          <span className="text-[10px] text-zr-text-muted">{celda.hora}</span>
+        </div>
+      </td>
+    )
+  }
+
+  if (celda.estado === 'justificado') {
+    return (
+      <td className="border-l border-zr-border px-2 py-3 text-center" title={celda.justificacion ?? ''}>
+        <span className="text-xs font-bold text-zr-text-muted">J</span>
+      </td>
+    )
+  }
+
+  // Ausente: hoy se puede marcar a mano (llegó y se le olvidó el QR); una
+  // fecha pasada solo se puede justificar, no inventar que sí vino.
+  return (
+    <td className="border-l border-zr-border px-2 py-3 text-center">
+      {celda.esHoy ? (
+        <button
+          onClick={onMarcar}
+          disabled={marcando}
+          className="text-xs font-bold text-zr-blue-mid underline decoration-dotted disabled:opacity-50"
+        >
+          {marcando ? '…' : 'Marcar'}
+        </button>
+      ) : (
+        <button
+          onClick={onJustificar}
+          className="text-xs font-bold text-zr-error/70 underline decoration-dotted"
+        >
+          Justificar
+        </button>
+      )}
+    </td>
+  )
+}
+
+function ChipAsistencia({
+  celda, marcando, onMarcar, onJustificar,
+}: { celda: Celda; marcando: boolean; onMarcar: () => void; onJustificar: () => void }) {
+  const base = 'flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg px-2.5 py-2 text-center min-w-[52px]'
+
+  if (celda.estado === 'presente' || celda.estado === 'tarde') {
+    return (
+      <div className={`${base} bg-zr-success/12`}>
+        <IconoCheck size={14} className={celda.estado === 'tarde' ? 'text-zr-warning' : 'text-zr-success'} />
+        <span className="text-[10px] font-semibold text-zr-text-muted">{fechaCorta(celda.fecha)}</span>
+      </div>
+    )
+  }
+
+  if (celda.estado === 'justificado') {
+    return (
+      <div className={`${base} bg-zr-border/40`}>
+        <span className="text-xs font-bold text-zr-text-muted">J</span>
+        <span className="text-[10px] font-semibold text-zr-text-muted">{fechaCorta(celda.fecha)}</span>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      onClick={celda.esHoy ? onMarcar : onJustificar}
+      disabled={marcando}
+      className={`${base} border border-dashed border-zr-error/40 bg-zr-error/8 disabled:opacity-50`}
+    >
+      <span className="text-[10px] font-bold text-zr-error/80">{celda.esHoy ? (marcando ? '…' : 'Marcar') : 'Justif.'}</span>
+      <span className="text-[10px] font-semibold text-zr-text-muted">{fechaCorta(celda.fecha)}</span>
+    </button>
   )
 }

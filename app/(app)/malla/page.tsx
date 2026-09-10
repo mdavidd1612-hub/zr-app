@@ -192,13 +192,12 @@ export default function MallaCurricular() {
                     <p className="text-sm leading-relaxed text-zr-text-muted">{m.descripcion}</p>
                   )}
 
-                  {/* Máximo 3 a la vista — con las 6 completas de algunos
-                      módulos, la tarjeta se veía sobrecargada (pedido
-                      explícito del coordinador). El resto sigue completo en
-                      Mi módulo para el módulo que se está cursando. */}
+                  {/* Lista completa, sin recortar (a pedido explícito del
+                      coordinador, sept. 2026 — revierte el límite de 3 +
+                      "+N más" que él mismo había pedido antes). */}
                   {m.competencias && m.competencias.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 pt-0.5">
-                      {m.competencias.slice(0, 3).map((c, i) => (
+                      {m.competencias.map((c, i) => (
                         <span
                           key={i}
                           className="inline-flex items-center gap-1 rounded-full border border-zr-blue/20 bg-zr-blue/8 px-2.5 py-1 text-xs font-medium text-zr-text"
@@ -207,11 +206,6 @@ export default function MallaCurricular() {
                           {c}
                         </span>
                       ))}
-                      {m.competencias.length > 3 && (
-                        <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold text-zr-text-muted">
-                          +{m.competencias.length - 3} más
-                        </span>
-                      )}
                     </div>
                   )}
 

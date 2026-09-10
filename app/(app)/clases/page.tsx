@@ -11,16 +11,29 @@ import { esAdmin } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
 
 /**
- * "Mi módulo": el módulo que el estudiante está cursando ahora mismo, con
- * el resumen largo (modules.resumen_largo) y sus competencias. La malla
- * curricular completa (los 14 módulos, resumen corto) vive aparte en
+ * "Mi módulo": el módulo que el estudiante está cursando ahora mismo. La
+ * malla curricular completa (los 14 módulos, resumen corto) vive aparte en
  * /malla — a pedido explícito del coordinador, esta pantalla no intenta
  * mostrar los 14, solo el actual, y enlaza hacia abajo a la malla completa.
+ *
+ * El resumen que se muestra aquí (sept. 2026, pedido explícito del
+ * coordinador): el párrafo completo de `resumen_largo` se sentía como
+ * "mucho texto, nadie lo va a leer" — igual que ya había pasado antes con
+ * la malla (migración 079). La solución no es el resumen corto de una
+ * frase que ya usan /malla e Inicio (eso se sentiría igual de escueto
+ * aquí, donde el estudiante sí quiere algo más de contexto de SU módulo
+ * actual) ni el párrafo entero: es el PRIMER párrafo de `resumen_largo`
+ * -- cada resumen largo ya está escrito de lo general a lo específico, así
+ * que el primer párrafo por sí solo funciona como una introducción media,
+ * sin inventar ni recortar contenido a mano módulo por módulo. El resto de
+ * la pantalla pasa a listar las competencias como checklist simple (mismo
+ * estilo que la tarjeta "Estás cursando" de Inicio), no una tarjeta grande
+ * por cada una.
  */
 
 interface DatosModulo {
   nombre: string
-  resumenLargo: string | null
+  resumen: string | null
   competencias: string[] | null
   duracionSemanas: number
   semanaActual: number
@@ -82,7 +95,7 @@ export default function MiModulo() {
       }
 
       const [{ data: mod }, { data: sesiones }] = await Promise.all([
-        supabase.from('modules').select('name, resumen_largo, competencias, duration_weeks').eq('id', moduloId).single(),
+        supabase.from('modules').select('name, resumen_largo, description, competencias, duration_weeks').eq('id', moduloId).single(),
         cohortId
           ? supabase
               .from('class_sessions')
@@ -101,9 +114,14 @@ export default function MiModulo() {
         const proxima = filas.find((s) => s.session_date >= hoy)
         const semanaActual = proxima?.week_number ?? filas[filas.length - 1]?.week_number ?? 1
 
+        // Primer párrafo del resumen largo como resumen "medio" -- ver nota
+        // arriba del componente. Si el módulo todavía no tiene resumen
+        // largo cargado, se cae al resumen corto (el mismo de /malla).
+        const primerParrafo = mod.resumen_largo?.split(/\n\s*\n/)[0]?.trim() || null
+
         setModulo({
           nombre: mod.name,
-          resumenLargo: mod.resumen_largo,
+          resumen: primerParrafo || mod.description,
           competencias: mod.competencias,
           duracionSemanas: mod.duration_weeks,
           semanaActual,
@@ -149,28 +167,26 @@ export default function MiModulo() {
             <Regla delay={60} />
 
             <Seccion numero={1} titulo="Lo que se aprende aquí" delay={120}>
-              {modulo.competencias && modulo.competencias.length > 0 && (
-                <div className="space-y-3">
-                  {modulo.competencias.map((c, i) => (
-                    <div key={i} className="zr-card flex gap-3 p-4">
-                      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zr-blue/15 text-xs font-bold text-zr-blue-mid">
-                        {i + 1}
-                      </span>
-                      <p className="text-sm font-semibold text-zr-text">{c}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {modulo.resumenLargo ? (
-                <p className="zr-card whitespace-pre-line p-5 text-sm leading-relaxed text-zr-text">
-                  {modulo.resumenLargo}
+              {modulo.resumen ? (
+                <p className="zr-card p-5 text-sm leading-relaxed text-zr-text-muted">
+                  {modulo.resumen}
                 </p>
               ) : !modulo.competencias?.length ? (
                 <p className="text-sm text-zr-text-muted">
                   Todavía no se ha cargado el contenido de este módulo.
                 </p>
               ) : null}
+
+              {modulo.competencias && modulo.competencias.length > 0 && (
+                <ul className="space-y-1.5">
+                  {modulo.competencias.map((c, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-zr-text">
+                      <IconoCheck size={14} className="mt-0.5 shrink-0 text-zr-blue-mid" />
+                      <span>{c}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
               <div className="flex gap-3 rounded-lg border border-zr-blue/25 bg-zr-blue/10 p-4">
                 <IconoCheck size={18} className="mt-0.5 shrink-0 text-zr-blue-mid" />

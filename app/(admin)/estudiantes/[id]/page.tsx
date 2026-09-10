@@ -7,6 +7,7 @@ import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EditarFichaCompleta, type Representante } from '@/components/ui/EditarFichaCompleta'
 import { BotonRestablecerPassword } from '@/components/ui/BotonRestablecerPassword'
+import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import Link from 'next/link'
 
 interface Ficha {
@@ -89,7 +90,7 @@ export default function FichaEstudiante() {
         setNuevaCohorte(est.cohort_id ?? '')
       }
 
-      setCohortes(cohs ?? [])
+      setCohortes(ordenarCohortesPorPrioridad(cohs ?? []))
       setCargando(false)
     }
 

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EtiquetaSede } from '@/components/ui/EtiquetaSede'
+import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 
 /**
  * T-211 · Gestión de cohortes.
@@ -99,7 +100,7 @@ export default function Cohortes() {
       }[] | null
 
       setCohortes(
-        (filas ?? []).map((c) => ({
+        ordenarCohortesPorPrioridad(filas ?? []).map((c) => ({
           id: c.id,
           nombre: c.name,
           ubicacion: c.location,

@@ -7,6 +7,7 @@ import { SelectorCedula } from '@/components/ui/SelectorCedula'
 import { SelectorCohorte, type OpcionCohorte } from '@/components/ui/SelectorCohorte'
 import { esMenorDeEdad } from '@/lib/auth-helpers'
 import { nombreCompletoValido, telefonoVenezolanoValido } from '@/lib/validators'
+import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 
 // Formulario de inscripción compartido entre /(vendedor)/carga-ventas y
 // /(admin)/inscribir (R-17, docs/19_PLAN_CAMBIOS_POST_DIRECTIVA.md): la
@@ -56,10 +57,9 @@ export function FormularioInscripcion({ sobretitulo }: { sobretitulo: string }) 
       .from('cohorts')
       .select('id, name, sede, turno')
       .eq('status', 'activa')
-      .order('name')
       .then(({ data }) => {
         setCohortes(
-          (data ?? []).map((c) => ({ id: c.id, name: c.name, sede: c.sede, turno: c.turno })),
+          ordenarCohortesPorPrioridad(data ?? []).map((c) => ({ id: c.id, name: c.name, sede: c.sede, turno: c.turno })),
         )
       })
   }, [])

@@ -7,6 +7,7 @@ import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { IconoDocumento, IconoAviso } from '@/components/ui/Iconos'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
+import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
 
 /**
@@ -91,7 +92,7 @@ export default function MaterialAdmin() {
           .select('id, title, week_number, is_published, size_bytes, storage_path, uploaded_by, approval_status, profiles!content_items_uploaded_by_fkey(full_name), modules(name)')
           .eq('approval_status', 'pendiente')
           .order('created_at', { ascending: false }),
-        supabase.from('cohorts').select('id, name, current_module_id, modules(name)').order('name'),
+        supabase.from('cohorts').select('id, name, current_module_id, modules(name)'),
       ])
 
       if (!vigente) return
@@ -120,7 +121,7 @@ export default function MaterialAdmin() {
         })),
       )
 
-      const listaCohortes = (cohs ?? []).map((c) => ({
+      const listaCohortes = ordenarCohortesPorPrioridad(cohs ?? []).map((c) => ({
         id: c.id,
         nombre: c.name,
         moduloId: c.current_module_id,

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { esAdmin, esDireccionAcademica } from '@/lib/auth-helpers'
+import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
 
 /**
@@ -186,7 +187,7 @@ export default function Personal() {
         id: string; name: string; teacher_id: string | null; modules: { name: string } | null
       }[]
 
-      const cohortesMapeadas = filasCohorte.map((c) => ({
+      const cohortesMapeadas = ordenarCohortesPorPrioridad(filasCohorte).map((c) => ({
         id: c.id,
         nombre: c.name,
         moduloNombre: c.modules?.name ?? null,

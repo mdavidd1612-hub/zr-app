@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { QuestionEditor } from '@/components/QuestionEditor'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 
 type TipoPregunta = 'opcion_multiple' | 'verdadero_falso' | 'redaccion_abierta'
 
@@ -67,10 +68,11 @@ export default function NuevoExamen() {
         supabase.from('cohorts').select('id, name').eq('status', 'activa').eq('teacher_id', user.id),
       ])
 
+      const cohortesOrdenadas = ordenarCohortesPorPrioridad(cohs ?? [])
       setModulos(mods ?? [])
-      setCohortes(cohs ?? [])
+      setCohortes(cohortesOrdenadas)
       if (mods?.length) setModuloId(mods[0].id)
-      if (cohs?.length) setCohorteId(cohs[0].id)
+      if (cohortesOrdenadas.length) setCohorteId(cohortesOrdenadas[0].id)
     }
 
     cargar()

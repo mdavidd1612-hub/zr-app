@@ -7,6 +7,7 @@ import { Encabezado, Regla, Dato } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { IconoCheck } from '@/components/ui/Iconos'
+import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 
 /**
  * Asistencia — cuadro completo (sept. 2026, pedido explícito del
@@ -80,8 +81,8 @@ export default function Asistencias() {
         return
       }
 
-      const { data: cohs } = await supabase.from('cohorts').select('id, name').order('name')
-      const lista = (cohs ?? []).map((c) => ({ id: c.id, nombre: c.name }))
+      const { data: cohs } = await supabase.from('cohorts').select('id, name')
+      const lista = ordenarCohortesPorPrioridad(cohs ?? []).map((c) => ({ id: c.id, nombre: c.name }))
       setCohortes(lista)
       if (lista.length) setCohorteId(lista[0].id)
 

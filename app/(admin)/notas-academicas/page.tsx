@@ -7,6 +7,7 @@ import { Encabezado, Regla } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
+import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
 
 // Notas de CUALQUIER cohorte, para Dirección Académica y super_admin — el
@@ -52,7 +53,6 @@ export default function NotasAcademicas() {
       const { data } = await supabase
         .from('cohorts')
         .select('id, name, modules(name, programs(name)), teachers(profiles(full_name)), students(count)')
-        .order('name')
 
       if (!vigente) return
 
@@ -65,7 +65,7 @@ export default function NotasAcademicas() {
       }
 
       setCohortes(
-        ((data ?? []) as unknown as FilaCruda[]).map((c) => ({
+        ordenarCohortesPorPrioridad((data ?? []) as unknown as FilaCruda[]).map((c) => ({
           id: c.id,
           nombre: c.name,
           moduloNombre: c.modules?.name ?? null,

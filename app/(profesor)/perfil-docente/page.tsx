@@ -7,6 +7,7 @@ import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
 import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
 import { leerSimulacionSabado, guardarSimulacionSabado } from '@/lib/demo-sabado'
+import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
 
 /**
@@ -77,7 +78,7 @@ export default function PerfilDocente() {
 
       if (filas) {
         setCohortes(
-          filas.map((c) => ({
+          ordenarCohortesPorPrioridad(filas).map((c) => ({
             id: c.id,
             nombre: c.name,
             modulo: c.modules?.name ?? 'Módulo',

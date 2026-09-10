@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { QuestionEditor } from '@/components/QuestionEditor'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 
 type TipoPregunta = 'opcion_multiple' | 'verdadero_falso' | 'redaccion_abierta'
 
@@ -81,7 +82,7 @@ export default function EditarExamen() {
       setPuntajeMaximo(Number(examen.max_score) || 20)
       setDuracion(examen.duration_minutes ?? '')
       setModulos(mods ?? [])
-      setCohortes(cohs ?? [])
+      setCohortes(ordenarCohortesPorPrioridad(cohs ?? []))
       setPreguntas(
         (pregs ?? []).map((q) => ({
           id: `q${q.id}`,

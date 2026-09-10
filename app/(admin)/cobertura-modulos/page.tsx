@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
+import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
 
 /**
@@ -71,13 +72,14 @@ export default function CoberturaModulos() {
         supabase
           .from('cohorts')
           .select('id, name, program_id, programs(name)')
-          .eq('status', 'activa')
-          .order('name'),
+          .eq('status', 'activa'),
         supabase.from('profiles').select('id, full_name').eq('role', 'profesor').order('full_name'),
       ])
 
       setCohortes(
-        ((cohs ?? []) as unknown as { id: string; name: string; program_id: string; programs: { name: string } | null }[])
+        ordenarCohortesPorPrioridad(
+          (cohs ?? []) as unknown as { id: string; name: string; program_id: string; programs: { name: string } | null }[],
+        )
           .map((c) => ({ id: c.id, nombre: c.name, programaId: c.program_id, programaNombre: c.programs?.name ?? '—' })),
       )
       setProfesores((profs ?? []).map((p) => ({ id: p.id, nombre: p.full_name })))

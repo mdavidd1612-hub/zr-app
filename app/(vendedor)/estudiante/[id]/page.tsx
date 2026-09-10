@@ -8,6 +8,7 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EditarDatosEstudiante } from '@/components/ui/EditarDatosEstudiante'
 import { BotonRestablecerPassword } from '@/components/ui/BotonRestablecerPassword'
 import { Aviso } from '@/components/ui/Aviso'
+import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 
 /**
  * A pedido explícito del coordinador (transcripción de audio,
@@ -80,7 +81,7 @@ export default function FichaEstudianteVendedor() {
         cohorteNombre: fila.cohorts?.name ?? null,
       })
       setNuevaCohorte(fila.cohort_id ?? '')
-      setCohortes(cohs ?? [])
+      setCohortes(ordenarCohortesPorPrioridad(cohs ?? []))
       setCargando(false)
     }
 

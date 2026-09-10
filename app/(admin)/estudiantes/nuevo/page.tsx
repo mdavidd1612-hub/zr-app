@@ -7,6 +7,7 @@ import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { SelectorCedula } from '@/components/ui/SelectorCedula'
 import { esMenorDeEdad } from '@/lib/auth-helpers'
+import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 
 export default function NuevoEstudiante() {
   const router = useRouter()
@@ -31,7 +32,7 @@ export default function NuevoEstudiante() {
 
   useEffect(() => {
     createClient().from('cohorts').select('id, name').eq('status', 'activa').then(({ data }) => {
-      setCohortes(data ?? [])
+      setCohortes(ordenarCohortesPorPrioridad(data ?? []))
     })
   }, [])
 

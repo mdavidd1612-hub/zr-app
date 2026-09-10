@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 import { EtiquetaSede } from '@/components/ui/EtiquetaSede'
+import { ordenarCohortesPorPrioridad, ordenarProgramasPorPrioridad } from '@/lib/cohortes'
 
 interface Cohorte {
   id: string
@@ -76,8 +77,7 @@ export default function ProgramasVendedor() {
       const [{ data: progs }, { data: mias }, { data: sedesActivas }] = await Promise.all([
         supabase
           .from('programs')
-          .select('id, name, siglas, cohorts(id, name, sede, turno, start_date, days, schedule, code_number, status, students(id))')
-          .order('name'),
+          .select('id, name, siglas, cohorts(id, name, sede, turno, start_date, days, schedule, code_number, status, students(id))'),
         supabase.from('students').select('cohort_id').eq('enrolled_by', user.id),
         // R-20: catálogo de sedes, no las que ya usaron cohortes existentes
         // (con eso, una sede nueva sin cohortes todavía no aparecía en
@@ -101,15 +101,14 @@ export default function ProgramasVendedor() {
         }[]
       }[]
 
-      setProgramas(filas.map((p) => ({
+      setProgramas(ordenarProgramasPorPrioridad(filas).map((p) => ({
         id: p.id,
         name: p.name,
         // Siglas reales de la base (migración 067) — nunca derivadas del
         // nombre en el cliente. Adivinarlas con `split(' ')[0]` es exactamente
         // el bug que dejaba caer un programa nuevo al prefijo equivocado.
         siglas: p.siglas,
-        cohortes: [...p.cohorts]
-          .sort((a, b) => a.name.localeCompare(b.name))
+        cohortes: ordenarCohortesPorPrioridad(p.cohorts)
           .map((c) => ({
             id: c.id,
             name: c.name,

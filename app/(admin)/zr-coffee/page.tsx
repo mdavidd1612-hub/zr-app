@@ -23,13 +23,12 @@ import { IconoFlechaAtras } from '@/components/ui/Iconos'
  * misma: que dos ventas casi simultáneas no dejen el inventario en negativo.
  *
  * Copia literal de su hoja de Excel (pedido explícito del coordinador,
- * sept. 2026, después de que el primer intento con selector de moneda $/Bs
- * salió mal -- confundía más de lo que ayudaba). Nada de conversión de
- * moneda escondida: cada número es el que Cecilia escribe, tal cual, en la
- * moneda que ella ya usa (bolívares) -- igual que en su Excel, que tampoco
- * convierte nada. `zr_coffee.margen_ganancia_pct` (system_config) sigue
- * siendo el % por defecto; `margin_pct` (migración 093) es el de CADA
- * producto si lo cambian ahí.
+ * sept. 2026, después de dos vueltas: la primera con un selector de moneda
+ * $/Bs por celda salió mal -- confundía más de lo que ayudaba, el costo "se
+ * cambiaba solo" de moneda al guardar por el redondeo del viaje Bs -> USD
+ * -> Bs). `zr_coffee.margen_ganancia_pct` (system_config) sigue siendo el %
+ * por defecto; `margin_pct` (migración 093) es el de CADA producto si lo
+ * cambian ahí.
  *
  * Columnas, en el mismo orden que su hoja ("Inventario y Control de
  * Ventas.xlsx"): Producto, Cantidad, Costo, % de Ganancia, Monto de
@@ -39,6 +38,21 @@ import { IconoFlechaAtras } from '@/components/ui/Iconos'
  * fórmula en Excel), y lo que se escribe ahí se guarda como el % de
  * ganancia que le corresponde, para que las demás columnas sean
  * consistentes entre sí.
+ *
+ * Moneda (pedido explícito del coordinador, sept. 2026, tercera vuelta): sin
+ * selector -- Costo, Monto de ganancia y Precio de venta se escriben SIEMPRE
+ * en bolívares (un solo campo, nada que cambiar de modo) y debajo de cada
+ * uno se muestra el equivalente en dólares, calculado con la tasa del día,
+ * solo de lectura. Al ser de solo lectura no hay viaje de ida y vuelta que
+ * redondee nada -- se recalcula fresco en cada render a partir del valor en
+ * bolívares, nunca se guarda.
+ *
+ * "Cantidad" (cuánto se ha repuesto en total) es un campo editable como
+ * cualquier otro, no un botón aparte: al cambiarlo, "Cantidad Restante" se
+ * mueve la misma diferencia (si subes Cantidad de 100 a 150, Restante sube
+ * de 95 a 145 -- siguen reflejando que se repusieron 50 más). Editar
+ * "Cantidad Restante" directamente, en cambio, es una corrección puntual
+ * (p. ej. un conteo físico) y no toca "Cantidad".
  *
  * ("Costo para la Venta" de su hoja no se copió: en sus tres filas de
  * ejemplo siempre es idéntico a "Costo", así que no aporta un dato aparte.
@@ -98,6 +112,13 @@ function numeroDesdeTexto(v: string): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+// Equivalente en dólares de un monto en bolívares -- SOLO para mostrar
+// (nunca se guarda), así que no hay viaje de ida y vuelta que redondee nada.
+function equivalenteUSD(bs: number, tasa: number | null) {
+  if (!tasa) return null
+  return bs / tasa
+}
+
 const claseCelda =
   'w-full rounded border border-transparent bg-transparent px-2 py-2 text-zr-text focus:border-zr-blue focus:bg-zr-bg focus:outline-none'
 
@@ -121,10 +142,6 @@ export default function ZRCoffee() {
   const [cantidadVenta, setCantidadVenta] = useState('')
   const [errorVenta, setErrorVenta] = useState<string | null>(null)
   const [procesandoVenta, setProcesandoVenta] = useState(false)
-
-  const [reponiendoId, setReponiendoId] = useState<string | null>(null)
-  const [cantidadReponer, setCantidadReponer] = useState('')
-  const [guardandoReponer, setGuardandoReponer] = useState(false)
 
   const [eliminandoId, setEliminandoId] = useState<string | null>(null)
   const [guardandoEliminar, setGuardandoEliminar] = useState(false)
@@ -222,31 +239,22 @@ export default function ZRCoffee() {
   }
 
   async function crearProductoDesdeFila(nombre: string, costo: number, stock: number) {
-    // "Cantidad" arranca igual a la existencia inicial -- a partir de aquí
-    // solo sube cuando se repone (migración 091).
+    // "Cantidad" arranca igual a la existencia inicial.
     await createClient().from('zr_coffee_products').insert({ name: nombre, cost: costo, stock, total_repuesto: stock })
     await cargarProductos()
   }
 
-  // "+ Reponer" (migración 091): a diferencia de editar la celda "Cantidad
-  // Restante" (una corrección puntual, p. ej. un conteo físico), reponer
-  // suma existencia real que se compró -- por eso mueve ambas columnas
-  // juntas, igual que en la hoja de Cecilia.
-  function abrirReponer(id: string) {
-    setReponiendoId(id); setCantidadReponer('')
-  }
-
-  async function confirmarReponer(producto: Producto) {
-    const cantidad = numeroDesdeTexto(cantidadReponer)
-    if (!cantidad || cantidad <= 0) return
-    setGuardandoReponer(true)
+  // Editar "Cantidad" (pedido explícito del coordinador, sept. 2026): un
+  // campo normal, no un botón aparte -- mueve "Cantidad Restante" la misma
+  // diferencia, para que siga reflejando cuánto hay disponible de verdad
+  // (si Cantidad sube de 100 a 150, Restante sube de 95 a 145: se repusieron
+  // 50 más). Nunca queda negativa aunque la diferencia sea hacia abajo.
+  async function actualizarCantidadTotal(producto: Producto, nuevaCantidad: number) {
+    const delta = nuevaCantidad - producto.cantidadTotal
     await createClient().from('zr_coffee_products').update({
-      stock: producto.stock + cantidad,
-      total_repuesto: producto.cantidadTotal + cantidad,
+      total_repuesto: nuevaCantidad,
+      stock: Math.max(0, producto.stock + delta),
     }).eq('id', producto.id)
-    setReponiendoId(null)
-    setCantidadReponer('')
-    setGuardandoReponer(false)
     await cargarProductos()
   }
 
@@ -498,10 +506,10 @@ export default function ZRCoffee() {
                   <tr className="bg-zr-surface">
                     <th className="border-b border-zr-border px-2 py-3 text-left font-bold text-zr-text">Producto</th>
                     <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Cantidad</th>
-                    <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Costo</th>
+                    <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Costo (Bs)</th>
                     <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">% Ganancia</th>
-                    <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Monto ganancia</th>
-                    <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Precio venta</th>
+                    <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Monto ganancia (Bs)</th>
+                    <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Precio venta (Bs)</th>
                     <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Cant. restante</th>
                     <th className="border-b border-zr-border px-3 py-3 text-left font-bold text-zr-text">Acciones</th>
                   </tr>
@@ -512,19 +520,15 @@ export default function ZRCoffee() {
                       key={p.id}
                       producto={p}
                       margenPct={margenPct}
+                      tasaHoy={tasaHoy}
                       onGuardarCampo={(campo, valor) => actualizarCampoProducto(p.id, campo, valor)}
+                      onGuardarCantidadTotal={(n) => actualizarCantidadTotal(p, n)}
                       vendiendo={vendiendoId === p.id}
                       cantidadVenta={cantidadVenta} setCantidadVenta={setCantidadVenta}
                       errorVenta={errorVenta} procesandoVenta={procesandoVenta}
                       onAbrirVenta={() => abrirVenta(p.id)}
                       onConfirmarVenta={() => confirmarVenta(p)}
                       onCancelarVenta={() => { setVendiendoId(null); setErrorVenta(null) }}
-                      reponiendo={reponiendoId === p.id}
-                      cantidadReponer={cantidadReponer} setCantidadReponer={setCantidadReponer}
-                      guardandoReponer={guardandoReponer}
-                      onAbrirReponer={() => abrirReponer(p.id)}
-                      onConfirmarReponer={() => confirmarReponer(p)}
-                      onCancelarReponer={() => setReponiendoId(null)}
                       eliminando={eliminandoId === p.id}
                       guardandoEliminar={guardandoEliminar}
                       onAbrirEliminar={() => setEliminandoId(p.id)}
@@ -545,19 +549,15 @@ export default function ZRCoffee() {
                   key={p.id}
                   producto={p}
                   margenPct={margenPct}
+                  tasaHoy={tasaHoy}
                   onGuardarCampo={(campo, valor) => actualizarCampoProducto(p.id, campo, valor)}
+                  onGuardarCantidadTotal={(n) => actualizarCantidadTotal(p, n)}
                   vendiendo={vendiendoId === p.id}
                   cantidadVenta={cantidadVenta} setCantidadVenta={setCantidadVenta}
                   errorVenta={errorVenta} procesandoVenta={procesandoVenta}
                   onAbrirVenta={() => abrirVenta(p.id)}
                   onConfirmarVenta={() => confirmarVenta(p)}
                   onCancelarVenta={() => { setVendiendoId(null); setErrorVenta(null) }}
-                  reponiendo={reponiendoId === p.id}
-                  cantidadReponer={cantidadReponer} setCantidadReponer={setCantidadReponer}
-                  guardandoReponer={guardandoReponer}
-                  onAbrirReponer={() => abrirReponer(p.id)}
-                  onConfirmarReponer={() => confirmarReponer(p)}
-                  onCancelarReponer={() => setReponiendoId(null)}
                   eliminando={eliminandoId === p.id}
                   guardandoEliminar={guardandoEliminar}
                   onAbrirEliminar={() => setEliminandoId(p.id)}
@@ -698,15 +698,13 @@ function CeldaEditable({
 interface PropsFilaProducto {
   producto: Producto
   margenPct: number
+  tasaHoy: number | null
   onGuardarCampo: (campo: 'name' | 'cost' | 'stock' | 'margin_pct', valor: string | number | null) => void
+  onGuardarCantidadTotal: (nuevaCantidad: number) => void
   vendiendo: boolean
   cantidadVenta: string; setCantidadVenta: (v: string) => void
   errorVenta: string | null; procesandoVenta: boolean
   onAbrirVenta: () => void; onConfirmarVenta: () => void; onCancelarVenta: () => void
-  reponiendo: boolean
-  cantidadReponer: string; setCantidadReponer: (v: string) => void
-  guardandoReponer: boolean
-  onAbrirReponer: () => void; onConfirmarReponer: () => void; onCancelarReponer: () => void
   eliminando: boolean
   guardandoEliminar: boolean
   onAbrirEliminar: () => void; onConfirmarEliminar: () => void; onCancelarEliminar: () => void
@@ -726,12 +724,21 @@ function usarCalculosProducto(p: Producto, margenPctGlobal: number) {
   return { pct, montoGanancia, precioVenta }
 }
 
+// Debajo de un monto en bolívares: su equivalente en dólares, solo como
+// referencia (nunca se guarda, nunca se edita).
+function EquivalenteUSD({ bs, tasa }: { bs: number; tasa: number | null }) {
+  const usd = equivalenteUSD(bs, tasa)
+  return (
+    <p className="mt-0.5 text-right text-[10px] text-zr-text-muted">
+      {usd !== null ? `≈ $${formatoUSD.format(usd)}` : '—'}
+    </p>
+  )
+}
+
 function FilaProductoEscritorio({
-  producto: p, margenPct, onGuardarCampo,
+  producto: p, margenPct, tasaHoy, onGuardarCampo, onGuardarCantidadTotal,
   vendiendo, cantidadVenta, setCantidadVenta, errorVenta, procesandoVenta,
   onAbrirVenta, onConfirmarVenta, onCancelarVenta,
-  reponiendo, cantidadReponer, setCantidadReponer, guardandoReponer,
-  onAbrirReponer, onConfirmarReponer, onCancelarReponer,
   eliminando, guardandoEliminar, onAbrirEliminar, onConfirmarEliminar, onCancelarEliminar,
 }: PropsFilaProducto) {
   const { pct, montoGanancia, precioVenta } = usarCalculosProducto(p, margenPct)
@@ -762,7 +769,14 @@ function FilaProductoEscritorio({
           className={`${claseCelda} text-left font-semibold`}
         />
       </td>
-      <td className="px-3 py-3 text-right tabular-nums text-zr-text-muted">{p.cantidadTotal}</td>
+      <td className="px-1 py-1">
+        <CeldaEditable
+          valor={String(p.cantidadTotal)}
+          tipo="decimal"
+          onGuardar={(v) => { const n = numeroDesdeTexto(v); if (n !== null && n >= 0) onGuardarCantidadTotal(n) }}
+          className={`${claseCelda} w-16 text-right tabular-nums`}
+        />
+      </td>
       <td className="px-1 py-1">
         <CeldaEditable
           valor={numeroEditable(p.costo)}
@@ -770,6 +784,7 @@ function FilaProductoEscritorio({
           onGuardar={(v) => { const n = numeroDesdeTexto(v); if (n !== null && n >= 0) onGuardarCampo('cost', n) }}
           className={`${claseCelda} w-20 text-right tabular-nums`}
         />
+        <EquivalenteUSD bs={p.costo} tasa={tasaHoy} />
       </td>
       <td className="px-1 py-1">
         <div className="flex items-center justify-end gap-1">
@@ -789,6 +804,7 @@ function FilaProductoEscritorio({
           onGuardar={guardarMontoGanancia}
           className={`${claseCelda} w-20 text-right tabular-nums text-zr-text-muted`}
         />
+        <EquivalenteUSD bs={montoGanancia} tasa={tasaHoy} />
       </td>
       <td className="px-1 py-1">
         <CeldaEditable
@@ -797,6 +813,7 @@ function FilaProductoEscritorio({
           onGuardar={guardarPrecioVenta}
           className={`${claseCelda} w-20 text-right tabular-nums font-semibold text-zr-blue`}
         />
+        <EquivalenteUSD bs={precioVenta} tasa={tasaHoy} />
       </td>
       <td className="px-1 py-1">
         <CeldaEditable
@@ -813,10 +830,6 @@ function FilaProductoEscritorio({
           cantidadVenta={cantidadVenta} setCantidadVenta={setCantidadVenta}
           errorVenta={errorVenta} procesandoVenta={procesandoVenta}
           onAbrirVenta={onAbrirVenta} onConfirmarVenta={onConfirmarVenta} onCancelarVenta={onCancelarVenta}
-          reponiendo={reponiendo}
-          cantidadReponer={cantidadReponer} setCantidadReponer={setCantidadReponer}
-          guardandoReponer={guardandoReponer}
-          onAbrirReponer={onAbrirReponer} onConfirmarReponer={onConfirmarReponer} onCancelarReponer={onCancelarReponer}
           eliminando={eliminando}
           guardandoEliminar={guardandoEliminar}
           onAbrirEliminar={onAbrirEliminar} onConfirmarEliminar={onConfirmarEliminar} onCancelarEliminar={onCancelarEliminar}
@@ -875,11 +888,9 @@ function FilaNuevoProductoEscritorio({ onCrear }: { onCrear: (nombre: string, co
 }
 
 function TarjetaProducto({
-  producto: p, margenPct, onGuardarCampo,
+  producto: p, margenPct, tasaHoy, onGuardarCampo, onGuardarCantidadTotal,
   vendiendo, cantidadVenta, setCantidadVenta, errorVenta, procesandoVenta,
   onAbrirVenta, onConfirmarVenta, onCancelarVenta,
-  reponiendo, cantidadReponer, setCantidadReponer, guardandoReponer,
-  onAbrirReponer, onConfirmarReponer, onCancelarReponer,
   eliminando, guardandoEliminar, onAbrirEliminar, onConfirmarEliminar, onCancelarEliminar,
 }: PropsFilaProducto) {
   const { pct, montoGanancia, precioVenta } = usarCalculosProducto(p, margenPct)
@@ -903,21 +914,18 @@ function TarjetaProducto({
 
   return (
     <div className="zr-card space-y-3 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <CeldaEditable
-          valor={p.nombre}
-          onGuardar={(v) => { if (v.trim()) onGuardarCampo('name', v.trim()) }}
-          className="w-full rounded border border-zr-border bg-zr-bg px-3 py-2 text-base font-semibold text-zr-text focus:border-zr-blue focus:outline-none"
-        />
-        <p className="shrink-0 whitespace-nowrap pt-2 text-xs text-zr-text-muted">Repuesto: {p.cantidadTotal}</p>
-      </div>
+      <CeldaEditable
+        valor={p.nombre}
+        onGuardar={(v) => { if (v.trim()) onGuardarCampo('name', v.trim()) }}
+        className="w-full rounded border border-zr-border bg-zr-bg px-3 py-2 text-base font-semibold text-zr-text focus:border-zr-blue focus:outline-none"
+      />
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div>
-          <p className="mb-1 text-zr-text-muted">Costo</p>
+          <p className="mb-1 text-zr-text-muted">Cantidad</p>
           <CeldaEditable
-            valor={numeroEditable(p.costo)}
+            valor={String(p.cantidadTotal)}
             tipo="decimal"
-            onGuardar={(v) => { const n = numeroDesdeTexto(v); if (n !== null && n >= 0) onGuardarCampo('cost', n) }}
+            onGuardar={(v) => { const n = numeroDesdeTexto(v); if (n !== null && n >= 0) onGuardarCantidadTotal(n) }}
             className="w-full rounded border border-zr-border bg-zr-bg px-2 py-2 text-right tabular-nums font-semibold text-zr-text focus:border-zr-blue focus:outline-none"
           />
         </div>
@@ -931,6 +939,16 @@ function TarjetaProducto({
           />
         </div>
         <div>
+          <p className="mb-1 text-zr-text-muted">Costo (Bs)</p>
+          <CeldaEditable
+            valor={numeroEditable(p.costo)}
+            tipo="decimal"
+            onGuardar={(v) => { const n = numeroDesdeTexto(v); if (n !== null && n >= 0) onGuardarCampo('cost', n) }}
+            className="w-full rounded border border-zr-border bg-zr-bg px-2 py-2 text-right tabular-nums font-semibold text-zr-text focus:border-zr-blue focus:outline-none"
+          />
+          <EquivalenteUSD bs={p.costo} tasa={tasaHoy} />
+        </div>
+        <div>
           <p className="mb-1 text-zr-text-muted">% Ganancia</p>
           <CeldaEditable
             valor={numeroEditable(pct)}
@@ -940,22 +958,24 @@ function TarjetaProducto({
           />
         </div>
         <div>
-          <p className="mb-1 text-zr-text-muted">Monto ganancia</p>
+          <p className="mb-1 text-zr-text-muted">Monto ganancia (Bs)</p>
           <CeldaEditable
             valor={numeroEditable(montoGanancia)}
             tipo="decimal"
             onGuardar={guardarMontoGanancia}
             className="w-full rounded border border-zr-border bg-zr-bg px-2 py-2 text-right tabular-nums font-semibold text-zr-text focus:border-zr-blue focus:outline-none"
           />
+          <EquivalenteUSD bs={montoGanancia} tasa={tasaHoy} />
         </div>
-        <div className="col-span-2">
-          <p className="mb-1 text-zr-text-muted">Precio de venta</p>
+        <div>
+          <p className="mb-1 text-zr-text-muted">Precio de venta (Bs)</p>
           <CeldaEditable
             valor={numeroEditable(precioVenta)}
             tipo="decimal"
             onGuardar={guardarPrecioVenta}
             className="w-full rounded border border-zr-border bg-zr-bg px-2 py-2 text-right tabular-nums font-bold text-zr-blue focus:border-zr-blue focus:outline-none"
           />
+          <EquivalenteUSD bs={precioVenta} tasa={tasaHoy} />
         </div>
       </div>
       <AccionesFila
@@ -964,10 +984,6 @@ function TarjetaProducto({
         cantidadVenta={cantidadVenta} setCantidadVenta={setCantidadVenta}
         errorVenta={errorVenta} procesandoVenta={procesandoVenta}
         onAbrirVenta={onAbrirVenta} onConfirmarVenta={onConfirmarVenta} onCancelarVenta={onCancelarVenta}
-        reponiendo={reponiendo}
-        cantidadReponer={cantidadReponer} setCantidadReponer={setCantidadReponer}
-        guardandoReponer={guardandoReponer}
-        onAbrirReponer={onAbrirReponer} onConfirmarReponer={onConfirmarReponer} onCancelarReponer={onCancelarReponer}
         eliminando={eliminando}
         guardandoEliminar={guardandoEliminar}
         onAbrirEliminar={onAbrirEliminar} onConfirmarEliminar={onConfirmarEliminar} onCancelarEliminar={onCancelarEliminar}
@@ -1020,8 +1036,6 @@ function TarjetaNuevoProducto({ onCrear }: { onCrear: (nombre: string, costo: nu
 function AccionesFila({
   producto, vendiendo, cantidadVenta, setCantidadVenta, errorVenta, procesandoVenta,
   onAbrirVenta, onConfirmarVenta, onCancelarVenta,
-  reponiendo, cantidadReponer, setCantidadReponer, guardandoReponer,
-  onAbrirReponer, onConfirmarReponer, onCancelarReponer,
   eliminando, guardandoEliminar, onAbrirEliminar, onConfirmarEliminar, onCancelarEliminar,
 }: {
   producto: Producto
@@ -1029,10 +1043,6 @@ function AccionesFila({
   cantidadVenta: string; setCantidadVenta: (v: string) => void
   errorVenta: string | null; procesandoVenta: boolean
   onAbrirVenta: () => void; onConfirmarVenta: () => void; onCancelarVenta: () => void
-  reponiendo: boolean
-  cantidadReponer: string; setCantidadReponer: (v: string) => void
-  guardandoReponer: boolean
-  onAbrirReponer: () => void; onConfirmarReponer: () => void; onCancelarReponer: () => void
   eliminando: boolean
   guardandoEliminar: boolean
   onAbrirEliminar: () => void; onConfirmarEliminar: () => void; onCancelarEliminar: () => void
@@ -1052,24 +1062,6 @@ function AccionesFila({
           Cancelar
         </button>
         {errorVenta && <p className="w-full text-xs text-zr-error">{errorVenta}</p>}
-      </div>
-    )
-  }
-
-  if (reponiendo) {
-    return (
-      <div className="flex flex-wrap items-center gap-1.5">
-        <input
-          type="text" inputMode="decimal" value={cantidadReponer} onChange={(e) => setCantidadReponer(e.target.value)}
-          placeholder="Cant." autoFocus
-          className="w-20 rounded-lg border border-zr-border bg-zr-bg px-2 py-2 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
-        />
-        <button onClick={onConfirmarReponer} disabled={guardandoReponer} className="rounded-lg bg-zr-success px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
-          {guardandoReponer ? '…' : 'Reponer'}
-        </button>
-        <button onClick={onCancelarReponer} className="rounded-lg border border-zr-border px-2 py-2 text-xs font-semibold text-zr-text-muted">
-          Cancelar
-        </button>
       </div>
     )
   }
@@ -1096,9 +1088,6 @@ function AccionesFila({
         className="rounded-lg bg-zr-blue px-3 py-2 text-xs font-bold text-white disabled:opacity-40"
       >
         Vender
-      </button>
-      <button onClick={onAbrirReponer} className="rounded-lg border border-zr-border px-3 py-2 text-xs font-semibold text-zr-text">
-        + Reponer
       </button>
       <button onClick={onAbrirEliminar} className="rounded-lg border border-zr-error/50 px-3 py-2 text-xs font-semibold text-zr-error">
         Eliminar

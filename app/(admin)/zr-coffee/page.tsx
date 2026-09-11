@@ -108,7 +108,12 @@ function numeroEditable(n: number) {
 }
 
 function numeroDesdeTexto(v: string): number | null {
-  const n = Number(v.replace(',', '.'))
+  const limpio = v.trim()
+  // Ojo: `Number('')` da 0, no NaN -- sin este chequeo, un campo vacío se
+  // leía como "costo 0 válido" y la fila nueva se creaba sola en cuanto se
+  // salía del campo Nombre, antes de llegar a escribir Cantidad o Costo.
+  if (limpio === '') return null
+  const n = Number(limpio.replace(',', '.'))
   return Number.isFinite(n) ? n : null
 }
 
@@ -506,10 +511,10 @@ export default function ZRCoffee() {
                   <tr className="bg-zr-surface">
                     <th className="border-b border-zr-border px-2 py-3 text-left font-bold text-zr-text">Producto</th>
                     <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Cantidad</th>
-                    <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Costo (Bs)</th>
+                    <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Costo</th>
                     <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">% Ganancia</th>
-                    <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Monto ganancia (Bs)</th>
-                    <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Precio venta (Bs)</th>
+                    <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Monto ganancia</th>
+                    <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Precio venta</th>
                     <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Cant. restante</th>
                     <th className="border-b border-zr-border px-3 py-3 text-left font-bold text-zr-text">Acciones</th>
                   </tr>
@@ -729,10 +734,17 @@ function usarCalculosProducto(p: Producto, margenPctGlobal: number) {
 function EquivalenteUSD({ bs, tasa }: { bs: number; tasa: number | null }) {
   const usd = equivalenteUSD(bs, tasa)
   return (
-    <p className="mt-0.5 text-right text-[10px] text-zr-text-muted">
-      {usd !== null ? `≈ $${formatoUSD.format(usd)}` : '—'}
+    <p className="mt-0.5 text-right text-[10px] font-semibold text-zr-text-muted">
+      {usd !== null ? `≈ $${formatoUSD.format(usd)} USD` : 'Registra la tasa del día para ver el equivalente en USD'}
     </p>
   )
+}
+
+// Prefijo "Bs" pegado al campo -- para que quede claro, sin selector, que
+// Costo, Monto de ganancia y Precio de venta siempre se escriben en
+// bolívares (pedido explícito del coordinador, sept. 2026).
+function PrefijoBs() {
+  return <span className="shrink-0 text-xs font-bold text-zr-text-muted">Bs</span>
 }
 
 function FilaProductoEscritorio({
@@ -778,12 +790,15 @@ function FilaProductoEscritorio({
         />
       </td>
       <td className="px-1 py-1">
-        <CeldaEditable
-          valor={numeroEditable(p.costo)}
-          tipo="decimal"
-          onGuardar={(v) => { const n = numeroDesdeTexto(v); if (n !== null && n >= 0) onGuardarCampo('cost', n) }}
-          className={`${claseCelda} w-20 text-right tabular-nums`}
-        />
+        <div className="flex items-center justify-end gap-1">
+          <PrefijoBs />
+          <CeldaEditable
+            valor={numeroEditable(p.costo)}
+            tipo="decimal"
+            onGuardar={(v) => { const n = numeroDesdeTexto(v); if (n !== null && n >= 0) onGuardarCampo('cost', n) }}
+            className={`${claseCelda} w-20 text-right tabular-nums`}
+          />
+        </div>
         <EquivalenteUSD bs={p.costo} tasa={tasaHoy} />
       </td>
       <td className="px-1 py-1">
@@ -798,21 +813,27 @@ function FilaProductoEscritorio({
         </div>
       </td>
       <td className="px-1 py-1">
-        <CeldaEditable
-          valor={numeroEditable(montoGanancia)}
-          tipo="decimal"
-          onGuardar={guardarMontoGanancia}
-          className={`${claseCelda} w-20 text-right tabular-nums text-zr-text-muted`}
-        />
+        <div className="flex items-center justify-end gap-1">
+          <PrefijoBs />
+          <CeldaEditable
+            valor={numeroEditable(montoGanancia)}
+            tipo="decimal"
+            onGuardar={guardarMontoGanancia}
+            className={`${claseCelda} w-20 text-right tabular-nums text-zr-text-muted`}
+          />
+        </div>
         <EquivalenteUSD bs={montoGanancia} tasa={tasaHoy} />
       </td>
       <td className="px-1 py-1">
-        <CeldaEditable
-          valor={numeroEditable(precioVenta)}
-          tipo="decimal"
-          onGuardar={guardarPrecioVenta}
-          className={`${claseCelda} w-20 text-right tabular-nums font-semibold text-zr-blue`}
-        />
+        <div className="flex items-center justify-end gap-1">
+          <PrefijoBs />
+          <CeldaEditable
+            valor={numeroEditable(precioVenta)}
+            tipo="decimal"
+            onGuardar={guardarPrecioVenta}
+            className={`${claseCelda} w-20 text-right tabular-nums font-semibold text-zr-blue`}
+          />
+        </div>
         <EquivalenteUSD bs={precioVenta} tasa={tasaHoy} />
       </td>
       <td className="px-1 py-1">
@@ -939,13 +960,16 @@ function TarjetaProducto({
           />
         </div>
         <div>
-          <p className="mb-1 text-zr-text-muted">Costo (Bs)</p>
-          <CeldaEditable
-            valor={numeroEditable(p.costo)}
-            tipo="decimal"
-            onGuardar={(v) => { const n = numeroDesdeTexto(v); if (n !== null && n >= 0) onGuardarCampo('cost', n) }}
-            className="w-full rounded border border-zr-border bg-zr-bg px-2 py-2 text-right tabular-nums font-semibold text-zr-text focus:border-zr-blue focus:outline-none"
-          />
+          <p className="mb-1 text-zr-text-muted">Costo</p>
+          <div className="flex items-center gap-1.5 rounded border border-zr-border bg-zr-bg px-2">
+            <PrefijoBs />
+            <CeldaEditable
+              valor={numeroEditable(p.costo)}
+              tipo="decimal"
+              onGuardar={(v) => { const n = numeroDesdeTexto(v); if (n !== null && n >= 0) onGuardarCampo('cost', n) }}
+              className="w-full border-transparent bg-transparent py-2 text-right tabular-nums font-semibold text-zr-text focus:border-transparent focus:outline-none"
+            />
+          </div>
           <EquivalenteUSD bs={p.costo} tasa={tasaHoy} />
         </div>
         <div>
@@ -958,23 +982,29 @@ function TarjetaProducto({
           />
         </div>
         <div>
-          <p className="mb-1 text-zr-text-muted">Monto ganancia (Bs)</p>
-          <CeldaEditable
-            valor={numeroEditable(montoGanancia)}
-            tipo="decimal"
-            onGuardar={guardarMontoGanancia}
-            className="w-full rounded border border-zr-border bg-zr-bg px-2 py-2 text-right tabular-nums font-semibold text-zr-text focus:border-zr-blue focus:outline-none"
-          />
+          <p className="mb-1 text-zr-text-muted">Monto ganancia</p>
+          <div className="flex items-center gap-1.5 rounded border border-zr-border bg-zr-bg px-2">
+            <PrefijoBs />
+            <CeldaEditable
+              valor={numeroEditable(montoGanancia)}
+              tipo="decimal"
+              onGuardar={guardarMontoGanancia}
+              className="w-full border-transparent bg-transparent py-2 text-right tabular-nums font-semibold text-zr-text focus:border-transparent focus:outline-none"
+            />
+          </div>
           <EquivalenteUSD bs={montoGanancia} tasa={tasaHoy} />
         </div>
         <div>
-          <p className="mb-1 text-zr-text-muted">Precio de venta (Bs)</p>
-          <CeldaEditable
-            valor={numeroEditable(precioVenta)}
-            tipo="decimal"
-            onGuardar={guardarPrecioVenta}
-            className="w-full rounded border border-zr-border bg-zr-bg px-2 py-2 text-right tabular-nums font-bold text-zr-blue focus:border-zr-blue focus:outline-none"
-          />
+          <p className="mb-1 text-zr-text-muted">Precio de venta</p>
+          <div className="flex items-center gap-1.5 rounded border border-zr-border bg-zr-bg px-2">
+            <PrefijoBs />
+            <CeldaEditable
+              valor={numeroEditable(precioVenta)}
+              tipo="decimal"
+              onGuardar={guardarPrecioVenta}
+              className="w-full border-transparent bg-transparent py-2 text-right tabular-nums font-bold text-zr-blue focus:border-transparent focus:outline-none"
+            />
+          </div>
           <EquivalenteUSD bs={precioVenta} tasa={tasaHoy} />
         </div>
       </div>

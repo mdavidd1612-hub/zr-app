@@ -28,14 +28,34 @@ import { IconoFlechaAtras } from '@/components/ui/Iconos'
  * nunca se calculan en el navegador (regla 2 de AGENTS.md). La razón es la
  * misma: que dos ventas casi simultáneas no dejen el inventario en negativo.
  *
- * Mismo patrón responsive que Asistencia (migración de sept. 2026): tabla
- * completa en computadora, tarjetas en teléfono.
+ * Interfaz tipo Excel (pedido explícito del coordinador, sept. 2026): Cecilia
+ * lleva años trabajando esto en una hoja de cálculo y mandó la suya
+ * ("Inventario y Control de Ventas.xlsx") como referencia. El inventario es
+ * un cuadro con celdas editables de verdad — click, escribe, sale del campo
+ * y se guarda — con una fila en blanco siempre al final para el próximo
+ * producto, en vez de un formulario aparte. El historial de ventas por día
+ * (ya se navegaba día por día) ahora también se ve como un cuadro, no como
+ * una lista de tarjetas.
+ *
+ * Su hoja lleva DOS cantidades, no una (migración 091): "Cantidad" (todo lo
+ * que se ha repuesto de ese producto en total) y "Cantidad Restante" (lo que
+ * queda ahora). `zr_coffee_products.total_repuesto` es la primera -- solo
+ * sube, con "+ Reponer"; `stock` sigue siendo la segunda -- baja con cada
+ * venta y sube junto con `total_repuesto` al reponer. Restar una de la otra
+ * es cuánto se ha vendido en total, de un vistazo, sin abrir el historial.
+ *
+ * Tasa del día (pedido explícito del coordinador, sept. 2026): se trae sola
+ * desde Al Cambio (alcambio.app) al abrir la pantalla si todavía no se
+ * registró hoy — /api/zr-coffee/tasa hace esa consulta del lado del
+ * servidor. Sigue pudiéndose escribir a mano (botón "Manual") por si la
+ * consulta falla o hay que corregirla.
  */
 
 interface Producto {
   id: string
   nombre: string
   costo: number
+  cantidadTotal: number
   stock: number
   activo: boolean
 }
@@ -67,6 +87,9 @@ function bs(usd: number, tasa: number | null) {
 
 const formatoUSD = new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
+const claseCelda =
+  'w-full rounded border border-transparent bg-transparent px-2 py-2 text-zr-text focus:border-zr-blue focus:bg-zr-bg focus:outline-none'
+
 export default function ZRCoffee() {
   const router = useRouter()
   const [verificando, setVerificando] = useState(true)
@@ -76,24 +99,21 @@ export default function ZRCoffee() {
   const [cargandoProductos, setCargandoProductos] = useState(true)
 
   const [tasaHoy, setTasaHoy] = useState<number | null>(null)
+  const [tasaHoyCargada, setTasaHoyCargada] = useState(false)
   const [editandoTasa, setEditandoTasa] = useState(false)
   const [tasaInput, setTasaInput] = useState('')
   const [guardandoTasa, setGuardandoTasa] = useState(false)
-
-  const [nuevoAbierto, setNuevoAbierto] = useState(false)
-  const [nuevoNombre, setNuevoNombre] = useState('')
-  const [nuevoCosto, setNuevoCosto] = useState('')
-  const [nuevoStock, setNuevoStock] = useState('')
-  const [guardandoNuevo, setGuardandoNuevo] = useState(false)
+  const [actualizandoTasaAuto, setActualizandoTasaAuto] = useState(false)
+  const [errorTasaAuto, setErrorTasaAuto] = useState<string | null>(null)
 
   const [vendiendoId, setVendiendoId] = useState<string | null>(null)
   const [cantidadVenta, setCantidadVenta] = useState('')
   const [errorVenta, setErrorVenta] = useState<string | null>(null)
   const [procesandoVenta, setProcesandoVenta] = useState(false)
 
-  const [agregandoStockId, setAgregandoStockId] = useState<string | null>(null)
-  const [cantidadStock, setCantidadStock] = useState('')
-  const [guardandoStock, setGuardandoStock] = useState(false)
+  const [reponiendoId, setReponiendoId] = useState<string | null>(null)
+  const [cantidadReponer, setCantidadReponer] = useState('')
+  const [guardandoReponer, setGuardandoReponer] = useState(false)
 
   const [fechaHistorial, setFechaHistorial] = useState(hoyISO())
   const [ventasDelDia, setVentasDelDia] = useState<Venta[]>([])
@@ -141,12 +161,15 @@ export default function ZRCoffee() {
     setCargandoProductos(true)
     const { data } = await createClient()
       .from('zr_coffee_products')
-      .select('id, name, cost, stock, active')
+      .select('id, name, cost, stock, total_repuesto, active')
       .eq('active', true)
       .order('name')
 
     setProductos(
-      (data ?? []).map((p) => ({ id: p.id, nombre: p.name, costo: Number(p.cost), stock: Number(p.stock), activo: p.active })),
+      (data ?? []).map((p) => ({
+        id: p.id, nombre: p.name, costo: Number(p.cost),
+        cantidadTotal: Number(p.total_repuesto), stock: Number(p.stock), activo: p.active,
+      })),
     )
     setCargandoProductos(false)
   }, [])
@@ -156,6 +179,47 @@ export default function ZRCoffee() {
     void cargarProductos()
   }, [verificando, cargarProductos])
 
+  async function actualizarCampoProducto(id: string, campo: 'name' | 'cost' | 'stock', valor: string | number) {
+    const supabase = createClient()
+    if (campo === 'name') {
+      await supabase.from('zr_coffee_products').update({ name: String(valor) }).eq('id', id)
+    } else if (campo === 'cost') {
+      await supabase.from('zr_coffee_products').update({ cost: Number(valor) }).eq('id', id)
+    } else {
+      await supabase.from('zr_coffee_products').update({ stock: Number(valor) }).eq('id', id)
+    }
+    await cargarProductos()
+  }
+
+  async function crearProductoDesdeFila(nombre: string, costo: number, stock: number) {
+    // "Cantidad" arranca igual a la existencia inicial -- a partir de aquí
+    // solo sube cuando se repone (migración 091).
+    await createClient().from('zr_coffee_products').insert({ name: nombre, cost: costo, stock, total_repuesto: stock })
+    await cargarProductos()
+  }
+
+  // "+ Reponer" (migración 091): a diferencia de editar la celda "Cantidad
+  // Restante" (una corrección puntual, p. ej. un conteo físico), reponer
+  // suma existencia real que se compró -- por eso mueve ambas columnas
+  // juntas, igual que en la hoja de Cecilia.
+  function abrirReponer(id: string) {
+    setReponiendoId(id); setCantidadReponer('')
+  }
+
+  async function confirmarReponer(producto: Producto) {
+    const cantidad = Number(cantidadReponer.replace(',', '.'))
+    if (!cantidad || cantidad <= 0) return
+    setGuardandoReponer(true)
+    await createClient().from('zr_coffee_products').update({
+      stock: producto.stock + cantidad,
+      total_repuesto: producto.cantidadTotal + cantidad,
+    }).eq('id', producto.id)
+    setReponiendoId(null)
+    setCantidadReponer('')
+    setGuardandoReponer(false)
+    await cargarProductos()
+  }
+
   // ---------------------------------------------------------------------------
   // Tasa del día
   // ---------------------------------------------------------------------------
@@ -163,6 +227,7 @@ export default function ZRCoffee() {
     const { data } = await createClient()
       .from('zr_coffee_tasa_cambio').select('tasa').eq('fecha', hoyISO()).maybeSingle()
     setTasaHoy(data ? Number(data.tasa) : null)
+    setTasaHoyCargada(true)
   }, [])
 
   useEffect(() => {
@@ -185,22 +250,37 @@ export default function ZRCoffee() {
     setGuardandoTasa(false)
   }
 
-  // ---------------------------------------------------------------------------
-  // Nuevo producto
-  // ---------------------------------------------------------------------------
-  async function crearProducto() {
-    const costo = Number(nuevoCosto.replace(',', '.'))
-    const stock = Number(nuevoStock.replace(',', '.')) || 0
-    if (!nuevoNombre.trim() || !(costo >= 0)) return
+  const actualizarTasaAutomatica = useCallback(async () => {
+    setActualizandoTasaAuto(true)
+    setErrorTasaAuto(null)
+    try {
+      const res = await fetch('/api/zr-coffee/tasa')
+      const json: { tasa?: number; error?: string } = await res.json()
+      if (!res.ok || !json.tasa) {
+        setErrorTasaAuto(json.error ?? 'No se pudo traer la tasa de Al Cambio.')
+        return
+      }
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('zr_coffee_tasa_cambio').upsert({
+        fecha: hoyISO(), tasa: json.tasa, registrado_por: user?.id ?? null,
+      })
+      await cargarTasaHoy()
+    } catch {
+      setErrorTasaAuto('No se pudo conectar con Al Cambio. Intenta de nuevo o regístrala a mano.')
+    } finally {
+      setActualizandoTasaAuto(false)
+    }
+  }, [cargarTasaHoy])
 
-    setGuardandoNuevo(true)
-    await createClient().from('zr_coffee_products').insert({
-      name: nuevoNombre.trim(), cost: costo, stock,
-    })
-    setNuevoNombre(''); setNuevoCosto(''); setNuevoStock(''); setNuevoAbierto(false)
-    await cargarProductos()
-    setGuardandoNuevo(false)
-  }
+  // Si todavía no hay tasa registrada hoy, se trae sola de Al Cambio una vez
+  // que termina de cargar — Cecilia no tiene que acordarse de pedirla cada
+  // sábado. El botón "Traer de Al Cambio" sigue ahí para repetirla a mano.
+  useEffect(() => {
+    if (!tasaHoyCargada || tasaHoy !== null) return
+    void actualizarTasaAutomatica()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasaHoyCargada])
 
   // ---------------------------------------------------------------------------
   // Vender
@@ -240,29 +320,6 @@ export default function ZRCoffee() {
     setCantidadVenta('')
     setProcesandoVenta(false)
     await Promise.all([cargarProductos(), cargarVentasDelDia(fechaHistorial)])
-  }
-
-  // ---------------------------------------------------------------------------
-  // Agregar existencia (reposición)
-  // ---------------------------------------------------------------------------
-  function abrirAgregarStock(id: string) {
-    setAgregandoStockId(id); setCantidadStock('')
-  }
-
-  async function confirmarAgregarStock(producto: Producto) {
-    const cantidad = Number(cantidadStock.replace(',', '.'))
-    if (!cantidad || cantidad <= 0) return
-
-    setGuardandoStock(true)
-    await createClient()
-      .from('zr_coffee_products')
-      .update({ stock: producto.stock + cantidad })
-      .eq('id', producto.id)
-
-    setAgregandoStockId(null)
-    setCantidadStock('')
-    setGuardandoStock(false)
-    await cargarProductos()
   }
 
   // ---------------------------------------------------------------------------
@@ -363,180 +420,111 @@ export default function ZRCoffee() {
             </button>
           </div>
         ) : (
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <p className="zr-metric text-2xl text-zr-blue">
-              {tasaHoy ? `${formatoUSD.format(tasaHoy)} Bs/USD` : 'Sin registrar hoy'}
+              {actualizandoTasaAuto ? 'Consultando Al Cambio…' : tasaHoy ? `${formatoUSD.format(tasaHoy)} Bs/USD` : 'Sin registrar hoy'}
             </p>
-            <button
-              onClick={() => { setEditandoTasa(true); setTasaInput(tasaHoy ? String(tasaHoy) : '') }}
-              className="rounded-lg border border-zr-border px-4 py-2 text-sm font-semibold text-zr-text"
-            >
-              {tasaHoy ? 'Actualizar' : 'Registrar'}
-            </button>
+            <div className="flex shrink-0 gap-2">
+              <button
+                onClick={actualizarTasaAutomatica}
+                disabled={actualizandoTasaAuto}
+                className="rounded-lg border border-zr-blue/40 px-3 py-2 text-xs font-bold text-zr-blue-mid disabled:opacity-50"
+              >
+                {actualizandoTasaAuto ? '…' : 'Traer de Al Cambio'}
+              </button>
+              <button
+                onClick={() => { setEditandoTasa(true); setTasaInput(tasaHoy ? String(tasaHoy) : '') }}
+                className="rounded-lg border border-zr-border px-3 py-2 text-xs font-semibold text-zr-text"
+              >
+                Manual
+              </button>
+            </div>
           </div>
         )}
+        {errorTasaAuto && <p className="text-xs text-zr-error">{errorTasaAuto}</p>}
         <p className="text-xs text-zr-text-muted">
-          Los precios se guardan en USD. Todo lo que se cobra en bolívares se calcula con esta tasa.
+          Los precios se guardan en USD. Todo lo que se cobra en bolívares se calcula con esta tasa
+          (dólar BCV, tomada de Al Cambio — se puede corregir a mano con &ldquo;Manual&rdquo;).
         </p>
       </div>
 
       {/* ------------------------------ Inventario ------------------------------ */}
       <Seccion numero={1} titulo="Inventario" delay={120}>
-        {!nuevoAbierto ? (
-          <button
-            onClick={() => setNuevoAbierto(true)}
-            className="w-full rounded-lg border border-dashed border-zr-blue/40 py-3 text-sm font-bold text-zr-blue-mid"
-          >
-            + Nuevo producto
-          </button>
-        ) : (
-          <div className="zr-card space-y-3 p-5">
-            <input
-              type="text" value={nuevoNombre} onChange={(e) => setNuevoNombre(e.target.value)}
-              placeholder="Producto (ej. Refresco 355ml)"
-              className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3 text-base text-zr-text focus:border-zr-blue focus:outline-none"
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <input
-                type="text" inputMode="decimal" value={nuevoCosto} onChange={(e) => setNuevoCosto(e.target.value)}
-                placeholder="Costo (USD)"
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3 text-base text-zr-text focus:border-zr-blue focus:outline-none"
-              />
-              <input
-                type="text" inputMode="decimal" value={nuevoStock} onChange={(e) => setNuevoStock(e.target.value)}
-                placeholder="Cantidad inicial"
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3 text-base text-zr-text focus:border-zr-blue focus:outline-none"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={crearProducto}
-                disabled={guardandoNuevo}
-                className="flex-1 rounded-lg bg-zr-blue py-3 text-sm font-bold text-white disabled:opacity-50"
-              >
-                {guardandoNuevo ? 'Guardando…' : 'Guardar producto'}
-              </button>
-              <button
-                onClick={() => setNuevoAbierto(false)}
-                className="rounded-lg border border-zr-border px-4 text-sm font-semibold text-zr-text"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        )}
+        <p className="text-xs text-zr-text-muted">
+          Igual que en Excel: haz clic en un campo, escribe y sal del campo para guardar. La última
+          fila siempre está en blanco, lista para el próximo producto.
+        </p>
 
         {cargandoProductos ? (
           <p className="text-sm text-zr-text-muted">Cargando…</p>
-        ) : productos.length === 0 ? (
-          <EstadoVacio titulo="Sin productos todavía" explicacion="Agrega el primero desde el botón de arriba." />
         ) : (
           <>
-            {/* Computadora: tabla completa. */}
+            {/* Computadora: cuadro tipo Excel. */}
             <div className="hidden overflow-x-auto rounded-lg border border-zr-border lg:block">
               <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr className="bg-zr-surface">
-                    <th className="border-b border-zr-border px-4 py-3 text-left font-bold text-zr-text">Producto</th>
-                    <th className="border-b border-zr-border px-3 py-3 text-right font-bold text-zr-text">Cantidad</th>
-                    <th className="border-b border-zr-border px-3 py-3 text-right font-bold text-zr-text">Costo</th>
+                    <th className="border-b border-zr-border px-2 py-3 text-left font-bold text-zr-text">Producto</th>
+                    <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Cantidad</th>
+                    <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Costo</th>
                     <th className="border-b border-zr-border px-3 py-3 text-right font-bold text-zr-text">Ganancia {margenPct}%</th>
                     <th className="border-b border-zr-border px-3 py-3 text-right font-bold text-zr-text">Precio venta</th>
+                    <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Cantidad restante</th>
                     <th className="border-b border-zr-border px-3 py-3 text-right font-bold text-zr-text">En Bs (hoy)</th>
                     <th className="border-b border-zr-border px-3 py-3"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {productos.map((p) => {
-                    const ganancia = p.costo * (margenPct / 100)
-                    const precioVenta = p.costo + ganancia
-                    const precioBs = bs(precioVenta, tasaHoy)
-                    return (
-                      <tr key={p.id} className="border-b border-zr-border last:border-b-0">
-                        <td className="px-4 py-3 font-semibold text-zr-text">{p.nombre}</td>
-                        <td className={`px-3 py-3 text-right tabular-nums ${p.stock === 0 ? 'font-bold text-zr-error' : 'text-zr-text'}`}>
-                          {p.stock}
-                        </td>
-                        <td className="px-3 py-3 text-right tabular-nums text-zr-text-muted">${formatoUSD.format(p.costo)}</td>
-                        <td className="px-3 py-3 text-right tabular-nums text-zr-text-muted">${formatoUSD.format(ganancia)}</td>
-                        <td className="px-3 py-3 text-right tabular-nums font-semibold text-zr-blue">${formatoUSD.format(precioVenta)}</td>
-                        <td className="px-3 py-3 text-right tabular-nums text-zr-text-muted">
-                          {precioBs ? `${formatoUSD.format(precioBs)} Bs` : '—'}
-                        </td>
-                        <td className="px-3 py-3">
-                          <FilaAcciones
-                            producto={p}
-                            vendiendo={vendiendoId === p.id}
-                            agregandoStock={agregandoStockId === p.id}
-                            cantidadVenta={cantidadVenta} setCantidadVenta={setCantidadVenta}
-                            errorVenta={errorVenta} procesandoVenta={procesandoVenta}
-                            cantidadStock={cantidadStock} setCantidadStock={setCantidadStock}
-                            guardandoStock={guardandoStock}
-                            onAbrirVenta={() => abrirVenta(p.id)}
-                            onConfirmarVenta={() => confirmarVenta(p)}
-                            onCancelarVenta={() => { setVendiendoId(null); setErrorVenta(null) }}
-                            onAbrirStock={() => abrirAgregarStock(p.id)}
-                            onConfirmarStock={() => confirmarAgregarStock(p)}
-                            onCancelarStock={() => setAgregandoStockId(null)}
-                            compacto
-                          />
-                        </td>
-                      </tr>
-                    )
-                  })}
+                  {productos.map((p) => (
+                    <FilaProductoEscritorio
+                      key={p.id}
+                      producto={p}
+                      margenPct={margenPct}
+                      tasaHoy={tasaHoy}
+                      onGuardarCampo={(campo, valor) => actualizarCampoProducto(p.id, campo, valor)}
+                      vendiendo={vendiendoId === p.id}
+                      cantidadVenta={cantidadVenta} setCantidadVenta={setCantidadVenta}
+                      errorVenta={errorVenta} procesandoVenta={procesandoVenta}
+                      onAbrirVenta={() => abrirVenta(p.id)}
+                      onConfirmarVenta={() => confirmarVenta(p)}
+                      onCancelarVenta={() => { setVendiendoId(null); setErrorVenta(null) }}
+                      reponiendo={reponiendoId === p.id}
+                      cantidadReponer={cantidadReponer} setCantidadReponer={setCantidadReponer}
+                      guardandoReponer={guardandoReponer}
+                      onAbrirReponer={() => abrirReponer(p.id)}
+                      onConfirmarReponer={() => confirmarReponer(p)}
+                      onCancelarReponer={() => setReponiendoId(null)}
+                    />
+                  ))}
+                  <FilaNuevoProductoEscritorio onCrear={crearProductoDesdeFila} />
                 </tbody>
               </table>
             </div>
 
-            {/* Teléfono: una tarjeta por producto. */}
+            {/* Teléfono: una tarjeta por producto, con los mismos campos editables. */}
             <div className="space-y-3 lg:hidden">
-              {productos.map((p) => {
-                const ganancia = p.costo * (margenPct / 100)
-                const precioVenta = p.costo + ganancia
-                const precioBs = bs(precioVenta, tasaHoy)
-                return (
-                  <div key={p.id} className="zr-card space-y-3 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="font-semibold text-zr-text">{p.nombre}</p>
-                      <p className={`shrink-0 tabular-nums text-sm font-bold ${p.stock === 0 ? 'text-zr-error' : 'text-zr-text-muted'}`}>
-                        {p.stock} en existencia
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div>
-                        <p className="text-zr-text-muted">Costo</p>
-                        <p className="tabular-nums font-semibold text-zr-text">${formatoUSD.format(p.costo)}</p>
-                      </div>
-                      <div>
-                        <p className="text-zr-text-muted">Ganancia {margenPct}%</p>
-                        <p className="tabular-nums font-semibold text-zr-text">${formatoUSD.format(ganancia)}</p>
-                      </div>
-                      <div>
-                        <p className="text-zr-text-muted">Venta</p>
-                        <p className="tabular-nums font-bold text-zr-blue">
-                          ${formatoUSD.format(precioVenta)}{precioBs ? ` · ${formatoUSD.format(precioBs)} Bs` : ''}
-                        </p>
-                      </div>
-                    </div>
-                    <FilaAcciones
-                      producto={p}
-                      vendiendo={vendiendoId === p.id}
-                      agregandoStock={agregandoStockId === p.id}
-                      cantidadVenta={cantidadVenta} setCantidadVenta={setCantidadVenta}
-                      errorVenta={errorVenta} procesandoVenta={procesandoVenta}
-                      cantidadStock={cantidadStock} setCantidadStock={setCantidadStock}
-                      guardandoStock={guardandoStock}
-                      onAbrirVenta={() => abrirVenta(p.id)}
-                      onConfirmarVenta={() => confirmarVenta(p)}
-                      onCancelarVenta={() => { setVendiendoId(null); setErrorVenta(null) }}
-                      onAbrirStock={() => abrirAgregarStock(p.id)}
-                      onConfirmarStock={() => confirmarAgregarStock(p)}
-                      onCancelarStock={() => setAgregandoStockId(null)}
-                      compacto={false}
-                    />
-                  </div>
-                )
-              })}
+              <TarjetaNuevoProducto onCrear={crearProductoDesdeFila} />
+              {productos.map((p) => (
+                <TarjetaProducto
+                  key={p.id}
+                  producto={p}
+                  margenPct={margenPct}
+                  tasaHoy={tasaHoy}
+                  onGuardarCampo={(campo, valor) => actualizarCampoProducto(p.id, campo, valor)}
+                  vendiendo={vendiendoId === p.id}
+                  cantidadVenta={cantidadVenta} setCantidadVenta={setCantidadVenta}
+                  errorVenta={errorVenta} procesandoVenta={procesandoVenta}
+                  onAbrirVenta={() => abrirVenta(p.id)}
+                  onConfirmarVenta={() => confirmarVenta(p)}
+                  onCancelarVenta={() => { setVendiendoId(null); setErrorVenta(null) }}
+                  reponiendo={reponiendoId === p.id}
+                  cantidadReponer={cantidadReponer} setCantidadReponer={setCantidadReponer}
+                  guardandoReponer={guardandoReponer}
+                  onAbrirReponer={() => abrirReponer(p.id)}
+                  onConfirmarReponer={() => confirmarReponer(p)}
+                  onCancelarReponer={() => setReponiendoId(null)}
+                />
+              ))}
             </div>
           </>
         )}
@@ -582,7 +570,37 @@ export default function ZRCoffee() {
                 <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-zr-text-muted">Ganancia</p>
               </div>
             </div>
-            <div className="space-y-2">
+
+            {/* Computadora: cuadro con todas las ventas del día. */}
+            <div className="hidden overflow-x-auto rounded-lg border border-zr-border lg:block">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="bg-zr-surface">
+                    <th className="border-b border-zr-border px-4 py-3 text-left font-bold text-zr-text">Producto</th>
+                    <th className="border-b border-zr-border px-3 py-3 text-right font-bold text-zr-text">Cantidad</th>
+                    <th className="border-b border-zr-border px-3 py-3 text-right font-bold text-zr-text">Precio unitario</th>
+                    <th className="border-b border-zr-border px-3 py-3 text-right font-bold text-zr-text">Tasa usada</th>
+                    <th className="border-b border-zr-border px-3 py-3 text-right font-bold text-zr-text">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ventasDelDia.map((v) => (
+                    <tr key={v.id} className="border-b border-zr-border last:border-b-0">
+                      <td className="px-4 py-3 font-semibold text-zr-text">{v.productoNombre}</td>
+                      <td className="px-3 py-3 text-right tabular-nums text-zr-text">{v.cantidad}</td>
+                      <td className="px-3 py-3 text-right tabular-nums text-zr-text-muted">${formatoUSD.format(v.precioUnitario)}</td>
+                      <td className="px-3 py-3 text-right tabular-nums text-zr-text-muted">
+                        {v.tasaUsada ? formatoUSD.format(v.tasaUsada) : '—'}
+                      </td>
+                      <td className="px-3 py-3 text-right tabular-nums font-bold text-zr-text">${formatoUSD.format(v.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Teléfono: una tarjeta por venta. */}
+            <div className="space-y-2 lg:hidden">
               {ventasDelDia.map((v) => (
                 <div key={v.id} className="zr-card flex items-center justify-between gap-3 p-4">
                   <div className="min-w-0">
@@ -603,27 +621,291 @@ export default function ZRCoffee() {
   )
 }
 
-function FilaAcciones({
-  producto, vendiendo, agregandoStock,
-  cantidadVenta, setCantidadVenta, errorVenta, procesandoVenta,
-  cantidadStock, setCantidadStock, guardandoStock,
-  onAbrirVenta, onConfirmarVenta, onCancelarVenta,
-  onAbrirStock, onConfirmarStock, onCancelarStock,
-  compacto,
+// ---------------------------------------------------------------------------
+// Celda editable — el ingrediente del "cuadro Excel": se ve como texto
+// plano hasta que se hace clic, y guarda al salir del campo (blur) o con
+// Enter. Mantiene su propio valor mientras se escribe para no perder el
+// cursor con cada recarga del padre; se resincroniza si el valor de afuera
+// cambia (por ejemplo, después de guardar).
+// ---------------------------------------------------------------------------
+function CeldaEditable({
+  valor, onGuardar, tipo = 'texto', placeholder, className,
 }: {
+  valor: string
+  onGuardar: (valor: string) => void
+  tipo?: 'texto' | 'decimal'
+  placeholder?: string
+  className?: string
+}) {
+  const [local, setLocal] = useState(valor)
+
+  useEffect(() => { setLocal(valor) }, [valor])
+
+  return (
+    <input
+      type="text"
+      inputMode={tipo === 'decimal' ? 'decimal' : 'text'}
+      value={local}
+      placeholder={placeholder}
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={() => { if (local !== valor) onGuardar(local) }}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+      className={className ?? claseCelda}
+    />
+  )
+}
+
+interface PropsFilaProducto {
   producto: Producto
-  vendiendo: boolean; agregandoStock: boolean
+  margenPct: number
+  tasaHoy: number | null
+  onGuardarCampo: (campo: 'name' | 'cost' | 'stock', valor: string | number) => void
+  vendiendo: boolean
   cantidadVenta: string; setCantidadVenta: (v: string) => void
   errorVenta: string | null; procesandoVenta: boolean
-  cantidadStock: string; setCantidadStock: (v: string) => void
-  guardandoStock: boolean
   onAbrirVenta: () => void; onConfirmarVenta: () => void; onCancelarVenta: () => void
-  onAbrirStock: () => void; onConfirmarStock: () => void; onCancelarStock: () => void
-  compacto: boolean
+  reponiendo: boolean
+  cantidadReponer: string; setCantidadReponer: (v: string) => void
+  guardandoReponer: boolean
+  onAbrirReponer: () => void; onConfirmarReponer: () => void; onCancelarReponer: () => void
+}
+
+function FilaProductoEscritorio({
+  producto: p, margenPct, tasaHoy, onGuardarCampo,
+  vendiendo, cantidadVenta, setCantidadVenta, errorVenta, procesandoVenta,
+  onAbrirVenta, onConfirmarVenta, onCancelarVenta,
+  reponiendo, cantidadReponer, setCantidadReponer, guardandoReponer,
+  onAbrirReponer, onConfirmarReponer, onCancelarReponer,
+}: PropsFilaProducto) {
+  const ganancia = p.costo * (margenPct / 100)
+  const precioVenta = p.costo + ganancia
+  const precioBs = bs(precioVenta, tasaHoy)
+
+  return (
+    <tr className="border-b border-zr-border last:border-b-0 hover:bg-zr-surface/60">
+      <td className="px-1 py-1">
+        <CeldaEditable
+          valor={p.nombre}
+          onGuardar={(v) => { if (v.trim()) onGuardarCampo('name', v.trim()) }}
+          className={`${claseCelda} text-left font-semibold`}
+        />
+      </td>
+      <td className="px-3 py-3 text-right tabular-nums text-zr-text-muted">{p.cantidadTotal}</td>
+      <td className="px-1 py-1">
+        <div className="flex items-center justify-end gap-1">
+          <span className="text-xs text-zr-text-muted">$</span>
+          <CeldaEditable
+            valor={String(p.costo)}
+            tipo="decimal"
+            onGuardar={(v) => { const n = Number(v.replace(',', '.')); if (n >= 0) onGuardarCampo('cost', n) }}
+            className={`${claseCelda} w-20 text-right tabular-nums`}
+          />
+        </div>
+      </td>
+      <td className="px-3 py-3 text-right tabular-nums text-zr-text-muted">${formatoUSD.format(ganancia)}</td>
+      <td className="px-3 py-3 text-right tabular-nums font-semibold text-zr-blue">${formatoUSD.format(precioVenta)}</td>
+      <td className="px-1 py-1">
+        <CeldaEditable
+          valor={String(p.stock)}
+          tipo="decimal"
+          onGuardar={(v) => { const n = Number(v.replace(',', '.')); if (n >= 0) onGuardarCampo('stock', n) }}
+          className={`${claseCelda} w-16 text-right tabular-nums ${p.stock === 0 ? 'font-bold text-zr-error' : ''}`}
+        />
+      </td>
+      <td className="px-3 py-3 text-right tabular-nums text-zr-text-muted">
+        {precioBs ? `${formatoUSD.format(precioBs)} Bs` : '—'}
+      </td>
+      <td className="px-3 py-3">
+        <AccionesFila
+          producto={p}
+          vendiendo={vendiendo}
+          cantidadVenta={cantidadVenta} setCantidadVenta={setCantidadVenta}
+          errorVenta={errorVenta} procesandoVenta={procesandoVenta}
+          onAbrirVenta={onAbrirVenta} onConfirmarVenta={onConfirmarVenta} onCancelarVenta={onCancelarVenta}
+          reponiendo={reponiendo}
+          cantidadReponer={cantidadReponer} setCantidadReponer={setCantidadReponer}
+          guardandoReponer={guardandoReponer}
+          onAbrirReponer={onAbrirReponer} onConfirmarReponer={onConfirmarReponer} onCancelarReponer={onCancelarReponer}
+        />
+      </td>
+    </tr>
+  )
+}
+
+function FilaNuevoProductoEscritorio({ onCrear }: { onCrear: (nombre: string, costo: number, stock: number) => Promise<void> }) {
+  const [nombre, setNombre] = useState('')
+  const [costo, setCosto] = useState('')
+  const [stock, setStock] = useState('')
+  const [guardando, setGuardando] = useState(false)
+
+  async function intentarCrear() {
+    const costoNum = Number(costo.replace(',', '.'))
+    if (!nombre.trim() || !(costoNum >= 0) || guardando) return
+    setGuardando(true)
+    await onCrear(nombre.trim(), costoNum, Number(stock.replace(',', '.')) || 0)
+    setNombre(''); setCosto(''); setStock('')
+    setGuardando(false)
+  }
+
+  return (
+    <tr className="border-b border-dashed border-zr-blue/30 bg-zr-blue/5">
+      <td className="px-1 py-1">
+        <input
+          type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} onBlur={intentarCrear}
+          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+          placeholder="+ Nuevo producto…"
+          className={`${claseCelda} text-left font-semibold placeholder:font-normal placeholder:text-zr-blue-mid`}
+        />
+      </td>
+      <td className="px-1 py-1">
+        <input
+          type="text" inputMode="decimal" value={stock} onChange={(e) => setStock(e.target.value)} onBlur={intentarCrear}
+          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+          placeholder="0"
+          className={`${claseCelda} w-16 text-right tabular-nums`}
+        />
+      </td>
+      <td className="px-1 py-1">
+        <div className="flex items-center justify-end gap-1">
+          <span className="text-xs text-zr-text-muted">$</span>
+          <input
+            type="text" inputMode="decimal" value={costo} onChange={(e) => setCosto(e.target.value)} onBlur={intentarCrear}
+            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+            placeholder="0,00"
+            className={`${claseCelda} w-20 text-right tabular-nums`}
+          />
+        </div>
+      </td>
+      <td colSpan={5} className="px-3 py-3 text-xs text-zr-text-muted">
+        {guardando ? 'Guardando…' : 'Escribe el producto, la cantidad y el costo para agregarlo'}
+      </td>
+    </tr>
+  )
+}
+
+function TarjetaProducto({
+  producto: p, margenPct, tasaHoy, onGuardarCampo,
+  vendiendo, cantidadVenta, setCantidadVenta, errorVenta, procesandoVenta,
+  onAbrirVenta, onConfirmarVenta, onCancelarVenta,
+  reponiendo, cantidadReponer, setCantidadReponer, guardandoReponer,
+  onAbrirReponer, onConfirmarReponer, onCancelarReponer,
+}: PropsFilaProducto) {
+  const ganancia = p.costo * (margenPct / 100)
+  const precioVenta = p.costo + ganancia
+  const precioBs = bs(precioVenta, tasaHoy)
+
+  return (
+    <div className="zr-card space-y-3 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <CeldaEditable
+          valor={p.nombre}
+          onGuardar={(v) => { if (v.trim()) onGuardarCampo('name', v.trim()) }}
+          className="w-full rounded border border-zr-border bg-zr-bg px-3 py-2 text-base font-semibold text-zr-text focus:border-zr-blue focus:outline-none"
+        />
+        <p className="shrink-0 whitespace-nowrap pt-2 text-xs text-zr-text-muted">Repuesto: {p.cantidadTotal}</p>
+      </div>
+      <div className="grid grid-cols-3 gap-2 text-xs">
+        <div>
+          <p className="mb-1 text-zr-text-muted">Costo (USD)</p>
+          <CeldaEditable
+            valor={String(p.costo)}
+            tipo="decimal"
+            onGuardar={(v) => { const n = Number(v.replace(',', '.')); if (n >= 0) onGuardarCampo('cost', n) }}
+            className="w-full rounded border border-zr-border bg-zr-bg px-2 py-2 text-right tabular-nums font-semibold text-zr-text focus:border-zr-blue focus:outline-none"
+          />
+        </div>
+        <div>
+          <p className="mb-1 text-zr-text-muted">Cant. restante</p>
+          <CeldaEditable
+            valor={String(p.stock)}
+            tipo="decimal"
+            onGuardar={(v) => { const n = Number(v.replace(',', '.')); if (n >= 0) onGuardarCampo('stock', n) }}
+            className={`w-full rounded border border-zr-border bg-zr-bg px-2 py-2 text-right tabular-nums font-semibold focus:border-zr-blue focus:outline-none ${p.stock === 0 ? 'text-zr-error' : 'text-zr-text'}`}
+          />
+        </div>
+        <div>
+          <p className="mb-1 text-zr-text-muted">Venta</p>
+          <p className="rounded px-2 py-2 text-right tabular-nums font-bold text-zr-blue">
+            ${formatoUSD.format(precioVenta)}{precioBs ? ` · ${formatoUSD.format(precioBs)} Bs` : ''}
+          </p>
+        </div>
+      </div>
+      <p className="text-xs text-zr-text-muted">Ganancia {margenPct}%: ${formatoUSD.format(ganancia)}</p>
+      <AccionesFila
+        producto={p}
+        vendiendo={vendiendo}
+        cantidadVenta={cantidadVenta} setCantidadVenta={setCantidadVenta}
+        errorVenta={errorVenta} procesandoVenta={procesandoVenta}
+        onAbrirVenta={onAbrirVenta} onConfirmarVenta={onConfirmarVenta} onCancelarVenta={onCancelarVenta}
+        reponiendo={reponiendo}
+        cantidadReponer={cantidadReponer} setCantidadReponer={setCantidadReponer}
+        guardandoReponer={guardandoReponer}
+        onAbrirReponer={onAbrirReponer} onConfirmarReponer={onConfirmarReponer} onCancelarReponer={onCancelarReponer}
+      />
+    </div>
+  )
+}
+
+function TarjetaNuevoProducto({ onCrear }: { onCrear: (nombre: string, costo: number, stock: number) => Promise<void> }) {
+  const [nombre, setNombre] = useState('')
+  const [costo, setCosto] = useState('')
+  const [stock, setStock] = useState('')
+  const [guardando, setGuardando] = useState(false)
+
+  async function intentarCrear() {
+    const costoNum = Number(costo.replace(',', '.'))
+    if (!nombre.trim() || !(costoNum >= 0) || guardando) return
+    setGuardando(true)
+    await onCrear(nombre.trim(), costoNum, Number(stock.replace(',', '.')) || 0)
+    setNombre(''); setCosto(''); setStock('')
+    setGuardando(false)
+  }
+
+  return (
+    <div className="zr-card space-y-3 border border-dashed border-zr-blue/40 bg-zr-blue/5 p-4">
+      <input
+        type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} onBlur={intentarCrear}
+        placeholder="+ Nuevo producto (ej. Refresco 355ml)"
+        className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          type="text" inputMode="decimal" value={costo} onChange={(e) => setCosto(e.target.value)} onBlur={intentarCrear}
+          placeholder="Costo (USD)"
+          className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+        />
+        <input
+          type="text" inputMode="decimal" value={stock} onChange={(e) => setStock(e.target.value)} onBlur={intentarCrear}
+          placeholder="Cantidad inicial"
+          className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+        />
+      </div>
+      <p className="text-xs text-zr-text-muted">
+        {guardando ? 'Guardando…' : 'Completa producto y costo — se agrega solo al salir del campo.'}
+      </p>
+    </div>
+  )
+}
+
+function AccionesFila({
+  producto, vendiendo, cantidadVenta, setCantidadVenta, errorVenta, procesandoVenta,
+  onAbrirVenta, onConfirmarVenta, onCancelarVenta,
+  reponiendo, cantidadReponer, setCantidadReponer, guardandoReponer,
+  onAbrirReponer, onConfirmarReponer, onCancelarReponer,
+}: {
+  producto: Producto
+  vendiendo: boolean
+  cantidadVenta: string; setCantidadVenta: (v: string) => void
+  errorVenta: string | null; procesandoVenta: boolean
+  onAbrirVenta: () => void; onConfirmarVenta: () => void; onCancelarVenta: () => void
+  reponiendo: boolean
+  cantidadReponer: string; setCantidadReponer: (v: string) => void
+  guardandoReponer: boolean
+  onAbrirReponer: () => void; onConfirmarReponer: () => void; onCancelarReponer: () => void
 }) {
   if (vendiendo) {
     return (
-      <div className={compacto ? 'flex items-center gap-1.5' : 'space-y-2'}>
+      <div className="flex items-center gap-1.5">
         <input
           type="text" inputMode="decimal" value={cantidadVenta} onChange={(e) => setCantidadVenta(e.target.value)}
           placeholder="Cant." autoFocus
@@ -642,19 +924,19 @@ function FilaAcciones({
     )
   }
 
-  if (agregandoStock) {
+  if (reponiendo) {
     return (
-      <div className={compacto ? 'flex items-center gap-1.5' : 'space-y-2'}>
+      <div className="flex items-center gap-1.5">
         <input
-          type="text" inputMode="decimal" value={cantidadStock} onChange={(e) => setCantidadStock(e.target.value)}
+          type="text" inputMode="decimal" value={cantidadReponer} onChange={(e) => setCantidadReponer(e.target.value)}
           placeholder="Cant." autoFocus
           className="w-20 rounded-lg border border-zr-border bg-zr-bg px-2 py-2 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
         />
         <div className="flex gap-1.5">
-          <button onClick={onConfirmarStock} disabled={guardandoStock} className="rounded-lg bg-zr-success px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
-            {guardandoStock ? '…' : 'Agregar'}
+          <button onClick={onConfirmarReponer} disabled={guardandoReponer} className="rounded-lg bg-zr-success px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
+            {guardandoReponer ? '…' : 'Reponer'}
           </button>
-          <button onClick={onCancelarStock} className="rounded-lg border border-zr-border px-2 py-2 text-xs font-semibold text-zr-text-muted">
+          <button onClick={onCancelarReponer} className="rounded-lg border border-zr-border px-2 py-2 text-xs font-semibold text-zr-text-muted">
             ✕
           </button>
         </div>
@@ -663,7 +945,7 @@ function FilaAcciones({
   }
 
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-1.5">
       <button
         onClick={onAbrirVenta}
         disabled={producto.stock === 0}
@@ -671,8 +953,8 @@ function FilaAcciones({
       >
         Vender
       </button>
-      <button onClick={onAbrirStock} className="rounded-lg border border-zr-border px-3 py-2 text-xs font-semibold text-zr-text">
-        + Existencia
+      <button onClick={onAbrirReponer} className="rounded-lg border border-zr-border px-3 py-2 text-xs font-semibold text-zr-text">
+        + Reponer
       </button>
     </div>
   )

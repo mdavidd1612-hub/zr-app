@@ -2631,6 +2631,7 @@ export type Database = {
           id: string
           name: string
           stock: number
+          total_repuesto: number
           updated_at: string
         }
         Insert: {
@@ -2640,6 +2641,7 @@ export type Database = {
           id?: string
           name: string
           stock?: number
+          total_repuesto?: number
           updated_at?: string
         }
         Update: {
@@ -2649,6 +2651,7 @@ export type Database = {
           id?: string
           name?: string
           stock?: number
+          total_repuesto?: number
           updated_at?: string
         }
         Relationships: []

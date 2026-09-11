@@ -2629,8 +2629,8 @@ export type Database = {
           cost: number
           created_at: string
           id: string
+          margin_pct: number | null
           name: string
-          sale_price: number | null
           stock: number
           total_repuesto: number
           updated_at: string
@@ -2640,8 +2640,8 @@ export type Database = {
           cost: number
           created_at?: string
           id?: string
+          margin_pct?: number | null
           name: string
-          sale_price?: number | null
           stock?: number
           total_repuesto?: number
           updated_at?: string
@@ -2651,8 +2651,8 @@ export type Database = {
           cost?: number
           created_at?: string
           id?: string
+          margin_pct?: number | null
           name?: string
-          sale_price?: number | null
           stock?: number
           total_repuesto?: number
           updated_at?: string

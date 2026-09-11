@@ -629,11 +629,17 @@ export default function ZRCoffee() {
                     <tr key={v.id} className="border-b border-zr-border last:border-b-0">
                       <td className="px-4 py-3 font-semibold text-zr-text">{v.productoNombre}</td>
                       <td className="px-3 py-3 text-right tabular-nums text-zr-text">{v.cantidad}</td>
-                      <td className="px-3 py-3 text-right tabular-nums text-zr-text-muted">${formatoUSD.format(v.precioUnitario)}</td>
+                      <td className="px-3 py-3 text-right tabular-nums text-zr-text-muted">
+                        {formatoUSD.format(v.precioUnitario)} <SufijoBs />
+                        <EquivalenteUSD bs={v.precioUnitario} tasa={v.tasaUsada} />
+                      </td>
                       <td className="px-3 py-3 text-right tabular-nums text-zr-text-muted">
                         {v.tasaUsada ? formatoUSD.format(v.tasaUsada) : '—'}
                       </td>
-                      <td className="px-3 py-3 text-right tabular-nums font-bold text-zr-text">${formatoUSD.format(v.total)}</td>
+                      <td className="px-3 py-3 text-right tabular-nums font-bold text-zr-text">
+                        {formatoUSD.format(v.total)} <SufijoBs />
+                        <EquivalenteUSD bs={v.total} tasa={v.tasaUsada} />
+                      </td>
                       <td className="px-3 py-3 text-right">
                         {eliminandoVentaId === v.id ? (
                           <div className="flex items-center justify-end gap-1.5">
@@ -674,11 +680,14 @@ export default function ZRCoffee() {
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-zr-text">{v.productoNombre}</p>
                       <p className="text-xs tabular-nums text-zr-text-muted">
-                        {v.cantidad} × ${formatoUSD.format(v.precioUnitario)}
+                        {v.cantidad} × {formatoUSD.format(v.precioUnitario)} Bs
                         {v.tasaUsada ? ` · tasa ${formatoUSD.format(v.tasaUsada)}` : ''}
                       </p>
                     </div>
-                    <p className="shrink-0 tabular-nums font-bold text-zr-text">${formatoUSD.format(v.total)}</p>
+                    <div className="shrink-0 text-right">
+                      <p className="tabular-nums font-bold text-zr-text">{formatoUSD.format(v.total)} Bs</p>
+                      <EquivalenteUSD bs={v.total} tasa={v.tasaUsada} />
+                    </div>
                   </div>
                   {eliminandoVentaId === v.id ? (
                     <div className="flex items-center gap-1.5">

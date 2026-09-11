@@ -12,21 +12,30 @@ import {
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
-// Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, ajuste): las 5 secciones principales
-// del día a día van fijas en la barra — Panel, Asistencia, QR, Material y
-// Perfil. Estudiantes se usa menos seguido y queda en el menú ☰.
+// Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, ajuste): las secciones principales
+// del día a día van fijas en la barra — Panel, Asistencia, QR y Perfil.
+// Estudiantes se usa menos seguido y queda en el menú ☰.
 //
 // "Consentimientos" se quitó del todo (pedido del coordinador): el bloqueo
 // real por LOPNNA ya se había quitado de la base desde la migración 051 —
 // esta pantalla solo quedaba mostrando una cola y un aviso de bloqueo que ya
 // no era cierto.
+//
+// "Material" (pedido explícito del coordinador, sept. 2026): se quita de la
+// barra y del menú de administración normal -- queda exclusivo de Dirección
+// Académica y super_admin (`NAV_DIRECCION`, más abajo). El propio /material
+// además redirige a quien no sea de esos dos roles, por si entra por URL
+// directa.
 const NAV: ItemBarra[] = [
   { href: '/panel',        label: 'Panel',      Icono: IconoPanel },
   { href: '/asistencias',  label: 'Asistencia', Icono: IconoCalendario },
   { href: '/qr',           label: 'QR',         Icono: IconoCarnet },
-  { href: '/material',     label: 'Material',   Icono: IconoDocumento },
   { href: '/perfil-admin', label: 'Perfil',     Icono: IconoPerfil },
 ]
+
+const MATERIAL: ItemBarra = { href: '/material', label: 'Material', Icono: IconoDocumento }
+
+const NAV_DIRECCION: ItemBarra[] = [NAV[0], NAV[1], NAV[2], MATERIAL, NAV[3]]
 
 // Cohortes y Reportes se retiran del menú (código intacto, se retoman en la
 // fase siguiente — mismo criterio que Exámenes/Notas/Progreso en Fase 0
@@ -51,17 +60,19 @@ const TODAS: ItemBarra[] = [
   { ...NAV[0], grupo: 'General' },
   { href: '/inscribir',       label: 'Inscribir',       Icono: IconoEstudiantes, grupo: 'Estudiantes' },
   { href: '/estudiantes',     label: 'Estudiantes',     Icono: IconoEstudiantes, grupo: 'Estudiantes' },
-  { ...NAV[3], grupo: 'Clase de hoy' },
   { ...NAV[1], grupo: 'Clase de hoy' },
   { ...NAV[2], grupo: 'Clase de hoy' },
   { href: '/personal',        label: 'Personal',        Icono: IconoPersonal,    grupo: 'Administración' },
-  { ...NAV[4], grupo: 'Cuenta' },
+  { ...NAV[3], grupo: 'Cuenta' },
 ]
 
-// Dirección Académica: profesores, notas de cualquier cohorte, exámenes —
-// pero no Configuración (exclusivo de super_admin).
+// Dirección Académica: profesores, notas de cualquier cohorte, exámenes,
+// Material (exclusivo de estos dos roles y super_admin) — pero no
+// Configuración (exclusiva de super_admin).
 const TODAS_DIRECCION: ItemBarra[] = [
-  ...TODAS.slice(0, 6),
+  TODAS[0], TODAS[1], TODAS[2],
+  { ...MATERIAL, grupo: 'Clase de hoy' },
+  TODAS[3], TODAS[4],
   { href: '/personal',             label: 'Personal',     Icono: IconoPersonal, grupo: 'Dirección académica' },
   { href: '/cobertura-modulos',    label: 'Cobertura',    Icono: IconoProgreso, grupo: 'Dirección académica' },
   { href: '/notas-academicas',     label: 'Notas',        Icono: IconoNotas,    grupo: 'Dirección académica' },
@@ -73,7 +84,9 @@ const TODAS_DIRECCION: ItemBarra[] = [
 ]
 
 const TODAS_SUPER: ItemBarra[] = [
-  ...TODAS.slice(0, 6),
+  TODAS[0], TODAS[1], TODAS[2],
+  { ...MATERIAL, grupo: 'Clase de hoy' },
+  TODAS[3], TODAS[4],
   { href: '/personal',             label: 'Personal',      Icono: IconoPersonal, grupo: 'Dirección académica' },
   { href: '/cobertura-modulos',    label: 'Cobertura',     Icono: IconoProgreso, grupo: 'Dirección académica' },
   { href: '/notas-academicas',     label: 'Notas',         Icono: IconoNotas,    grupo: 'Dirección académica' },
@@ -148,7 +161,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <Marco
-      items={NAV}
+      items={esDireccionAcademica(rol) ? NAV_DIRECCION : NAV}
       todasLasSecciones={seccionesConCoffee}
       // Bug real de producción (sept. 2026): `deslizable` viene en `true`
       // por defecto (pensado para la barra del estudiante, donde deslizar

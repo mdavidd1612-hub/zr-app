@@ -85,8 +85,19 @@ export default function MaterialAdmin() {
         return
       }
 
-      const [{ data: perfil }, { data: pend }, { data: cohs }] = await Promise.all([
-        supabase.from('profiles').select('role').eq('id', user.id).single(),
+      const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      if (!vigente) return
+
+      // Material (pedido explícito del coordinador, sept. 2026): exclusivo de
+      // Dirección Académica y super_admin -- administración normal ya no
+      // entra, ni siquiera de solo lectura. Redirige a quien llegue por URL
+      // directa sin tener el enlace en su menú.
+      if (!esDireccionAcademica(perfil?.role as UserRole | undefined)) {
+        router.replace('/panel')
+        return
+      }
+
+      const [{ data: pend }, { data: cohs }] = await Promise.all([
         supabase
           .from('content_items')
           .select('id, title, week_number, is_published, size_bytes, storage_path, uploaded_by, approval_status, profiles!content_items_uploaded_by_fkey(full_name), modules(name)')

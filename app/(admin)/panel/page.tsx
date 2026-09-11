@@ -19,15 +19,18 @@ interface SesionHoy {
 
 // Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, Sprint A): Cohortes y Reportes se
 // retiran de los accesos (código intacto, se retoman después).
+//
+// "Material" se quitó de aquí (pedido explícito del coordinador, sept.
+// 2026): pasa a ACCESOS_DIRECCION, exclusivo de Dirección Académica y
+// super_admin.
 const ACCESOS = [
   { href: '/estudiantes',     titulo: 'Estudiantes',      sub: 'Ver y gestionar registros',  Icono: IconoEstudiantes },
-  { href: '/material',        titulo: 'Material',         sub: 'Subir por programa',          Icono: IconoDocumento },
   { href: '/asistencias',     titulo: 'Asistencia',       sub: 'Por programa, en vivo',        Icono: IconoCalendario },
   { href: '/qr',              titulo: 'QR de asistencia', sub: 'Mostrar en pantalla',          Icono: IconoCarnet },
 ]
 
 // Exclusivo de Dirección Académica y super_admin: profesores, notas y
-// evaluaciones de CUALQUIER cohorte (no solo la propia).
+// evaluaciones de CUALQUIER cohorte (no solo la propia), y Material.
 //
 // "Solicitudes de profesor" (auto-registro + aprobación) se quitó: la única
 // vía real para que exista personal es /personal (dado de alta directo por
@@ -35,6 +38,7 @@ const ACCESOS = [
 // a construir del lado del estudiante y quedaba como un enlace muerto.
 const ACCESOS_DIRECCION = [
   { href: '/personal',             titulo: 'Personal',                sub: 'Profesores y administradores',      Icono: IconoPersonal },
+  { href: '/material',             titulo: 'Material',                sub: 'Subir por programa',                Icono: IconoDocumento },
   { href: '/notas-academicas',     titulo: 'Notas',                   sub: 'Calificaciones de cualquier programa', Icono: IconoNotas },
   { href: '/examenes-academicos',  titulo: 'Exámenes',                sub: 'Supervisar evaluaciones',           Icono: IconoExamen },
 ]
@@ -152,7 +156,10 @@ export default function Panel() {
         const nEstudiantes = ++n
         const nDireccion = esDireccionAcademica(rol) ? ++n : 0
         const nSuper = rol === 'super_admin' ? ++n : 0
-        const nRecorrido = ++n
+        // "Vista de recorrido" ya no aparece para administración normal
+        // (pedido explícito del coordinador, sept. 2026) -- se queda solo
+        // para dirección académica y super_admin.
+        const nRecorrido = rol !== 'admin' ? ++n : 0
         return (
           <>
             {esSabado && (
@@ -197,14 +204,14 @@ export default function Panel() {
                 sept. 2026): es una herramienta de prueba, no algo que haga
                 falta ver cada vez que se abre el panel un sábado — que no
                 compita por atención con lo operativo del día. */}
-            {rol && (
+            {rol && rol !== 'admin' && (
               <GrupoAccesos
                 numero={nRecorrido}
                 titulo="Vista de recorrido"
                 descripcion="Recorre la app como la ve cada rol, sin crear cuentas de prueba — sigues siendo tú."
                 accesos={[
                   ACCESO_ESTUDIANTE,
-                  ...(rol === 'admin' || rol === 'super_admin' ? [ACCESO_VENTAS] : []),
+                  ...(rol === 'super_admin' ? [ACCESO_VENTAS] : []),
                   ...(rol === 'direccion_academica' || rol === 'super_admin' ? [ACCESO_PROFESOR] : []),
                 ]}
                 delay={320}

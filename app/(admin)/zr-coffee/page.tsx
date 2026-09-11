@@ -49,16 +49,31 @@ import { IconoFlechaAtras } from '@/components/ui/Iconos'
  * registró hoy — /api/zr-coffee/tasa hace esa consulta del lado del
  * servidor. Sigue pudiéndose escribir a mano (botón "Manual") por si la
  * consulta falla o hay que corregirla.
+ *
+ * Selector de moneda por celda (pedido explícito del coordinador, sept.
+ * 2026): Costo y Precio de venta se pueden escribir y leer en dólares o en
+ * bolívares (botón "$ | Bs" al lado de cada uno) -- por dentro siempre se
+ * guardan en USD, la conversión es solo de entrada/salida usando la tasa
+ * del día. Ganancia y Precio de venta también son editables directamente
+ * (migración 092, columna `sale_price`): si se tocan a mano quedan fijos
+ * aunque cambie el costo después, hasta que se toque "volver a automático"
+ * -- ahí vuelven a salir solos del costo + el margen de `system_config`.
+ * Eliminar un producto no borra la fila (rompería `zr_coffee_sales`, que
+ * referencia `product_id` con `on delete restrict`): apaga `active`, igual
+ * que ya se hacía para dar de baja cualquier otro registro de la app.
  */
 
 interface Producto {
   id: string
   nombre: string
   costo: number
+  precioVentaManual: number | null
   cantidadTotal: number
   stock: number
   activo: boolean
 }
+
+type Moneda = 'USD' | 'BS'
 
 interface Venta {
   id: string
@@ -83,6 +98,19 @@ function fechaLarga(iso: string) {
 function bs(usd: number, tasa: number | null) {
   if (!tasa) return null
   return usd * tasa
+}
+
+function usdDesdeBs(valorBs: number, tasa: number | null) {
+  if (!tasa) return null
+  return valorBs / tasa
+}
+
+// Para el VALOR de una celda editable: sin separador de miles (a diferencia
+// de formatoUSD, que sí lo pone) -- un monto en bolívares puede pasar de
+// 1.000 fácilmente, y ese punto se confundiría con el separador decimal al
+// volver a leer lo que se escribió.
+function numeroEditable(n: number) {
+  return n.toFixed(2)
 }
 
 const formatoUSD = new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -114,6 +142,9 @@ export default function ZRCoffee() {
   const [reponiendoId, setReponiendoId] = useState<string | null>(null)
   const [cantidadReponer, setCantidadReponer] = useState('')
   const [guardandoReponer, setGuardandoReponer] = useState(false)
+
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null)
+  const [guardandoEliminar, setGuardandoEliminar] = useState(false)
 
   const [fechaHistorial, setFechaHistorial] = useState(hoyISO())
   const [ventasDelDia, setVentasDelDia] = useState<Venta[]>([])
@@ -161,13 +192,14 @@ export default function ZRCoffee() {
     setCargandoProductos(true)
     const { data } = await createClient()
       .from('zr_coffee_products')
-      .select('id, name, cost, stock, total_repuesto, active')
+      .select('id, name, cost, sale_price, stock, total_repuesto, active')
       .eq('active', true)
       .order('name')
 
     setProductos(
       (data ?? []).map((p) => ({
         id: p.id, nombre: p.name, costo: Number(p.cost),
+        precioVentaManual: p.sale_price != null ? Number(p.sale_price) : null,
         cantidadTotal: Number(p.total_repuesto), stock: Number(p.stock), activo: p.active,
       })),
     )
@@ -188,6 +220,27 @@ export default function ZRCoffee() {
     } else {
       await supabase.from('zr_coffee_products').update({ stock: Number(valor) }).eq('id', id)
     }
+    await cargarProductos()
+  }
+
+  // Precio de venta manual (migración 092): null vuelve a dejarlo automático
+  // (costo + margen de system_config); cualquier otro número lo fija tal
+  // cual, sin importar qué pase después con el costo o la tasa.
+  async function guardarPrecioVentaManual(id: string, valorUSD: number | null) {
+    await createClient().from('zr_coffee_products').update({ sale_price: valorUSD }).eq('id', id)
+    await cargarProductos()
+  }
+
+  // Eliminar (pedido explícito del coordinador, sept. 2026): en realidad
+  // desactiva (`active = false`, ya filtrado en cargarProductos) en vez de
+  // borrar la fila -- `zr_coffee_sales.product_id` tiene `on delete
+  // restrict` (migración 090) justo para que una venta ya registrada nunca
+  // se quede huérfana si el producto se retira del catálogo.
+  async function eliminarProducto(id: string) {
+    setGuardandoEliminar(true)
+    await createClient().from('zr_coffee_products').update({ active: false }).eq('id', id)
+    setEliminandoId(null)
+    setGuardandoEliminar(false)
     await cargarProductos()
   }
 
@@ -302,7 +355,7 @@ export default function ZRCoffee() {
 
     setProcesandoVenta(true)
     setErrorVenta(null)
-    const precioVenta = producto.costo * (1 + margenPct / 100)
+    const precioVenta = producto.precioVentaManual ?? producto.costo * (1 + margenPct / 100)
 
     const { error } = await createClient().rpc('fn_zr_coffee_registrar_venta', {
       p_product_id: producto.id,
@@ -467,10 +520,10 @@ export default function ZRCoffee() {
                     <th className="border-b border-zr-border px-2 py-3 text-left font-bold text-zr-text">Producto</th>
                     <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Cantidad</th>
                     <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Costo</th>
-                    <th className="border-b border-zr-border px-3 py-3 text-right font-bold text-zr-text">Ganancia {margenPct}%</th>
+                    <th className="border-b border-zr-border px-3 py-3 text-right font-bold text-zr-text">Ganancia</th>
                     <th className="border-b border-zr-border px-3 py-3 text-right font-bold text-zr-text">Precio venta</th>
+                    <th className="border-b border-zr-border px-3 py-3 text-right font-bold text-zr-text">Equivalente</th>
                     <th className="border-b border-zr-border px-2 py-3 text-right font-bold text-zr-text">Cantidad restante</th>
-                    <th className="border-b border-zr-border px-3 py-3 text-right font-bold text-zr-text">En Bs (hoy)</th>
                     <th className="border-b border-zr-border px-3 py-3"></th>
                   </tr>
                 </thead>
@@ -482,6 +535,7 @@ export default function ZRCoffee() {
                       margenPct={margenPct}
                       tasaHoy={tasaHoy}
                       onGuardarCampo={(campo, valor) => actualizarCampoProducto(p.id, campo, valor)}
+                      onGuardarPrecioVenta={(valorUSD) => guardarPrecioVentaManual(p.id, valorUSD)}
                       vendiendo={vendiendoId === p.id}
                       cantidadVenta={cantidadVenta} setCantidadVenta={setCantidadVenta}
                       errorVenta={errorVenta} procesandoVenta={procesandoVenta}
@@ -494,6 +548,11 @@ export default function ZRCoffee() {
                       onAbrirReponer={() => abrirReponer(p.id)}
                       onConfirmarReponer={() => confirmarReponer(p)}
                       onCancelarReponer={() => setReponiendoId(null)}
+                      eliminando={eliminandoId === p.id}
+                      guardandoEliminar={guardandoEliminar}
+                      onAbrirEliminar={() => setEliminandoId(p.id)}
+                      onConfirmarEliminar={() => eliminarProducto(p.id)}
+                      onCancelarEliminar={() => setEliminandoId(null)}
                     />
                   ))}
                   <FilaNuevoProductoEscritorio onCrear={crearProductoDesdeFila} />
@@ -511,6 +570,7 @@ export default function ZRCoffee() {
                   margenPct={margenPct}
                   tasaHoy={tasaHoy}
                   onGuardarCampo={(campo, valor) => actualizarCampoProducto(p.id, campo, valor)}
+                  onGuardarPrecioVenta={(valorUSD) => guardarPrecioVentaManual(p.id, valorUSD)}
                   vendiendo={vendiendoId === p.id}
                   cantidadVenta={cantidadVenta} setCantidadVenta={setCantidadVenta}
                   errorVenta={errorVenta} procesandoVenta={procesandoVenta}
@@ -523,6 +583,11 @@ export default function ZRCoffee() {
                   onAbrirReponer={() => abrirReponer(p.id)}
                   onConfirmarReponer={() => confirmarReponer(p)}
                   onCancelarReponer={() => setReponiendoId(null)}
+                  eliminando={eliminandoId === p.id}
+                  guardandoEliminar={guardandoEliminar}
+                  onAbrirEliminar={() => setEliminandoId(p.id)}
+                  onConfirmarEliminar={() => eliminarProducto(p.id)}
+                  onCancelarEliminar={() => setEliminandoId(null)}
                 />
               ))}
             </div>
@@ -660,6 +725,7 @@ interface PropsFilaProducto {
   margenPct: number
   tasaHoy: number | null
   onGuardarCampo: (campo: 'name' | 'cost' | 'stock', valor: string | number) => void
+  onGuardarPrecioVenta: (valorUSD: number | null) => void
   vendiendo: boolean
   cantidadVenta: string; setCantidadVenta: (v: string) => void
   errorVenta: string | null; procesandoVenta: boolean
@@ -668,18 +734,76 @@ interface PropsFilaProducto {
   cantidadReponer: string; setCantidadReponer: (v: string) => void
   guardandoReponer: boolean
   onAbrirReponer: () => void; onConfirmarReponer: () => void; onCancelarReponer: () => void
+  eliminando: boolean
+  guardandoEliminar: boolean
+  onAbrirEliminar: () => void; onConfirmarEliminar: () => void; onCancelarEliminar: () => void
+}
+
+// Selector de moneda por campo (pedido explícito del coordinador, sept.
+// 2026): Costo y Precio de venta se guardan siempre en USD (estable frente
+// a la inflación, igual que antes), pero Cecilia necesita escribirlos y
+// leerlos en bolívares sin hacer la cuenta a mano. Este selector solo
+// decide en qué moneda se MUESTRA y se ESCRIBE ese campo -- la conversión
+// usa la tasa del día y el valor de siempre se guarda en USD.
+function SelectorMoneda({ valor, onCambiar, disabled }: { valor: Moneda; onCambiar: (m: Moneda) => void; disabled?: boolean }) {
+  return (
+    <div className="flex shrink-0 overflow-hidden rounded border border-zr-border text-[10px] font-bold">
+      <button
+        type="button" onClick={() => onCambiar('USD')} disabled={disabled}
+        className={`px-1.5 py-1 ${valor === 'USD' ? 'bg-zr-blue text-white' : 'text-zr-text-muted'} disabled:opacity-40`}
+      >
+        $
+      </button>
+      <button
+        type="button" onClick={() => onCambiar('BS')} disabled={disabled}
+        className={`px-1.5 py-1 ${valor === 'BS' ? 'bg-zr-blue text-white' : 'text-zr-text-muted'} disabled:opacity-40`}
+      >
+        Bs
+      </button>
+    </div>
+  )
 }
 
 function FilaProductoEscritorio({
-  producto: p, margenPct, tasaHoy, onGuardarCampo,
+  producto: p, margenPct, tasaHoy, onGuardarCampo, onGuardarPrecioVenta,
   vendiendo, cantidadVenta, setCantidadVenta, errorVenta, procesandoVenta,
   onAbrirVenta, onConfirmarVenta, onCancelarVenta,
   reponiendo, cantidadReponer, setCantidadReponer, guardandoReponer,
   onAbrirReponer, onConfirmarReponer, onCancelarReponer,
+  eliminando, guardandoEliminar, onAbrirEliminar, onConfirmarEliminar, onCancelarEliminar,
 }: PropsFilaProducto) {
-  const ganancia = p.costo * (margenPct / 100)
-  const precioVenta = p.costo + ganancia
-  const precioBs = bs(precioVenta, tasaHoy)
+  const [monedaCosto, setMonedaCosto] = useState<Moneda>('USD')
+  const [monedaVenta, setMonedaVenta] = useState<Moneda>('USD')
+
+  const precioVentaUSD = p.precioVentaManual ?? p.costo * (1 + margenPct / 100)
+  const gananciaUSD = precioVentaUSD - p.costo
+
+  const costoMostrado = monedaCosto === 'USD' ? p.costo : bs(p.costo, tasaHoy) ?? p.costo
+  const gananciaMostrada = monedaCosto === 'USD' ? gananciaUSD : bs(gananciaUSD, tasaHoy) ?? gananciaUSD
+  const precioVentaMostrado = monedaVenta === 'USD' ? precioVentaUSD : bs(precioVentaUSD, tasaHoy) ?? precioVentaUSD
+  // La columna "Equivalente" (más abajo) siempre muestra la moneda contraria
+  // a la que se eligió para Precio de venta, como referencia cruzada rápida.
+
+  function guardarCosto(v: string) {
+    const n = Number(v.replace(',', '.'))
+    if (!(n >= 0)) return
+    const nuevoUSD = monedaCosto === 'USD' ? n : usdDesdeBs(n, tasaHoy)
+    if (nuevoUSD !== null) onGuardarCampo('cost', nuevoUSD)
+  }
+
+  function guardarGanancia(v: string) {
+    const n = Number(v.replace(',', '.'))
+    if (Number.isNaN(n)) return
+    const nuevaGananciaUSD = monedaCosto === 'USD' ? n : usdDesdeBs(n, tasaHoy)
+    if (nuevaGananciaUSD !== null) onGuardarPrecioVenta(p.costo + nuevaGananciaUSD)
+  }
+
+  function guardarPrecioVenta(v: string) {
+    const n = Number(v.replace(',', '.'))
+    if (!(n >= 0)) return
+    const nuevoUSD = monedaVenta === 'USD' ? n : usdDesdeBs(n, tasaHoy)
+    if (nuevoUSD !== null) onGuardarPrecioVenta(nuevoUSD)
+  }
 
   return (
     <tr className="border-b border-zr-border last:border-b-0 hover:bg-zr-surface/60">
@@ -693,17 +817,47 @@ function FilaProductoEscritorio({
       <td className="px-3 py-3 text-right tabular-nums text-zr-text-muted">{p.cantidadTotal}</td>
       <td className="px-1 py-1">
         <div className="flex items-center justify-end gap-1">
-          <span className="text-xs text-zr-text-muted">$</span>
+          <SelectorMoneda valor={monedaCosto} onCambiar={setMonedaCosto} disabled={!tasaHoy} />
           <CeldaEditable
-            valor={String(p.costo)}
+            valor={numeroEditable(costoMostrado)}
             tipo="decimal"
-            onGuardar={(v) => { const n = Number(v.replace(',', '.')); if (n >= 0) onGuardarCampo('cost', n) }}
+            onGuardar={guardarCosto}
             className={`${claseCelda} w-20 text-right tabular-nums`}
           />
         </div>
       </td>
-      <td className="px-3 py-3 text-right tabular-nums text-zr-text-muted">${formatoUSD.format(ganancia)}</td>
-      <td className="px-3 py-3 text-right tabular-nums font-semibold text-zr-blue">${formatoUSD.format(precioVenta)}</td>
+      <td className="px-1 py-1">
+        <CeldaEditable
+          valor={numeroEditable(gananciaMostrada)}
+          tipo="decimal"
+          onGuardar={guardarGanancia}
+          className={`${claseCelda} w-20 text-right tabular-nums text-zr-text-muted`}
+        />
+      </td>
+      <td className="px-1 py-1">
+        <div className="flex items-center justify-end gap-1">
+          <SelectorMoneda valor={monedaVenta} onCambiar={setMonedaVenta} disabled={!tasaHoy} />
+          <CeldaEditable
+            valor={numeroEditable(precioVentaMostrado)}
+            tipo="decimal"
+            onGuardar={guardarPrecioVenta}
+            className={`${claseCelda} w-20 text-right tabular-nums font-semibold text-zr-blue`}
+          />
+        </div>
+        {p.precioVentaManual !== null && (
+          <button
+            onClick={() => onGuardarPrecioVenta(null)}
+            className="mt-0.5 block w-full text-right text-[10px] font-semibold text-zr-blue-mid"
+          >
+            ↺ volver a automático
+          </button>
+        )}
+      </td>
+      <td className="px-3 py-3 text-right tabular-nums text-zr-text-muted">
+        {monedaVenta === 'USD'
+          ? (bs(precioVentaUSD, tasaHoy) !== null ? `${formatoUSD.format(bs(precioVentaUSD, tasaHoy)!)} Bs` : '—')
+          : `$${formatoUSD.format(precioVentaUSD)}`}
+      </td>
       <td className="px-1 py-1">
         <CeldaEditable
           valor={String(p.stock)}
@@ -711,9 +865,6 @@ function FilaProductoEscritorio({
           onGuardar={(v) => { const n = Number(v.replace(',', '.')); if (n >= 0) onGuardarCampo('stock', n) }}
           className={`${claseCelda} w-16 text-right tabular-nums ${p.stock === 0 ? 'font-bold text-zr-error' : ''}`}
         />
-      </td>
-      <td className="px-3 py-3 text-right tabular-nums text-zr-text-muted">
-        {precioBs ? `${formatoUSD.format(precioBs)} Bs` : '—'}
       </td>
       <td className="px-3 py-3">
         <AccionesFila
@@ -726,6 +877,9 @@ function FilaProductoEscritorio({
           cantidadReponer={cantidadReponer} setCantidadReponer={setCantidadReponer}
           guardandoReponer={guardandoReponer}
           onAbrirReponer={onAbrirReponer} onConfirmarReponer={onConfirmarReponer} onCancelarReponer={onCancelarReponer}
+          eliminando={eliminando}
+          guardandoEliminar={guardandoEliminar}
+          onAbrirEliminar={onAbrirEliminar} onConfirmarEliminar={onConfirmarEliminar} onCancelarEliminar={onCancelarEliminar}
         />
       </td>
     </tr>
@@ -784,15 +938,44 @@ function FilaNuevoProductoEscritorio({ onCrear }: { onCrear: (nombre: string, co
 }
 
 function TarjetaProducto({
-  producto: p, margenPct, tasaHoy, onGuardarCampo,
+  producto: p, margenPct, tasaHoy, onGuardarCampo, onGuardarPrecioVenta,
   vendiendo, cantidadVenta, setCantidadVenta, errorVenta, procesandoVenta,
   onAbrirVenta, onConfirmarVenta, onCancelarVenta,
   reponiendo, cantidadReponer, setCantidadReponer, guardandoReponer,
   onAbrirReponer, onConfirmarReponer, onCancelarReponer,
+  eliminando, guardandoEliminar, onAbrirEliminar, onConfirmarEliminar, onCancelarEliminar,
 }: PropsFilaProducto) {
-  const ganancia = p.costo * (margenPct / 100)
-  const precioVenta = p.costo + ganancia
-  const precioBs = bs(precioVenta, tasaHoy)
+  const [monedaCosto, setMonedaCosto] = useState<Moneda>('USD')
+  const [monedaVenta, setMonedaVenta] = useState<Moneda>('USD')
+
+  const precioVentaUSD = p.precioVentaManual ?? p.costo * (1 + margenPct / 100)
+  const gananciaUSD = precioVentaUSD - p.costo
+
+  const costoMostrado = monedaCosto === 'USD' ? p.costo : bs(p.costo, tasaHoy) ?? p.costo
+  const gananciaMostrada = monedaCosto === 'USD' ? gananciaUSD : bs(gananciaUSD, tasaHoy) ?? gananciaUSD
+  const precioVentaMostrado = monedaVenta === 'USD' ? precioVentaUSD : bs(precioVentaUSD, tasaHoy) ?? precioVentaUSD
+  const precioVentaEquivalente = monedaVenta === 'USD' ? bs(precioVentaUSD, tasaHoy) : precioVentaUSD
+
+  function guardarCosto(v: string) {
+    const n = Number(v.replace(',', '.'))
+    if (!(n >= 0)) return
+    const nuevoUSD = monedaCosto === 'USD' ? n : usdDesdeBs(n, tasaHoy)
+    if (nuevoUSD !== null) onGuardarCampo('cost', nuevoUSD)
+  }
+
+  function guardarGanancia(v: string) {
+    const n = Number(v.replace(',', '.'))
+    if (Number.isNaN(n)) return
+    const nuevaGananciaUSD = monedaCosto === 'USD' ? n : usdDesdeBs(n, tasaHoy)
+    if (nuevaGananciaUSD !== null) onGuardarPrecioVenta(p.costo + nuevaGananciaUSD)
+  }
+
+  function guardarPrecioVenta(v: string) {
+    const n = Number(v.replace(',', '.'))
+    if (!(n >= 0)) return
+    const nuevoUSD = monedaVenta === 'USD' ? n : usdDesdeBs(n, tasaHoy)
+    if (nuevoUSD !== null) onGuardarPrecioVenta(nuevoUSD)
+  }
 
   return (
     <div className="zr-card space-y-3 p-4">
@@ -804,13 +987,16 @@ function TarjetaProducto({
         />
         <p className="shrink-0 whitespace-nowrap pt-2 text-xs text-zr-text-muted">Repuesto: {p.cantidadTotal}</p>
       </div>
-      <div className="grid grid-cols-3 gap-2 text-xs">
+      <div className="grid grid-cols-2 gap-2 text-xs">
         <div>
-          <p className="mb-1 text-zr-text-muted">Costo (USD)</p>
+          <div className="mb-1 flex items-center justify-between">
+            <p className="text-zr-text-muted">Costo</p>
+            <SelectorMoneda valor={monedaCosto} onCambiar={setMonedaCosto} disabled={!tasaHoy} />
+          </div>
           <CeldaEditable
-            valor={String(p.costo)}
+            valor={numeroEditable(costoMostrado)}
             tipo="decimal"
-            onGuardar={(v) => { const n = Number(v.replace(',', '.')); if (n >= 0) onGuardarCampo('cost', n) }}
+            onGuardar={guardarCosto}
             className="w-full rounded border border-zr-border bg-zr-bg px-2 py-2 text-right tabular-nums font-semibold text-zr-text focus:border-zr-blue focus:outline-none"
           />
         </div>
@@ -824,13 +1010,37 @@ function TarjetaProducto({
           />
         </div>
         <div>
-          <p className="mb-1 text-zr-text-muted">Venta</p>
-          <p className="rounded px-2 py-2 text-right tabular-nums font-bold text-zr-blue">
-            ${formatoUSD.format(precioVenta)}{precioBs ? ` · ${formatoUSD.format(precioBs)} Bs` : ''}
-          </p>
+          <p className="mb-1 text-zr-text-muted">Ganancia</p>
+          <CeldaEditable
+            valor={numeroEditable(gananciaMostrada)}
+            tipo="decimal"
+            onGuardar={guardarGanancia}
+            className="w-full rounded border border-zr-border bg-zr-bg px-2 py-2 text-right tabular-nums font-semibold text-zr-text focus:border-zr-blue focus:outline-none"
+          />
+        </div>
+        <div>
+          <div className="mb-1 flex items-center justify-between">
+            <p className="text-zr-text-muted">Precio venta</p>
+            <SelectorMoneda valor={monedaVenta} onCambiar={setMonedaVenta} disabled={!tasaHoy} />
+          </div>
+          <CeldaEditable
+            valor={numeroEditable(precioVentaMostrado)}
+            tipo="decimal"
+            onGuardar={guardarPrecioVenta}
+            className="w-full rounded border border-zr-border bg-zr-bg px-2 py-2 text-right tabular-nums font-bold text-zr-blue focus:border-zr-blue focus:outline-none"
+          />
         </div>
       </div>
-      <p className="text-xs text-zr-text-muted">Ganancia {margenPct}%: ${formatoUSD.format(ganancia)}</p>
+      <p className="text-xs text-zr-text-muted">
+        {precioVentaEquivalente !== null
+          ? `Equivalente: ${monedaVenta === 'USD' ? `${formatoUSD.format(precioVentaEquivalente)} Bs` : `$${formatoUSD.format(precioVentaEquivalente)}`}`
+          : 'Registra la tasa del día para ver el equivalente.'}
+        {p.precioVentaManual !== null && (
+          <button onClick={() => onGuardarPrecioVenta(null)} className="ml-2 font-semibold text-zr-blue-mid">
+            ↺ volver a automático
+          </button>
+        )}
+      </p>
       <AccionesFila
         producto={p}
         vendiendo={vendiendo}
@@ -841,6 +1051,9 @@ function TarjetaProducto({
         cantidadReponer={cantidadReponer} setCantidadReponer={setCantidadReponer}
         guardandoReponer={guardandoReponer}
         onAbrirReponer={onAbrirReponer} onConfirmarReponer={onConfirmarReponer} onCancelarReponer={onCancelarReponer}
+        eliminando={eliminando}
+        guardandoEliminar={guardandoEliminar}
+        onAbrirEliminar={onAbrirEliminar} onConfirmarEliminar={onConfirmarEliminar} onCancelarEliminar={onCancelarEliminar}
       />
     </div>
   )
@@ -892,6 +1105,7 @@ function AccionesFila({
   onAbrirVenta, onConfirmarVenta, onCancelarVenta,
   reponiendo, cantidadReponer, setCantidadReponer, guardandoReponer,
   onAbrirReponer, onConfirmarReponer, onCancelarReponer,
+  eliminando, guardandoEliminar, onAbrirEliminar, onConfirmarEliminar, onCancelarEliminar,
 }: {
   producto: Producto
   vendiendo: boolean
@@ -902,6 +1116,9 @@ function AccionesFila({
   cantidadReponer: string; setCantidadReponer: (v: string) => void
   guardandoReponer: boolean
   onAbrirReponer: () => void; onConfirmarReponer: () => void; onCancelarReponer: () => void
+  eliminando: boolean
+  guardandoEliminar: boolean
+  onAbrirEliminar: () => void; onConfirmarEliminar: () => void; onCancelarEliminar: () => void
 }) {
   if (vendiendo) {
     return (
@@ -944,6 +1161,20 @@ function AccionesFila({
     )
   }
 
+  if (eliminando) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <p className="text-xs text-zr-error">¿Eliminar {producto.nombre}?</p>
+        <button onClick={onConfirmarEliminar} disabled={guardandoEliminar} className="rounded-lg bg-zr-error px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
+          {guardandoEliminar ? '…' : 'Sí, eliminar'}
+        </button>
+        <button onClick={onCancelarEliminar} className="rounded-lg border border-zr-border px-2 py-2 text-xs font-semibold text-zr-text-muted">
+          Cancelar
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="flex gap-1.5">
       <button
@@ -955,6 +1186,9 @@ function AccionesFila({
       </button>
       <button onClick={onAbrirReponer} className="rounded-lg border border-zr-border px-3 py-2 text-xs font-semibold text-zr-text">
         + Reponer
+      </button>
+      <button onClick={onAbrirEliminar} aria-label="Eliminar producto" className="rounded-lg border border-zr-border px-2 py-2 text-xs font-semibold text-zr-error">
+        🗑
       </button>
     </div>
   )

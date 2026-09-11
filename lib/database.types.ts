@@ -2630,6 +2630,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          sale_price: number | null
           stock: number
           total_repuesto: number
           updated_at: string
@@ -2640,6 +2641,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          sale_price?: number | null
           stock?: number
           total_repuesto?: number
           updated_at?: string
@@ -2650,6 +2652,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          sale_price?: number | null
           stock?: number
           total_repuesto?: number
           updated_at?: string

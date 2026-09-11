@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
@@ -405,17 +405,6 @@ export default function ZRCoffee() {
     setFechaHistorial(d.toISOString().slice(0, 10))
   }
 
-  const totalDia = useMemo(() => ventasDelDia.reduce((acc, v) => acc + v.total, 0), [ventasDelDia])
-  const gananciaDia = useMemo(
-    () => ventasDelDia.reduce((acc, v) => {
-      const producto = productos.find((p) => p.id === v.productoId)
-      const pct = producto?.margenPctPropio ?? margenPct
-      const costoUnit = producto?.costo ?? v.precioUnitario / (1 + pct / 100)
-      return acc + (v.precioUnitario - costoUnit) * v.cantidad
-    }, 0),
-    [ventasDelDia, productos, margenPct],
-  )
-
   if (verificando) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
@@ -605,17 +594,6 @@ export default function ZRCoffee() {
           <EstadoVacio titulo="Sin ventas este día" explicacion="Las ventas que registres van a aparecer aquí." />
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="zr-card p-4">
-                <p className="zr-metric text-2xl text-zr-blue">${formatoUSD.format(totalDia)}</p>
-                <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-zr-text-muted">Vendido</p>
-              </div>
-              <div className="zr-card p-4">
-                <p className="zr-metric text-2xl text-zr-success">${formatoUSD.format(gananciaDia)}</p>
-                <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-zr-text-muted">Ganancia</p>
-              </div>
-            </div>
-
             {/* Computadora: cuadro con todas las ventas del día. */}
             <div className="hidden overflow-x-auto rounded-lg border border-zr-border lg:block">
               <table className="w-full border-collapse text-sm">
@@ -730,20 +708,22 @@ function usarCalculosProducto(p: Producto, margenPctGlobal: number) {
 }
 
 // Debajo de un monto en bolívares: su equivalente en dólares, solo como
-// referencia (nunca se guarda, nunca se edita).
+// referencia (nunca se guarda, nunca se edita). Mismo tamaño que el campo
+// en bolívares de arriba (pedido explícito del coordinador) -- que no se
+// vea como una nota al pie, sino como el otro número que realmente es.
 function EquivalenteUSD({ bs, tasa }: { bs: number; tasa: number | null }) {
   const usd = equivalenteUSD(bs, tasa)
   return (
-    <p className="mt-0.5 text-right text-[10px] font-semibold text-zr-text-muted">
-      {usd !== null ? `≈ $${formatoUSD.format(usd)} USD` : 'Registra la tasa del día para ver el equivalente en USD'}
+    <p className="mt-0.5 text-right text-sm font-semibold text-zr-text-muted">
+      {usd !== null ? `USD $${formatoUSD.format(usd)}` : 'Registra la tasa del día para ver el equivalente en USD'}
     </p>
   )
 }
 
-// Prefijo "Bs" pegado al campo -- para que quede claro, sin selector, que
-// Costo, Monto de ganancia y Precio de venta siempre se escriben en
-// bolívares (pedido explícito del coordinador, sept. 2026).
-function PrefijoBs() {
+// Sufijo "Bs" pegado al campo, a la derecha del número (pedido explícito
+// del coordinador) -- para que quede claro, sin selector, que Costo, Monto
+// de ganancia y Precio de venta siempre se escriben en bolívares.
+function SufijoBs() {
   return <span className="shrink-0 text-xs font-bold text-zr-text-muted">Bs</span>
 }
 
@@ -791,13 +771,13 @@ function FilaProductoEscritorio({
       </td>
       <td className="px-1 py-1">
         <div className="flex items-center justify-end gap-1">
-          <PrefijoBs />
           <CeldaEditable
             valor={numeroEditable(p.costo)}
             tipo="decimal"
             onGuardar={(v) => { const n = numeroDesdeTexto(v); if (n !== null && n >= 0) onGuardarCampo('cost', n) }}
             className={`${claseCelda} w-20 text-right tabular-nums`}
           />
+          <SufijoBs />
         </div>
         <EquivalenteUSD bs={p.costo} tasa={tasaHoy} />
       </td>
@@ -814,25 +794,25 @@ function FilaProductoEscritorio({
       </td>
       <td className="px-1 py-1">
         <div className="flex items-center justify-end gap-1">
-          <PrefijoBs />
           <CeldaEditable
             valor={numeroEditable(montoGanancia)}
             tipo="decimal"
             onGuardar={guardarMontoGanancia}
             className={`${claseCelda} w-20 text-right tabular-nums text-zr-text-muted`}
           />
+          <SufijoBs />
         </div>
         <EquivalenteUSD bs={montoGanancia} tasa={tasaHoy} />
       </td>
       <td className="px-1 py-1">
         <div className="flex items-center justify-end gap-1">
-          <PrefijoBs />
           <CeldaEditable
             valor={numeroEditable(precioVenta)}
             tipo="decimal"
             onGuardar={guardarPrecioVenta}
             className={`${claseCelda} w-20 text-right tabular-nums font-semibold text-zr-blue`}
           />
+          <SufijoBs />
         </div>
         <EquivalenteUSD bs={precioVenta} tasa={tasaHoy} />
       </td>
@@ -962,13 +942,13 @@ function TarjetaProducto({
         <div>
           <p className="mb-1 text-zr-text-muted">Costo</p>
           <div className="flex items-center gap-1.5 rounded border border-zr-border bg-zr-bg px-2">
-            <PrefijoBs />
             <CeldaEditable
               valor={numeroEditable(p.costo)}
               tipo="decimal"
               onGuardar={(v) => { const n = numeroDesdeTexto(v); if (n !== null && n >= 0) onGuardarCampo('cost', n) }}
               className="w-full border-transparent bg-transparent py-2 text-right tabular-nums font-semibold text-zr-text focus:border-transparent focus:outline-none"
             />
+            <SufijoBs />
           </div>
           <EquivalenteUSD bs={p.costo} tasa={tasaHoy} />
         </div>
@@ -984,26 +964,26 @@ function TarjetaProducto({
         <div>
           <p className="mb-1 text-zr-text-muted">Monto ganancia</p>
           <div className="flex items-center gap-1.5 rounded border border-zr-border bg-zr-bg px-2">
-            <PrefijoBs />
             <CeldaEditable
               valor={numeroEditable(montoGanancia)}
               tipo="decimal"
               onGuardar={guardarMontoGanancia}
               className="w-full border-transparent bg-transparent py-2 text-right tabular-nums font-semibold text-zr-text focus:border-transparent focus:outline-none"
             />
+            <SufijoBs />
           </div>
           <EquivalenteUSD bs={montoGanancia} tasa={tasaHoy} />
         </div>
         <div>
           <p className="mb-1 text-zr-text-muted">Precio de venta</p>
           <div className="flex items-center gap-1.5 rounded border border-zr-border bg-zr-bg px-2">
-            <PrefijoBs />
             <CeldaEditable
               valor={numeroEditable(precioVenta)}
               tipo="decimal"
               onGuardar={guardarPrecioVenta}
               className="w-full border-transparent bg-transparent py-2 text-right tabular-nums font-bold text-zr-blue focus:border-transparent focus:outline-none"
             />
+            <SufijoBs />
           </div>
           <EquivalenteUSD bs={precioVenta} tasa={tasaHoy} />
         </div>

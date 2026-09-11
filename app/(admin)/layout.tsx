@@ -8,7 +8,7 @@ import { salirDeVistaRecorrido } from '@/lib/vista-recorrido'
 import { type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Marco } from '@/components/ui/Marco'
 import {
-  IconoPanel, IconoEstudiantes, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoProgreso,
+  IconoPanel, IconoEstudiantes, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoProgreso, IconoTaza,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -90,6 +90,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter()
   const [verificando, setVerificando] = useState(true)
   const [rol, setRol] = useState<UserRole | null>(null)
+  // ZR Coffee (migración 090): visible solo para quien esté en la lista de
+  // gestores, NUNCA por rol -- Cecilia es administración igual que cualquier
+  // otro admin, pero es la única que puede ver esto. Es la primera pantalla
+  // de la app que se restringe por cuenta individual, no por rol.
+  const [esGestorZRCoffee, setEsGestorZRCoffee] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -117,6 +122,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       // volver a caer en esa vista vieja en vez de en su panel real.
       salirDeVistaRecorrido()
 
+      const { data: gestor } = await supabase
+        .from('zr_coffee_managers').select('profile_id').eq('profile_id', user.id).maybeSingle()
+      setEsGestorZRCoffee(Boolean(gestor))
+
       setRol((perfil?.role as UserRole) ?? null)
       setVerificando(false)
     }
@@ -132,12 +141,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     )
   }
 
+  const secciones = rol === 'super_admin' ? TODAS_SUPER : esDireccionAcademica(rol) ? TODAS_DIRECCION : TODAS
+  const seccionesConCoffee = esGestorZRCoffee
+    ? [...secciones, { href: '/zr-coffee', label: 'ZR Coffee', Icono: IconoTaza, grupo: 'ZR Coffee' }]
+    : secciones
+
   return (
     <Marco
       items={NAV}
-      todasLasSecciones={
-        rol === 'super_admin' ? TODAS_SUPER : esDireccionAcademica(rol) ? TODAS_DIRECCION : TODAS
-      }
+      todasLasSecciones={seccionesConCoffee}
       // Bug real de producción (sept. 2026): `deslizable` viene en `true`
       // por defecto (pensado para la barra del estudiante, donde deslizar
       // cambia de sección). Nadie lo apagó aquí, así que cualquier gesto

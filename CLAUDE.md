@@ -171,6 +171,12 @@ Si el usuario te pide algo de esta lista, respóndele que pertenece a otra fase 
   de cada competencia**: dominada, en progreso o pendiente. Sin puntos, sin niveles, sin
   insignias y sin comparación entre estudiantes.
 - **Contabilidad del fondo de refrigerios** → Fase 2.
+  ⚠️ **Excepción confirmada explícitamente con el coordinador (sept. 2026, migración 090):
+  ZR Coffee** — inventario y ventas de la cantina (bebidas, snacks, dulces) — **SÍ se
+  construyó en Fase 1**. No es lo mismo que "el fondo de refrigerios": no toca ninguna tabla
+  de estudiantes, notas ni inscripción, no es financiamiento ni cuenta de un estudiante — es
+  una herramienta interna para el propio negocio de administración. Visible únicamente para
+  quien esté en `zr_coffee_managers` (hoy solo Cecilia), nunca por rol.
 - **Red social, subida de videos por estudiantes, comentarios, portafolio público** → Fase 3.
 - **Simulador visual, roles de especialización, certificados** → Fase 3.
 - **Integración con Google Classroom** → descartada, no se hace nunca.

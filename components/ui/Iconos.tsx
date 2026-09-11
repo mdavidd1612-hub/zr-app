@@ -286,6 +286,18 @@ export function IconoChevron(p: IconoProps) {
   )
 }
 
+/** Taza — ZR Coffee, la cantina. */
+export function IconoTaza(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <path d="M4 8h12v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V8Z" />
+      <path d="M16 9.5h1.5a2.5 2.5 0 0 1 0 5H16" />
+      <path d="M7 4.5c0 1-1 1-1 2" />
+      <path d="M11 4.5c0 1-1 1-1 2" />
+    </Base>
+  )
+}
+
 export function IconoCerrar(p: IconoProps) {
   return (
     <Base {...p}>

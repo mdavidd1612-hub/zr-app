@@ -2600,6 +2600,139 @@ export type Database = {
           },
         ]
       }
+      zr_coffee_managers: {
+        Row: {
+          added_at: string
+          profile_id: string
+        }
+        Insert: {
+          added_at?: string
+          profile_id: string
+        }
+        Update: {
+          added_at?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zr_coffee_managers_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zr_coffee_products: {
+        Row: {
+          active: boolean
+          cost: number
+          created_at: string
+          id: string
+          name: string
+          stock: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          cost: number
+          created_at?: string
+          id?: string
+          name: string
+          stock?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          cost?: number
+          created_at?: string
+          id?: string
+          name?: string
+          stock?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      zr_coffee_sales: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          quantity: number
+          registered_by: string | null
+          sold_at: string
+          tasa_usada: number | null
+          total: number | null
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          quantity: number
+          registered_by?: string | null
+          sold_at?: string
+          tasa_usada?: number | null
+          total?: number | null
+          unit_price: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          quantity?: number
+          registered_by?: string | null
+          sold_at?: string
+          tasa_usada?: number | null
+          total?: number | null
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zr_coffee_sales_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zr_coffee_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zr_coffee_sales_registered_by_fkey"
+            columns: ["registered_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zr_coffee_tasa_cambio: {
+        Row: {
+          fecha: string
+          registrado_por: string | null
+          tasa: number
+          updated_at: string
+        }
+        Insert: {
+          fecha: string
+          registrado_por?: string | null
+          tasa: number
+          updated_at?: string
+        }
+        Update: {
+          fecha?: string
+          registrado_por?: string | null
+          tasa?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zr_coffee_tasa_cambio_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       v_exam_questions_student: {
@@ -2802,6 +2935,7 @@ export type Database = {
         }
         Returns: string
       }
+      es_gestor_zr_coffee: { Args: never; Returns: boolean }
       fn_cambiar_mi_rol: {
         Args: { nuevo_rol: Database["public"]["Enums"]["user_role"] }
         Returns: undefined
@@ -2809,6 +2943,14 @@ export type Database = {
       fn_generar_caso_del_dia: { Args: never; Returns: undefined }
       fn_generar_sesion_semanal: { Args: never; Returns: undefined }
       fn_marcar_tour_visto: { Args: never; Returns: undefined }
+      fn_zr_coffee_registrar_venta: {
+        Args: {
+          p_cantidad: number
+          p_precio_unitario: number
+          p_product_id: string
+        }
+        Returns: string
+      }
       is_academico: { Args: never; Returns: boolean }
       is_admin_up: { Args: never; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
@@ -2817,16 +2959,6 @@ export type Database = {
       is_vendedor: { Args: never; Returns: boolean }
       my_cohort_id: { Args: never; Returns: string }
       my_module_id: { Args: never; Returns: string }
-      seed_user: {
-        Args: {
-          p_cedula: string
-          p_email: string
-          p_full_name: string
-          p_id: string
-          p_role: Database["public"]["Enums"]["user_role"]
-        }
-        Returns: string
-      }
       set_student_code_calc: {
         Args: { p_cohort_id: string; p_enrollment_date: string; p_id: string }
         Returns: string

@@ -151,6 +151,9 @@ export default function ZRCoffee() {
   const [eliminandoId, setEliminandoId] = useState<string | null>(null)
   const [guardandoEliminar, setGuardandoEliminar] = useState(false)
 
+  const [eliminandoVentaId, setEliminandoVentaId] = useState<string | null>(null)
+  const [guardandoEliminarVenta, setGuardandoEliminarVenta] = useState(false)
+
   const [fechaHistorial, setFechaHistorial] = useState(hoyISO())
   const [ventasDelDia, setVentasDelDia] = useState<Venta[]>([])
   const [cargandoVentas, setCargandoVentas] = useState(true)
@@ -399,6 +402,20 @@ export default function ZRCoffee() {
     void cargarVentasDelDia(fechaHistorial)
   }, [verificando, fechaHistorial, cargarVentasDelDia])
 
+  // Eliminar una venta cargada por error (pedido explícito del coordinador,
+  // sept. 2026): pasa por fn_zr_coffee_eliminar_venta (server, atómico,
+  // migración 094) -- devuelve la cantidad al inventario del producto y
+  // borra la venta en la misma transacción. Nunca se calcula aquí, mismo
+  // criterio que registrar una venta.
+  async function eliminarVenta(id: string) {
+    setGuardandoEliminarVenta(true)
+    const { error } = await createClient().rpc('fn_zr_coffee_eliminar_venta', { p_venta_id: id })
+    setGuardandoEliminarVenta(false)
+    if (error) return
+    setEliminandoVentaId(null)
+    await Promise.all([cargarProductos(), cargarVentasDelDia(fechaHistorial)])
+  }
+
   function cambiarDia(delta: number) {
     const d = new Date(fechaHistorial + 'T12:00:00')
     d.setDate(d.getDate() + delta)
@@ -604,6 +621,7 @@ export default function ZRCoffee() {
                     <th className="border-b border-zr-border px-3 py-3 text-right font-bold text-zr-text">Precio unitario</th>
                     <th className="border-b border-zr-border px-3 py-3 text-right font-bold text-zr-text">Tasa usada</th>
                     <th className="border-b border-zr-border px-3 py-3 text-right font-bold text-zr-text">Total</th>
+                    <th className="border-b border-zr-border px-3 py-3"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -616,6 +634,32 @@ export default function ZRCoffee() {
                         {v.tasaUsada ? formatoUSD.format(v.tasaUsada) : '—'}
                       </td>
                       <td className="px-3 py-3 text-right tabular-nums font-bold text-zr-text">${formatoUSD.format(v.total)}</td>
+                      <td className="px-3 py-3 text-right">
+                        {eliminandoVentaId === v.id ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => eliminarVenta(v.id)}
+                              disabled={guardandoEliminarVenta}
+                              className="rounded-lg bg-zr-error px-2.5 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                            >
+                              {guardandoEliminarVenta ? '…' : 'Sí, eliminar'}
+                            </button>
+                            <button
+                              onClick={() => setEliminandoVentaId(null)}
+                              className="rounded-lg border border-zr-border px-2 py-1.5 text-xs font-semibold text-zr-text-muted"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setEliminandoVentaId(v.id)}
+                            className="rounded-lg border border-zr-error/50 px-2.5 py-1.5 text-xs font-semibold text-zr-error"
+                          >
+                            Eliminar
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -625,15 +669,41 @@ export default function ZRCoffee() {
             {/* Teléfono: una tarjeta por venta. */}
             <div className="space-y-2 lg:hidden">
               {ventasDelDia.map((v) => (
-                <div key={v.id} className="zr-card flex items-center justify-between gap-3 p-4">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-zr-text">{v.productoNombre}</p>
-                    <p className="text-xs tabular-nums text-zr-text-muted">
-                      {v.cantidad} × ${formatoUSD.format(v.precioUnitario)}
-                      {v.tasaUsada ? ` · tasa ${formatoUSD.format(v.tasaUsada)}` : ''}
-                    </p>
+                <div key={v.id} className="zr-card space-y-2 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-zr-text">{v.productoNombre}</p>
+                      <p className="text-xs tabular-nums text-zr-text-muted">
+                        {v.cantidad} × ${formatoUSD.format(v.precioUnitario)}
+                        {v.tasaUsada ? ` · tasa ${formatoUSD.format(v.tasaUsada)}` : ''}
+                      </p>
+                    </div>
+                    <p className="shrink-0 tabular-nums font-bold text-zr-text">${formatoUSD.format(v.total)}</p>
                   </div>
-                  <p className="shrink-0 tabular-nums font-bold text-zr-text">${formatoUSD.format(v.total)}</p>
+                  {eliminandoVentaId === v.id ? (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => eliminarVenta(v.id)}
+                        disabled={guardandoEliminarVenta}
+                        className="rounded-lg bg-zr-error px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                      >
+                        {guardandoEliminarVenta ? '…' : 'Sí, eliminar'}
+                      </button>
+                      <button
+                        onClick={() => setEliminandoVentaId(null)}
+                        className="rounded-lg border border-zr-border px-2 py-2 text-xs font-semibold text-zr-text-muted"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setEliminandoVentaId(v.id)}
+                      className="rounded-lg border border-zr-error/50 px-3 py-2 text-xs font-semibold text-zr-error"
+                    >
+                      Eliminar
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

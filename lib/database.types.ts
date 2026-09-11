@@ -2949,6 +2949,10 @@ export type Database = {
       fn_generar_caso_del_dia: { Args: never; Returns: undefined }
       fn_generar_sesion_semanal: { Args: never; Returns: undefined }
       fn_marcar_tour_visto: { Args: never; Returns: undefined }
+      fn_zr_coffee_eliminar_venta: {
+        Args: { p_venta_id: string }
+        Returns: undefined
+      }
       fn_zr_coffee_registrar_venta: {
         Args: {
           p_cantidad: number

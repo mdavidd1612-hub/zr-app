@@ -15,12 +15,22 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
  * se filtran solas por su propio módulo (migración 081). Aquí no se repite
  * ese filtro, solo se navega y se pide la data.
  *
- * Bug real de producción (sept. 2026): el visor embebido (iframe para PDF)
- * se quedaba en blanco cargando para siempre en Android -- probado y
- * confirmado por el coordinador en un teléfono real. "Descargar" sí
- * funciona bien en iOS y Android por igual, así que a pedido explícito se
- * quita el botón "Ver" hasta que ese visor se pueda arreglar de verdad; por
- * ahora solo se descarga.
+ * Bug real de producción (sept. 2026, primera vuelta): el visor embebido
+ * -- un <iframe> DENTRO de esta pantalla -- se quedaba en blanco cargando
+ * para siempre en Android. Se quitó el botón "Ver" hasta arreglarlo de
+ * verdad, dejando solo "Descargar".
+ *
+ * "Ver" vuelve (pedido explícito del coordinador, sept. 2026, segunda
+ * vuelta): muchos estudiantes no tienen con qué abrir un .pptx en el
+ * teléfono una vez descargado. La solución no es un iframe propio (eso fue
+ * justo lo que se rompió) -- es una pestaña nueva de verdad, como cuando en
+ * WhatsApp Web un archivo abre en Google Drive: PDF y video los renderiza
+ * el propio navegador con solo navegar a la URL firmada; una presentación
+ * (.pptx) no la puede renderizar ningún navegador, así que esa URL se le
+ * pasa al visor de Office de Microsoft (view.officeapps.live.com), que la
+ * descarga él mismo del lado del servidor y la muestra como páginas web --
+ * el estudiante nunca necesita tener PowerPoint instalado. "Descargar"
+ * se queda como respaldo para quien de verdad quiera guardar el archivo.
  */
 
 interface Carpeta {
@@ -43,6 +53,7 @@ export default function Contenido() {
   const [materiales, setMateriales] = useState<Material[]>([])
   const [cargando, setCargando] = useState(true)
   const [descargando, setDescargando] = useState<string | null>(null)
+  const [abriendo, setAbriendo] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const carpetaActual = pilaCarpetas[pilaCarpetas.length - 1]?.id ?? null
@@ -147,6 +158,51 @@ export default function Contenido() {
     else window.open(firmada.signedUrl, '_blank', 'noopener,noreferrer')
   }
 
+  // "Ver" (pedido explícito del coordinador, sept. 2026): pestaña nueva de
+  // verdad, no un iframe dentro de esta pantalla (eso fue lo que se rompió
+  // en Android la primera vez). PDF y video los abre el navegador
+  // directamente -- los sabe mostrar solo. Una presentación (.pptx) nadie
+  // la puede renderizar en un navegador, así que la URL firmada se le pasa
+  // al visor de Office de Microsoft, que la convierte él mismo del lado del
+  // servidor -- el estudiante no necesita tener PowerPoint instalado.
+  async function ver(m: Material) {
+    setError(null)
+    setAbriendo(m.id)
+
+    const pestañaNueva = window.open('', '_blank')
+
+    const supabase = createClient()
+    const { data: item } = await supabase
+      .from('content_items').select('storage_path').eq('id', m.id).single()
+
+    if (!item?.storage_path) {
+      pestañaNueva?.close()
+      setAbriendo(null)
+      setError('No se pudo abrir el archivo. Intenta de nuevo.')
+      return
+    }
+
+    // Sin `download: true` -- así el navegador (o el visor de Office) la
+    // puede mostrar directo en vez de forzar la descarga.
+    const { data: firmada } = await supabase.storage
+      .from('contenido')
+      .createSignedUrl(item.storage_path, 300)
+
+    setAbriendo(null)
+    if (!firmada?.signedUrl) {
+      pestañaNueva?.close()
+      setError('No se pudo abrir el archivo. Intenta de nuevo.')
+      return
+    }
+
+    const urlFinal = m.tipo === 'presentacion'
+      ? `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(firmada.signedUrl)}`
+      : firmada.signedUrl
+
+    if (pestañaNueva) pestañaNueva.location.href = urlFinal
+    else window.open(urlFinal, '_blank', 'noopener,noreferrer')
+  }
+
   return (
     <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
       <div className="space-y-9">
@@ -225,14 +281,18 @@ export default function Contenido() {
                     {m.tipo === 'video' ? 'VIDEO' : m.tipo === 'presentacion' ? 'PPT' : 'PDF'}
                   </span>
                 </div>
-                {/* Solo "Descargar" por ahora (pedido explícito, sept.
-                    2026): el visor embebido se quedaba en blanco cargando
-                    para siempre en Android. Ver la nota del componente. */}
-                <div className="mt-3">
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={() => ver(m)}
+                    disabled={abriendo === m.id}
+                    className="flex min-h-11 flex-1 items-center justify-center rounded-lg bg-zr-blue text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    {abriendo === m.id ? 'Abriendo…' : 'Ver'}
+                  </button>
                   <button
                     onClick={() => descargar(m)}
                     disabled={descargando === m.id}
-                    className="flex min-h-11 w-full items-center justify-center rounded-lg bg-zr-blue text-sm font-bold text-white disabled:opacity-50"
+                    className="flex min-h-11 flex-1 items-center justify-center rounded-lg border border-zr-border text-sm font-bold text-zr-text disabled:opacity-50"
                   >
                     {descargando === m.id ? 'Descargando…' : 'Descargar'}
                   </button>
@@ -254,7 +314,9 @@ export default function Contenido() {
             Consejo
           </p>
           <p className="text-sm text-zr-text-muted">
-            Toca "Descargar" y luego ábrelo desde tus descargas o notificaciones.
+            Toca &ldquo;Ver&rdquo; para abrirlo en el navegador, sin necesitar PowerPoint ni
+            ninguna otra app instalada. &ldquo;Descargar&rdquo; lo guarda en tu teléfono si
+            prefieres eso.
           </p>
         </div>
       </div>

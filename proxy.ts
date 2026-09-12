@@ -29,6 +29,24 @@ function empiezaConAlguna(pathname: string, rutas: string[]) {
 const esNotasEstudiante = (pathname: string) => pathname === '/notas'
 const esNotasProfesor = (pathname: string) => pathname.startsWith('/notas/')
 
+// Bug real reportado por el coordinador (sept. 2026): a algunos estudiantes
+// y a administración se les cerraba la sesión sola de vez en cuando, sin
+// haber tocado "salir". Causa: `supabase.auth.getUser()` puede refrescar el
+// access token, y Supabase ROTA el refresh token en cada refresco (el
+// viejo queda invalidado). El cliente de arriba escribe esas cookies
+// nuevas en `response` -- pero cuando el proxy decide redirigir (rol
+// equivocado para la ruta, sin sesión, etc.), `NextResponse.redirect(...)`
+// crea una respuesta DISTINTA que no lleva esas cookies. El navegador se
+// quedaba con el refresh token anterior, ya invalidado por la rotación; la
+// siguiente vez que el access token expiraba (hasta una hora después), ese
+// refresh token ya no servía y la sesión moría sin aviso. Esta función
+// copia las cookies de sesión a CUALQUIER redirección antes de mandarla.
+function redirigirConSesion(url: URL, sesion: NextResponse) {
+  const redireccion = NextResponse.redirect(url)
+  sesion.cookies.getAll().forEach((cookie) => redireccion.cookies.set(cookie))
+  return redireccion
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -62,7 +80,7 @@ export async function proxy(request: NextRequest) {
 
   // Sin sesión: ir a login
   if (!user) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    return redirigirConSesion(new URL('/login', request.url), response)
   }
 
   // Obtener rol y onboarding_status del perfil
@@ -105,17 +123,17 @@ export async function proxy(request: NextRequest) {
   if (esRutaDeEstudiante && role !== 'estudiante') {
     const puedeRecorrer = ['admin', 'direccion_academica', 'super_admin'].includes(role) && vistaRecorrido === 'estudiante'
     if (!puedeRecorrer) {
-      return NextResponse.redirect(new URL(INICIO_POR_ROL[role] ?? '/', request.url))
+      return redirigirConSesion(new URL(INICIO_POR_ROL[role] ?? '/', request.url), response)
     }
   }
   if (esRutaDeProfesor && role !== 'profesor') {
     const puedeRecorrer = ['direccion_academica', 'super_admin'].includes(role) && vistaRecorrido === 'profesor'
     if (!puedeRecorrer) {
-      return NextResponse.redirect(new URL(INICIO_POR_ROL[role] ?? '/', request.url))
+      return redirigirConSesion(new URL(INICIO_POR_ROL[role] ?? '/', request.url), response)
     }
   }
   if (esRutaDeAdmin && !['admin', 'super_admin', 'direccion_academica'].includes(role)) {
-    return NextResponse.redirect(new URL(INICIO_POR_ROL[role] ?? '/', request.url))
+    return redirigirConSesion(new URL(INICIO_POR_ROL[role] ?? '/', request.url), response)
   }
 
   return response

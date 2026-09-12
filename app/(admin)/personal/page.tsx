@@ -66,6 +66,7 @@ const ETIQUETA_ROL: Partial<Record<UserRole, { texto: string; tono: 'info' | 'av
   admin:               { texto: 'Administración',      tono: 'aviso' },
   vendedor:            { texto: 'Vendedor',            tono: 'aviso' },
   profesor:            { texto: 'Profesor',            tono: 'exito' },
+  zr_coffee:           { texto: 'ZR Coffee',           tono: 'aviso' },
 }
 
 const ROLES: { valor: UserRole; etiqueta: string; soloSuper: boolean }[] = [
@@ -76,6 +77,10 @@ const ROLES: { valor: UserRole; etiqueta: string; soloSuper: boolean }[] = [
   // Solo super_admin (R-16): un vendedor tiene acceso comercial, no es una
   // decisión de Dirección Académica.
   { valor: 'vendedor', etiqueta: 'Vendedor', soloSuper: true },
+  // ZR Coffee (migración 095, pedido explícito del coordinador): rol propio
+  // en vez de la lista de cuentas de antes (zr_coffee_managers) -- mismo
+  // criterio que vendedor, solo super_admin decide quién lo tiene.
+  { valor: 'zr_coffee', etiqueta: 'ZR Coffee', soloSuper: true },
 ]
 
 export default function Personal() {
@@ -155,7 +160,11 @@ export default function Personal() {
       // admin o vendedor, eso lo sigue gestionando Dirección Académica.
       const rolesVisibles: UserRole[] = rolActual === 'admin'
         ? ['admin']
-        : ['profesor', 'admin', 'super_admin', 'direccion_academica', 'vendedor']
+        // zr_coffee incluido (migración 095): si no, Cecilia desaparecería
+        // de esta lista mientras su rol activo sea ZR Coffee en vez de
+        // admin -- Personal necesita verla igual para poder gestionarle
+        // sus roles.
+        : ['profesor', 'admin', 'super_admin', 'direccion_academica', 'vendedor', 'zr_coffee']
 
       const [{ data }, { data: cohs }, { data: mods }, { data: asigs }, { data: rolesExtraData }, { data: sedesData }, { data: adminSedesData }] = await Promise.all([
         supabase

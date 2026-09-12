@@ -48,6 +48,15 @@ export function esVendedor(role?: UserRole | null) {
   return role === 'vendedor'
 }
 
+// ZR Coffee (migración 095, pedido explícito del coordinador): dejó de ser
+// una sección visible solo por cuenta (zr_coffee_managers) y pasó a ser un
+// rol propio, igual que vendedor -- Cecilia entra como `admin` o como
+// `zr_coffee` y cambia entre los dos desde su perfil (CambiarRol.tsx, el
+// mismo mecanismo genérico que ya usa Erika Hidalgo para admin/vendedor).
+export function esZRCoffee(role?: UserRole | null) {
+  return role === 'zr_coffee'
+}
+
 // A dónde entra cada rol al iniciar sesión (login), al cambiar de rol activo
 // (elegir-rol) y a dónde lo manda proxy.ts si intenta una ruta que no es la
 // suya. Un solo lugar — antes estaba repetido en login/page.tsx y proxy.ts,
@@ -59,6 +68,7 @@ export const INICIO_POR_ROL: Record<UserRole, string> = {
   super_admin: '/panel',
   direccion_academica: '/panel',
   vendedor: '/carga-ventas',
+  zr_coffee: '/zr-coffee',
 }
 
 // Cómo se le llama a cada rol en pantalla (selector de rol, Personal). La
@@ -71,6 +81,7 @@ export const ETIQUETA_ROL: Record<UserRole, string> = {
   super_admin: 'Super admin',
   direccion_academica: 'Dirección académica',
   vendedor: 'Vendedor',
+  zr_coffee: 'ZR Coffee',
 }
 
 // Calcula la edad cumplida. Se usa en el registro para decidir si hace falta

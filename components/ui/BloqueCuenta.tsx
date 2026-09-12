@@ -25,6 +25,7 @@ const NOMBRE_ROL: Record<UserRole, string> = {
   super_admin: 'Super admin',
   direccion_academica: 'Dirección académica',
   vendedor: 'Ventas',
+  zr_coffee: 'ZR Coffee',
 }
 
 interface Props {

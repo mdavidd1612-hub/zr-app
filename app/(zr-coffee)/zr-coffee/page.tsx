@@ -1,21 +1,25 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
-import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { IconoFlechaAtras } from '@/components/ui/Iconos'
+import { esZRCoffee, INICIO_POR_ROL } from '@/lib/auth-helpers'
+import type { UserRole } from '@/lib/types'
 
 /**
  * ZR Coffee — inventario y ventas de la cantina (migración 090, pedido
  * explícito del coordinador a partir de las especificaciones de
- * administradora Cecilia). Visible SOLO para quien esté en
- * `zr_coffee_managers` — el layout ya oculta el enlace del menú, esta
- * pantalla además redirige si alguien entra directo por la URL sin serlo
- * (RLS de todas formas le negaría los datos, esto es solo para no dejarlo
- * viendo una pantalla vacía y confundido).
+ * administradora Cecilia).
+ *
+ * Rol propio (migración 095, pedido explícito del coordinador): dejó de ser
+ * una sección dentro de administración, visible solo por cuenta
+ * (zr_coffee_managers), y pasó a ser un ROL -- Cecilia entra como `admin` o
+ * como `zr_coffee` y cambia entre los dos desde su perfil (mismo mecanismo
+ * genérico que ya usa Erika Hidalgo para admin/vendedor). Vive en su propio
+ * grupo de rutas, `app/(zr-coffee)/`, con su propia barra.
  *
  * El descuento de inventario NUNCA se calcula aquí — pasa por
  * `fn_zr_coffee_registrar_venta` (server, atómico), igual que notas y QR
@@ -66,6 +70,16 @@ import { IconoFlechaAtras } from '@/components/ui/Iconos'
  * consulta falla o hay que corregirla. Es solo informativa en esta
  * pantalla (queda guardada en cada venta para referencia futura); no
  * convierte nada del inventario.
+ *
+ * Fila nueva sin avisar errores (bug real reportado por el coordinador,
+ * sept. 2026): si el insert fallaba, los campos se limpiaban igual --
+ * parecía que "no se guardaba y no dejaba avanzar" porque los datos
+ * desaparecían sin ningún error visible. `crearProductoDesdeFila` ahora
+ * devuelve un mensaje de error (o null si salió bien) y la fila solo se
+ * limpia cuando de verdad se creó. Además, Enter ahora avanza al siguiente
+ * campo (Producto → Cantidad → Costo) en vez de solo quitar el foco --
+ * antes, si Costo todavía estaba vacío cuando el foco se iba, la fila
+ * quedaba esperando sin ninguna señal de que hacía falta escribir algo más.
  */
 
 interface Producto {
@@ -169,10 +183,10 @@ export default function ZRCoffee() {
         router.replace('/login')
         return
       }
-      const { data: gestor } = await supabase
-        .from('zr_coffee_managers').select('profile_id').eq('profile_id', user.id).maybeSingle()
-      if (!gestor) {
-        router.replace('/panel')
+      const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      const rol = perfil?.role as UserRole | undefined
+      if (!esZRCoffee(rol)) {
+        router.replace(INICIO_POR_ROL[rol ?? 'estudiante'] ?? '/')
         return
       }
       setVerificando(false)
@@ -246,10 +260,16 @@ export default function ZRCoffee() {
     await cargarProductos()
   }
 
-  async function crearProductoDesdeFila(nombre: string, costo: number, stock: number) {
-    // "Cantidad" arranca igual a la existencia inicial.
-    await createClient().from('zr_coffee_products').insert({ name: nombre, cost: costo, stock, total_repuesto: stock })
+  // Devuelve un mensaje de error (o null si salió bien) -- antes se
+  // ignoraba `error` de Supabase y la fila se limpiaba igual aunque el
+  // insert hubiera fallado, dando la impresión de que "no pasaba nada".
+  async function crearProductoDesdeFila(nombre: string, costo: number, stock: number): Promise<string | null> {
+    const { error } = await createClient()
+      .from('zr_coffee_products')
+      .insert({ name: nombre, cost: costo, stock, total_repuesto: stock })
+    if (error) return 'No se pudo agregar el producto. Intenta de nuevo.'
     await cargarProductos()
+    return null
   }
 
   // Editar "Cantidad" (pedido explícito del coordinador, sept. 2026): un
@@ -432,12 +452,10 @@ export default function ZRCoffee() {
 
   return (
     <div className="space-y-11 px-5 pt-14 pb-16">
-      <BotonVolver href="/panel" />
-
       <Encabezado
-        sobretitulo="Administración"
-        titulo="ZR Coffee"
-        descripcion="Inventario y ventas de la cantina."
+        sobretitulo="ZR Coffee"
+        titulo="Inventario y ventas"
+        descripcion="La cantina de la academia."
       />
 
       <Regla delay={60} />
@@ -919,49 +937,90 @@ function FilaProductoEscritorio({
   )
 }
 
-function FilaNuevoProductoEscritorio({ onCrear }: { onCrear: (nombre: string, costo: number, stock: number) => Promise<void> }) {
+// Fila para agregar un producto nuevo. Enter avanza al siguiente campo
+// (Producto → Cantidad → Costo) como en una hoja de cálculo; en el último
+// campo, Enter intenta guardar. Si el guardado falla, se muestra el error y
+// LOS CAMPOS NO SE BORRAN -- antes se limpiaban siempre, sin importar si el
+// insert había funcionado, dando la falsa impresión de que "no dejaba
+// avanzar" cuando en realidad los datos ya se habían perdido en silencio.
+function FilaNuevoProductoEscritorio({ onCrear }: { onCrear: (nombre: string, costo: number, stock: number) => Promise<string | null> }) {
   const [nombre, setNombre] = useState('')
   const [costo, setCosto] = useState('')
   const [stock, setStock] = useState('')
   const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const guardandoRef = useRef(false)
+  const nombreRef = useRef<HTMLInputElement>(null)
+  const stockRef = useRef<HTMLInputElement>(null)
+  const costoRef = useRef<HTMLInputElement>(null)
 
   async function intentarCrear() {
+    if (guardandoRef.current) return
     const costoNum = numeroDesdeTexto(costo)
-    if (!nombre.trim() || costoNum === null || costoNum < 0 || guardando) return
+    if (!nombre.trim() || costoNum === null || costoNum < 0) return
+    guardandoRef.current = true
     setGuardando(true)
-    await onCrear(nombre.trim(), costoNum, numeroDesdeTexto(stock) || 0)
-    setNombre(''); setCosto(''); setStock('')
+    setError(null)
+    const fallo = await onCrear(nombre.trim(), costoNum, numeroDesdeTexto(stock) || 0)
+    guardandoRef.current = false
     setGuardando(false)
+    if (fallo) {
+      setError(fallo)
+      return
+    }
+    setNombre(''); setCosto(''); setStock('')
+    nombreRef.current?.focus()
+  }
+
+  function onEnterNombre(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    stockRef.current?.focus()
+  }
+
+  function onEnterStock(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    costoRef.current?.focus()
   }
 
   return (
     <tr className="border-b border-dashed border-zr-blue/30 bg-zr-blue/5">
       <td className="px-1 py-1">
         <input
+          ref={nombreRef}
           type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} onBlur={intentarCrear}
-          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+          onKeyDown={onEnterNombre}
           placeholder="+ Nuevo producto…"
           className={`${claseCelda} text-left font-semibold placeholder:font-normal placeholder:text-zr-blue-mid`}
         />
       </td>
       <td className="px-1 py-1">
         <input
+          ref={stockRef}
           type="text" inputMode="decimal" value={stock} onChange={(e) => setStock(e.target.value)} onBlur={intentarCrear}
-          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+          onKeyDown={onEnterStock}
           placeholder="0"
           className={`${claseCelda} w-16 text-right tabular-nums`}
         />
       </td>
       <td className="px-1 py-1">
         <input
+          ref={costoRef}
           type="text" inputMode="decimal" value={costo} onChange={(e) => setCosto(e.target.value)} onBlur={intentarCrear}
-          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void intentarCrear() } }}
           placeholder="0,00"
           className={`${claseCelda} w-20 text-right tabular-nums`}
         />
       </td>
-      <td colSpan={5} className="px-3 py-3 text-xs text-zr-text-muted">
-        {guardando ? 'Guardando…' : 'Escribe el producto, la cantidad y el costo para agregarlo'}
+      <td colSpan={5} className="px-3 py-3 text-xs">
+        {error ? (
+          <span className="font-semibold text-zr-error">{error}</span>
+        ) : (
+          <span className="text-zr-text-muted">
+            {guardando ? 'Guardando…' : 'Escribe el producto, la cantidad y el costo para agregarlo'}
+          </span>
+        )}
       </td>
     </tr>
   )
@@ -1081,43 +1140,79 @@ function TarjetaProducto({
   )
 }
 
-function TarjetaNuevoProducto({ onCrear }: { onCrear: (nombre: string, costo: number, stock: number) => Promise<void> }) {
+function TarjetaNuevoProducto({ onCrear }: { onCrear: (nombre: string, costo: number, stock: number) => Promise<string | null> }) {
   const [nombre, setNombre] = useState('')
   const [costo, setCosto] = useState('')
   const [stock, setStock] = useState('')
   const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const guardandoRef = useRef(false)
+  const nombreRef = useRef<HTMLInputElement>(null)
+  const costoRef = useRef<HTMLInputElement>(null)
+  const stockRef = useRef<HTMLInputElement>(null)
 
   async function intentarCrear() {
+    if (guardandoRef.current) return
     const costoNum = numeroDesdeTexto(costo)
-    if (!nombre.trim() || costoNum === null || costoNum < 0 || guardando) return
+    if (!nombre.trim() || costoNum === null || costoNum < 0) return
+    guardandoRef.current = true
     setGuardando(true)
-    await onCrear(nombre.trim(), costoNum, numeroDesdeTexto(stock) || 0)
-    setNombre(''); setCosto(''); setStock('')
+    setError(null)
+    const fallo = await onCrear(nombre.trim(), costoNum, numeroDesdeTexto(stock) || 0)
+    guardandoRef.current = false
     setGuardando(false)
+    if (fallo) {
+      setError(fallo)
+      return
+    }
+    setNombre(''); setCosto(''); setStock('')
+    nombreRef.current?.focus()
+  }
+
+  function onEnterNombre(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    costoRef.current?.focus()
+  }
+
+  function onEnterCosto(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    stockRef.current?.focus()
   }
 
   return (
     <div className="zr-card space-y-3 border border-dashed border-zr-blue/40 bg-zr-blue/5 p-4">
       <input
+        ref={nombreRef}
         type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} onBlur={intentarCrear}
+        onKeyDown={onEnterNombre}
         placeholder="+ Nuevo producto (ej. Refresco 355ml)"
         className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
       />
       <div className="grid grid-cols-2 gap-2">
         <input
+          ref={costoRef}
           type="text" inputMode="decimal" value={costo} onChange={(e) => setCosto(e.target.value)} onBlur={intentarCrear}
+          onKeyDown={onEnterCosto}
           placeholder="Costo"
           className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
         />
         <input
+          ref={stockRef}
           type="text" inputMode="decimal" value={stock} onChange={(e) => setStock(e.target.value)} onBlur={intentarCrear}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void intentarCrear() } }}
           placeholder="Cantidad inicial"
           className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
         />
       </div>
-      <p className="text-xs text-zr-text-muted">
-        {guardando ? 'Guardando…' : 'Completa producto y costo — se agrega solo al salir del campo.'}
-      </p>
+      {error ? (
+        <p className="text-xs font-semibold text-zr-error">{error}</p>
+      ) : (
+        <p className="text-xs text-zr-text-muted">
+          {guardando ? 'Guardando…' : 'Completa producto y costo — se agrega solo al salir del campo.'}
+        </p>
+      )}
     </div>
   )
 }

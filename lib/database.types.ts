@@ -2600,29 +2600,6 @@ export type Database = {
           },
         ]
       }
-      zr_coffee_managers: {
-        Row: {
-          added_at: string
-          profile_id: string
-        }
-        Insert: {
-          added_at?: string
-          profile_id: string
-        }
-        Update: {
-          added_at?: string
-          profile_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "zr_coffee_managers_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       zr_coffee_products: {
         Row: {
           active: boolean
@@ -3014,6 +2991,7 @@ export type Database = {
         | "super_admin"
         | "direccion_academica"
         | "vendedor"
+        | "zr_coffee"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3186,6 +3164,7 @@ export const Constants = {
         "super_admin",
         "direccion_academica",
         "vendedor",
+        "zr_coffee",
       ],
     },
   },

@@ -41,13 +41,11 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'No autenticado' }, { status: 401 })
 
-  // Misma comprobación que hace la pantalla del lado del cliente: RLS de
-  // `zr_coffee_managers` (migración 090) ya solo deja ver la propia fila a
-  // quien esté en la lista de gestores, así que a un no-gestor esta consulta
-  // le devuelve vacío en vez de la fila.
-  const { data: gestor } = await supabase
-    .from('zr_coffee_managers').select('profile_id').eq('profile_id', user.id).maybeSingle()
-  if (!gestor) {
+  // ZR Coffee es un rol propio desde la migración 095 (antes, una lista de
+  // cuentas permitidas) -- misma comprobación que ahora hace es_gestor_zr_coffee()
+  // del lado de la base: el rol ACTIVO de la sesión.
+  const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  if (perfil?.role !== 'zr_coffee') {
     return Response.json({ error: 'No tienes acceso a ZR Coffee.' }, { status: 403 })
   }
 

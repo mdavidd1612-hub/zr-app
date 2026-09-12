@@ -10,8 +10,31 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 // lugar si su API cambia de forma.
 const ALCAMBIO_GRAPHQL = 'https://api.alcambio.app/graphql'
 
-const QUERY = `query TasaVE($countryCode: String!) {
-  getCountryConversions(payload: { countryCode: $countryCode }) {
+// Bug real reportado por el coordinador (sept. 2026): la tasa que traíamos
+// no coincidía con la que se ve en alcambio.app. La causa era que la
+// consulta original no mandaba `dateSearch` -- sin eso, su backend no
+// devuelve la tasa BCV vigente, sino otra cosa (se comprobó en vivo:
+// SECONDARY y OTHER salían distintos entre sí y ninguno coincidía con la
+// página). Esta función reproduce EXACTAMENTE la ventana de fecha que arma
+// el propio bundle de Al Cambio (función `u0` de su JS, confirmado leyendo
+// su código): "hoy" en hora de Caracas (UTC-4, sin horario de verano) y, si
+// hoy es sábado o domingo, retrocede al viernes -- el BCV no publica tasa
+// los fines de semana. Con esta misma ventana, la respuesta coincide con lo
+// que muestra la página (verificado en vivo: 832,4883 en ambos lados).
+const OFFSET_CARACAS_MS = 14_400_000 // 4 horas
+
+function ventanaBcvVigente(ahora = Date.now()) {
+  const t = ahora - OFFSET_CARACAS_MS
+  const n = new Date(t)
+  const diaSemana = n.getUTCDay()
+  const retroceso = diaSemana === 6 ? 1 : diaSemana === 0 ? 2 : 0
+  const inicio = Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate() - retroceso) + OFFSET_CARACAS_MS
+  const fin = inicio + 480 * 60 * 1000
+  return { startDate: inicio, endDate: fin, filterByField: 'dateBcvFees' }
+}
+
+const QUERY = `query TasaVE($countryCode: String!, $dateSearch: DateSearchInput) {
+  getCountryConversions(payload: { countryCode: $countryCode }, dateSearch: $dateSearch) {
     dateBcv
     conversionRates {
       baseValue
@@ -54,7 +77,7 @@ export async function GET() {
     const res = await fetch(ALCAMBIO_GRAPHQL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: QUERY, variables: { countryCode: 'VE' } }),
+      body: JSON.stringify({ query: QUERY, variables: { countryCode: 'VE', dateSearch: ventanaBcvVigente() } }),
       cache: 'no-store',
     })
     if (!res.ok) throw new Error(`alcambio.app respondió ${res.status}`)

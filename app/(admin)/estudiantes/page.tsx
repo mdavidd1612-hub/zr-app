@@ -203,16 +203,30 @@ export default function Estudiantes() {
         titulo="Estudiantes"
         descripcion={`${estudiantes.length} registrados`}
         accion={
-          // Reafirmado explícitamente por el coordinador: Dirección
-          // Académica también crea/modifica estudiantes, igual que admin y
-          // super_admin — antes se escondía el botón aquí sin que hubiera
-          // ninguna razón real (la pantalla de creación nunca la bloqueó).
-          <button
-            onClick={() => router.push('/estudiantes/nuevo')}
-            className="rounded-lg bg-zr-blue px-5 py-3.5 text-sm font-bold text-white transition-colors active:bg-zr-blue-deep"
-          >
-            + Nuevo
-          </button>
+          <div className="flex gap-2">
+            {/* Solo super_admin (pedido explícito del coordinador, sept.
+                2026): quién ya aceptó términos y completó /completar-perfil,
+                para diagnosticar cuántos quedaron atascados por el bug de
+                scroll en Android. */}
+            {miRol === 'super_admin' && (
+              <button
+                onClick={() => router.push('/estudiantes/estadisticas')}
+                className="rounded-lg border border-zr-blue/40 px-5 py-3.5 text-sm font-bold text-zr-blue-mid transition-colors"
+              >
+                Ver estadísticas
+              </button>
+            )}
+            {/* Reafirmado explícitamente por el coordinador: Dirección
+                Académica también crea/modifica estudiantes, igual que admin y
+                super_admin — antes se escondía el botón aquí sin que hubiera
+                ninguna razón real (la pantalla de creación nunca la bloqueó). */}
+            <button
+              onClick={() => router.push('/estudiantes/nuevo')}
+              className="rounded-lg bg-zr-blue px-5 py-3.5 text-sm font-bold text-white transition-colors active:bg-zr-blue-deep"
+            >
+              + Nuevo
+            </button>
+          </div>
         }
       />
 

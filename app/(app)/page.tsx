@@ -47,6 +47,11 @@ export default function Inicio() {
   // de sessionStorage y se autooculta solo, no hace falta que el estudiante
   // haga nada.
   const [avisoAsistencia, setAvisoAsistencia] = useState<'ok' | 'duplicado' | null>(null)
+  // Pedido explícito del coordinador: después de tomar asistencia, el botón
+  // seguía diciendo "Tomar asistencia" — confundía a quien no se acordaba
+  // si ya había escaneado. El aviso de arriba se autooculta a los 3.5s; esto
+  // deja la tarjeta en "Ya se registró tu asistencia" el resto del sábado.
+  const [asistenciaHoy, setAsistenciaHoy] = useState(false)
 
   const hoy = new Date()
   const diaHoy = simulado ? 6 : diaSemanaISO(hoy)
@@ -113,6 +118,20 @@ export default function Inicio() {
           competencia: prox.sub_competency_name,
           investigacion: prox.pre_practice_description,
         })
+
+        // Si la sesión de v_proximo_sabado es la de HOY, ya puede tener
+        // asistencia marcada (el checkin no le quita status 'abierta' a la
+        // sesión, así que sigue devolviéndola). RLS ya deja a cada
+        // estudiante leer su propia fila (migración 012).
+        if (prox.session_date === fechaISO(hoy)) {
+          const { data: yaAsistio } = await supabase
+            .from('attendance_events')
+            .select('id')
+            .eq('student_id', user.id)
+            .eq('session_id', prox.session_id!)
+            .maybeSingle()
+          setAsistenciaHoy(Boolean(yaAsistio))
+        }
       }
 
       // "Mi módulo" no depende de que haya guía digitalizada para el próximo
@@ -280,19 +299,30 @@ export default function Inicio() {
             <div className="zr-card overflow-hidden">
               <div className="border-b border-zr-border px-6 py-5">
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">Hoy toca clase</p>
-                <p className="zr-display mt-2 text-xl text-zr-text">Marca tu asistencia</p>
+                <p className="zr-display mt-2 text-xl text-zr-text">
+                  {asistenciaHoy ? 'Ya se registró tu asistencia' : 'Marca tu asistencia'}
+                </p>
               </div>
               <div className="space-y-4 px-6 py-6">
-                <p className="text-sm leading-relaxed text-zr-text-muted">
-                  Escanea el código que administración muestra en pantalla al llegar.
-                </p>
-                <button
-                  onClick={() => router.push('/asistencia')}
-                  className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg bg-zr-blue text-base font-bold text-white transition-colors active:bg-zr-blue-deep"
-                >
-                  <IconoCarnet size={20} />
-                  Tomar asistencia
-                </button>
+                {asistenciaHoy ? (
+                  <div className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg border border-zr-success/30 bg-zr-success/12 text-base font-bold text-zr-success">
+                    <IconoCheck size={20} />
+                    Ya se registró tu asistencia
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm leading-relaxed text-zr-text-muted">
+                      Escanea el código que administración muestra en pantalla al llegar.
+                    </p>
+                    <button
+                      onClick={() => router.push('/asistencia')}
+                      className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg bg-zr-blue text-base font-bold text-white transition-colors active:bg-zr-blue-deep"
+                    >
+                      <IconoCarnet size={20} />
+                      Tomar asistencia
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ) : CASOS_HABILITADO ? (

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
+import { ResultadosFeedback, type FilaResumenFeedback } from '@/components/ui/ResultadosFeedback'
 
 /**
  * Feedback de módulo, del lado del profesor — pedido explícito del
@@ -29,19 +30,13 @@ interface Par {
   moduloNombre: string
 }
 
-interface FilaResumen {
-  pregunta: string
-  promedio: number
-  respuestas: number
-}
-
 export default function FeedbackModuloDocente() {
   const router = useRouter()
   const [cargando, setCargando] = useState(true)
   const [pares, setPares] = useState<Par[]>([])
   const [seleccion, setSeleccion] = useState<Par | null>(null)
   const [cargandoDetalle, setCargandoDetalle] = useState(false)
-  const [filas, setFilas] = useState<FilaResumen[]>([])
+  const [filas, setFilas] = useState<FilaResumenFeedback[]>([])
 
   const [resumenIA, setResumenIA] = useState<string | null>(null)
   const [cantidadComentarios, setCantidadComentarios] = useState<number | null>(null)
@@ -183,27 +178,7 @@ export default function FeedbackModuloDocente() {
       ) : (
         <>
           <Seccion numero={1} titulo="Promedio del grupo" delay={120}>
-            {filas.length === 0 ? (
-              <EstadoVacio
-                titulo="Todavía no hay suficientes respuestas"
-                explicacion="El promedio solo se muestra a partir de 3 respuestas — así nadie puede adivinar quién dijo qué."
-              />
-            ) : (
-              <div className="space-y-3">
-                {filas.map((f) => (
-                  <div key={f.pregunta} className="zr-card p-6">
-                    <p className="text-sm font-semibold text-zr-text">{f.pregunta}</p>
-                    <div className="mt-4 flex items-end gap-2">
-                      <span className="zr-metric text-3xl text-zr-blue">{f.promedio.toFixed(1)}</span>
-                      <span className="pb-1 text-sm text-zr-text-muted">/ 5</span>
-                      <span className="ml-auto pb-1 text-xs text-zr-text-muted">
-                        {f.respuestas} respuesta{f.respuestas === 1 ? '' : 's'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <ResultadosFeedback filas={filas} />
           </Seccion>
 
           <Seccion numero={2} titulo="Resumen con IA" delay={180}>

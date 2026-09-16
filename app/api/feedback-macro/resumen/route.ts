@@ -65,15 +65,21 @@ export async function POST(req: Request) {
   const { data: respuestas } = idsEstudiantes.length
     ? await admin
         .from('feedback_macro')
-        .select('open_text')
+        .select('open_text, open_answers')
         .eq('module_id', moduleId)
         .in('student_id', idsEstudiantes)
-        .not('open_text', 'is', null)
     : { data: [] }
 
-  const textos = (respuestas ?? [])
-    .map((r) => r.open_text?.trim())
-    .filter((t): t is string => Boolean(t))
+  // `open_text` es el comentario único de antes de la migración 099;
+  // `open_answers` son las preguntas de redacción actuales (puede haber
+  // varias por estudiante) -- se juntan en una sola lista para el resumen.
+  const textos = (respuestas ?? []).flatMap((r) => {
+    const propios = ((r.open_answers as unknown as { q: string; a: string }[]) ?? [])
+      .map((o) => o.a?.trim())
+      .filter((t): t is string => Boolean(t))
+    const legado = r.open_text?.trim()
+    return legado ? [...propios, legado] : propios
+  })
 
   // Mismo umbral que el resumen numérico (v_feedback_macro_summary,
   // system_config 'feedback.min_responses_to_show') -- menos comentarios

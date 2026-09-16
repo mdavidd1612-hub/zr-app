@@ -38,7 +38,7 @@ interface Cohorte {
 interface Pregunta {
   id: string
   texto: string
-  tipo: 'escala_1_5'
+  tipo: 'escala_1_5' | 'redaccion'
 }
 
 export default function FeedbackModulos() {
@@ -177,6 +177,11 @@ export default function FeedbackModulos() {
     setHuboCambioPreguntas(true)
   }
 
+  function cambiarTipoPregunta(id: string, tipo: Pregunta['tipo']) {
+    setPreguntas((p) => p.map((q) => (q.id === id ? { ...q, tipo } : q)))
+    setHuboCambioPreguntas(true)
+  }
+
   function borrarPregunta(id: string) {
     setPreguntas((p) => p.filter((q) => q.id !== id))
     setHuboCambioPreguntas(true)
@@ -279,21 +284,36 @@ export default function FeedbackModulos() {
           </p>
           <div className="space-y-3">
             {preguntas.map((p, i) => (
-              <div key={p.id} className="zr-card flex items-start gap-2 p-4">
-                <span className="mt-3 shrink-0 text-xs font-bold text-zr-text-muted">{i + 1}</span>
-                <textarea
-                  value={p.texto}
-                  onChange={(e) => editarPregunta(p.id, e.target.value)}
-                  rows={2}
-                  placeholder="Escribe la pregunta…"
-                  className="min-w-0 flex-1 resize-none rounded-lg border border-zr-border bg-zr-bg px-3 py-2 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
-                />
-                <button
-                  onClick={() => borrarPregunta(p.id)}
-                  className="mt-1 shrink-0 rounded-lg px-2 py-1.5 text-xs font-bold text-zr-error"
-                >
-                  Borrar
-                </button>
+              <div key={p.id} className="zr-card space-y-2.5 p-4">
+                <div className="flex items-start gap-2">
+                  <span className="mt-3 shrink-0 text-xs font-bold text-zr-text-muted">{i + 1}</span>
+                  <textarea
+                    value={p.texto}
+                    onChange={(e) => editarPregunta(p.id, e.target.value)}
+                    rows={2}
+                    placeholder="Escribe la pregunta…"
+                    className="min-w-0 flex-1 resize-none rounded-lg border border-zr-border bg-zr-bg px-3 py-2 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+                  />
+                  <button
+                    onClick={() => borrarPregunta(p.id)}
+                    className="mt-1 shrink-0 rounded-lg px-2 py-1.5 text-xs font-bold text-zr-error"
+                  >
+                    Borrar
+                  </button>
+                </div>
+                <div className="ml-6 flex gap-2">
+                  {(['escala_1_5', 'redaccion'] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => cambiarTipoPregunta(p.id, t)}
+                      className={`rounded-md px-2.5 py-1 text-xs font-semibold ${
+                        p.tipo === t ? 'bg-zr-blue text-white' : 'bg-zr-bg text-zr-text-muted'
+                      }`}
+                    >
+                      {t === 'escala_1_5' ? 'Escala 1-5' : 'Redacción'}
+                    </button>
+                  ))}
+                </div>
               </div>
             ))}
           </div>

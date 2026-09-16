@@ -1318,6 +1318,7 @@ export type Database = {
           badge_url: string | null
           id: string
           module_id: string
+          open_answers: Json
           open_text: string | null
           student_id: string
           submitted_at: string
@@ -1328,6 +1329,7 @@ export type Database = {
           badge_url?: string | null
           id?: string
           module_id: string
+          open_answers?: Json
           open_text?: string | null
           student_id: string
           submitted_at?: string
@@ -1338,6 +1340,7 @@ export type Database = {
           badge_url?: string | null
           id?: string
           module_id?: string
+          open_answers?: Json
           open_text?: string | null
           student_id?: string
           submitted_at?: string

@@ -24,6 +24,7 @@ import { IconoCheck } from '@/components/ui/Iconos'
 interface Pregunta {
   id: string
   texto: string
+  tipo: 'escala_1_5' | 'redaccion'
 }
 
 export default function FeedbackModulo() {
@@ -34,7 +35,7 @@ export default function FeedbackModulo() {
   const [moduloNombre, setModuloNombre] = useState('')
   const [preguntas, setPreguntas] = useState<Pregunta[]>([])
   const [respuestas, setRespuestas] = useState<Record<string, number>>({})
-  const [comentario, setComentario] = useState('')
+  const [textos, setTextos] = useState<Record<string, string>>({})
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -66,8 +67,8 @@ export default function FeedbackModulo() {
       setModuloId(mId)
       setModuloNombre(fila.cohorts?.modules?.name ?? 'este módulo')
 
-      const listaPreguntas = ((cfg?.value as unknown as { id: string; texto: string }[]) ?? [])
-        .map((p) => ({ id: p.id, texto: p.texto }))
+      const listaPreguntas = ((cfg?.value as unknown as Pregunta[]) ?? [])
+        .map((p) => ({ id: p.id, texto: p.texto, tipo: p.tipo ?? 'escala_1_5' }))
       setPreguntas(listaPreguntas)
 
       const [{ data: ventana }, { data: yaRespondio }] = await Promise.all([
@@ -91,8 +92,9 @@ export default function FeedbackModulo() {
 
   async function enviar() {
     if (!moduloId) return
-    if (Object.keys(respuestas).length < preguntas.length) {
-      setError('Responde todas las preguntas antes de enviar.')
+    const preguntasEscala = preguntas.filter((p) => p.tipo === 'escala_1_5')
+    if (preguntasEscala.some((p) => respuestas[p.id] === undefined)) {
+      setError('Responde todas las preguntas de escala antes de enviar.')
       return
     }
     setEnviando(true)
@@ -102,13 +104,17 @@ export default function FeedbackModulo() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const answers = preguntas.map((p) => ({ q: p.texto, a: respuestas[p.id] }))
+    const answers = preguntasEscala.map((p) => ({ q: p.texto, a: respuestas[p.id] }))
+    const openAnswers = preguntas
+      .filter((p) => p.tipo === 'redaccion')
+      .map((p) => ({ q: p.texto, a: (textos[p.id] ?? '').trim() }))
+      .filter((o) => o.a)
 
     const { error: fallo } = await supabase.from('feedback_macro').insert({
       student_id: user.id,
       module_id: moduloId,
       answers,
-      open_text: comentario.trim() || null,
+      open_answers: openAnswers,
     })
 
     if (fallo) {
@@ -158,41 +164,43 @@ export default function FeedbackModulo() {
         </div>
       ) : (
         <div className="space-y-6">
-          {preguntas.map((p) => (
-            <div key={p.id} className="zr-card space-y-4 p-5">
-              <p className="text-sm font-semibold text-zr-text">{p.texto}</p>
-              <div className="flex justify-between gap-2">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setRespuestas((r) => ({ ...r, [p.id]: n }))}
-                    className={`flex h-12 flex-1 items-center justify-center rounded-lg border text-base font-bold transition-colors ${
-                      respuestas[p.id] === n
-                        ? 'border-zr-blue bg-zr-blue text-white'
-                        : 'border-zr-border text-zr-text-muted'
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
+          {preguntas.map((p) =>
+            p.tipo === 'redaccion' ? (
+              <div key={p.id} className="zr-card space-y-3 p-5">
+                <p className="text-sm font-semibold text-zr-text">{p.texto} <span className="font-normal text-zr-text-muted">(opcional)</span></p>
+                <textarea
+                  value={textos[p.id] ?? ''}
+                  onChange={(e) => setTextos((t) => ({ ...t, [p.id]: e.target.value }))}
+                  rows={4}
+                  placeholder="Escribe aquí…"
+                  className="w-full resize-none rounded-lg border border-zr-border bg-zr-bg p-3 text-sm text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
+                />
               </div>
-              <div className="flex justify-between text-xs text-zr-text-muted">
-                <span>Muy poco</span>
-                <span>Mucho</span>
+            ) : (
+              <div key={p.id} className="zr-card space-y-4 p-5">
+                <p className="text-sm font-semibold text-zr-text">{p.texto}</p>
+                <div className="flex justify-between gap-2">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setRespuestas((r) => ({ ...r, [p.id]: n }))}
+                      className={`flex h-12 flex-1 items-center justify-center rounded-lg border text-base font-bold transition-colors ${
+                        respuestas[p.id] === n
+                          ? 'border-zr-blue bg-zr-blue text-white'
+                          : 'border-zr-border text-zr-text-muted'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex justify-between text-xs text-zr-text-muted">
+                  <span>Muy poco</span>
+                  <span>Mucho</span>
+                </div>
               </div>
-            </div>
-          ))}
-
-          <div className="zr-card space-y-3 p-5">
-            <p className="text-sm font-semibold text-zr-text">¿Algo más que quieras contarnos? (opcional)</p>
-            <textarea
-              value={comentario}
-              onChange={(e) => setComentario(e.target.value)}
-              rows={4}
-              placeholder="Escribe aquí…"
-              className="w-full resize-none rounded-lg border border-zr-border bg-zr-bg p-3 text-sm text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
-            />
-          </div>
+            ),
+          )}
 
           {error && (
             <p className="rounded-lg border border-zr-error/30 bg-zr-error/12 px-4 py-3 text-sm font-medium text-zr-error">

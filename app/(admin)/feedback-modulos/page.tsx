@@ -40,12 +40,24 @@ interface FilaResumen {
   respuestas: number
 }
 
+interface Pregunta {
+  id: string
+  texto: string
+  tipo: 'escala_1_5'
+}
+
 export default function FeedbackModulos() {
   const router = useRouter()
   const [autorizado, setAutorizado] = useState<boolean | null>(null)
   const [cargando, setCargando] = useState(true)
   const [cohortes, setCohortes] = useState<Cohorte[]>([])
   const [cohorteId, setCohorteId] = useState<string | null>(null)
+
+  const [preguntas, setPreguntas] = useState<Pregunta[]>([])
+  const [maxPreguntas, setMaxPreguntas] = useState(6)
+  const [guardandoPreguntas, setGuardandoPreguntas] = useState(false)
+  const [errorPreguntas, setErrorPreguntas] = useState<string | null>(null)
+  const [huboCambioPreguntas, setHuboCambioPreguntas] = useState(false)
 
   const [ventanaAbierta, setVentanaAbierta] = useState(false)
   const [guardandoVentana, setGuardandoVentana] = useState(false)
@@ -76,10 +88,17 @@ export default function FeedbackModulos() {
       }
       setAutorizado(true)
 
-      const { data: cohs } = await supabase
-        .from('cohorts')
-        .select('id, name, current_module_id, modules(name)')
-        .eq('status', 'activa')
+      const [{ data: cohs }, { data: cfgPreguntas }, { data: cfgMax }] = await Promise.all([
+        supabase
+          .from('cohorts')
+          .select('id, name, current_module_id, modules(name)')
+          .eq('status', 'activa'),
+        supabase.from('system_config').select('value').eq('key', 'feedback.macro_questions').maybeSingle(),
+        supabase.from('system_config').select('value').eq('key', 'feedback.macro_max_questions').maybeSingle(),
+      ])
+
+      setPreguntas((cfgPreguntas?.value as unknown as Pregunta[]) ?? [])
+      setMaxPreguntas(typeof cfgMax?.value === 'number' ? cfgMax.value : 6)
 
       setCohortes(
         ordenarCohortesPorPrioridad((cohs ?? []) as unknown as { id: string; name: string }[])
@@ -152,6 +171,45 @@ export default function FeedbackModulos() {
     setGuardandoVentana(false)
   }
 
+  function agregarPregunta() {
+    if (preguntas.length >= maxPreguntas) return
+    setPreguntas((p) => [...p, { id: `pregunta_${Date.now()}`, texto: '', tipo: 'escala_1_5' }])
+    setHuboCambioPreguntas(true)
+  }
+
+  function editarPregunta(id: string, texto: string) {
+    setPreguntas((p) => p.map((q) => (q.id === id ? { ...q, texto } : q)))
+    setHuboCambioPreguntas(true)
+  }
+
+  function borrarPregunta(id: string) {
+    setPreguntas((p) => p.filter((q) => q.id !== id))
+    setHuboCambioPreguntas(true)
+  }
+
+  async function guardarPreguntas() {
+    if (preguntas.some((p) => !p.texto.trim())) {
+      setErrorPreguntas('Ninguna pregunta puede quedar vacía. Bórrala o escríbele algo.')
+      return
+    }
+    setGuardandoPreguntas(true)
+    setErrorPreguntas(null)
+
+    const { error: fallo } = await createClient()
+      .from('system_config')
+      .update({ value: preguntas as never })
+      .eq('key', 'feedback.macro_questions')
+
+    if (fallo) {
+      setErrorPreguntas('No se pudo guardar. Intenta de nuevo.')
+      setGuardandoPreguntas(false)
+      return
+    }
+
+    setHuboCambioPreguntas(false)
+    setGuardandoPreguntas(false)
+  }
+
   async function pedirResumenIA(c: Cohorte) {
     if (!c.moduloId) return
     setPidiendoResumen(true)
@@ -217,6 +275,57 @@ export default function FeedbackModulos() {
       />
 
       <Regla delay={60} />
+
+      {!cohorteActual && (
+        <Seccion numero={1} titulo="Preguntas del formulario" delay={90}>
+          <p className="text-xs text-zr-text-muted">
+            Las mismas preguntas aplican para todas las cohortes. Cada una se responde en escala
+            de 1 a 5. Máximo {maxPreguntas} preguntas.
+          </p>
+          <div className="space-y-3">
+            {preguntas.map((p, i) => (
+              <div key={p.id} className="zr-card flex items-start gap-2 p-4">
+                <span className="mt-3 shrink-0 text-xs font-bold text-zr-text-muted">{i + 1}</span>
+                <textarea
+                  value={p.texto}
+                  onChange={(e) => editarPregunta(p.id, e.target.value)}
+                  rows={2}
+                  placeholder="Escribe la pregunta…"
+                  className="min-w-0 flex-1 resize-none rounded-lg border border-zr-border bg-zr-bg px-3 py-2 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+                />
+                <button
+                  onClick={() => borrarPregunta(p.id)}
+                  className="mt-1 shrink-0 rounded-lg px-2 py-1.5 text-xs font-bold text-zr-error"
+                >
+                  Borrar
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={agregarPregunta}
+            disabled={preguntas.length >= maxPreguntas}
+            className="w-full rounded-lg border border-zr-blue/40 py-2.5 text-sm font-bold text-zr-blue-mid disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            + Agregar pregunta
+          </button>
+
+          {errorPreguntas && (
+            <p className="rounded-lg border border-zr-error/30 bg-zr-error/12 px-4 py-3 text-sm font-medium text-zr-error">
+              {errorPreguntas}
+            </p>
+          )}
+
+          <button
+            onClick={guardarPreguntas}
+            disabled={!huboCambioPreguntas || guardandoPreguntas}
+            className="w-full rounded-lg bg-zr-blue py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            {guardandoPreguntas ? 'Guardando…' : 'Guardar cambios'}
+          </button>
+        </Seccion>
+      )}
 
       {!cohorteActual ? (
         cohortes.length === 0 ? (

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Seccion, Regla, Dato } from '@/components/ui/Editorial'
 
@@ -26,6 +27,7 @@ interface Resumen {
 }
 
 export default function Hoy() {
+  const router = useRouter()
   const [cargando, setCargando] = useState(true)
   const [sesion, setSesion] = useState<Sesion | null>(null)
   const [resumen, setResumen] = useState<Resumen>({ presentes: 0, inscritos: 0 })
@@ -146,6 +148,23 @@ export default function Hoy() {
           </p>
         </Seccion>
       )}
+
+      {/* Feedback de módulo (pedido explícito del coordinador, sept. 2026):
+          no está en la barra fija (ya tiene sus 5 secciones) -- se llega
+          desde aquí, igual que /feedback-clase/[sessionId] se llega desde
+          /sesiones. */}
+      <Seccion numero={sesion ? 3 : 2} titulo="Feedback" delay={280}>
+        <button
+          onClick={() => router.push('/feedback-modulo-docente')}
+          className="zr-card zr-card-interactive flex w-full items-center justify-between gap-3 p-5 text-left"
+        >
+          <div>
+            <p className="text-sm font-semibold text-zr-text">Feedback de tus módulos</p>
+            <p className="mt-0.5 text-sm text-zr-text-muted">Promedio del grupo y resumen con IA.</p>
+          </div>
+          <span className="shrink-0 text-zr-text-muted">›</span>
+        </button>
+      </Seccion>
     </div>
   )
 }

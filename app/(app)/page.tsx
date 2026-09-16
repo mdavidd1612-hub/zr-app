@@ -52,6 +52,11 @@ export default function Inicio() {
   // si ya había escaneado. El aviso de arriba se autooculta a los 3.5s; esto
   // deja la tarjeta en "Ya se registró tu asistencia" el resto del sábado.
   const [asistenciaHoy, setAsistenciaHoy] = useState(false)
+  // Feedback de módulo (pedido explícito del coordinador, sept. 2026): si
+  // Dirección Académica abrió el formulario para la cohorte del estudiante y
+  // todavía no lo respondió, se lo avisa aquí — si no, nunca se enteraría de
+  // que existe.
+  const [feedbackPendiente, setFeedbackPendiente] = useState<string | null>(null)
 
   const hoy = new Date()
   const diaHoy = simulado ? 6 : diaSemanaISO(hoy)
@@ -139,11 +144,25 @@ export default function Inicio() {
       // cohorte del estudiante, igual que hará la pantalla Mi módulo (Sprint 3).
       const { data: est } = await supabase
         .from('students')
-        .select('cohorts(current_module_id)')
+        .select('cohort_id, cohorts(current_module_id)')
         .eq('id', user.id)
         .single()
-      let moduloId = (est as unknown as { cohorts: { current_module_id: string | null } | null } | null)
-        ?.cohorts?.current_module_id
+      const filaEst = est as unknown as { cohort_id: string | null; cohorts: { current_module_id: string | null } | null } | null
+      let moduloId = filaEst?.cohorts?.current_module_id
+
+      // Feedback de módulo: solo para un estudiante real (con su propia
+      // cohorte), nunca en vista de recorrido de administración.
+      if (filaEst?.cohort_id && moduloId) {
+        const [{ data: ventana }, { data: yaRespondio }] = await Promise.all([
+          supabase.from('feedback_macro_windows').select('closed_at')
+            .eq('cohort_id', filaEst.cohort_id).eq('module_id', moduloId).maybeSingle(),
+          supabase.from('feedback_macro').select('id').eq('student_id', user.id).eq('module_id', moduloId).maybeSingle(),
+        ])
+        if (ventana && ventana.closed_at === null && !yaRespondio) {
+          const { data: mod } = await supabase.from('modules').select('name').eq('id', moduloId).single()
+          setFeedbackPendiente(mod?.name ?? 'tu módulo')
+        }
+      }
 
       // Vista de recorrido (admin, dirección académica y super_admin): no
       // tienen fila en `students`, así que no hay módulo propio que leer. En
@@ -265,6 +284,19 @@ export default function Inicio() {
               {avisoAsistencia === 'duplicado' ? 'Ya estabas registrado hoy' : 'Asistencia registrada'}
             </p>
           </div>
+        )}
+
+        {feedbackPendiente && (
+          <button
+            onClick={() => router.push('/feedback-modulo')}
+            className="zr-card zr-card-interactive flex w-full items-center justify-between gap-3 border-zr-blue/30 bg-zr-blue/10 p-5 text-left"
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-zr-text">Cuéntanos qué te pareció {feedbackPendiente}</p>
+              <p className="mt-0.5 text-xs text-zr-text-muted">Toma un minuto, es anónimo</p>
+            </div>
+            <span className="shrink-0 text-zr-blue-mid">›</span>
+          </button>
         )}
 
         <Regla delay={60} />

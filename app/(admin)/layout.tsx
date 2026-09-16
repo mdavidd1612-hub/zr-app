@@ -8,7 +8,7 @@ import { salirDeVistaRecorrido } from '@/lib/vista-recorrido'
 import { type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Marco } from '@/components/ui/Marco'
 import {
-  IconoPanel, IconoEstudiantes, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoProgreso,
+  IconoPanel, IconoEstudiantes, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoProgreso, IconoDuda,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -80,6 +80,10 @@ const TODAS_DIRECCION: ItemBarra[] = [
   // Resúmenes de "Mi módulo" (estático, a pedido explícito) — is_academico()
   // ya deja escribir 'modules' a dirección académica y super_admin por igual.
   { href: '/modulos',              label: 'Módulos',      Icono: IconoProgreso, grupo: 'Dirección académica' },
+  // Feedback de módulo (pedido explícito del coordinador, sept. 2026):
+  // completa feedback_macro (migración 008), que existía en la base pero
+  // nunca se había conectado a ninguna pantalla.
+  { href: '/feedback-modulos',     label: 'Feedback',     Icono: IconoDuda,     grupo: 'Dirección académica' },
   TODAS[TODAS.length - 1],
 ]
 
@@ -92,6 +96,7 @@ const TODAS_SUPER: ItemBarra[] = [
   { href: '/notas-academicas',     label: 'Notas',         Icono: IconoNotas,    grupo: 'Dirección académica' },
   { href: '/examenes-academicos',  label: 'Exámenes',      Icono: IconoExamen,   grupo: 'Dirección académica' },
   { href: '/modulos',              label: 'Módulos',       Icono: IconoProgreso, grupo: 'Dirección académica' },
+  { href: '/feedback-modulos',     label: 'Feedback',      Icono: IconoDuda,     grupo: 'Dirección académica' },
   // R-20/R-21: crear programas y sedes es exclusivo de super_admin
   // (migración 066) — el enlace solo aparece en este menú.
   { href: '/catalogo',             label: 'Catálogo',      Icono: IconoDocumento, grupo: 'Solo super admin' },

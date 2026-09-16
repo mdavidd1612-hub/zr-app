@@ -1313,6 +1313,7 @@ export type Database = {
       }
       feedback_macro: {
         Row: {
+          answers: Json
           badge_issued: boolean
           badge_url: string | null
           id: string
@@ -1322,6 +1323,7 @@ export type Database = {
           submitted_at: string
         }
         Insert: {
+          answers?: Json
           badge_issued?: boolean
           badge_url?: string | null
           id?: string
@@ -1331,6 +1333,7 @@ export type Database = {
           submitted_at?: string
         }
         Update: {
+          answers?: Json
           badge_issued?: boolean
           badge_url?: string | null
           id?: string
@@ -1380,6 +1383,55 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "v_students_blocked"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedback_macro_windows: {
+        Row: {
+          closed_at: string | null
+          cohort_id: string
+          id: string
+          module_id: string
+          opened_at: string
+          opened_by: string | null
+        }
+        Insert: {
+          closed_at?: string | null
+          cohort_id: string
+          id?: string
+          module_id: string
+          opened_at?: string
+          opened_by?: string | null
+        }
+        Update: {
+          closed_at?: string | null
+          cohort_id?: string
+          id?: string
+          module_id?: string
+          opened_at?: string
+          opened_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_macro_windows_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_macro_windows_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_macro_windows_opened_by_fkey"
+            columns: ["opened_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2734,6 +2786,33 @@ export type Database = {
             columns: ["exam_id"]
             isOneToOne: false
             referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_feedback_macro_summary: {
+        Row: {
+          avg_score: number | null
+          cohort_id: string | null
+          cohort_name: string | null
+          module_id: string | null
+          module_name: string | null
+          question: string | null
+          response_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_macro_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_students_cohort"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
             referencedColumns: ["id"]
           },
         ]

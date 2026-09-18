@@ -13,9 +13,8 @@ import { ResultadosFeedback, type FilaResumenFeedback } from '@/components/ui/Re
  * coordinador (sept. 2026): "el profesor le va a llegar solamente el del
  * módulo que le corresponde". Nunca ve una fila por estudiante ni el texto
  * libre en crudo — solo el mismo agregado que ve Dirección Académica
- * (`v_feedback_macro_summary`, migración 097) y el resumen con IA bajo
- * demanda. No puede abrir ni cerrar el formulario, eso es de Dirección
- * Académica (/feedback-modulos).
+ * (`v_feedback_macro_summary`, migración 097). No puede abrir ni cerrar el
+ * formulario, eso es de Dirección Académica (/feedback-modulos).
  *
  * No está en la barra fija del profesor a propósito (Fase 0: "las 5
  * secciones que quedan caben todas en la barra") — se llega desde una
@@ -37,11 +36,6 @@ export default function FeedbackModuloDocente() {
   const [seleccion, setSeleccion] = useState<Par | null>(null)
   const [cargandoDetalle, setCargandoDetalle] = useState(false)
   const [filas, setFilas] = useState<FilaResumenFeedback[]>([])
-
-  const [resumenIA, setResumenIA] = useState<string | null>(null)
-  const [cantidadComentarios, setCantidadComentarios] = useState<number | null>(null)
-  const [pidiendoResumen, setPidiendoResumen] = useState(false)
-  const [errorResumen, setErrorResumen] = useState<string | null>(null)
 
   useEffect(() => {
     async function cargar() {
@@ -81,9 +75,6 @@ export default function FeedbackModuloDocente() {
 
   async function elegir(p: Par) {
     setSeleccion(p)
-    setResumenIA(null)
-    setCantidadComentarios(null)
-    setErrorResumen(null)
     setCargandoDetalle(true)
 
     const { data: resumen } = await createClient()
@@ -95,30 +86,6 @@ export default function FeedbackModuloDocente() {
       pregunta: r.question ?? '', promedio: Number(r.avg_score), respuestas: Number(r.response_count),
     })))
     setCargandoDetalle(false)
-  }
-
-  async function pedirResumenIA(p: Par) {
-    setPidiendoResumen(true)
-    setErrorResumen(null)
-    setResumenIA(null)
-    try {
-      const res = await fetch('/api/feedback-macro/resumen', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cohortId: p.cohorteId, moduleId: p.moduloId }),
-      })
-      const json = await res.json()
-      if (!res.ok) {
-        setErrorResumen(json.error ?? 'No se pudo generar el resumen.')
-        return
-      }
-      setResumenIA(json.resumen)
-      setCantidadComentarios(json.cantidadComentarios)
-    } catch {
-      setErrorResumen('No se pudo conectar. Intenta de nuevo.')
-    } finally {
-      setPidiendoResumen(false)
-    }
   }
 
   if (cargando) {
@@ -179,32 +146,6 @@ export default function FeedbackModuloDocente() {
         <>
           <Seccion numero={1} titulo="Promedio del grupo" delay={120}>
             <ResultadosFeedback filas={filas} />
-          </Seccion>
-
-          <Seccion numero={2} titulo="Resumen con IA" delay={180}>
-            <p className="text-xs text-zr-text-muted">
-              Resume los comentarios de texto libre — necesita al menos 3 para generar algo.
-            </p>
-            <button
-              onClick={() => pedirResumenIA(seleccion)}
-              disabled={pidiendoResumen}
-              className="w-full rounded-lg border border-zr-blue/40 py-3 text-sm font-bold text-zr-blue-mid disabled:opacity-50"
-            >
-              {pidiendoResumen ? 'Generando…' : 'Generar resumen con IA'}
-            </button>
-            {errorResumen && (
-              <p className="rounded-lg border border-zr-error/30 bg-zr-error/12 px-4 py-3 text-sm font-medium text-zr-error">
-                {errorResumen}
-              </p>
-            )}
-            {resumenIA && (
-              <div className="zr-card space-y-2 p-5">
-                <p className="text-xs font-bold uppercase tracking-wide text-zr-blue-mid">
-                  A partir de {cantidadComentarios} comentario{cantidadComentarios === 1 ? '' : 's'}
-                </p>
-                <p className="text-sm leading-relaxed text-zr-text">{resumenIA}</p>
-              </div>
-            )}
           </Seccion>
         </>
       )}

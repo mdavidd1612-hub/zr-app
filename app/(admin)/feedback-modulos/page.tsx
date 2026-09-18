@@ -22,10 +22,8 @@ import type { UserRole } from '@/lib/types'
  *
  * El resumen numérico (`v_feedback_macro_summary`) ya viene agregado y con
  * el mínimo de respuestas aplicado desde la base (nunca respuesta por
- * estudiante, mismo criterio que el feedback por clase). El resumen de
- * texto libre lo arma un modelo de lenguaje del lado del servidor
- * (/api/feedback-macro/resumen) -- nunca se procesa aquí ni se guarda
- * automáticamente, se pide bajo demanda.
+ * estudiante, mismo criterio que el feedback por clase). Sin resumen con IA
+ * por ahora (decisión del coordinador, sept. 2026): solo estadística.
  */
 
 interface Cohorte {
@@ -59,11 +57,6 @@ export default function FeedbackModulos() {
   const [cargandoDetalle, setCargandoDetalle] = useState(false)
 
   const [filas, setFilas] = useState<FilaResumenFeedback[]>([])
-
-  const [resumenIA, setResumenIA] = useState<string | null>(null)
-  const [cantidadComentarios, setCantidadComentarios] = useState<number | null>(null)
-  const [pidiendoResumen, setPidiendoResumen] = useState(false)
-  const [errorResumen, setErrorResumen] = useState<string | null>(null)
 
   useEffect(() => {
     async function cargar() {
@@ -116,9 +109,6 @@ export default function FeedbackModulos() {
 
   async function elegirCohorte(c: Cohorte) {
     setCohorteId(c.id)
-    setResumenIA(null)
-    setCantidadComentarios(null)
-    setErrorResumen(null)
     if (!c.moduloId) { setFilas([]); return }
 
     setCargandoDetalle(true)
@@ -208,32 +198,6 @@ export default function FeedbackModulos() {
 
     setHuboCambioPreguntas(false)
     setGuardandoPreguntas(false)
-  }
-
-  async function pedirResumenIA(c: Cohorte) {
-    if (!c.moduloId) return
-    setPidiendoResumen(true)
-    setErrorResumen(null)
-    setResumenIA(null)
-
-    try {
-      const res = await fetch('/api/feedback-macro/resumen', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cohortId: c.id, moduleId: c.moduloId }),
-      })
-      const json = await res.json()
-      if (!res.ok) {
-        setErrorResumen(json.error ?? 'No se pudo generar el resumen.')
-        return
-      }
-      setResumenIA(json.resumen)
-      setCantidadComentarios(json.cantidadComentarios)
-    } catch {
-      setErrorResumen('No se pudo conectar. Intenta de nuevo.')
-    } finally {
-      setPidiendoResumen(false)
-    }
   }
 
   if (cargando) {
@@ -394,33 +358,6 @@ export default function FeedbackModulos() {
 
           <Seccion numero={2} titulo="Resultados" delay={180}>
             <ResultadosFeedback filas={filas} />
-          </Seccion>
-
-          <Seccion numero={3} titulo="Resumen con IA" delay={240}>
-            <p className="text-xs text-zr-text-muted">
-              Resume los comentarios de texto libre — necesita al menos 3 para generar algo (mismo
-              criterio de anonimato que los promedios de arriba).
-            </p>
-            <button
-              onClick={() => pedirResumenIA(cohorteActual)}
-              disabled={pidiendoResumen}
-              className="w-full rounded-lg border border-zr-blue/40 py-3 text-sm font-bold text-zr-blue-mid disabled:opacity-50"
-            >
-              {pidiendoResumen ? 'Generando…' : 'Generar resumen con IA'}
-            </button>
-            {errorResumen && (
-              <p className="rounded-lg border border-zr-error/30 bg-zr-error/12 px-4 py-3 text-sm font-medium text-zr-error">
-                {errorResumen}
-              </p>
-            )}
-            {resumenIA && (
-              <div className="zr-card space-y-2 p-5">
-                <p className="text-xs font-bold uppercase tracking-wide text-zr-blue-mid">
-                  A partir de {cantidadComentarios} comentario{cantidadComentarios === 1 ? '' : 's'}
-                </p>
-                <p className="text-sm leading-relaxed text-zr-text">{resumenIA}</p>
-              </div>
-            )}
           </Seccion>
         </>
       )}

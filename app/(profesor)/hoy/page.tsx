@@ -160,7 +160,7 @@ export default function Hoy() {
         >
           <div>
             <p className="text-sm font-semibold text-zr-text">Feedback de tus módulos</p>
-            <p className="mt-0.5 text-sm text-zr-text-muted">Promedio del grupo y resumen con IA.</p>
+            <p className="mt-0.5 text-sm text-zr-text-muted">Promedio del grupo por pregunta.</p>
           </div>
           <span className="shrink-0 text-zr-text-muted">›</span>
         </button>

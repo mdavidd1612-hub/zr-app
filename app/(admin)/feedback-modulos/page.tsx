@@ -57,6 +57,7 @@ export default function FeedbackModulos() {
   const [cargandoDetalle, setCargandoDetalle] = useState(false)
 
   const [filas, setFilas] = useState<FilaResumenFeedback[]>([])
+  const [comentarios, setComentarios] = useState<{ pregunta: string; texto: string }[]>([])
 
   useEffect(() => {
     async function cargar() {
@@ -109,12 +110,12 @@ export default function FeedbackModulos() {
 
   async function elegirCohorte(c: Cohorte) {
     setCohorteId(c.id)
-    if (!c.moduloId) { setFilas([]); return }
+    if (!c.moduloId) { setFilas([]); setComentarios([]); return }
 
     setCargandoDetalle(true)
     const supabase = createClient()
 
-    const [{ data: ventana }, { data: resumen }] = await Promise.all([
+    const [{ data: ventana }, { data: resumen }, { data: coments }] = await Promise.all([
       supabase
         .from('feedback_macro_windows')
         .select('closed_at')
@@ -124,8 +125,16 @@ export default function FeedbackModulos() {
         .from('v_feedback_macro_summary')
         .select('question, avg_score, response_count')
         .eq('cohort_id', c.id).eq('module_id', c.moduloId),
+      supabase
+        .from('v_feedback_macro_comments')
+        .select('question, comment')
+        .eq('cohort_id', c.id).eq('module_id', c.moduloId),
     ])
 
+    // Orden alfabético dentro de cada pregunta: el orden de envío nunca
+    // debe ayudar a adivinar quién escribió qué.
+    setComentarios((coments ?? []).map((r) => ({ pregunta: r.question ?? '', texto: r.comment ?? '' }))
+      .sort((a, b) => a.texto.localeCompare(b.texto, 'es')))
     setVentanaAbierta(Boolean(ventana) && ventana?.closed_at === null)
     setFilas((resumen ?? []).map((r) => ({
       pregunta: r.question ?? '', promedio: Number(r.avg_score), respuestas: Number(r.response_count),
@@ -358,6 +367,32 @@ export default function FeedbackModulos() {
 
           <Seccion numero={2} titulo="Resultados" delay={180}>
             <ResultadosFeedback filas={filas} />
+          </Seccion>
+
+          <Seccion numero={3} titulo="Comentarios" delay={240}>
+            <p className="text-xs text-zr-text-muted">
+              Lo que escribieron los estudiantes, sin nombre y en orden alfabético. Aparecen a partir
+              de 3 respuestas al formulario.
+            </p>
+            {comentarios.length === 0 ? (
+              <EstadoVacio
+                titulo="Todavía no hay comentarios para mostrar"
+                explicacion="Faltan respuestas (mínimo 3) o nadie escribió en las preguntas abiertas."
+              />
+            ) : (
+              [...new Set(comentarios.map((c) => c.pregunta))].map((pregunta) => (
+                <div key={pregunta} className="zr-card space-y-3 p-5">
+                  <p className="text-sm font-semibold text-zr-text">{pregunta}</p>
+                  <ul className="space-y-2">
+                    {comentarios.filter((c) => c.pregunta === pregunta).map((c, i) => (
+                      <li key={i} className="rounded-lg bg-zr-bg px-3 py-2.5 text-sm leading-relaxed text-zr-text">
+                        {c.texto}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))
+            )}
           </Seccion>
         </>
       )}

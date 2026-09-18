@@ -2793,6 +2793,30 @@ export type Database = {
           },
         ]
       }
+      v_feedback_macro_comments: {
+        Row: {
+          cohort_id: string | null
+          comment: string | null
+          module_id: string | null
+          question: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_macro_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_students_cohort"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_feedback_macro_summary: {
         Row: {
           avg_score: number | null

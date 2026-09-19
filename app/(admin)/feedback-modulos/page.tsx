@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
+import { Aviso } from '@/components/ui/Aviso'
 import { ResultadosFeedback, type FilaResumenFeedback } from '@/components/ui/ResultadosFeedback'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
@@ -51,6 +52,13 @@ export default function FeedbackModulos() {
   const [guardandoPreguntas, setGuardandoPreguntas] = useState(false)
   const [errorPreguntas, setErrorPreguntas] = useState<string | null>(null)
   const [huboCambioPreguntas, setHuboCambioPreguntas] = useState(false)
+  const [notificacion, setNotificacion] = useState(false)
+
+  useEffect(() => {
+    if (!notificacion) return
+    const t = setTimeout(() => setNotificacion(false), 3500)
+    return () => clearTimeout(t)
+  }, [notificacion])
 
   const [ventanaAbierta, setVentanaAbierta] = useState(false)
   const [guardandoVentana, setGuardandoVentana] = useState(false)
@@ -207,6 +215,7 @@ export default function FeedbackModulos() {
 
     setHuboCambioPreguntas(false)
     setGuardandoPreguntas(false)
+    setNotificacion(true)
   }
 
   if (cargando) {
@@ -230,6 +239,11 @@ export default function FeedbackModulos() {
 
   return (
     <div className="space-y-9 px-5 pb-16 pt-14">
+      {notificacion && (
+        <div className="pointer-events-none fixed inset-x-4 top-[calc(4.5rem+env(safe-area-inset-top))] z-50 mx-auto max-w-md">
+          <Aviso tipo="exito" titulo="Listo">Los cambios se han guardado.</Aviso>
+        </div>
+      )}
       {cohorteActual ? (
         <button
           onClick={() => setCohorteId(null)}

@@ -46,25 +46,14 @@ export default function FeedbackModuloDocente() {
         return
       }
 
-      const { data: asignaciones } = await supabase
-        .from('teacher_module_assignments').select('module_id').eq('teacher_id', user.id)
-      const moduloIds = (asignaciones ?? []).map((a) => a.module_id)
-
-      if (moduloIds.length === 0) {
-        setCargando(false)
-        return
-      }
-
-      const { data: cohs } = await supabase
-        .from('cohorts')
-        .select('id, name, current_module_id, modules(name)')
-        .eq('status', 'activa')
-        .in('current_module_id', moduloIds)
+      // RPC y no `from('cohorts')`: la RLS de cohorts no deja al profesor
+      // ver la cohorte por estar asignado a un módulo (migración 102).
+      const { data: lista } = await supabase.rpc('fn_feedback_modulos_docente')
 
       setPares(
-        (cohs ?? []).map((c) => ({
-          cohorteId: c.id, cohorteNombre: c.name,
-          moduloId: c.current_module_id!, moduloNombre: c.modules?.name ?? 'Módulo',
+        (lista ?? []).map((c) => ({
+          cohorteId: c.cohort_id, cohorteNombre: c.cohort_name,
+          moduloId: c.module_id, moduloNombre: c.module_name,
         })),
       )
       setCargando(false)

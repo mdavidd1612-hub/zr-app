@@ -3029,6 +3029,15 @@ export type Database = {
         Args: { nuevo_rol: Database["public"]["Enums"]["user_role"] }
         Returns: undefined
       }
+      fn_feedback_modulos_docente: {
+        Args: never
+        Returns: {
+          cohort_id: string
+          cohort_name: string
+          module_id: string
+          module_name: string
+        }[]
+      }
       fn_generar_caso_del_dia: { Args: never; Returns: undefined }
       fn_generar_sesion_semanal: { Args: never; Returns: undefined }
       fn_marcar_tour_visto: { Args: never; Returns: undefined }

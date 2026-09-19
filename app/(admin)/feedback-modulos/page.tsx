@@ -399,10 +399,10 @@ export default function FeedbackModulos() {
             ) : (
               [...new Set(comentarios.map((c) => c.pregunta))].map((pregunta) => (
                 <div key={pregunta} className="zr-card space-y-3 p-5">
-                  <p className="text-sm font-semibold text-zr-text">{pregunta}</p>
+                  <p className="text-sm font-semibold text-zr-text [overflow-wrap:anywhere]">{pregunta}</p>
                   <ul className="space-y-2">
                     {comentarios.filter((c) => c.pregunta === pregunta).map((c, i) => (
-                      <li key={i} className="rounded-lg bg-zr-bg px-3 py-2.5 text-sm leading-relaxed text-zr-text">
+                      <li key={i} className="whitespace-pre-wrap rounded-lg bg-zr-bg px-3 py-2.5 text-sm leading-relaxed text-zr-text [overflow-wrap:anywhere]">
                         {c.texto}
                       </li>
                     ))}

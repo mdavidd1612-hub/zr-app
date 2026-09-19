@@ -8,6 +8,7 @@ import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
 import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
 import { CambiarRol } from '@/components/ui/CambiarRol'
 import { leerSimulacionSabado, guardarSimulacionSabado } from '@/lib/demo-sabado'
+import { esDiaDeClase, hoyLocalISO } from '@/lib/dias-clase'
 import type { UserRole } from '@/lib/types'
 
 /** Ruta /perfil-admin: (app), (profesor) y (admin) son grupos del mismo
@@ -70,11 +71,31 @@ export default function PerfilAdmin() {
     const nuevo = !simulado
     setSimulado(nuevo)
     guardarSimulacionSabado(nuevo)
-    if (!nuevo) return
+    const supabase = createClient()
+    const hoyISO = hoyLocalISO()
+
+    if (!nuevo) {
+      // Al apagar la simulación se quitan las sesiones de hoy que ella creó
+      // en cohortes que hoy NO tienen clase y donde nadie marcó asistencia.
+      // Si se dejaban, quedaban como una fecha más, vacía, en la hoja de
+      // asistencia (un martes de prueba llegó a producción así).
+      const { data: deHoy } = await supabase
+        .from('class_sessions')
+        .select('id, cohorts(days), attendance_events(id)')
+        .eq('session_date', hoyISO)
+      const filas = (deHoy ?? []) as unknown as {
+        id: string
+        cohorts: { days: string | null } | null
+        attendance_events: { id: string }[] | null
+      }[]
+      const sobrantes = filas
+        .filter((s) => !esDiaDeClase(s.cohorts?.days, hoyISO) && (s.attendance_events ?? []).length === 0)
+        .map((s) => s.id)
+      if (sobrantes.length > 0) await supabase.from('class_sessions').delete().in('id', sobrantes)
+      return
+    }
 
     setPreparando(true)
-    const supabase = createClient()
-    const hoyISO = new Date().toISOString().slice(0, 10)
 
     const { data: cohortesConEstudiantes } = await supabase
       .from('students')

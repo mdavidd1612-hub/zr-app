@@ -8,6 +8,7 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { IconoCheck } from '@/components/ui/Iconos'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
+import { esDiaDeClase, hoyLocalISO } from '@/lib/dias-clase'
 
 /**
  * Asistencia — cuadro completo (sept. 2026, pedido explícito del
@@ -29,7 +30,7 @@ import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
  * fecha — mismos datos, otra forma de leerlos.
  */
 
-interface Cohorte { id: string; nombre: string }
+interface Cohorte { id: string; nombre: string; dias: string | null }
 interface Sesion { id: string; fecha: string; status: string }
 interface Estudiante { id: string; nombre: string; cedula: string; telefono: string | null }
 
@@ -69,8 +70,10 @@ export default function Asistencias() {
   const [cambiandoEstado, setCambiandoEstado] = useState(false)
   const [marcando, setMarcando] = useState<string | null>(null)
 
-  const hoyISO = new Date().toISOString().slice(0, 10)
+  const hoyISO = hoyLocalISO()
   const sesionHoy = sesiones.find((s) => s.fecha === hoyISO) ?? null
+  const diasCohorte = cohortes.find((c) => c.id === cohorteId)?.dias ?? null
+  const hoyEsDiaDeClase = esDiaDeClase(diasCohorte, hoyISO)
 
   useEffect(() => {
     async function cargar() {
@@ -81,8 +84,8 @@ export default function Asistencias() {
         return
       }
 
-      const { data: cohs } = await supabase.from('cohorts').select('id, name')
-      const lista = ordenarCohortesPorPrioridad(cohs ?? []).map((c) => ({ id: c.id, nombre: c.name }))
+      const { data: cohs } = await supabase.from('cohorts').select('id, name, days')
+      const lista = ordenarCohortesPorPrioridad(cohs ?? []).map((c) => ({ id: c.id, nombre: c.name, dias: c.days }))
       setCohortes(lista)
       if (lista.length) setCohorteId(lista[0].id)
 
@@ -96,6 +99,10 @@ export default function Asistencias() {
   // para que "marcar a mano" y "abrir/cerrar" funcionen aunque el cron aún
   // no haya corrido o la cohorte no tenga profesor asignado.
   async function asegurarSesionDeHoy(supabase: ReturnType<typeof createClient>): Promise<{ id: string; status: string } | null> {
+    // Nunca se crea una sesión en un día que no es de clase de la cohorte:
+    // quedaba como una fecha más en la hoja, con todos ausentes.
+    if (!hoyEsDiaDeClase) return null
+
     const { data: cohorte } = await supabase
       .from('cohorts').select('current_module_id').eq('id', cohorteId).single()
     if (!cohorte?.current_module_id) return null
@@ -361,7 +368,16 @@ export default function Asistencias() {
         />
       )}
 
-      {cohortes.length > 0 && (
+      {cohortes.length > 0 && !sesionHoy && !hoyEsDiaDeClase && (
+        <div className="rounded-lg border border-zr-border bg-zr-surface px-5 py-4">
+          <p className="text-sm font-semibold text-zr-text">Hoy no es día de clases de esta cohorte</p>
+          <p className="mt-0.5 text-xs text-zr-text-muted">
+            Sus clases son: {diasCohorte ?? 'sábados'}. No se abre ninguna sesión hoy.
+          </p>
+        </div>
+      )}
+
+      {cohortes.length > 0 && (sesionHoy || hoyEsDiaDeClase) && (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-zr-border bg-zr-surface px-5 py-4">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-zr-text">

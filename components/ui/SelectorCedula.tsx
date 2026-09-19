@@ -17,9 +17,11 @@ interface Props {
   onChange: (cedulaCompleta: string) => void
   required?: boolean
   ayuda?: string
+  /** Versión más chica, para formularios de edición en línea. */
+  compacto?: boolean
 }
 
-export function SelectorCedula({ etiqueta, value, onChange, required, ayuda }: Props) {
+export function SelectorCedula({ etiqueta, value, onChange, required, ayuda, compacto }: Props) {
   const id = useId()
   const [prefijoActual, numeroActual] = (() => {
     const m = value.match(/^([VEJ]?)-?(.*)$/i)
@@ -27,14 +29,23 @@ export function SelectorCedula({ etiqueta, value, onChange, required, ayuda }: P
   })()
 
   return (
-    <div className="space-y-2">
-      <label htmlFor={id} className="block text-sm font-semibold text-zr-text">{etiqueta}</label>
+    <div className={compacto ? 'space-y-1' : 'space-y-2'}>
+      <label
+        htmlFor={id}
+        className={compacto ? 'block text-xs font-semibold text-zr-text-muted' : 'block text-sm font-semibold text-zr-text'}
+      >
+        {etiqueta}
+      </label>
       <div className="flex gap-2">
         <select
           aria-label="Tipo de cédula"
           value={PREFIJOS_CEDULA.includes(prefijoActual as 'V' | 'J') ? prefijoActual : 'V'}
           onChange={(e) => onChange(`${e.target.value}-${numeroActual}`)}
-          className="w-20 shrink-0 rounded-xl border border-zr-border bg-zr-surface px-3 py-4 text-base font-semibold text-zr-text focus:border-zr-blue focus:outline-none"
+          className={
+            compacto
+              ? 'w-16 shrink-0 rounded-lg border border-zr-border bg-zr-bg px-2 py-2.5 text-sm font-semibold text-zr-text focus:border-zr-blue focus:outline-none'
+              : 'w-20 shrink-0 rounded-xl border border-zr-border bg-zr-surface px-3 py-4 text-base font-semibold text-zr-text focus:border-zr-blue focus:outline-none'
+          }
         >
           {PREFIJOS_CEDULA.map((p) => (
             <option key={p} value={p}>{p}-</option>
@@ -49,7 +60,11 @@ export function SelectorCedula({ etiqueta, value, onChange, required, ayuda }: P
           placeholder="12345678"
           value={numeroActual}
           onChange={(e) => onChange(`${prefijoActual}-${e.target.value.replace(/\D/g, '')}`)}
-          className="min-h-14 w-full min-w-0 flex-1 rounded-xl border border-zr-border bg-zr-surface px-5 py-4 text-base font-medium text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none focus:ring-2 focus:ring-zr-blue/20"
+          className={
+            compacto
+              ? 'w-full min-w-0 flex-1 rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none'
+              : 'min-h-14 w-full min-w-0 flex-1 rounded-xl border border-zr-border bg-zr-surface px-5 py-4 text-base font-medium text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none focus:ring-2 focus:ring-zr-blue/20'
+          }
         />
       </div>
       {ayuda && <p className="text-xs text-zr-text-muted">{ayuda}</p>}

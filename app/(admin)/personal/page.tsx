@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { SelectorCedula } from '@/components/ui/SelectorCedula'
+import { cedulaSchema } from '@/lib/validators'
 import { esAdmin, esDireccionAcademica } from '@/lib/auth-helpers'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
@@ -110,7 +112,7 @@ export default function Personal() {
 
   const [creando, setCreando] = useState(false)
   const [nombre, setNombre] = useState('')
-  const [cedula, setCedula] = useState('')
+  const [cedula, setCedula] = useState('V-')
   const [correo, setCorreo] = useState('')
   const [password, setPassword] = useState('')
   const [rol, setRol] = useState<UserRole>('profesor')
@@ -325,7 +327,7 @@ export default function Personal() {
 
     setExito(`Cuenta creada. Cédula ${cedula.trim().toUpperCase()} · contraseña temporal: ${password}.${avisoAsignacion}`)
     setNombre('')
-    setCedula('')
+    setCedula('V-')
     setCorreo('')
     setPassword('')
     setRol('profesor')
@@ -489,7 +491,7 @@ export default function Personal() {
   const rolesDisponibles = miRol === 'admin'
     ? ROLES.filter((r) => r.valor === 'admin')
     : ROLES.filter((r) => !r.soloSuper || miRol === 'super_admin')
-  const formularioCompleto = nombre.trim() && cedula.trim() && correo.trim() && password.trim().length >= 8
+  const formularioCompleto = nombre.trim() && cedulaSchema.safeParse(cedula).success && correo.trim() && password.trim().length >= 8
 
   if (cargando) {
     return (
@@ -553,15 +555,7 @@ export default function Personal() {
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
             />
           </div>
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Cédula</label>
-            <input
-              value={cedula}
-              onChange={(e) => setCedula(e.target.value.toUpperCase())}
-              placeholder="V-12345678"
-              className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
-            />
-          </div>
+          <SelectorCedula etiqueta="Cédula" value={cedula} onChange={setCedula} required />
           <div>
             <label className="mb-2 block text-sm font-semibold text-zr-text">Correo de contacto</label>
             <input
@@ -636,13 +630,13 @@ export default function Personal() {
                   <option value="">Sin asignar por ahora</option>
                   {cohortes.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.nombre}{c.moduloNombre ? ` · ${c.moduloNombre}` : ''}{c.profesorId ? ' (ya tiene profesor)' : ''}
+                      {c.nombre}{c.moduloNombre ? ` · ${c.moduloNombre}` : ''}
                     </option>
                   ))}
                 </select>
                 <p className="mt-1.5 text-xs text-zr-text-muted">
                   Aparte de los módulos: es lo que de verdad abre la sesión y controla la asistencia
-                  de ese programa. Elegir uno que ya tiene profesor se lo quita a quien lo tenía antes.
+                  de ese programa.
                 </p>
               </div>
             </>
@@ -745,14 +739,12 @@ export default function Personal() {
                         className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
                       />
                     </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-zr-text-muted">Cédula</label>
-                      <input
-                        value={formEdicion.cedula}
-                        onChange={(e) => setFormEdicion((f) => ({ ...f, cedula: e.target.value.toUpperCase() }))}
-                        className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
-                      />
-                    </div>
+                    <SelectorCedula
+                      etiqueta="Cédula"
+                      compacto
+                      value={formEdicion.cedula}
+                      onChange={(v) => setFormEdicion((f) => ({ ...f, cedula: v }))}
+                    />
                     <div>
                       <label className="mb-1 block text-xs font-semibold text-zr-text-muted">Correo</label>
                       <input
@@ -773,7 +765,7 @@ export default function Personal() {
                     {errorEdicion && <p className="text-xs font-medium text-zr-error">{errorEdicion}</p>}
                     <button
                       onClick={() => guardarEdicion(m.id)}
-                      disabled={guardandoEdicion || !formEdicion.nombre.trim() || !formEdicion.cedula.trim()}
+                      disabled={guardandoEdicion || !formEdicion.nombre.trim() || !cedulaSchema.safeParse(formEdicion.cedula).success}
                       className="min-h-11 w-full rounded-lg bg-zr-blue text-sm font-bold text-white disabled:opacity-40"
                     >
                       {guardandoEdicion ? 'Guardando…' : 'Guardar cambios'}

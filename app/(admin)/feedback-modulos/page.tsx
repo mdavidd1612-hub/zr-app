@@ -33,6 +33,14 @@ interface Cohorte {
   moduloNombre: string | null
 }
 
+interface BloqueModulo {
+  moduloId: string
+  nombre: string
+  actual: boolean
+  filas: FilaResumenFeedback[]
+  comentarios: { pregunta: string; texto: string }[]
+}
+
 interface Pregunta {
   id: string
   texto: string
@@ -63,8 +71,7 @@ export default function FeedbackModulos() {
   const [guardandoVentana, setGuardandoVentana] = useState(false)
   const [cargandoDetalle, setCargandoDetalle] = useState(false)
 
-  const [filas, setFilas] = useState<FilaResumenFeedback[]>([])
-  const [comentarios, setComentarios] = useState<{ pregunta: string; texto: string }[]>([])
+  const [bloques, setBloques] = useState<BloqueModulo[]>([])
 
   useEffect(() => {
     async function cargar() {
@@ -117,34 +124,59 @@ export default function FeedbackModulos() {
 
   async function elegirCohorte(c: Cohorte) {
     setCohorteId(c.id)
-    if (!c.moduloId) { setFilas([]); setComentarios([]); return }
+    if (!c.moduloId) { setBloques([]); return }
 
     setCargandoDetalle(true)
     const supabase = createClient()
 
-    const [{ data: ventana }, { data: resumen }, { data: coments }] = await Promise.all([
+    // Se traen TODOS los módulos de la cohorte, no solo el actual: los
+    // resultados viejos se conservan y se muestran debajo, por módulo.
+    const [{ data: ventanas }, { data: resumen }, { data: coments }] = await Promise.all([
       supabase
         .from('feedback_macro_windows')
-        .select('closed_at')
-        .eq('cohort_id', c.id).eq('module_id', c.moduloId)
-        .maybeSingle(),
+        .select('module_id, opened_at, closed_at, modules(name)')
+        .eq('cohort_id', c.id)
+        .order('opened_at', { ascending: false }),
       supabase
         .from('v_feedback_macro_summary')
-        .select('question, avg_score, response_count')
-        .eq('cohort_id', c.id).eq('module_id', c.moduloId),
+        .select('module_id, module_name, question, avg_score, response_count')
+        .eq('cohort_id', c.id),
       supabase
         .from('v_feedback_macro_comments')
-        .select('question, comment')
-        .eq('cohort_id', c.id).eq('module_id', c.moduloId),
+        .select('module_id, question, comment')
+        .eq('cohort_id', c.id),
     ])
 
-    // Orden alfabético dentro de cada pregunta: el orden de envío nunca
-    // debe ayudar a adivinar quién escribió qué.
-    setComentarios((coments ?? []).map((r) => ({ pregunta: r.question ?? '', texto: r.comment ?? '' }))
-      .sort((a, b) => a.texto.localeCompare(b.texto, 'es')))
-    setVentanaAbierta(Boolean(ventana) && ventana?.closed_at === null)
-    setFilas((resumen ?? []).map((r) => ({
-      pregunta: r.question ?? '', promedio: Number(r.avg_score), respuestas: Number(r.response_count),
+    const filasVentana = (ventanas ?? []) as unknown as {
+      module_id: string; opened_at: string; closed_at: string | null; modules: { name: string } | null
+    }[]
+    const ventanaActual = filasVentana.find((v) => v.module_id === c.moduloId)
+    setVentanaAbierta(Boolean(ventanaActual) && ventanaActual?.closed_at === null)
+
+    // Más nuevo arriba: el módulo actual primero, luego los anteriores por
+    // fecha en que se abrió su formulario, de más reciente a más antiguo.
+    const ordenIds = [c.moduloId, ...filasVentana.map((v) => v.module_id)]
+    for (const r of resumen ?? []) if (r.module_id) ordenIds.push(r.module_id)
+    const ids = [...new Set(ordenIds)]
+
+    const nombreDe = (id: string) =>
+      id === c.moduloId ? (c.moduloNombre ?? 'Módulo actual')
+        : filasVentana.find((v) => v.module_id === id)?.modules?.name
+          ?? (resumen ?? []).find((r) => r.module_id === id)?.module_name
+          ?? 'Módulo'
+
+    setBloques(ids.map((id) => ({
+      moduloId: id,
+      nombre: nombreDe(id),
+      actual: id === c.moduloId,
+      filas: (resumen ?? []).filter((r) => r.module_id === id).map((r) => ({
+        pregunta: r.question ?? '', promedio: Number(r.avg_score), respuestas: Number(r.response_count),
+      })),
+      // Orden alfabético dentro de cada pregunta: el orden de envío nunca
+      // debe ayudar a adivinar quién escribió qué.
+      comentarios: (coments ?? []).filter((r) => r.module_id === id)
+        .map((r) => ({ pregunta: r.question ?? '', texto: r.comment ?? '' }))
+        .sort((a, b) => a.texto.localeCompare(b.texto, 'es')),
     })))
     setCargandoDetalle(false)
   }
@@ -382,34 +414,39 @@ export default function FeedbackModulos() {
             </div>
           </Seccion>
 
-          <Seccion numero={2} titulo="Resultados" delay={180}>
-            <ResultadosFeedback filas={filas} />
-          </Seccion>
-
-          <Seccion numero={3} titulo="Comentarios" delay={240}>
+          <Seccion numero={2} titulo="Resultados por módulo" delay={180}>
             <p className="text-xs text-zr-text-muted">
-              Lo que escribieron los estudiantes, sin nombre y en orden alfabético. Aparecen a partir
-              de 3 respuestas al formulario.
+              El módulo actual va primero y los anteriores debajo, del más reciente al más antiguo. Los
+              comentarios van sin nombre y en orden alfabético; los promedios y comentarios aparecen a
+              partir de 3 respuestas.
             </p>
-            {comentarios.length === 0 ? (
-              <EstadoVacio
-                titulo="Todavía no hay comentarios para mostrar"
-                explicacion="Faltan respuestas (mínimo 3) o nadie escribió en las preguntas abiertas."
-              />
-            ) : (
-              [...new Set(comentarios.map((c) => c.pregunta))].map((pregunta) => (
-                <div key={pregunta} className="zr-card space-y-3 p-5">
-                  <p className="text-sm font-semibold text-zr-text [overflow-wrap:anywhere]">{pregunta}</p>
-                  <ul className="space-y-2">
-                    {comentarios.filter((c) => c.pregunta === pregunta).map((c, i) => (
-                      <li key={i} className="whitespace-pre-wrap rounded-lg bg-zr-bg px-3 py-2.5 text-sm leading-relaxed text-zr-text [overflow-wrap:anywhere]">
-                        {c.texto}
-                      </li>
-                    ))}
-                  </ul>
+            {bloques.map((b) => (
+              <div key={b.moduloId} className="space-y-4">
+                <div className="flex items-baseline justify-between gap-3 border-b border-zr-border pb-2">
+                  <h2 className="text-lg font-bold text-zr-text [overflow-wrap:anywhere]">{b.nombre}</h2>
+                  {b.actual && <span className="shrink-0 text-xs font-bold text-zr-blue-mid">Módulo actual</span>}
                 </div>
-              ))
-            )}
+
+                <ResultadosFeedback filas={b.filas} />
+
+                {b.comentarios.length === 0 ? (
+                  <p className="text-xs text-zr-text-muted">Sin comentarios para mostrar todavía.</p>
+                ) : (
+                  [...new Set(b.comentarios.map((c) => c.pregunta))].map((pregunta) => (
+                    <div key={pregunta} className="zr-card space-y-3 p-5">
+                      <p className="text-sm font-semibold text-zr-text [overflow-wrap:anywhere]">{pregunta}</p>
+                      <ul className="space-y-2">
+                        {b.comentarios.filter((c) => c.pregunta === pregunta).map((c, i) => (
+                          <li key={i} className="whitespace-pre-wrap rounded-lg bg-zr-bg px-3 py-2.5 text-sm leading-relaxed text-zr-text [overflow-wrap:anywhere]">
+                            {c.texto}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))
+                )}
+              </div>
+            ))}
           </Seccion>
         </>
       )}

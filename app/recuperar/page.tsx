@@ -5,12 +5,12 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { cedulaSchema } from '@/lib/validators'
 import { Boton } from '@/components/ui/Boton'
-import { Campo } from '@/components/ui/Campo'
+import { SelectorCedula } from '@/components/ui/SelectorCedula'
 import { Aviso } from '@/components/ui/Aviso'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 
 export default function Recuperar() {
-  const [cedula, setCedula] = useState('')
+  const [cedula, setCedula] = useState('V-')
   const [enviado, setEnviado] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(false)
@@ -80,16 +80,7 @@ export default function Recuperar() {
       </header>
 
       <form onSubmit={recuperar} className="space-y-4" noValidate>
-        <Campo
-          etiqueta="Cédula"
-          name="cedula"
-          inputMode="text"
-          placeholder="V-12345678"
-          value={cedula}
-          onChange={(e) => setCedula(e.target.value.toUpperCase())}
-          ayuda="Con la letra y el guion"
-          required
-        />
+        <SelectorCedula etiqueta="Cédula" value={cedula} onChange={setCedula} required />
 
         {error && <Aviso tipo="error">{error}</Aviso>}
 

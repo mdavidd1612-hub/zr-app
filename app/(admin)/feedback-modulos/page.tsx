@@ -240,7 +240,7 @@ export default function FeedbackModulos() {
   return (
     <div className="space-y-9 px-5 pb-16 pt-14">
       {notificacion && (
-        <div className="pointer-events-none fixed inset-x-4 top-[calc(4.5rem+env(safe-area-inset-top))] z-50 mx-auto max-w-md">
+        <div className="pointer-events-none fixed inset-x-4 top-[calc(4.5rem+env(safe-area-inset-top))] z-50 mx-auto max-w-md overflow-hidden rounded-xl bg-zr-bg shadow-2xl">
           <Aviso tipo="exito" titulo="Listo">Los cambios se han guardado.</Aviso>
         </div>
       )}

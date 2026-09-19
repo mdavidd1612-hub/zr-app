@@ -5,9 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
-import { EstadoVacio } from '@/components/ui/EstadoVacio'
-import { Aviso } from '@/components/ui/Aviso'
-import { ResultadosFeedback, type FilaResumenFeedback } from '@/components/ui/ResultadosFeedback'
+import { EstadoVacio } from '@/components/ui/EstadoVacio'import { ResultadosFeedback, type FilaResumenFeedback } from '@/components/ui/ResultadosFeedback'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
@@ -240,8 +238,12 @@ export default function FeedbackModulos() {
   return (
     <div className="space-y-9 px-5 pb-16 pt-14">
       {notificacion && (
-        <div className="pointer-events-none fixed inset-x-4 top-[calc(4.5rem+env(safe-area-inset-top))] z-50 mx-auto max-w-md overflow-hidden rounded-xl bg-zr-bg shadow-2xl">
-          <Aviso tipo="exito" titulo="Listo">Los cambios se han guardado.</Aviso>
+        <div
+          role="status"
+          className="pointer-events-none fixed inset-x-4 top-[calc(4.5rem+env(safe-area-inset-top))] z-50 mx-auto flex max-w-md items-center gap-3 rounded-xl border border-zr-success bg-zr-bg px-4 py-3.5 shadow-2xl"
+        >
+          <span aria-hidden="true" className="text-xl font-bold leading-none text-zr-success">✓</span>
+          <p className="text-sm font-semibold text-zr-text">Los cambios se han guardado</p>
         </div>
       )}
       {cohorteActual ? (

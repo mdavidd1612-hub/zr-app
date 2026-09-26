@@ -43,6 +43,23 @@ export default function Configuracion() {
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const [version, setVersion] = useState(0)
+  const [probandoMoodle, setProbandoMoodle] = useState(false)
+  const [resultadoMoodle, setResultadoMoodle] = useState<
+    { conectado: true; sitio: string; version: string } | { conectado: false; error: string } | null
+  >(null)
+
+  async function probarMoodle() {
+    setProbandoMoodle(true)
+    setResultadoMoodle(null)
+    try {
+      const res = await fetch('/api/moodle-test')
+      setResultadoMoodle(await res.json())
+    } catch {
+      setResultadoMoodle({ conectado: false, error: 'No se pudo conectar. Intenta de nuevo.' })
+    } finally {
+      setProbandoMoodle(false)
+    }
+  }
 
   useEffect(() => {
     let vigente = true
@@ -246,8 +263,35 @@ export default function Configuracion() {
         </div>
       </Seccion>
 
+      <Seccion numero={2} titulo="Conexión con Moodle (prueba)" delay={200}>
+        <p className="text-sm text-zr-text-muted">
+          Solo confirma que este entorno puede hablar con Moodle — todavía no hay ninguna pantalla
+          real conectada. Moodle está en una dirección temporal mientras se decide dónde va a vivir.
+        </p>
+        <button
+          onClick={probarMoodle}
+          disabled={probandoMoodle}
+          className="mt-3 w-full rounded-lg border border-zr-blue/40 py-2.5 text-sm font-bold text-zr-blue-mid disabled:opacity-50"
+        >
+          {probandoMoodle ? 'Probando…' : 'Probar conexión'}
+        </button>
+        {resultadoMoodle && (
+          <div
+            className={`mt-3 rounded-lg border px-4 py-3 text-sm ${
+              resultadoMoodle.conectado
+                ? 'border-zr-success/30 bg-zr-success/12 text-zr-success'
+                : 'border-zr-error/30 bg-zr-error/12 text-zr-error'
+            }`}
+          >
+            {resultadoMoodle.conectado
+              ? `Conectado — ${resultadoMoodle.sitio} (Moodle ${resultadoMoodle.version})`
+              : `No se pudo conectar: ${resultadoMoodle.error}`}
+          </div>
+        )}
+      </Seccion>
+
       {historial.length > 0 && (
-        <Seccion numero={2} titulo="Historial de cambios" delay={220}>
+        <Seccion numero={3} titulo="Historial de cambios" delay={220}>
           <div className="zr-card divide-y divide-zr-border">
             {historial.map((h) => (
               <div key={h.id} className="p-4">

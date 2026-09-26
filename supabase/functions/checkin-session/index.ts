@@ -88,9 +88,19 @@ Deno.serve(async (req: Request) => {
       return errorResponse('QR_VENCIDO', 'Este código ya cambió — vuelve a escanear la pantalla')
     }
 
-    const { data: student } = await admin.from('students').select('cohort_id').eq('id', authUser.id).single()
+    const { data: student } = await admin.from('students').select('cohort_id, payment_status').eq('id', authUser.id).single()
     if (!student) return errorResponse('NO_AUTORIZADO', 'Solo estudiantes marcan asistencia así', 403)
     if (!student.cohort_id) return errorResponse('SIN_COHORTE', 'Todavía no tienes cohorte asignada')
+
+    // Excepción explícita de Fase 1 (finanzas básico, migración 115): no se
+    // valida solo en el botón del cliente -- regla 2 de AGENTS.md.
+    if (student.payment_status === 'no_solvente') {
+      return errorResponse(
+        'NO_SOLVENTE',
+        'No estás solvente con los pagos de tu mensualidad, por favor conversar con la administradora.',
+        403,
+      )
+    }
 
     // Fase 0: administración no abre ni cierra sesiones desde la pantalla
     // de QR — basta con que exista la sesión de hoy para tu cohorte (la

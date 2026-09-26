@@ -8,39 +8,42 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 
 /**
- * Finanzas -- EXCEPCIÓN explícita de Fase 1, aprobada directamente por el
+ * Finanzas -- excepción explícita de Fase 1, aprobada directamente por el
  * coordinador (sept. 2026), mismo mecanismo que ZR Coffee (migración 090).
- * Deliberadamente muy básico: solo inscripción y la mensualidad del módulo
- * actual, pagado/pendiente, con el monto que la administradora anote --
- * los montos oficiales todavía no están decididos ("eso lo dejamos al
- * final"), así que nunca se asume un número aquí (regla 5 de AGENTS.md).
+ * Rehecho (corrección del coordinador sobre la primera versión): un único
+ * estado de solvencia por estudiante, tres valores -- solvente,
+ * solvente_pendiente, no_solvente (migración 115). Tabla compacta tipo
+ * Excel, mismo patrón que /asistencias.
  *
- * Esto NO es el módulo de financiamiento completo -- ese ya existe diseñado
- * y confirmado en docs/02_MODULO_FINANCIAMIENTO.md (estilo Cashea) y sigue
- * siendo la versión real de Fase 2.
+ * 'no_solvente' bloquea el botón de tomar asistencia del estudiante -- el
+ * bloqueo real vive en el servidor (checkin-session/validate-scan), esta
+ * pantalla solo cambia el estado.
  *
- * Solo admin y super_admin -- Dirección Académica no entra aquí (pedido
- * explícito, distinto del resto de las pantallas de esta app).
+ * Solo admin y super_admin -- Dirección Académica no entra aquí. La
+ * restricción real vive en un trigger (migración 115), no solo aquí.
  */
 
-interface Pago {
-  id: string | null
-  status: 'pagado' | 'pendiente'
-  amount: number | null
-  paidAt: string | null
-}
+type Estado = 'solvente' | 'solvente_pendiente' | 'no_solvente'
 
 interface FilaEstudiante {
   studentId: string
   nombre: string
   cedula: string
-  moduleId: string | null
-  moduloNombre: string | null
-  inscripcion: Pago
-  mensualidad: Pago
+  cohorteNombre: string | null
+  estado: Estado
 }
 
-const PAGO_VACIO: Pago = { id: null, status: 'pendiente', amount: null, paidAt: null }
+const ETIQUETA: Record<Estado, string> = {
+  solvente: 'Solvente',
+  solvente_pendiente: 'Solvente (PENDIENTE)',
+  no_solvente: 'No Solvente',
+}
+
+const ESTILO: Record<Estado, string> = {
+  solvente: 'bg-zr-success/12 text-zr-success',
+  solvente_pendiente: 'bg-zr-warning/12 text-zr-warning',
+  no_solvente: 'bg-zr-error/12 text-zr-error',
+}
 
 export default function Finanzas() {
   const router = useRouter()
@@ -49,7 +52,6 @@ export default function Finanzas() {
   const [cargando, setCargando] = useState(true)
   const [guardandoId, setGuardandoId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [montoBorrador, setMontoBorrador] = useState<Record<string, string>>({})
 
   useEffect(() => {
     let vigente = true
@@ -71,52 +73,22 @@ export default function Finanzas() {
       }
       setAutorizado(true)
 
-      const { data: estudiantes } = await supabase
+      const { data } = await supabase
         .from('v_students')
-        .select('id, full_name, cedula, cohort_id, cohorts(current_module_id, modules(name))')
+        .select('id, full_name, cedula, payment_status, cohorts(name)')
         .order('full_name')
 
       if (!vigente) return
 
-      type EstudianteCrudo = {
-        id: string; full_name: string; cedula: string; cohort_id: string | null
-        cohorts: { current_module_id: string | null; modules: { name: string } | null } | null
-      }
-      const estudiantesCrudos = (estudiantes ?? []) as unknown as EstudianteCrudo[]
-
-      const { data: pagos } = await supabase
-        .from('student_payments')
-        .select('id, student_id, concept, module_id, status, amount, paid_at')
-        .in('student_id', estudiantesCrudos.map((e) => e.id))
-
-      if (!vigente) return
-
-      type PagoCrudo = {
-        id: string; student_id: string; concept: string; module_id: string | null
-        status: 'pagado' | 'pendiente'; amount: number | null; paid_at: string | null
-      }
-      const pagosCrudos = (pagos ?? []) as PagoCrudo[]
-
+      type Cruda = { id: string; full_name: string; cedula: string; payment_status: Estado; cohorts: { name: string } | null }
       setFilas(
-        estudiantesCrudos.map((e) => {
-          const moduleId = e.cohorts?.current_module_id ?? null
-          const inscripcionRow = pagosCrudos.find((p) => p.student_id === e.id && p.concept === 'inscripcion')
-          const mensualidadRow = pagosCrudos.find((p) => p.student_id === e.id && p.concept === 'mensualidad' && p.module_id === moduleId)
-
-          return {
-            studentId: e.id,
-            nombre: e.full_name,
-            cedula: e.cedula,
-            moduleId,
-            moduloNombre: e.cohorts?.modules?.name ?? null,
-            inscripcion: inscripcionRow
-              ? { id: inscripcionRow.id, status: inscripcionRow.status, amount: inscripcionRow.amount, paidAt: inscripcionRow.paid_at }
-              : PAGO_VACIO,
-            mensualidad: mensualidadRow
-              ? { id: mensualidadRow.id, status: mensualidadRow.status, amount: mensualidadRow.amount, paidAt: mensualidadRow.paid_at }
-              : PAGO_VACIO,
-          }
-        }),
+        ((data ?? []) as unknown as Cruda[]).map((e) => ({
+          studentId: e.id,
+          nombre: e.full_name,
+          cedula: e.cedula,
+          cohorteNombre: e.cohorts?.name ?? null,
+          estado: e.payment_status,
+        })),
       )
       setCargando(false)
     }
@@ -125,49 +97,18 @@ export default function Finanzas() {
     return () => { vigente = false }
   }, [router])
 
-  async function marcarPago(
-    fila: FilaEstudiante,
-    concept: 'inscripcion' | 'mensualidad',
-    nuevoEstado: 'pagado' | 'pendiente',
-  ) {
-    const clave = `${fila.studentId}-${concept}`
-    const montoTexto = montoBorrador[clave]
-    const monto = montoTexto ? parseFloat(montoTexto) : (concept === 'inscripcion' ? fila.inscripcion.amount : fila.mensualidad.amount)
-
-    setGuardandoId(clave)
+  async function cambiarEstado(studentId: string, estado: Estado) {
+    setGuardandoId(studentId)
     setError(null)
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    const { data, error: fallo } = await supabase
-      .from('student_payments')
-      .upsert(
-        {
-          student_id: fila.studentId,
-          concept,
-          module_id: concept === 'mensualidad' ? fila.moduleId : null,
-          status: nuevoEstado,
-          amount: monto,
-          paid_at: nuevoEstado === 'pagado' ? new Date().toISOString().slice(0, 10) : null,
-          registered_by: user?.id,
-        },
-        { onConflict: concept === 'inscripcion' ? 'student_id' : 'student_id,module_id' },
-      )
-      .select('id, status, amount, paid_at')
-      .single()
+    const { error: fallo } = await supabase.from('students').update({ payment_status: estado }).eq('id', studentId)
 
     if (fallo) {
       setError(fallo.message)
       setGuardandoId(null)
       return
     }
-
-    setFilas((fs) => fs.map((f) => f.studentId === fila.studentId
-      ? {
-          ...f,
-          [concept]: { id: data.id, status: data.status, amount: data.amount, paidAt: data.paid_at },
-        }
-      : f))
+    setFilas((fs) => fs.map((f) => f.studentId === studentId ? { ...f, estado } : f))
     setGuardandoId(null)
   }
 
@@ -194,7 +135,7 @@ export default function Finanzas() {
       <Encabezado
         sobretitulo="Administración"
         titulo="Finanzas"
-        descripcion="Inscripción y mensualidad del módulo actual. Los montos todavía no están decididos oficialmente — anótalos caso por caso."
+        descripcion="No Solvente bloquea el botón de tomar asistencia del estudiante."
       />
       <Regla delay={60} />
 
@@ -207,56 +148,73 @@ export default function Finanzas() {
       {filas.length === 0 ? (
         <EstadoVacio titulo="Sin estudiantes" explicacion="Todavía no hay estudiantes registrados." />
       ) : (
-        <div className="space-y-3">
-          {filas.map((f) => (
-            <div key={f.studentId} className="zr-card space-y-4 p-5">
-              <div>
-                <p className="text-base font-semibold text-zr-text">{f.nombre}</p>
-                <p className="text-sm tabular-nums text-zr-text-muted">{f.cedula}</p>
-              </div>
+        <>
+          {/* Computadora: tabla compacta tipo Excel, mismo patrón que /asistencias. */}
+          <div className="hidden overflow-x-auto rounded-lg border border-zr-border lg:block">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="bg-zr-surface">
+                  <th className="sticky left-0 z-10 min-w-[220px] border-b border-r border-zr-border bg-zr-surface px-4 py-3 text-left font-bold text-zr-text">
+                    Estudiante
+                  </th>
+                  <th className="min-w-[260px] border-b border-zr-border px-3 py-3 text-left font-bold text-zr-text-muted">
+                    Estado de solvencia
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filas.map((f) => (
+                  <tr key={f.studentId} className="border-b border-zr-border last:border-b-0">
+                    <td className="sticky left-0 z-10 border-r border-zr-border bg-zr-surface px-4 py-2.5">
+                      <p className="truncate font-semibold text-zr-text">{f.nombre}</p>
+                      <p className="text-xs tabular-nums text-zr-text-muted">{f.cedula} · {f.cohorteNombre ?? 'sin cohorte'}</p>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex gap-1.5">
+                        {(Object.keys(ETIQUETA) as Estado[]).map((estado) => (
+                          <button
+                            key={estado}
+                            onClick={() => cambiarEstado(f.studentId, estado)}
+                            disabled={guardandoId === f.studentId}
+                            className={`rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-50 ${
+                              f.estado === estado ? ESTILO[estado] : 'bg-zr-bg text-zr-text-muted'
+                            }`}
+                          >
+                            {ETIQUETA[estado]}
+                          </button>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-              {([
-                ['inscripcion', 'Inscripción', f.inscripcion] as const,
-                ...(f.moduleId ? [['mensualidad', `Mensualidad — ${f.moduloNombre ?? 'módulo actual'}`, f.mensualidad] as const] : []),
-              ]).map(([concept, etiqueta, pago]) => {
-                const clave = `${f.studentId}-${concept}`
-                return (
-                  <div key={concept} className="rounded-lg border border-zr-border p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-zr-text">{etiqueta}</p>
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-bold ${
-                          pago.status === 'pagado'
-                            ? 'bg-zr-success/12 text-zr-success'
-                            : 'bg-zr-warning/12 text-zr-warning'
-                        }`}
-                      >
-                        {pago.status === 'pagado' ? 'Pagado' : 'Pendiente'}
-                      </span>
-                    </div>
-                    <div className="mt-2 flex items-center gap-2">
-                      <input
-                        type="number"
-                        placeholder="Monto ($)"
-                        defaultValue={pago.amount ?? ''}
-                        onChange={(e) => setMontoBorrador((m) => ({ ...m, [clave]: e.target.value }))}
-                        className="w-28 rounded-lg border border-zr-border bg-zr-bg px-2 py-1.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
-                      />
-                      <button
-                        onClick={() => marcarPago(f, concept, pago.status === 'pagado' ? 'pendiente' : 'pagado')}
-                        disabled={guardandoId === clave}
-                        className="rounded-lg border border-zr-blue/40 px-3 py-1.5 text-xs font-bold text-zr-blue-mid disabled:opacity-50"
-                      >
-                        {guardandoId === clave ? '…' : pago.status === 'pagado' ? 'Marcar pendiente' : 'Marcar pagado'}
-                      </button>
-                      {pago.paidAt && <span className="text-xs text-zr-text-muted">{pago.paidAt}</span>}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ))}
-        </div>
+          {/* Teléfono: una tarjeta compacta por estudiante. */}
+          <div className="space-y-2 lg:hidden">
+            {filas.map((f) => (
+              <div key={f.studentId} className="zr-card p-3">
+                <p className="truncate text-sm font-semibold text-zr-text">{f.nombre}</p>
+                <p className="text-xs tabular-nums text-zr-text-muted">{f.cedula} · {f.cohorteNombre ?? 'sin cohorte'}</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {(Object.keys(ETIQUETA) as Estado[]).map((estado) => (
+                    <button
+                      key={estado}
+                      onClick={() => cambiarEstado(f.studentId, estado)}
+                      disabled={guardandoId === f.studentId}
+                      className={`rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-50 ${
+                        f.estado === estado ? ESTILO[estado] : 'bg-zr-bg text-zr-text-muted'
+                      }`}
+                    >
+                      {ETIQUETA[estado]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   )

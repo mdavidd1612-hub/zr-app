@@ -52,6 +52,12 @@ export default function Inicio() {
   // si ya había escaneado. El aviso de arriba se autooculta a los 3.5s; esto
   // deja la tarjeta en "Ya se registró tu asistencia" el resto del sábado.
   const [asistenciaHoy, setAsistenciaHoy] = useState(false)
+  // Finanzas -- excepción explícita de Fase 1 (migración 115): si no está
+  // solvente, el botón de asistencia se bloquea. El bloqueo real vive en el
+  // servidor (checkin-session) -- esto solo evita la vuelta innecesaria por
+  // la cámara cuando ya se sabe que va a fallar.
+  const [noSolvente, setNoSolvente] = useState(false)
+  const [avisoBloqueado, setAvisoBloqueado] = useState(false)
   // Feedback de módulo (pedido explícito del coordinador, sept. 2026): si
   // Dirección Académica abrió el formulario para la cohorte del estudiante y
   // todavía no lo respondió, se lo avisa aquí — si no, nunca se enteraría de
@@ -92,7 +98,8 @@ export default function Inicio() {
       if (perfil) setNombre(perfil.full_name)
 
       const { data: estValidacion } = await supabase
-        .from('students').select('validated_at').eq('id', user.id).maybeSingle()
+        .from('students').select('validated_at, payment_status').eq('id', user.id).maybeSingle()
+      setNoSolvente(estValidacion?.payment_status === 'no_solvente')
       // Vista de recorrido (a pedido explícito del coordinador: admin,
       // dirección académica y super_admin pueden recorrer esta vista) — esas
       // cuentas no tienen fila en `students`, así que sin esto se quedaban
@@ -213,6 +220,12 @@ export default function Inicio() {
 
     cargar()
   }, [router])
+
+  useEffect(() => {
+    if (!avisoBloqueado) return
+    const t = setTimeout(() => setAvisoBloqueado(false), 3500)
+    return () => clearTimeout(t)
+  }, [avisoBloqueado])
 
   if (cargando) {
     return (
@@ -351,6 +364,19 @@ export default function Inicio() {
                     >
                       <IconoTaza size={20} />
                       Escanear refrigerio
+                    </button>
+                  </>
+                ) : noSolvente ? (
+                  <>
+                    <p className="text-sm leading-relaxed text-zr-text-muted">
+                      Escanea el código que administración muestra en pantalla al llegar.
+                    </p>
+                    <button
+                      onClick={() => setAvisoBloqueado(true)}
+                      className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg bg-zr-border text-base font-bold text-zr-error"
+                    >
+                      <IconoCarnet size={20} />
+                      No estás solvente con los pagos
                     </button>
                   </>
                 ) : (
@@ -492,6 +518,16 @@ export default function Inicio() {
           </div>
         </Seccion>
       </div>
+
+      {avisoBloqueado && (
+        <div className="fixed inset-x-5 bottom-24 z-50 animate-fade-in rounded-lg bg-zr-error px-5 py-4 text-center shadow-lg">
+          <p className="text-sm font-bold text-white">Bloqueado</p>
+          <p className="mt-1 text-sm text-white/90">
+            No estás solvente con los pagos de tu mensualidad, por favor conversar con la
+            administradora.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

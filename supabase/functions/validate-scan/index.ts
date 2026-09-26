@@ -79,6 +79,16 @@ Deno.serve(async (req: Request) => {
       return errorResponse('QR_INVALIDO', 'No hay secreto configurado')
     }
 
+    // 5b. Excepción explícita de Fase 1 (finanzas básico, migración 115).
+    const { data: solvencia } = await admin.from('students').select('payment_status').eq('id', student.id).single()
+    if (solvencia?.payment_status === 'no_solvente') {
+      return errorResponse(
+        'NO_SOLVENTE',
+        'No estás solvente con los pagos de tu mensualidad, por favor conversar con la administradora.',
+        403,
+      )
+    }
+
     // 6. Leer configuración
     const { data: config } = await admin.from('system_config').select('value').eq('key', 'attendance.qr_window_seconds').single()
     const { data: drift } = await admin.from('system_config').select('value').eq('key', 'attendance.qr_drift_tolerance').single()

@@ -12,6 +12,12 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
  * Todo lo que se muestra aquí lo calcula la base (final_score y status son
  * columnas que mantiene un disparador). El navegador no suma nada: si sumara,
  * dos pantallas podrían mostrar notas distintas del mismo estudiante.
+ *
+ * Corrección (sept. 2026, junto con la migración 110/111): lo que antes era
+ * "participación" ahora se llama Puntualidad y se calcula solo de la
+ * asistencia -- "Participación" pasó a ser un campo nuevo y distinto
+ * (`class_participation_score`), el único de los cuatro que pone el
+ * profesor a mano.
  */
 
 type Estado = 'en_curso' | 'aprobado' | 'reprobado' | 'retirado'
@@ -21,7 +27,8 @@ interface Nota {
   modulo: string
   teoria: number | null
   practica: number | null
-  participacion: number | null
+  puntualidad: number | null
+  participacionClase: number | null
   final: number | null
   umbral: number
   estado: Estado
@@ -51,7 +58,7 @@ export default function Notas() {
 
       const { data } = await supabase
         .from('module_enrollments')
-        .select('id, theory_score, practice_score, participation_score, final_score, passing_threshold, status, modules(name, order_index)')
+        .select('id, theory_score, practice_score, participation_score, class_participation_score, final_score, passing_threshold, status, modules(name, order_index)')
         .eq('student_id', user.id)
 
       const filas = data as unknown as {
@@ -59,6 +66,7 @@ export default function Notas() {
         theory_score: number | null
         practice_score: number | null
         participation_score: number | null
+        class_participation_score: number | null
         final_score: number | null
         passing_threshold: number
         status: Estado
@@ -74,7 +82,8 @@ export default function Notas() {
               orden: n.modules?.order_index ?? 0,
               teoria: n.theory_score === null ? null : Number(n.theory_score),
               practica: n.practice_score === null ? null : Number(n.practice_score),
-              participacion: n.participation_score === null ? null : Number(n.participation_score),
+              puntualidad: n.participation_score === null ? null : Number(n.participation_score),
+              participacionClase: n.class_participation_score === null ? null : Number(n.class_participation_score),
               final: n.final_score === null ? null : Number(n.final_score),
               umbral: Number(n.passing_threshold),
               estado: n.status,
@@ -127,16 +136,17 @@ export default function Notas() {
             return (
               <Seccion key={n.id} numero={i + 1} titulo={n.modulo} delay={120 + i * 80}>
                 <div className="zr-card overflow-hidden">
-                  {/* Las tres notas parciales */}
-                  <div className="grid grid-cols-3 divide-x divide-zr-border">
+                  {/* Las cuatro notas parciales */}
+                  <div className="grid grid-cols-4 divide-x divide-zr-border">
                     {[
                       { etiqueta: 'Teoría', valor: n.teoria },
                       { etiqueta: 'Práctica', valor: n.practica },
-                      { etiqueta: 'Participación', valor: n.participacion },
+                      { etiqueta: 'Puntualidad', valor: n.puntualidad },
+                      { etiqueta: 'Participación', valor: n.participacionClase },
                     ].map((p) => (
-                      <div key={p.etiqueta} className="px-4 py-5 text-center">
-                        <p className="zr-metric text-2xl text-zr-text">{cifra(p.valor)}</p>
-                        <p className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-zr-text-muted">
+                      <div key={p.etiqueta} className="px-1.5 py-5 text-center">
+                        <p className="zr-metric text-xl text-zr-text">{cifra(p.valor)}</p>
+                        <p className="mt-2 text-[9px] font-semibold uppercase leading-tight tracking-wider text-zr-text-muted">
                           {p.etiqueta}
                         </p>
                       </div>

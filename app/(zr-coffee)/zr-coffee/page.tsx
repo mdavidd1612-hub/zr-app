@@ -460,6 +460,15 @@ export default function ZRCoffee() {
 
       <Regla delay={60} />
 
+      {/* Tiquet digital de refrigerio (pedido explícito del coordinador, sept.
+          2026) -- el dispositivo fijo de la cantina entra aquí a escanear. */}
+      <a
+        href="/zr-coffee/refrigerio"
+        className="zr-card block p-5 text-center text-sm font-bold text-zr-blue-mid"
+      >
+        Escanear refrigerio →
+      </a>
+
       {/* ------------------------------ Tasa del día ------------------------------ */}
       <div className="zr-card space-y-3 p-5">
         <p className="text-sm font-bold text-zr-text">Tasa del día</p>

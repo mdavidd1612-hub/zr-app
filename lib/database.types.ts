@@ -2403,6 +2403,95 @@ export type Database = {
           },
         ]
       }
+      student_payments: {
+        Row: {
+          amount: number | null
+          concept: string
+          id: string
+          module_id: string | null
+          notes: string | null
+          paid_at: string | null
+          registered_by: string | null
+          status: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          concept: string
+          id?: string
+          module_id?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          registered_by?: string | null
+          status?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          concept?: string
+          id?: string
+          module_id?: string | null
+          notes?: string | null
+          paid_at?: string | null
+          registered_by?: string | null
+          status?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_payments_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_payments_registered_by_fkey"
+            columns: ["registered_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_payments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_payments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_mi_dominio"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_payments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_proximo_sabado"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_payments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_payments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students_blocked"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_profile_details: {
         Row: {
           completed_at: string

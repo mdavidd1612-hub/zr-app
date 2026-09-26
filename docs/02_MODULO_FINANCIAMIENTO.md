@@ -4,6 +4,16 @@
 > las cifras y políticas oficiales acordadas. Donde algo sigue pendiente, queda marcado
 > explícitamente como `[PENDIENTE]`.
 
+> **Nota (sept. 2026):** mientras se decide cuándo se activa este módulo completo, el
+> coordinador aprobó explícitamente una excepción de Fase 1 muy básica —
+> `student_payments` (migración 113), pantalla `/finanzas` — que solo deja marcar
+> inscripción/mensualidad como pagado o pendiente, con un monto libre por caso (los montos
+> oficiales de este documento — $150 inscripción, $150/$130 mensualidad, niveles Cashea — no
+> se activan todavía; siguen pendientes de definir "al final"). Esa pantalla básica **no
+> reemplaza** este diseño: cuando se decida activar el sistema completo (fraccionamiento,
+> niveles de confianza, vínculo con gamificación), se construye sobre este documento, no
+> sobre `student_payments`.
+
 ## 0. PRECIOS Y ESTRUCTURA CONFIRMADOS
 
 | Concepto | Monto | Regla de negocio |

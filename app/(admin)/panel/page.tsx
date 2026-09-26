@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, SeccionColegable, Regla, Dato } from '@/components/ui/Editorial'
-import { IconoEstudiantes, IconoNotas, IconoPanel, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet } from '@/components/ui/Iconos'
+import { IconoEstudiantes, IconoNotas, IconoPanel, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoCalificar } from '@/components/ui/Iconos'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { leerSimulacionSabado } from '@/lib/demo-sabado'
 import { activarVistaRecorrido, type VistaRecorrido } from '@/lib/vista-recorrido'
@@ -41,6 +41,13 @@ const ACCESOS_DIRECCION = [
   { href: '/material',             titulo: 'Material',                sub: 'Subir por programa',                Icono: IconoDocumento },
   { href: '/notas-academicas',     titulo: 'Notas',                   sub: 'Calificaciones de cualquier programa', Icono: IconoNotas },
   { href: '/examenes-academicos',  titulo: 'Exámenes',                sub: 'Supervisar evaluaciones',           Icono: IconoExamen },
+]
+
+// Finanzas -- excepción explícita de Fase 1 aprobada por el coordinador
+// (sept. 2026, mismo mecanismo que ZR Coffee). Solo admin y super_admin --
+// pedido explícito de que Dirección Académica no entra aquí.
+const ACCESOS_FINANZAS = [
+  { href: '/finanzas', titulo: 'Finanzas', sub: 'Inscripción y mensualidad por estudiante', Icono: IconoCalificar },
 ]
 
 const ACCESO_CONFIG = { href: '/configuracion', titulo: 'Configuración', sub: 'Umbrales y reglas de negocio', Icono: IconoPanel }
@@ -154,6 +161,7 @@ export default function Panel() {
         let n = 0
         const nHoy = esSabado ? ++n : 0
         const nEstudiantes = ++n
+        const nFinanzas = (rol === 'admin' || rol === 'super_admin') ? ++n : 0
         const nDireccion = esDireccionAcademica(rol) ? ++n : 0
         const nSuper = rol === 'super_admin' ? ++n : 0
         // "Vista de recorrido" ya no aparece para administración normal
@@ -188,6 +196,10 @@ export default function Panel() {
                 botones seguidos — a pedido explícito del coordinador ("no se
                 explica para qué"). */}
             <GrupoAccesos numero={nEstudiantes} titulo="Estudiantes" accesos={ACCESOS} delay={200} />
+
+            {(rol === 'admin' || rol === 'super_admin') && (
+              <GrupoAccesos numero={nFinanzas} titulo="Finanzas" accesos={ACCESOS_FINANZAS} delay={220} />
+            )}
 
             {esDireccionAcademica(rol) && (
               <GrupoAccesos numero={nDireccion} titulo="Dirección académica" accesos={ACCESOS_DIRECCION} delay={240} />

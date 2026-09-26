@@ -1581,6 +1581,7 @@ export type Database = {
           created_by: string | null
           exam_date: string
           id: string
+          kind: string
           module_id: string
           passing_min: number
           scale_max: number
@@ -1591,6 +1592,7 @@ export type Database = {
           created_by?: string | null
           exam_date: string
           id?: string
+          kind?: string
           module_id: string
           passing_min?: number
           scale_max?: number
@@ -1601,6 +1603,7 @@ export type Database = {
           created_by?: string | null
           exam_date?: string
           id?: string
+          kind?: string
           module_id?: string
           passing_min?: number
           scale_max?: number
@@ -1900,87 +1903,6 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "v_students_blocked"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      module_evaluation_extra_scores: {
-        Row: {
-          enrollment_id: string
-          field_def_id: string
-          graded_at: string
-          graded_by: string | null
-          id: string
-          score: number | null
-        }
-        Insert: {
-          enrollment_id: string
-          field_def_id: string
-          graded_at?: string
-          graded_by?: string | null
-          id?: string
-          score?: number | null
-        }
-        Update: {
-          enrollment_id?: string
-          field_def_id?: string
-          graded_at?: string
-          graded_by?: string | null
-          id?: string
-          score?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "module_evaluation_extra_scores_enrollment_id_fkey"
-            columns: ["enrollment_id"]
-            isOneToOne: false
-            referencedRelation: "module_enrollments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "module_evaluation_extra_scores_field_def_id_fkey"
-            columns: ["field_def_id"]
-            isOneToOne: false
-            referencedRelation: "module_evaluation_field_defs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "module_evaluation_extra_scores_graded_by_fkey"
-            columns: ["graded_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      module_evaluation_field_defs: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          id: string
-          key: string
-          label: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          key: string
-          label: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          key?: string
-          label?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "module_evaluation_field_defs_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3246,6 +3168,10 @@ export type Database = {
         Returns: string
       }
       es_gestor_zr_coffee: { Args: never; Returns: boolean }
+      fn_asegurar_enrollment: {
+        Args: { p_cohort_id: string; p_module_id: string; p_student_id: string }
+        Returns: undefined
+      }
       fn_cambiar_mi_rol: {
         Args: { nuevo_rol: Database["public"]["Enums"]["user_role"] }
         Returns: undefined
@@ -3263,6 +3189,14 @@ export type Database = {
       fn_generar_sesion_semanal: { Args: never; Returns: undefined }
       fn_marcar_tour_visto: { Args: never; Returns: undefined }
       fn_notify_hora_refrigerio: { Args: never; Returns: undefined }
+      fn_recalc_evaluacion_general: {
+        Args: { p_module_id: string; p_student_id: string }
+        Returns: undefined
+      }
+      fn_recalc_puntualidad: {
+        Args: { p_module_id: string; p_student_id: string }
+        Returns: undefined
+      }
       fn_zr_coffee_eliminar_venta: {
         Args: { p_venta_id: string }
         Returns: undefined

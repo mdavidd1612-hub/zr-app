@@ -8,20 +8,27 @@ import { esDireccionAcademica } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
 
 /**
- * "Por Examen" -- pedido explícito del coordinador (sept. 2026). Registro de
- * exámenes que el profesor califica A MANO (distinto de `exams`/
- * `exam_attempts`, el examen digital autocalificado). Dirección Académica
- * solo define módulo/fecha/título/escala/mínimo aprobatorio -- nunca una
- * nota por estudiante, eso lo llena el profesor.
+ * "Registrar Evaluación" -- corrección explícita del coordinador (sept.
+ * 2026) sobre lo que antes era "Por Examen". Aquí se registran exámenes,
+ * prácticas u otras cosas evaluativas (columna `kind`, migración 110).
+ * Dirección Académica solo define esto -- nunca una nota por estudiante,
+ * eso lo llena el profesor. teoría y práctica del módulo se calculan solas
+ * a partir de estas notas (trigger `fn_recalc_evaluacion_general`).
+ *
+ * El selector ya NO lista todos los módulos de la historia (lista gigante,
+ * pedido explícito de corregir) -- lista las COHORTES ACTIVAS (ej. "PTMA
+ * 2026-II") con una etiqueta del módulo que están cursando ahora, y de ahí
+ * se toma el módulo real.
  */
 
-interface Modulo {
+interface CohorteActiva {
   id: string
   nombre: string
-  programa: string
+  moduloId: string
+  moduloNombre: string
 }
 
-interface Examen {
+interface Evaluacion {
   id: string
   moduleId: string
   moduloNombre: string
@@ -29,17 +36,25 @@ interface Examen {
   title: string
   scaleMax: number
   passingMin: number
+  kind: 'examen' | 'practica' | 'otro'
 }
 
-export default function ExamenesManuales() {
+const ETIQUETA_KIND: Record<Evaluacion['kind'], string> = {
+  examen: 'Examen',
+  practica: 'Práctica',
+  otro: 'Otro',
+}
+
+export default function RegistrarEvaluacion() {
   const router = useRouter()
   const [autorizado, setAutorizado] = useState<boolean | null>(null)
-  const [modulos, setModulos] = useState<Modulo[]>([])
-  const [examenes, setExamenes] = useState<Examen[]>([])
+  const [cohortes, setCohortes] = useState<CohorteActiva[]>([])
+  const [evaluaciones, setEvaluaciones] = useState<Evaluacion[]>([])
   const [error, setError] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
 
-  const [moduloId, setModuloId] = useState('')
+  const [cohorteId, setCohorteId] = useState('')
+  const [kind, setKind] = useState<Evaluacion['kind']>('examen')
   const [fecha, setFecha] = useState('')
   const [titulo, setTitulo] = useState('')
   const [escala, setEscala] = useState('20')
@@ -65,30 +80,36 @@ export default function ExamenesManuales() {
       }
       setAutorizado(true)
 
-      const [{ data: mods }, { data: exs }] = await Promise.all([
-        supabase.from('modules').select('id, name, order_index, programs(name)').order('order_index'),
+      const [{ data: cohs }, { data: exs }] = await Promise.all([
+        supabase
+          .from('cohorts')
+          .select('id, name, current_module_id, modules(name)')
+          .eq('status', 'activa')
+          .not('current_module_id', 'is', null)
+          .order('name'),
         supabase
           .from('manual_exam_definitions')
-          .select('id, module_id, exam_date, title, scale_max, passing_min, modules(name)')
+          .select('id, module_id, exam_date, title, scale_max, passing_min, kind, modules(name)')
           .order('exam_date', { ascending: false }),
       ])
 
       if (!vigente) return
 
-      type ModuloCrudo = { id: string; name: string; programs: { name: string } | null }
-      setModulos(
-        ((mods ?? []) as unknown as ModuloCrudo[]).map((m) => ({
-          id: m.id,
-          nombre: m.name,
-          programa: m.programs?.name ?? '',
+      type CohorteCruda = { id: string; name: string; current_module_id: string; modules: { name: string } | null }
+      setCohortes(
+        ((cohs ?? []) as unknown as CohorteCruda[]).map((c) => ({
+          id: c.id,
+          nombre: c.name,
+          moduloId: c.current_module_id,
+          moduloNombre: c.modules?.name ?? '—',
         })),
       )
 
       type ExamenCrudo = {
         id: string; module_id: string; exam_date: string; title: string
-        scale_max: number; passing_min: number; modules: { name: string } | null
+        scale_max: number; passing_min: number; kind: string; modules: { name: string } | null
       }
-      setExamenes(
+      setEvaluaciones(
         ((exs ?? []) as unknown as ExamenCrudo[]).map((e) => ({
           id: e.id,
           moduleId: e.module_id,
@@ -97,6 +118,7 @@ export default function ExamenesManuales() {
           title: e.title,
           scaleMax: Number(e.scale_max),
           passingMin: Number(e.passing_min),
+          kind: e.kind as Evaluacion['kind'],
         })),
       )
     }
@@ -105,9 +127,10 @@ export default function ExamenesManuales() {
     return () => { vigente = false }
   }, [router])
 
-  async function crearExamen() {
-    if (!moduloId || !fecha || !titulo.trim()) {
-      setError('Módulo, fecha y título son obligatorios.')
+  async function crear() {
+    const cohorte = cohortes.find((c) => c.id === cohorteId)
+    if (!cohorte || !fecha || !titulo.trim()) {
+      setError('Cohorte, fecha y título son obligatorios.')
       return
     }
 
@@ -117,13 +140,14 @@ export default function ExamenesManuales() {
     const { data, error: fallo } = await supabase
       .from('manual_exam_definitions')
       .insert({
-        module_id: moduloId,
+        module_id: cohorte.moduloId,
         exam_date: fecha,
         title: titulo.trim(),
         scale_max: Number(escala) || 20,
         passing_min: Number(minimo) || 12,
+        kind,
       })
-      .select('id, module_id, exam_date, title, scale_max, passing_min, modules(name)')
+      .select('id, module_id, exam_date, title, scale_max, passing_min, kind, modules(name)')
       .single()
 
     if (fallo) {
@@ -134,9 +158,9 @@ export default function ExamenesManuales() {
 
     const fila = data as unknown as {
       id: string; module_id: string; exam_date: string; title: string
-      scale_max: number; passing_min: number; modules: { name: string } | null
+      scale_max: number; passing_min: number; kind: string; modules: { name: string } | null
     }
-    setExamenes((ex) => [
+    setEvaluaciones((ex) => [
       {
         id: fila.id,
         moduleId: fila.module_id,
@@ -145,6 +169,7 @@ export default function ExamenesManuales() {
         title: fila.title,
         scaleMax: Number(fila.scale_max),
         passingMin: Number(fila.passing_min),
+        kind: fila.kind as Evaluacion['kind'],
       },
       ...ex,
     ])
@@ -153,10 +178,10 @@ export default function ExamenesManuales() {
     setGuardando(false)
   }
 
-  async function borrarExamen(id: string) {
+  async function borrar(id: string) {
     const supabase = createClient()
     const { error: fallo } = await supabase.from('manual_exam_definitions').delete().eq('id', id)
-    if (!fallo) setExamenes((ex) => ex.filter((e) => e.id !== id))
+    if (!fallo) setEvaluaciones((ex) => ex.filter((e) => e.id !== id))
   }
 
   if (autorizado === false) {
@@ -183,9 +208,10 @@ export default function ExamenesManuales() {
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
           Dirección Académica
         </p>
-        <h1 className="zr-display mt-3 text-3xl text-zr-text">Por Examen</h1>
+        <h1 className="zr-display mt-3 text-3xl text-zr-text">Registrar Evaluación</h1>
         <p className="mt-2 text-sm text-zr-text-muted">
-          Registra el examen; el profesor pone la nota de cada estudiante en su propia pantalla.
+          Exámenes, prácticas u otra cosa evaluativa. El profesor pone la nota de cada estudiante en
+          su propia pantalla — teoría y práctica del módulo se calculan solas a partir de esto.
         </p>
       </header>
 
@@ -196,18 +222,31 @@ export default function ExamenesManuales() {
       )}
 
       <div className="zr-card space-y-3 p-5">
-        <p className="text-xs font-bold uppercase tracking-wide text-zr-text-muted">Nuevo examen</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-zr-text-muted">Nueva evaluación</p>
 
         <select
-          value={moduloId}
-          onChange={(e) => setModuloId(e.target.value)}
+          value={cohorteId}
+          onChange={(e) => setCohorteId(e.target.value)}
           className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
         >
-          <option value="">Módulo…</option>
-          {modulos.map((m) => (
-            <option key={m.id} value={m.id}>{m.programa} — {m.nombre}</option>
+          <option value="">Programa…</option>
+          {cohortes.map((c) => (
+            <option key={c.id} value={c.id}>{c.nombre} — {c.moduloNombre}</option>
           ))}
         </select>
+
+        <div className="flex overflow-hidden rounded-full border border-zr-border">
+          {(['examen', 'practica', 'otro'] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setKind(k)}
+              className={`flex-1 py-2 text-xs font-bold ${kind === k ? 'bg-zr-blue text-white' : 'text-zr-text-muted'}`}
+            >
+              {ETIQUETA_KIND[k]}
+            </button>
+          ))}
+        </div>
 
         <input
           type="date"
@@ -245,24 +284,26 @@ export default function ExamenesManuales() {
         </div>
 
         <button
-          onClick={crearExamen}
+          onClick={crear}
           disabled={guardando}
           className="w-full rounded-lg bg-zr-blue px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
         >
-          {guardando ? 'Guardando…' : 'Registrar examen'}
+          {guardando ? 'Guardando…' : 'Registrar'}
         </button>
       </div>
 
       <div className="space-y-3">
-        {examenes.map((e) => (
+        {evaluaciones.map((e) => (
           <div key={e.id} className="zr-card flex items-center justify-between p-4">
             <div>
-              <p className="text-sm font-semibold text-zr-text">{e.title}</p>
+              <p className="text-sm font-semibold text-zr-text">
+                {e.title} <span className="text-xs font-normal text-zr-text-muted">· {ETIQUETA_KIND[e.kind]}</span>
+              </p>
               <p className="text-xs text-zr-text-muted">
                 {e.moduloNombre} · {e.examDate} · Escala {e.scaleMax} · Mínimo {e.passingMin}
               </p>
             </div>
-            <button onClick={() => borrarExamen(e.id)} className="text-xs font-bold text-zr-error">
+            <button onClick={() => borrar(e.id)} className="text-xs font-bold text-zr-error">
               Quitar
             </button>
           </div>

@@ -9,12 +9,12 @@ import { esDireccionAcademica } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
 
 /**
- * "Ver calificaciones (por estudiante)" -- pedido explícito del coordinador
- * (sept. 2026): esta pantalla dejó de ser editable. Dirección Académica NO
- * evalúa estudiantes -- eso lo hace el profesor, en `/notas/[cohortId]`
- * (grupo de rutas `(profesor)`). Aquí solo se muestra lo que el profesor ya
- * registró, incluyendo los campos evaluativos extra que Dirección Académica
- * haya definido en "General - Por Módulo".
+ * "Ver calificaciones (por estudiante)" -- pantalla de solo lectura para
+ * Dirección Académica. Nadie edita aquí: teoría y práctica se calculan
+ * solas a partir de "Registrar Evaluación" (fn_recalc_evaluacion_general,
+ * migración 110) y puntualidad se calcula sola desde la asistencia
+ * (fn_recalc_puntualidad, misma migración) -- ni el profesor ni Dirección
+ * Académica ni super_admin ponen ninguno de los tres a mano.
  */
 
 interface FilaNota {
@@ -23,11 +23,10 @@ interface FilaNota {
   cedula: string
   theory: number | null
   practice: number | null
-  participation: number | null
+  puntualidad: number | null
   finalScore: number | null
   status: string | null
   passingThreshold: number | null
-  extras: { label: string; score: number | null }[]
 }
 
 export default function VerCalificacionesCohorte() {
@@ -76,14 +75,13 @@ export default function VerCalificacionesCohorte() {
         return
       }
 
-      const [{ data: estudiantes }, { data: notas }, { data: defs }] = await Promise.all([
+      const [{ data: estudiantes }, { data: notas }] = await Promise.all([
         supabase.from('students').select('id, profiles!students_id_fkey(full_name, cedula)').eq('cohort_id', cohortId),
         supabase
           .from('module_enrollments')
-          .select('id, student_id, theory_score, practice_score, participation_score, final_score, status, passing_threshold, module_evaluation_extra_scores(score, module_evaluation_field_defs(label))')
+          .select('id, student_id, theory_score, practice_score, participation_score, final_score, status, passing_threshold')
           .eq('cohort_id', cohortId)
           .eq('module_id', cohorte.current_module_id),
-        supabase.from('module_evaluation_field_defs').select('id, label'),
       ])
 
       if (!vigente) return
@@ -97,10 +95,8 @@ export default function VerCalificacionesCohorte() {
         final_score: number | null
         status: string | null
         passing_threshold: number | null
-        module_evaluation_extra_scores: { score: number | null; module_evaluation_field_defs: { label: string } | null }[] | null
       }
       const porEstudiante = new Map(((notas ?? []) as unknown as NotaCruda[]).map((n) => [n.student_id, n]))
-      void defs
 
       setFilas(
         ((estudiantes ?? []) as unknown as EstudianteCrudo[]).map((e) => {
@@ -111,14 +107,10 @@ export default function VerCalificacionesCohorte() {
             cedula: e.profiles?.cedula ?? '—',
             theory: n?.theory_score ?? null,
             practice: n?.practice_score ?? null,
-            participation: n?.participation_score ?? null,
+            puntualidad: n?.participation_score ?? null,
             finalScore: n?.final_score ?? null,
             status: n?.status ?? null,
             passingThreshold: n?.passing_threshold ?? null,
-            extras: (n?.module_evaluation_extra_scores ?? []).map((ex) => ({
-              label: ex.module_evaluation_field_defs?.label ?? '—',
-              score: ex.score,
-            })),
           }
         }),
       )
@@ -155,7 +147,8 @@ export default function VerCalificacionesCohorte() {
         </p>
         <h1 className="zr-display mt-3 text-3xl text-zr-text">{cohorteNombre}</h1>
         <p className="mt-2 text-sm text-zr-text-muted">
-          Lo que ya calificó el profesor. Esta pantalla no se edita aquí.
+          Teoría y práctica se calculan solas desde &ldquo;Registrar Evaluación&rdquo;; puntualidad se
+          calcula sola desde la asistencia. Nada de esto se edita aquí.
         </p>
       </header>
 
@@ -176,7 +169,7 @@ export default function VerCalificacionesCohorte() {
                 {([
                   ['Teoría', f.theory],
                   ['Práctica', f.practice],
-                  ['Participación', f.participation],
+                  ['Puntualidad', f.puntualidad],
                 ] as const).map(([etiqueta, valor]) => (
                   <div key={etiqueta} className="rounded-lg border border-zr-border bg-zr-bg p-3">
                     <p className="text-xs font-semibold uppercase text-zr-text-muted">{etiqueta}</p>
@@ -184,17 +177,6 @@ export default function VerCalificacionesCohorte() {
                   </div>
                 ))}
               </div>
-
-              {f.extras.length > 0 && (
-                <div className="grid grid-cols-2 gap-3 text-center">
-                  {f.extras.map((ex, i) => (
-                    <div key={i} className="rounded-lg border border-zr-border bg-zr-bg p-3">
-                      <p className="text-xs font-semibold uppercase text-zr-text-muted">{ex.label}</p>
-                      <p className="mt-1 text-lg font-bold text-zr-text">{ex.score ?? '—'}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
 
               <div className="flex items-center justify-between border-t border-zr-border pt-4">
                 <div>

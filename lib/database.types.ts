@@ -842,6 +842,21 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_notification_log: {
+        Row: {
+          sent_on: string
+          type: string
+        }
+        Insert: {
+          sent_on?: string
+          type: string
+        }
+        Update: {
+          sent_on?: string
+          type?: string
+        }
+        Relationships: []
+      }
       doubts: {
         Row: {
           body: string
@@ -1560,6 +1575,131 @@ export type Database = {
           },
         ]
       }
+      manual_exam_definitions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          exam_date: string
+          id: string
+          module_id: string
+          passing_min: number
+          scale_max: number
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          exam_date: string
+          id?: string
+          module_id: string
+          passing_min?: number
+          scale_max?: number
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          exam_date?: string
+          id?: string
+          module_id?: string
+          passing_min?: number
+          scale_max?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_exam_definitions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_exam_definitions_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_exam_scores: {
+        Row: {
+          definition_id: string
+          graded_at: string
+          graded_by: string | null
+          id: string
+          score: number
+          student_id: string
+        }
+        Insert: {
+          definition_id: string
+          graded_at?: string
+          graded_by?: string | null
+          id?: string
+          score: number
+          student_id: string
+        }
+        Update: {
+          definition_id?: string
+          graded_at?: string
+          graded_by?: string | null
+          id?: string
+          score?: number
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_exam_scores_definition_id_fkey"
+            columns: ["definition_id"]
+            isOneToOne: false
+            referencedRelation: "manual_exam_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_exam_scores_graded_by_fkey"
+            columns: ["graded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_exam_scores_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_exam_scores_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_mi_dominio"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "manual_exam_scores_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_proximo_sabado"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "manual_exam_scores_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_exam_scores_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students_blocked"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mastery_map: {
         Row: {
           created_at: string
@@ -1760,6 +1900,87 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "v_students_blocked"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      module_evaluation_extra_scores: {
+        Row: {
+          enrollment_id: string
+          field_def_id: string
+          graded_at: string
+          graded_by: string | null
+          id: string
+          score: number | null
+        }
+        Insert: {
+          enrollment_id: string
+          field_def_id: string
+          graded_at?: string
+          graded_by?: string | null
+          id?: string
+          score?: number | null
+        }
+        Update: {
+          enrollment_id?: string
+          field_def_id?: string
+          graded_at?: string
+          graded_by?: string | null
+          id?: string
+          score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_evaluation_extra_scores_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "module_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "module_evaluation_extra_scores_field_def_id_fkey"
+            columns: ["field_def_id"]
+            isOneToOne: false
+            referencedRelation: "module_evaluation_field_defs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "module_evaluation_extra_scores_graded_by_fkey"
+            columns: ["graded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      module_evaluation_field_defs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          key: string
+          label: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          key: string
+          label: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          key?: string
+          label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_evaluation_field_defs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3041,6 +3262,7 @@ export type Database = {
       fn_generar_caso_del_dia: { Args: never; Returns: undefined }
       fn_generar_sesion_semanal: { Args: never; Returns: undefined }
       fn_marcar_tour_visto: { Args: never; Returns: undefined }
+      fn_notify_hora_refrigerio: { Args: never; Returns: undefined }
       fn_zr_coffee_eliminar_venta: {
         Args: { p_venta_id: string }
         Returns: undefined

@@ -105,6 +105,27 @@ export default function NotasAcademicas() {
 
       <Regla delay={60} />
 
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={() => router.push('/notas-academicas/campos-evaluativos')}
+          className="zr-card zr-card-interactive p-4 text-left"
+        >
+          <p className="text-sm font-bold text-zr-text">General - Por Módulo</p>
+          <p className="mt-1 text-xs text-zr-text-muted">Campos evaluativos</p>
+        </button>
+        <button
+          onClick={() => router.push('/notas-academicas/examenes')}
+          className="zr-card zr-card-interactive p-4 text-left"
+        >
+          <p className="text-sm font-bold text-zr-text">Por Examen</p>
+          <p className="mt-1 text-xs text-zr-text-muted">Registro de exámenes</p>
+        </button>
+      </div>
+
+      <p className="text-xs font-bold uppercase tracking-wide text-zr-text-muted">
+        Ver calificaciones (por estudiante)
+      </p>
+
       {cohortes.length === 0 ? (
         <EstadoVacio titulo="Sin programas" explicacion="Todavía no hay ningún programa creado." />
       ) : (

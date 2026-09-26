@@ -8,26 +8,29 @@ import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
 
-// La nota final y el estado los calcula SIEMPRE el servidor (trigger
-// fn_recalc_enrollment, migración 005) — este formulario solo escribe
-// theory_score/practice_score/participation_score y lee de vuelta lo que
-// la base ya calculó. Nunca se calcula una nota en el navegador.
+/**
+ * "Ver calificaciones (por estudiante)" -- pedido explícito del coordinador
+ * (sept. 2026): esta pantalla dejó de ser editable. Dirección Académica NO
+ * evalúa estudiantes -- eso lo hace el profesor, en `/notas/[cohortId]`
+ * (grupo de rutas `(profesor)`). Aquí solo se muestra lo que el profesor ya
+ * registró, incluyendo los campos evaluativos extra que Dirección Académica
+ * haya definido en "General - Por Módulo".
+ */
 
 interface FilaNota {
-  enrollmentId: string | null
   studentId: string
   nombre: string
   cedula: string
   theory: number | null
   practice: number | null
   participation: number | null
-  weight: number
   finalScore: number | null
   status: string | null
   passingThreshold: number | null
+  extras: { label: string; score: number | null }[]
 }
 
-export default function NotasCohorte() {
+export default function VerCalificacionesCohorte() {
   const router = useRouter()
   const params = useParams()
   const cohortId = params.cohortId as string
@@ -37,8 +40,6 @@ export default function NotasCohorte() {
   const [moduleId, setModuleId] = useState<string | null>(null)
   const [filas, setFilas] = useState<FilaNota[]>([])
   const [cargando, setCargando] = useState(true)
-  const [guardandoId, setGuardandoId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let vigente = true
@@ -75,35 +76,49 @@ export default function NotasCohorte() {
         return
       }
 
-      const [{ data: estudiantes }, { data: notas }] = await Promise.all([
+      const [{ data: estudiantes }, { data: notas }, { data: defs }] = await Promise.all([
         supabase.from('students').select('id, profiles!students_id_fkey(full_name, cedula)').eq('cohort_id', cohortId),
         supabase
           .from('module_enrollments')
-          .select('id, student_id, theory_score, practice_score, participation_score, participation_weight, final_score, status, passing_threshold')
+          .select('id, student_id, theory_score, practice_score, participation_score, final_score, status, passing_threshold, module_evaluation_extra_scores(score, module_evaluation_field_defs(label))')
           .eq('cohort_id', cohortId)
           .eq('module_id', cohorte.current_module_id),
+        supabase.from('module_evaluation_field_defs').select('id, label'),
       ])
 
       if (!vigente) return
 
       type EstudianteCrudo = { id: string; profiles: { full_name: string; cedula: string } | null }
-      const porEstudiante = new Map((notas ?? []).map((n) => [n.student_id, n]))
+      type NotaCruda = {
+        student_id: string
+        theory_score: number | null
+        practice_score: number | null
+        participation_score: number | null
+        final_score: number | null
+        status: string | null
+        passing_threshold: number | null
+        module_evaluation_extra_scores: { score: number | null; module_evaluation_field_defs: { label: string } | null }[] | null
+      }
+      const porEstudiante = new Map(((notas ?? []) as unknown as NotaCruda[]).map((n) => [n.student_id, n]))
+      void defs
 
       setFilas(
         ((estudiantes ?? []) as unknown as EstudianteCrudo[]).map((e) => {
           const n = porEstudiante.get(e.id)
           return {
-            enrollmentId: n?.id ?? null,
             studentId: e.id,
             nombre: e.profiles?.full_name ?? '—',
             cedula: e.profiles?.cedula ?? '—',
             theory: n?.theory_score ?? null,
             practice: n?.practice_score ?? null,
             participation: n?.participation_score ?? null,
-            weight: n?.participation_weight ?? 0.05,
             finalScore: n?.final_score ?? null,
             status: n?.status ?? null,
             passingThreshold: n?.passing_threshold ?? null,
+            extras: (n?.module_evaluation_extra_scores ?? []).map((ex) => ({
+              label: ex.module_evaluation_field_defs?.label ?? '—',
+              score: ex.score,
+            })),
           }
         }),
       )
@@ -113,56 +128,6 @@ export default function NotasCohorte() {
     cargar()
     return () => { vigente = false }
   }, [router, cohortId])
-
-  async function guardar(fila: FilaNota, campo: 'theory' | 'practice' | 'participation', valor: number) {
-    if (!moduleId) return
-    setGuardandoId(fila.studentId)
-    setError(null)
-
-    const supabase = createClient()
-    const payload = {
-      student_id: fila.studentId,
-      module_id: moduleId,
-      cohort_id: cohortId,
-      theory_score: campo === 'theory' ? valor : fila.theory,
-      practice_score: campo === 'practice' ? valor : fila.practice,
-      participation_score: campo === 'participation' ? valor : fila.participation,
-      participation_weight: fila.weight,
-      // 0 es el centinela que el trigger fn_set_passing_threshold reconoce
-      // como "calcúlalo tú" — solo importa en el insert inicial.
-      passing_threshold: fila.passingThreshold ?? 0,
-    }
-
-    const { data, error: fallo } = await supabase
-      .from('module_enrollments')
-      .upsert(payload, { onConflict: 'student_id,module_id' })
-      .select('id, final_score, status, passing_threshold')
-      .single()
-
-    if (fallo) {
-      setError(fallo.message)
-      setGuardandoId(null)
-      return
-    }
-
-    setFilas((fs) =>
-      fs.map((f) =>
-        f.studentId === fila.studentId
-          ? {
-              ...f,
-              enrollmentId: data.id,
-              theory: payload.theory_score,
-              practice: payload.practice_score,
-              participation: payload.participation_score,
-              finalScore: data.final_score,
-              status: data.status,
-              passingThreshold: data.passing_threshold,
-            }
-          : f,
-      ),
-    )
-    setGuardandoId(null)
-  }
 
   if (autorizado === false) {
     return (
@@ -175,7 +140,7 @@ export default function NotasCohorte() {
   if (cargando || autorizado === null) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando notas…</p>
+        <p className="text-sm text-zr-text-muted">Cargando calificaciones…</p>
       </div>
     )
   }
@@ -185,15 +150,14 @@ export default function NotasCohorte() {
       <BotonVolver href="/notas-academicas" />
 
       <header>
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">Dirección Académica</p>
-        <h1 className="zr-display mt-3 text-3xl text-zr-text">{cohorteNombre}</h1>
-      </header>
-
-      {error && (
-        <p className="rounded-lg border border-zr-error/30 bg-zr-error/12 px-4 py-3 text-sm font-medium text-zr-error">
-          {error}
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
+          Dirección Académica · Ver calificaciones
         </p>
-      )}
+        <h1 className="zr-display mt-3 text-3xl text-zr-text">{cohorteNombre}</h1>
+        <p className="mt-2 text-sm text-zr-text-muted">
+          Lo que ya calificó el profesor. Esta pantalla no se edita aquí.
+        </p>
+      </header>
 
       {!moduleId ? (
         <EstadoVacio titulo="Sin módulo activo" explicacion="Esta cohorte no tiene un módulo en curso asignado." />
@@ -208,28 +172,29 @@ export default function NotasCohorte() {
                 <p className="text-sm tabular-nums text-zr-text-muted">{f.cedula}</p>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                {(['theory', 'practice', 'participation'] as const).map((campo) => (
-                  <div key={campo}>
-                    <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">
-                      {campo === 'theory' ? 'Teoría' : campo === 'practice' ? 'Práctica' : 'Participación'}
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={20}
-                      step={0.5}
-                      defaultValue={f[campo] ?? ''}
-                      onBlur={(e) => {
-                        const v = parseFloat(e.target.value)
-                        if (!Number.isNaN(v)) guardar(f, campo, v)
-                      }}
-                      disabled={guardandoId === f.studentId}
-                      className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-center text-base font-semibold text-zr-text focus:border-zr-blue focus:outline-none"
-                    />
+              <div className="grid grid-cols-3 gap-3 text-center">
+                {([
+                  ['Teoría', f.theory],
+                  ['Práctica', f.practice],
+                  ['Participación', f.participation],
+                ] as const).map(([etiqueta, valor]) => (
+                  <div key={etiqueta} className="rounded-lg border border-zr-border bg-zr-bg p-3">
+                    <p className="text-xs font-semibold uppercase text-zr-text-muted">{etiqueta}</p>
+                    <p className="mt-1 text-lg font-bold text-zr-text">{valor ?? '—'}</p>
                   </div>
                 ))}
               </div>
+
+              {f.extras.length > 0 && (
+                <div className="grid grid-cols-2 gap-3 text-center">
+                  {f.extras.map((ex, i) => (
+                    <div key={i} className="rounded-lg border border-zr-border bg-zr-bg p-3">
+                      <p className="text-xs font-semibold uppercase text-zr-text-muted">{ex.label}</p>
+                      <p className="mt-1 text-lg font-bold text-zr-text">{ex.score ?? '—'}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="flex items-center justify-between border-t border-zr-border pt-4">
                 <div>

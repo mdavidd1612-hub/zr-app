@@ -350,7 +350,7 @@ export default function Inicio() {
                       className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg border border-zr-blue/40 text-base font-bold text-zr-blue-mid"
                     >
                       <IconoTaza size={20} />
-                      Reclamar refrigerio
+                      Escanear refrigerio
                     </button>
                   </>
                 ) : (

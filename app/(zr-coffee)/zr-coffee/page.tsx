@@ -466,7 +466,7 @@ export default function ZRCoffee() {
         href="/zr-coffee/refrigerio"
         className="zr-card block p-5 text-center text-sm font-bold text-zr-blue-mid"
       >
-        Escanear refrigerio →
+        QR de Refrigerio →
       </a>
 
       {/* ------------------------------ Tasa del día ------------------------------ */}

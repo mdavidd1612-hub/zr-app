@@ -7,7 +7,7 @@ import { Seccion, Regla } from '@/components/ui/Editorial'
 import { CASOS, diaSemanaISO, lunesDeLaSemana, fechaISO } from '@/lib/casos-fase0'
 import { leerSimulacionSabado } from '@/lib/demo-sabado'
 import { CASOS_HABILITADO } from '@/lib/flags'
-import { IconoCarnet, IconoCheck } from '@/components/ui/Iconos'
+import { IconoCarnet, IconoCheck, IconoTaza } from '@/components/ui/Iconos'
 import { esAdmin } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
 
@@ -337,10 +337,22 @@ export default function Inicio() {
               </div>
               <div className="space-y-4 px-6 py-6">
                 {asistenciaHoy ? (
-                  <div className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg border border-zr-success/30 bg-zr-success/12 text-base font-bold text-zr-success">
-                    <IconoCheck size={20} />
-                    Ya se registró tu asistencia
-                  </div>
+                  <>
+                    <div className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg border border-zr-success/30 bg-zr-success/12 text-base font-bold text-zr-success">
+                      <IconoCheck size={20} />
+                      Ya se registró tu asistencia
+                    </div>
+                    {/* Refrigerio digital (pedido explícito del coordinador,
+                        sept. 2026): la cantina muestra el QR, se escanea desde
+                        aquí -- claim-snack-checkin valida el resto. */}
+                    <button
+                      onClick={() => router.push('/refrigerio')}
+                      className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg border border-zr-blue/40 text-base font-bold text-zr-blue-mid"
+                    >
+                      <IconoTaza size={20} />
+                      Reclamar refrigerio
+                    </button>
+                  </>
                 ) : (
                   <>
                     <p className="text-sm leading-relaxed text-zr-text-muted">

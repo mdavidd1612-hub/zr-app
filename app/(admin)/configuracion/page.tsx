@@ -45,7 +45,18 @@ export default function Configuracion() {
   const [version, setVersion] = useState(0)
   const [probandoMoodle, setProbandoMoodle] = useState(false)
   const [resultadoMoodle, setResultadoMoodle] = useState<
-    { conectado: true; sitio: string; version: string } | { conectado: false; error: string } | null
+    | {
+        conectado: true
+        sitio: string
+        version: string
+        prueba: {
+          estudiante: string
+          cursos: { id: number; nombre: string }[]
+          notas: { actividad: string; nota: string }[]
+        } | null
+      }
+    | { conectado: false; error: string }
+    | null
   >(null)
 
   async function probarMoodle() {
@@ -286,6 +297,29 @@ export default function Configuracion() {
             {resultadoMoodle.conectado
               ? `Conectado — ${resultadoMoodle.sitio} (Moodle ${resultadoMoodle.version})`
               : `No se pudo conectar: ${resultadoMoodle.error}`}
+          </div>
+        )}
+        {resultadoMoodle?.conectado && resultadoMoodle.prueba && (
+          <div className="mt-3 rounded-lg border border-zr-border bg-zr-bg px-4 py-3 text-sm text-zr-text">
+            <p className="font-semibold">Prueba real: {resultadoMoodle.prueba.estudiante}</p>
+            <p className="mt-2 text-xs font-bold uppercase tracking-wide text-zr-text-muted">Cursos</p>
+            <ul className="mt-1 list-disc pl-5">
+              {resultadoMoodle.prueba.cursos.map((c) => (
+                <li key={c.id}>{c.nombre}</li>
+              ))}
+            </ul>
+            {resultadoMoodle.prueba.notas.length > 0 && (
+              <>
+                <p className="mt-2 text-xs font-bold uppercase tracking-wide text-zr-text-muted">Notas</p>
+                <ul className="mt-1 list-disc pl-5">
+                  {resultadoMoodle.prueba.notas.map((n) => (
+                    <li key={n.actividad}>
+                      {n.actividad}: {n.nota}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </div>
         )}
       </Seccion>

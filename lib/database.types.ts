@@ -1809,6 +1809,7 @@ export type Database = {
       module_enrollments: {
         Row: {
           approved_at: string | null
+          class_participation_score: number | null
           cohort_id: string
           created_at: string
           final_score: number | null
@@ -1825,6 +1826,7 @@ export type Database = {
         }
         Insert: {
           approved_at?: string | null
+          class_participation_score?: number | null
           cohort_id: string
           created_at?: string
           final_score?: number | null
@@ -1841,6 +1843,7 @@ export type Database = {
         }
         Update: {
           approved_at?: string | null
+          class_participation_score?: number | null
           cohort_id?: string
           created_at?: string
           final_score?: number | null

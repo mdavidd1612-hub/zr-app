@@ -24,6 +24,7 @@ interface FilaNota {
   theory: number | null
   practice: number | null
   puntualidad: number | null
+  participacionClase: number | null
   finalScore: number | null
   status: string | null
   passingThreshold: number | null
@@ -79,7 +80,7 @@ export default function VerCalificacionesCohorte() {
         supabase.from('students').select('id, profiles!students_id_fkey(full_name, cedula)').eq('cohort_id', cohortId),
         supabase
           .from('module_enrollments')
-          .select('id, student_id, theory_score, practice_score, participation_score, final_score, status, passing_threshold')
+          .select('id, student_id, theory_score, practice_score, participation_score, class_participation_score, final_score, status, passing_threshold')
           .eq('cohort_id', cohortId)
           .eq('module_id', cohorte.current_module_id),
       ])
@@ -92,6 +93,7 @@ export default function VerCalificacionesCohorte() {
         theory_score: number | null
         practice_score: number | null
         participation_score: number | null
+        class_participation_score: number | null
         final_score: number | null
         status: string | null
         passing_threshold: number | null
@@ -108,6 +110,7 @@ export default function VerCalificacionesCohorte() {
             theory: n?.theory_score ?? null,
             practice: n?.practice_score ?? null,
             puntualidad: n?.participation_score ?? null,
+            participacionClase: n?.class_participation_score ?? null,
             finalScore: n?.final_score ?? null,
             status: n?.status ?? null,
             passingThreshold: n?.passing_threshold ?? null,
@@ -165,11 +168,12 @@ export default function VerCalificacionesCohorte() {
                 <p className="text-sm tabular-nums text-zr-text-muted">{f.cedula}</p>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="grid grid-cols-4 gap-2 text-center">
                 {([
                   ['Teoría', f.theory],
                   ['Práctica', f.practice],
                   ['Puntualidad', f.puntualidad],
+                  ['Participación', f.participacionClase],
                 ] as const).map(([etiqueta, valor]) => (
                   <div key={etiqueta} className="rounded-lg border border-zr-border bg-zr-bg p-3">
                     <p className="text-xs font-semibold uppercase text-zr-text-muted">{etiqueta}</p>

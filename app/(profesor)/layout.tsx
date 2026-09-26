@@ -25,7 +25,7 @@ const NAV_BASE = [
   { href: '/dudas-docente',      label: 'Dudas',    Icono: IconoDuda },
   { href: '/casos-docente',      label: 'Casos',    Icono: IconoProgreso },
   { href: '/contenido-docente',  label: 'Material',  Icono: IconoDocumento },
-  { href: '/notas',              label: 'Notas',    Icono: IconoNotas },
+  { href: '/notas-docente',      label: 'Notas',    Icono: IconoNotas },
   { href: '/perfil-docente',     label: 'Perfil',    Icono: IconoPerfil },
 ]
 

@@ -170,10 +170,22 @@ export default function ContenidoProfesor() {
 
   const [descargando, setDescargando] = useState<string | null>(null)
 
+  // Bug real reportado por el coordinador (sept. 2026): "el archivo se
+  // descarga con un nombre todo raro" -- sin `download`, algunos navegadores
+  // usan el nombre crudo de storage_path (con el UUID pegado al inicio) al
+  // guardar el archivo. Se manda el nombre correcto explícito.
+  function nombreArchivoDescarga(titulo: string, rutaStorage: string): string {
+    const ext = rutaStorage.split('.').pop()
+    const tituloLimpio = titulo.replace(/[^a-zA-Z0-9 ._-]/g, '').trim() || 'archivo'
+    return ext ? `${tituloLimpio}.${ext}` : tituloLimpio
+  }
+
   async function descargar(m: Material) {
     if (!m.rutaStorage) return
     setDescargando(m.id)
-    const { data: firmada } = await createClient().storage.from('contenido').createSignedUrl(m.rutaStorage, 300)
+    const { data: firmada } = await createClient().storage
+      .from('contenido')
+      .createSignedUrl(m.rutaStorage, 300, { download: nombreArchivoDescarga(m.titulo, m.rutaStorage) })
     setDescargando(null)
     if (firmada?.signedUrl) window.open(firmada.signedUrl, '_blank', 'noopener,noreferrer')
   }

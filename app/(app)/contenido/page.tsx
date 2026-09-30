@@ -46,6 +46,18 @@ interface Material {
   tipo: 'pdf' | 'video' | 'presentacion' | string
 }
 
+// Bug real reportado por el coordinador (sept. 2026): "el archivo se
+// descarga con un nombre todo raro". Causa: `{ download: true }` hace que
+// el SERVIDOR mande como nombre el de storage_path tal cual, que lleva un
+// UUID pegado al inicio (para no chocar entre archivos) -- ej.
+// "6b5732e8-...-Modulo_2.pdf". Se manda el nombre correcto al servidor
+// para que se vea igual en cualquier navegador/teléfono.
+function nombreArchivoDescarga(titulo: string, rutaStorage: string): string {
+  const ext = rutaStorage.split('.').pop()
+  const tituloLimpio = titulo.replace(/[^a-zA-Z0-9 ._-]/g, '').trim() || 'archivo'
+  return ext ? `${tituloLimpio}.${ext}` : tituloLimpio
+}
+
 export default function Contenido() {
   const router = useRouter()
   const [pilaCarpetas, setPilaCarpetas] = useState<Carpeta[]>([])
@@ -145,7 +157,7 @@ export default function Contenido() {
 
     const { data: firmada } = await supabase.storage
       .from('contenido')
-      .createSignedUrl(item.storage_path, 300, { download: true })
+      .createSignedUrl(item.storage_path, 300, { download: nombreArchivoDescarga(m.titulo, item.storage_path) })
 
     setDescargando(null)
     if (!firmada?.signedUrl) {

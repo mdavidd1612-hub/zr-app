@@ -390,13 +390,28 @@ export default function MaterialAdmin() {
     document.body.removeChild(a)
   }
 
+  // Bug real reportado por el coordinador (sept. 2026): "el archivo se
+  // descarga con un nombre todo raro". Causa: `{ download: true }` hace que
+  // el SERVIDOR mande como nombre el de storage_path tal cual, que lleva un
+  // UUID pegado al inicio (para no chocar entre archivos, migración 008) --
+  // ej. "6b5732e8-...-Modulo_2.pdf". El atributo `download` del lado
+  // cliente (arriba) lo tapa en la mayoría de navegadores, pero no en todos
+  // (Safari/iOS en PWA lo ignora con URLs de otro dominio) -- ahí gana el
+  // nombre feo del servidor. Se manda el nombre correcto también al
+  // servidor para que sea el mismo en cualquier navegador.
+  function nombreArchivoDescarga(titulo: string, rutaStorage: string): string {
+    const ext = rutaStorage.split('.').pop()
+    const tituloLimpio = titulo.replace(/[^a-zA-Z0-9 ._-]/g, '').trim() || 'archivo'
+    return ext ? `${tituloLimpio}.${ext}` : tituloLimpio
+  }
+
   async function descargar(m: Material) {
     if (!m.rutaStorage) return
     setDescargando(m.id)
     const supabase = createClient()
     const { data: firmada } = await supabase.storage
       .from('contenido')
-      .createSignedUrl(m.rutaStorage, 300, { download: true })
+      .createSignedUrl(m.rutaStorage, 300, { download: nombreArchivoDescarga(m.titulo, m.rutaStorage) })
     setDescargando(null)
     if (firmada?.signedUrl) {
       descargarDesdeUrl(firmada.signedUrl, m.titulo)

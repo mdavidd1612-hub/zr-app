@@ -324,6 +324,13 @@ export default function MaterialAdmin() {
   }
 
   async function alternarPublicado(m: Material) {
+    // Despublicar es lo peligroso -- un clic sin querer deja el archivo
+    // invisible para todos los estudiantes sin ningún aviso. Publicar no
+    // necesita confirmación, la otra dirección sí (bug real reportado por
+    // Dirección Académica, sept. 2026).
+    if (m.publicado && !confirm(`¿Quitar "${m.titulo}" de publicado? Los estudiantes dejarán de verlo de inmediato.`)) {
+      return
+    }
     await createClient().from('content_items').update({ is_published: !m.publicado }).eq('id', m.id)
     setVersion((v) => v + 1)
   }
@@ -692,7 +699,18 @@ export default function MaterialAdmin() {
                 ))}
 
                 {materiales.map((m) => (
-                  <div key={m.id} className="zr-card p-4">
+                  <div
+                    key={m.id}
+                    className={`zr-card p-4 ${
+                      !m.publicado && m.estadoAprobacion !== 'rechazado' ? 'border-2 border-zr-warning/60' : ''
+                    }`}
+                  >
+                    {!m.publicado && m.estadoAprobacion !== 'rechazado' && (
+                      <p className="mb-3 flex items-center gap-1.5 text-xs font-bold text-zr-warning">
+                        <IconoAviso size={14} />
+                        Los estudiantes NO ven este archivo todavía
+                      </p>
+                    )}
                     {editandoMaterialId === m.id ? (
                       <div className="space-y-2.5">
                         <input
@@ -764,8 +782,8 @@ export default function MaterialAdmin() {
                             <Etiqueta tono="error">Rechazado</Etiqueta>
                           ) : (
                             <button onClick={() => alternarPublicado(m)}>
-                              <Etiqueta tono={m.publicado ? 'exito' : 'neutro'}>
-                                {m.publicado ? 'Publicado' : 'Borrador'}
+                              <Etiqueta tono={m.publicado ? 'exito' : 'aviso'}>
+                                {m.publicado ? 'Publicado' : 'Borrador — sin publicar'}
                               </Etiqueta>
                             </button>
                           )}

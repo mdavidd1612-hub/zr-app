@@ -902,6 +902,42 @@ export type Database = {
           },
         ]
       }
+      event_registrations: {
+        Row: {
+          consent: boolean
+          created_at: string
+          email: string
+          event_key: string
+          full_name: string
+          id: string
+          phone: string
+          source: string
+          source_detail: string | null
+        }
+        Insert: {
+          consent: boolean
+          created_at?: string
+          email: string
+          event_key?: string
+          full_name: string
+          id?: string
+          phone: string
+          source: string
+          source_detail?: string | null
+        }
+        Update: {
+          consent?: boolean
+          created_at?: string
+          email?: string
+          event_key?: string
+          full_name?: string
+          id?: string
+          phone?: string
+          source?: string
+          source_detail?: string | null
+        }
+        Relationships: []
+      }
       exam_answers: {
         Row: {
           answer: Json | null
@@ -3053,6 +3089,15 @@ export type Database = {
         }
         Returns: string
       }
+      get_evento_info: {
+        Args: never
+        Returns: {
+          fecha: string
+          hora: string
+          lugar: string
+          nombre: string
+        }[]
+      }
       is_academico: { Args: never; Returns: boolean }
       is_admin_up: { Args: never; Returns: boolean }
       is_staff: { Args: never; Returns: boolean }
@@ -3061,6 +3106,16 @@ export type Database = {
       is_vendedor: { Args: never; Returns: boolean }
       my_cohort_id: { Args: never; Returns: string }
       my_module_id: { Args: never; Returns: string }
+      seed_user: {
+        Args: {
+          p_cedula: string
+          p_email: string
+          p_full_name: string
+          p_id: string
+          p_role: Database["public"]["Enums"]["user_role"]
+        }
+        Returns: string
+      }
       set_student_code_calc: {
         Args: { p_cohort_id: string; p_enrollment_date: string; p_id: string }
         Returns: string

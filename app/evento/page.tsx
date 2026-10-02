@@ -113,34 +113,38 @@ export default function Evento() {
   ].filter((d) => d.valor)
 
   const cabecera = (
-    <div className="space-y-3 text-center">
+    <header className="space-y-6 text-center">
       <Image
         src="/logo-zr-mecademy.png"
         alt="ZR Mecademy"
         width={958}
         height={254}
         priority
-        className="mx-auto h-14 w-auto"
+        className="mx-auto h-9 w-auto"
       />
-      <h1 className="zr-display text-4xl text-zr-text">{info.nombre}</h1>
-    </div>
+      <div className="space-y-3">
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-zr-blue-mid">Confirma tu asistencia</p>
+        <h1 className="zr-display text-balance text-[1.7rem] leading-[1.15] text-zr-text">{info.nombre}</h1>
+        <div aria-hidden="true" className="mx-auto h-1 w-10 rounded-full bg-zr-blue" />
+      </div>
+    </header>
   )
 
   const bloqueDetalles = detalles.length > 0 && (
-    <div className="grid gap-2">
+    <dl className="divide-y divide-zr-border overflow-hidden rounded-2xl border border-zr-border bg-zr-surface">
       {detalles.map((d) => (
-        <div key={d.etiqueta} className="flex items-baseline justify-between gap-4 rounded-xl border border-zr-border bg-zr-surface px-5 py-3">
-          <span className="text-xs font-bold uppercase tracking-wider text-zr-text-muted">{d.etiqueta}</span>
-          <span className="text-right text-sm font-semibold text-zr-text">{d.valor}</span>
+        <div key={d.etiqueta} className="flex gap-4 px-5 py-3.5">
+          <dt className="w-14 shrink-0 pt-0.5 text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">{d.etiqueta}</dt>
+          <dd className="text-sm font-semibold leading-snug text-zr-text">{d.valor}</dd>
         </div>
       ))}
-    </div>
+    </dl>
   )
 
   if (confirmado) {
     return (
-      <main className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col justify-center bg-zr-bg px-5 py-10">
-        <div className="w-full space-y-8">
+      <main className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col justify-center bg-zr-bg px-5 py-8">
+        <div className="w-full space-y-7">
           {cabecera}
           <div className="space-y-3 rounded-2xl border border-zr-success/30 bg-zr-success/12 px-6 py-8 text-center">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-zr-success/20 text-zr-success">
@@ -162,8 +166,8 @@ export default function Evento() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col justify-center bg-zr-bg px-5 py-10">
-      <div className="w-full space-y-8">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col justify-center bg-zr-bg px-5 py-8">
+      <div className="w-full space-y-7">
         {cabecera}
 
         {bloqueDetalles}

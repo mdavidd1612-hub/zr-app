@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { MarcaZR, IconoCheck } from '@/components/ui/Iconos'
+import Image from 'next/image'
+import { IconoCheck } from '@/components/ui/Iconos'
 
 /**
  * Página pública del evento (pedido del coordinador, oct. 2026). Sin login:
@@ -113,10 +114,14 @@ export default function Evento() {
 
   const cabecera = (
     <div className="space-y-3 text-center">
-      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-zr-border bg-zr-surface text-zr-blue">
-        <MarcaZR size={30} />
-      </div>
-      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">ZR Mecademy</p>
+      <Image
+        src="/logo-zr-mecademy.png"
+        alt="ZR Mecademy"
+        width={958}
+        height={254}
+        priority
+        className="mx-auto h-14 w-auto"
+      />
       <h1 className="zr-display text-4xl text-zr-text">{info.nombre}</h1>
     </div>
   )

@@ -183,11 +183,21 @@ export default function ContenidoProfesor() {
   async function descargar(m: Material) {
     if (!m.rutaStorage) return
     setDescargando(m.id)
+    // window.open después de un await lo bloquea casi siempre el navegador
+    // del teléfono (ya no cuenta como gesto del usuario) y el botón "no
+    // hace nada". Se abre la pestaña ANTES de esperar y después se le pone
+    // la URL -- mismo arreglo que ya usa la pantalla del estudiante.
+    const pestañaNueva = window.open('', '_blank')
     const { data: firmada } = await createClient().storage
       .from('contenido')
       .createSignedUrl(m.rutaStorage, 300, { download: nombreArchivoDescarga(m.titulo, m.rutaStorage) })
     setDescargando(null)
-    if (firmada?.signedUrl) window.open(firmada.signedUrl, '_blank', 'noopener,noreferrer')
+    if (!firmada?.signedUrl) {
+      pestañaNueva?.close()
+      return
+    }
+    if (pestañaNueva) pestañaNueva.location.href = firmada.signedUrl
+    else window.open(firmada.signedUrl, '_blank', 'noopener,noreferrer')
   }
 
   if (cargando) {

@@ -65,6 +65,7 @@ export default function MaterialAdmin() {
 
   const [subiendo, setSubiendo] = useState(false)
   const [archivo, setArchivo] = useState<File | null>(null)
+  const [avisoPeso, setAvisoPeso] = useState<string | null>(null)
   const [titulo, setTitulo] = useState('')
   const [semana, setSemana] = useState<number | ''>('')
   const [error, setError] = useState<string | null>(null)
@@ -824,9 +825,30 @@ export default function MaterialAdmin() {
             <input
               type="file"
               accept="application/pdf,video/mp4,video/webm,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-              onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
+              onChange={async (e) => {
+                const f = e.target.files?.[0] ?? null
+                setArchivo(f)
+                setAvisoPeso(null)
+                if (!f) return
+                // Aviso suave, no bloquea (migración 117): un archivo muy
+                // pesado se ve lento o mal en teléfonos de gama baja.
+                const { data } = await createClient()
+                  .from('system_config').select('value').eq('key', 'content.aviso_pesado_mb').maybeSingle()
+                const limiteMB = Number(data?.value)
+                if (limiteMB && f.size > limiteMB * 1024 * 1024) {
+                  setAvisoPeso(
+                    `Este archivo pesa ${(f.size / 1024 / 1024).toFixed(0)} MB. En teléfonos de gama baja puede tardar mucho o verse mal. Conviene comprimirlo (por debajo de ${limiteMB} MB) antes de subirlo.`,
+                  )
+                }
+              }}
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-sm text-zr-text file:mr-4 file:rounded file:border-0 file:bg-zr-blue file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
             />
+            {avisoPeso && (
+              <p className="mt-2 flex items-start gap-1.5 text-xs font-semibold text-zr-warning">
+                <IconoAviso size={14} className="mt-0.5 shrink-0" />
+                {avisoPeso}
+              </p>
+            )}
           </div>
 
           <div>

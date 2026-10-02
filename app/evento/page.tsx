@@ -267,11 +267,16 @@ export default function Evento() {
 
           <button
             type="submit"
-            disabled={enviando}
+            disabled={enviando || !acepto}
             className="w-full rounded-xl bg-gradient-to-r from-zr-blue to-zr-blue-deep py-4 text-base font-bold text-white transition-all hover:shadow-lg hover:shadow-zr-blue/30 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {enviando ? 'Guardando…' : 'Confirmar mi asistencia'}
           </button>
+          {!acepto && (
+            <p className="-mt-2 text-center text-xs text-zr-text-muted">
+              Marca la casilla de autorización para poder confirmar.
+            </p>
+          )}
         </form>
       </div>
     </main>

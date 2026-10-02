@@ -120,7 +120,10 @@ export default function Evento() {
         width={958}
         height={254}
         priority
-        className="mx-auto h-9 w-auto"
+        // Estilo directo: el `img { height: auto }` global de globals.css le gana a
+        // las clases de Tailwind (están en una capa), así que h-9 no se aplicaba.
+        style={{ height: 36, width: 'auto' }}
+        className="mx-auto"
       />
       <div className="space-y-3">
         <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-zr-blue-mid">Confirma tu asistencia</p>

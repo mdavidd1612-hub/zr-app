@@ -195,10 +195,12 @@ export default function Contenido() {
     }
 
     // Sin `download: true` -- así el navegador (o el visor de Office) la
-    // puede mostrar directo en vez de forzar la descarga.
+    // puede mostrar directo en vez de forzar la descarga. Un PDF pesado se
+    // va pidiendo por trozos mientras se lee, así que su URL dura 1 hora;
+    // el resto, 5 minutos (el visor de Office la baja de una sola vez).
     const { data: firmada } = await supabase.storage
       .from('contenido')
-      .createSignedUrl(item.storage_path, 300)
+      .createSignedUrl(item.storage_path, m.tipo === 'pdf' ? 3600 : 300)
 
     setAbriendo(null)
     if (!firmada?.signedUrl) {
@@ -207,9 +209,19 @@ export default function Contenido() {
       return
     }
 
+    // PDF: reportado por Dirección Académica (sept. 2026) -- en teléfonos
+    // Android (ej. Tecno 30) el navegador no trae visor de PDF propio: lo
+    // descarga, o lo muestra con un visor básico que deforma la proporción.
+    // Se abre en el visor pdf.js de Mozilla, que corre dentro del propio
+    // navegador del teléfono (el archivo NO pasa por servidores de
+    // terceros), se adapta al ancho de pantalla y pide el archivo por
+    // trozos -- importa con PDFs pesados como la presentación de 38 MB.
+    // Storage ya permite CORS desde cualquier origen.
     const urlFinal = m.tipo === 'presentacion'
       ? `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(firmada.signedUrl)}`
-      : firmada.signedUrl
+      : m.tipo === 'pdf'
+        ? `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(firmada.signedUrl)}`
+        : firmada.signedUrl
 
     if (pestañaNueva) pestañaNueva.location.href = urlFinal
     else window.open(urlFinal, '_blank', 'noopener,noreferrer')

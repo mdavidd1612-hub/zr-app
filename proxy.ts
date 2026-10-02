@@ -6,7 +6,10 @@ import type { UserRole } from '@/lib/types'
 // Ya no hay autoregistro (docs/17_PLAN_CONSOLIDADO..., ajuste post-Sprint 7):
 // toda cuenta la crea administración o ventas desde dentro de la app. Solo
 // quedan públicas login y recuperar contraseña.
-const PUBLIC_ROUTES = ['/login', '/recuperar', '/api/auth/callback', '/descargar', '/zr-app.apk', '/.well-known']
+// '/evento' (oct. 2026): registro público para el evento, sin login. El
+// listado interno vive en '/registros-evento' a propósito -- su nombre no
+// empieza con '/evento', así que NO queda público por el match de prefijo.
+const PUBLIC_ROUTES = ['/login', '/recuperar', '/api/auth/callback', '/descargar', '/zr-app.apk', '/.well-known', '/evento']
 
 // Rutas reales por rol. Los grupos de Next.js como (app), (profesor) o
 // (admin) NUNCA aparecen en la URL — son solo organización de archivos —
@@ -20,7 +23,7 @@ const PUBLIC_ROUTES = ['/login', '/recuperar', '/api/auth/callback', '/descargar
 // hacer match de prefijo con el otro rol por accidente.
 const RUTAS_ESTUDIANTE = ['/', '/clases', '/contenido', '/examenes', '/perfil', '/progreso', '/completar-perfil', '/aceptar-terminos', '/malla', '/feedback-modulo']
 const RUTAS_PROFESOR = ['/hoy', '/sesiones', '/crear-examen', '/calificar', '/perfil-docente', '/contenido-docente', '/dominio', '/escanear', '/feedback-clase', '/feedback-modulo-docente']
-const RUTAS_ADMIN = ['/panel', '/estudiantes', '/consentimientos', '/cohortes', '/reportes', '/perfil-admin', '/configuracion', '/personal', '/notas-academicas', '/examenes-academicos', '/cobertura-modulos', '/feedback-modulos']
+const RUTAS_ADMIN = ['/panel', '/estudiantes', '/consentimientos', '/cohortes', '/reportes', '/perfil-admin', '/configuracion', '/personal', '/notas-academicas', '/examenes-academicos', '/cobertura-modulos', '/feedback-modulos', '/registros-evento']
 
 function empiezaConAlguna(pathname: string, rutas: string[]) {
   return rutas.some((r) => pathname === r || pathname.startsWith(r + '/'))

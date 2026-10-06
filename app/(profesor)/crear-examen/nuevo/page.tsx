@@ -1,5 +1,6 @@
 'use client'
 
+import { Select } from '@/components/ui/Select'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -199,7 +200,7 @@ export default function NuevoExamen() {
               <label htmlFor="modulo" className="mb-2 block text-sm font-semibold text-zr-text">
                 Módulo
               </label>
-              <select
+              <Select
                 id="modulo"
                 value={moduloId}
                 onChange={(e) => setModuloId(e.target.value)}
@@ -209,14 +210,14 @@ export default function NuevoExamen() {
                 {modulos.map((m) => (
                   <option key={m.id} value={m.id}>{m.name}</option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div>
               <label htmlFor="cohorte" className="mb-2 block text-sm font-semibold text-zr-text">
                 Programa
               </label>
-              <select
+              <Select
                 id="cohorte"
                 value={cohorteId}
                 onChange={(e) => setCohorteId(e.target.value)}
@@ -226,7 +227,7 @@ export default function NuevoExamen() {
                 {cohortes.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div>

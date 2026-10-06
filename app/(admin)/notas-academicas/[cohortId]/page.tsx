@@ -1,5 +1,6 @@
 'use client'
 
+import { Select } from '@/components/ui/Select'
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -234,20 +235,20 @@ export default function VerCalificacionesCohorte() {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Módulo</label>
-          <select value={moduleId ?? ''} onChange={(e) => setModuleId(e.target.value)} className={CAMPO}>
+          <Select value={moduleId ?? ''} onChange={(e) => setModuleId(e.target.value)} className={CAMPO}>
             {modulos.map((m) => (
               <option key={m.id} value={m.id}>Módulo {m.orden} · {m.nombre}</option>
             ))}
-          </select>
+          </Select>
         </div>
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Tipo</label>
-          <select value={tipo} onChange={(e) => setTipo(e.target.value as Tipo)} className={CAMPO}>
+          <Select value={tipo} onChange={(e) => setTipo(e.target.value as Tipo)} className={CAMPO}>
             <option value="todos">Todo</option>
             <option value="examen">Examen</option>
             <option value="practica">Práctica</option>
             <option value="otro">Otro</option>
-          </select>
+          </Select>
         </div>
       </div>
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { Select } from '@/components/ui/Select'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -249,7 +250,7 @@ export default function RegistrarEvaluacion() {
 
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Programa</label>
-          <select
+          <Select
             value={cohorteId}
             onChange={(e) => { setCohorteId(e.target.value); setModuloId('') }}
             className={CAMPO}
@@ -258,12 +259,12 @@ export default function RegistrarEvaluacion() {
             {cohortes.map((c) => (
               <option key={c.id} value={c.id}>{c.nombre}</option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Módulo</label>
-          <select
+          <Select
             value={moduloId}
             onChange={(e) => setModuloId(e.target.value)}
             disabled={!cohorteId}
@@ -273,7 +274,7 @@ export default function RegistrarEvaluacion() {
             {modulosForm.map((m) => (
               <option key={m.id} value={m.id}>Módulo {m.orden} · {m.nombre}</option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <div>
@@ -341,7 +342,7 @@ export default function RegistrarEvaluacion() {
         </p>
 
         <div className="grid grid-cols-2 gap-3">
-          <select
+          <Select
             value={filtroCohorteId}
             onChange={(e) => { setFiltroCohorteId(e.target.value); setFiltroModuloId('') }}
             className={CAMPO}
@@ -350,8 +351,8 @@ export default function RegistrarEvaluacion() {
             {cohortes.map((c) => (
               <option key={c.id} value={c.id}>{c.nombre}</option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
             value={filtroModuloId}
             onChange={(e) => setFiltroModuloId(e.target.value)}
             disabled={!filtroCohorteId}
@@ -361,7 +362,7 @@ export default function RegistrarEvaluacion() {
             {modulosFiltro.map((m) => (
               <option key={m.id} value={m.id}>Módulo {m.orden} · {m.nombre}</option>
             ))}
-          </select>
+          </Select>
         </div>
 
         {visibles.length === 0 && (

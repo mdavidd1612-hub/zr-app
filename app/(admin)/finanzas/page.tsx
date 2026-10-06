@@ -1,5 +1,6 @@
 'use client'
 
+import { Select } from '@/components/ui/Select'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -180,30 +181,30 @@ export default function Finanzas() {
               className="w-full rounded-lg border border-zr-border bg-zr-surface px-4 py-3 text-sm text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
             />
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <select
+              <Select
                 value={filtroPrograma}
                 onChange={(e) => { setFiltroPrograma(e.target.value); setFiltroModulo('') }}
                 className="rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
               >
                 <option value="">Todos los programas</option>
                 {programas.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-              <select
+              </Select>
+              <Select
                 value={filtroModulo}
                 onChange={(e) => setFiltroModulo(e.target.value)}
                 className="rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
               >
                 <option value="">Todos los módulos</option>
                 {modulos.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-              <select
+              </Select>
+              <Select
                 value={filtroEstado}
                 onChange={(e) => setFiltroEstado(e.target.value as '' | Estado)}
                 className="rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
               >
                 <option value="">Todos los estados</option>
                 {(Object.keys(ETIQUETA) as Estado[]).map((e) => <option key={e} value={e}>{ETIQUETA[e]}</option>)}
-              </select>
+              </Select>
             </div>
             <p className="text-xs text-zr-text-muted">{visibles.length} de {filas.length} estudiantes</p>
           </div>

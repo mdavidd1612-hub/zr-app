@@ -1,5 +1,6 @@
 'use client'
 
+import { Select } from '@/components/ui/Select'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -253,7 +254,7 @@ export default function ContenidoProfesor() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-2 block text-sm font-semibold text-zr-text">Módulo</label>
-              <select
+              <Select
                 value={moduloId}
                 onChange={(e) => setModuloId(e.target.value)}
                 className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
@@ -261,7 +262,7 @@ export default function ContenidoProfesor() {
                 {modulos.map((m) => (
                   <option key={m.id} value={m.id}>{m.name}</option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div>
               <label className="mb-2 block text-sm font-semibold text-zr-text">

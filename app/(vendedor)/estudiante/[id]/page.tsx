@@ -1,5 +1,6 @@
 'use client'
 
+import { Select } from '@/components/ui/Select'
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -153,7 +154,7 @@ export default function FichaEstudianteVendedor() {
 
       <Seccion numero={2} titulo="Programa" delay={160}>
         <div className="zr-card space-y-4 p-5">
-          <select
+          <Select
             value={nuevaCohorte}
             onChange={(e) => setNuevaCohorte(e.target.value)}
             className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
@@ -162,7 +163,7 @@ export default function FichaEstudianteVendedor() {
             {cohortes.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
-          </select>
+          </Select>
 
           {mensaje && (
             <Aviso tipo={mensaje.includes('actualizado') ? 'exito' : 'error'}>{mensaje}</Aviso>

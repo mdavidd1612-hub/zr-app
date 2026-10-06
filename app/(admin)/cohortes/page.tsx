@@ -1,5 +1,6 @@
 'use client'
 
+import { Select } from '@/components/ui/Select'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -234,7 +235,7 @@ export default function Cohortes() {
         <div className="zr-card space-y-4 p-6">
           <div>
             <label className="mb-2 block text-sm font-semibold text-zr-text">Sede</label>
-            <select
+            <Select
               value={programaId ?? ''}
               onChange={(e) => setProgramaId(e.target.value || null)}
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
@@ -242,7 +243,7 @@ export default function Cohortes() {
               {programas.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
-            </select>
+            </Select>
             <p className="mt-1.5 text-xs text-zr-text-muted">
               Define el prefijo del carnet de sus estudiantes (PTMA o PFTA).
             </p>
@@ -263,7 +264,7 @@ export default function Cohortes() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-2 block text-sm font-semibold text-zr-text">Sede</label>
-              <select
+              <Select
                 value={sedeNueva}
                 onChange={(e) => setSedeNueva(e.target.value)}
                 className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
@@ -273,18 +274,18 @@ export default function Cohortes() {
                   <option key={s} value={s}>{s}</option>
                 ))}
                 <option value="__nueva__">Otra sede…</option>
-              </select>
+              </Select>
             </div>
             <div>
               <label className="mb-2 block text-sm font-semibold text-zr-text">Turno</label>
-              <select
+              <Select
                 value={turnoNueva}
                 onChange={(e) => setTurnoNueva(e.target.value as 'mañana' | 'tarde')}
                 className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
               >
                 <option value="mañana">Mañana</option>
                 <option value="tarde">Tarde</option>
-              </select>
+              </Select>
             </div>
           </div>
           {sedeNueva === '__nueva__' && (
@@ -330,7 +331,7 @@ export default function Cohortes() {
 
           <div>
             <label className="mb-2 block text-sm font-semibold text-zr-text">Módulo inicial</label>
-            <select
+            <Select
               value={moduloNueva}
               onChange={(e) => setModuloNueva(e.target.value)}
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
@@ -339,11 +340,11 @@ export default function Cohortes() {
               {modulos.map((m) => (
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="mb-2 block text-sm font-semibold text-zr-text">Profesor</label>
-            <select
+            <Select
               value={profesorNueva}
               onChange={(e) => setProfesorNueva(e.target.value)}
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
@@ -352,7 +353,7 @@ export default function Cohortes() {
               {profesores.map((p) => (
                 <option key={p.id} value={p.id}>{p.full_name}</option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {error && <p className="text-sm font-medium text-zr-error">{error}</p>}
@@ -401,7 +402,7 @@ export default function Cohortes() {
                 <div className="space-y-3 border-t border-zr-border bg-zr-bg/40 p-4">
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold text-zr-text-muted">Profesor</label>
-                    <select
+                    <Select
                       value={c.profesorId ?? ''}
                       onChange={(e) => asignarProfesor(c.id, e.target.value)}
                       className="w-full rounded-lg border border-zr-border bg-zr-surface px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
@@ -410,7 +411,7 @@ export default function Cohortes() {
                       {profesores.map((p) => (
                         <option key={p.id} value={p.id}>{p.full_name}</option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
 
                   {confirmandoAvance === c.id ? (

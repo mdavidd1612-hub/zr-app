@@ -592,6 +592,60 @@ export type Database = {
           },
         ]
       }
+      content_access_events: {
+        Row: {
+          content_id: string | null
+          created_at: string
+          event: string
+          file_type: string | null
+          id: string
+          outcome: string
+          size_bytes: number | null
+          user_agent: string | null
+          user_id: string
+          viewer: string | null
+        }
+        Insert: {
+          content_id?: string | null
+          created_at?: string
+          event: string
+          file_type?: string | null
+          id?: string
+          outcome: string
+          size_bytes?: number | null
+          user_agent?: string | null
+          user_id?: string
+          viewer?: string | null
+        }
+        Update: {
+          content_id?: string | null
+          created_at?: string
+          event?: string
+          file_type?: string | null
+          id?: string
+          outcome?: string
+          size_bytes?: number | null
+          user_agent?: string | null
+          user_id?: string
+          viewer?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_access_events_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_access_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_folders: {
         Row: {
           created_at: string
@@ -651,7 +705,9 @@ export type Database = {
           id: string
           is_published: boolean
           learning_guide_id: string | null
+          mime_type: string | null
           module_id: string
+          original_name: string | null
           review_message: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -673,7 +729,9 @@ export type Database = {
           id?: string
           is_published?: boolean
           learning_guide_id?: string | null
+          mime_type?: string | null
           module_id: string
+          original_name?: string | null
           review_message?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -695,7 +753,9 @@ export type Database = {
           id?: string
           is_published?: boolean
           learning_guide_id?: string | null
+          mime_type?: string | null
           module_id?: string
+          original_name?: string | null
           review_message?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -3136,6 +3196,7 @@ export type Database = {
         | "enlace"
         | "documento"
         | "video"
+        | "audio"
       enrollment_status: "en_curso" | "aprobado" | "reprobado" | "retirado"
       exam_status: "oculto" | "habilitado" | "cerrado" | "calificado"
       mastery_source:
@@ -3302,6 +3363,7 @@ export const Constants = {
         "enlace",
         "documento",
         "video",
+        "audio",
       ],
       enrollment_status: ["en_curso", "aprobado", "reprobado", "retirado"],
       exam_status: ["oculto", "habilitado", "cerrado", "calificado"],

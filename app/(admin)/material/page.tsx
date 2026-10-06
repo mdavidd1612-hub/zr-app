@@ -9,6 +9,9 @@ import { IconoDocumento, IconoAviso } from '@/components/ui/Iconos'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
+import {
+  ACCEPT_MATERIAL, MENSAJE_FORMATOS, nombreDescarga, rutaDeStorage, tipoDeArchivo,
+} from '@/lib/material'
 
 /**
  * Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, Sprint C): material que sube
@@ -41,6 +44,7 @@ interface Material {
   publicado: boolean
   tamañoKB: number | null
   rutaStorage: string | null
+  nombreOriginal: string | null
   subidoPor: string | null
   autor: string | null
   estadoAprobacion: 'aprobado' | 'pendiente' | 'rechazado'
@@ -101,7 +105,7 @@ export default function MaterialAdmin() {
       const [{ data: pend }, { data: cohs }] = await Promise.all([
         supabase
           .from('content_items')
-          .select('id, title, week_number, is_published, size_bytes, storage_path, uploaded_by, approval_status, profiles!content_items_uploaded_by_fkey(full_name), modules(name)')
+          .select('id, title, week_number, is_published, size_bytes, storage_path, original_name, uploaded_by, approval_status, profiles!content_items_uploaded_by_fkey(full_name), modules(name)')
           .eq('approval_status', 'pendiente')
           .order('created_at', { ascending: false }),
         supabase.from('cohorts').select('id, name, current_module_id, modules(name)'),
@@ -112,7 +116,7 @@ export default function MaterialAdmin() {
 
       const filasPend = (pend ?? []) as unknown as {
         id: string; title: string; week_number: number | null
-        is_published: boolean; size_bytes: number | null; storage_path: string | null
+        is_published: boolean; size_bytes: number | null; storage_path: string | null; original_name: string | null
         uploaded_by: string | null; approval_status: 'aprobado' | 'pendiente' | 'rechazado'
         profiles: { full_name: string } | null
         modules: { name: string } | null
@@ -127,6 +131,7 @@ export default function MaterialAdmin() {
           publicado: m.is_published,
           tamañoKB: m.size_bytes ? Math.round(m.size_bytes / 1024) : null,
           rutaStorage: m.storage_path,
+          nombreOriginal: m.original_name,
           subidoPor: m.uploaded_by,
           autor: m.profiles?.full_name ?? null,
           estadoAprobacion: m.approval_status,
@@ -166,7 +171,7 @@ export default function MaterialAdmin() {
         .from('content_folders').select('id, name').eq('module_id', programa.moduloId)
       const consultaItems = supabase
         .from('content_items')
-        .select('id, title, week_number, is_published, size_bytes, storage_path, uploaded_by, approval_status, profiles!content_items_uploaded_by_fkey(full_name)')
+        .select('id, title, week_number, is_published, size_bytes, storage_path, original_name, uploaded_by, approval_status, profiles!content_items_uploaded_by_fkey(full_name)')
         .eq('module_id', programa.moduloId)
         .neq('approval_status', 'pendiente')
 
@@ -185,7 +190,7 @@ export default function MaterialAdmin() {
 
       const filas = (items ?? []) as unknown as {
         id: string; title: string; week_number: number | null
-        is_published: boolean; size_bytes: number | null; storage_path: string | null
+        is_published: boolean; size_bytes: number | null; storage_path: string | null; original_name: string | null
         uploaded_by: string | null; approval_status: 'aprobado' | 'pendiente' | 'rechazado'
         profiles: { full_name: string } | null
       }[]
@@ -199,6 +204,7 @@ export default function MaterialAdmin() {
           publicado: m.is_published,
           tamañoKB: m.size_bytes ? Math.round(m.size_bytes / 1024) : null,
           rutaStorage: m.storage_path,
+          nombreOriginal: m.original_name,
           subidoPor: m.uploaded_by,
           autor: m.profiles?.full_name ?? null,
           estadoAprobacion: m.approval_status,
@@ -245,20 +251,12 @@ export default function MaterialAdmin() {
     }
   }
 
-  const TIPOS_ACEPTADOS: Record<string, 'pdf' | 'video' | 'presentacion'> = {
-    'application/pdf': 'pdf',
-    'video/mp4': 'video',
-    'video/webm': 'video',
-    'application/vnd.ms-powerpoint': 'presentacion',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'presentacion',
-  }
-
   async function subir() {
     if (!archivo || !titulo.trim() || !programa?.moduloId) return
 
-    const tipo = TIPOS_ACEPTADOS[archivo.type]
+    const tipo = tipoDeArchivo(archivo)
     if (!tipo) {
-      setError('Solo se aceptan PDF, PowerPoint o video (MP4/WebM).')
+      setError(MENSAJE_FORMATOS)
       return
     }
 
@@ -284,8 +282,7 @@ export default function MaterialAdmin() {
       return
     }
 
-    const nombreLimpio = archivo.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')
-    const ruta = `${programa.moduloId}/${crypto.randomUUID()}-${nombreLimpio}`
+    const ruta = rutaDeStorage(programa.moduloId, archivo.name)
 
     const { error: falloSubida } = await supabase.storage
       .from('contenido')
@@ -304,6 +301,8 @@ export default function MaterialAdmin() {
       title: titulo.trim(),
       type: tipo,
       storage_path: ruta,
+      original_name: archivo.name,
+      mime_type: archivo.type || null,
       size_bytes: archivo.size,
       uploaded_by: user.id,
       is_published: true,
@@ -391,28 +390,13 @@ export default function MaterialAdmin() {
     document.body.removeChild(a)
   }
 
-  // Bug real reportado por el coordinador (sept. 2026): "el archivo se
-  // descarga con un nombre todo raro". Causa: `{ download: true }` hace que
-  // el SERVIDOR mande como nombre el de storage_path tal cual, que lleva un
-  // UUID pegado al inicio (para no chocar entre archivos, migración 008) --
-  // ej. "6b5732e8-...-Modulo_2.pdf". El atributo `download` del lado
-  // cliente (arriba) lo tapa en la mayoría de navegadores, pero no en todos
-  // (Safari/iOS en PWA lo ignora con URLs de otro dominio) -- ahí gana el
-  // nombre feo del servidor. Se manda el nombre correcto también al
-  // servidor para que sea el mismo en cualquier navegador.
-  function nombreArchivoDescarga(titulo: string, rutaStorage: string): string {
-    const ext = rutaStorage.split('.').pop()
-    const tituloLimpio = titulo.replace(/[^a-zA-Z0-9 ._-]/g, '').trim() || 'archivo'
-    return ext ? `${tituloLimpio}.${ext}` : tituloLimpio
-  }
-
   async function descargar(m: Material) {
     if (!m.rutaStorage) return
     setDescargando(m.id)
     const supabase = createClient()
     const { data: firmada } = await supabase.storage
       .from('contenido')
-      .createSignedUrl(m.rutaStorage, 300, { download: nombreArchivoDescarga(m.titulo, m.rutaStorage) })
+      .createSignedUrl(m.rutaStorage, 300, { download: nombreDescarga({ originalName: m.nombreOriginal, titulo: m.titulo, rutaStorage: m.rutaStorage }) })
     setDescargando(null)
     if (firmada?.signedUrl) {
       descargarDesdeUrl(firmada.signedUrl, m.titulo)
@@ -527,6 +511,12 @@ export default function MaterialAdmin() {
           ) : undefined
         }
       />
+
+      {(rol === 'admin' || rol === 'super_admin') && (
+        <a href="/metricas-material" className="block text-sm font-semibold text-zr-blue-mid underline">
+          Ver métricas de uso del material
+        </a>
+      )}
 
       <Regla delay={60} />
 
@@ -821,10 +811,10 @@ export default function MaterialAdmin() {
             {pilaCarpetas.length > 0 && ` / ${pilaCarpetas[pilaCarpetas.length - 1].nombre}`}
           </p>
           <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Archivo (PDF, PowerPoint o video)</label>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Archivo (PDF, PowerPoint, Word, Excel, imagen, video o audio)</label>
             <input
               type="file"
-              accept="application/pdf,video/mp4,video/webm,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              accept={ACCEPT_MATERIAL}
               onChange={async (e) => {
                 const f = e.target.files?.[0] ?? null
                 setArchivo(f)

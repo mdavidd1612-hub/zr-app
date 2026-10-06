@@ -5,6 +5,9 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { IconoDocumento, IconoVideo, IconoAviso } from '@/components/ui/Iconos'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import {
+  ETIQUETA_TIPO, nombreDescarga, registrarEvento, urlDelVisor, visorDe,
+} from '@/lib/material'
 
 /**
  * T-402 · Repositorio de contenido del estudiante.
@@ -43,19 +46,8 @@ interface Material {
   titulo: string
   semana: number | null
   tamañoKB: number | null
-  tipo: 'pdf' | 'video' | 'presentacion' | string
-}
-
-// Bug real reportado por el coordinador (sept. 2026): "el archivo se
-// descarga con un nombre todo raro". Causa: `{ download: true }` hace que
-// el SERVIDOR mande como nombre el de storage_path tal cual, que lleva un
-// UUID pegado al inicio (para no chocar entre archivos) -- ej.
-// "6b5732e8-...-Modulo_2.pdf". Se manda el nombre correcto al servidor
-// para que se vea igual en cualquier navegador/teléfono.
-function nombreArchivoDescarga(titulo: string, rutaStorage: string): string {
-  const ext = rutaStorage.split('.').pop()
-  const tituloLimpio = titulo.replace(/[^a-zA-Z0-9 ._-]/g, '').trim() || 'archivo'
-  return ext ? `${tituloLimpio}.${ext}` : tituloLimpio
+  tipo: string
+  nombreOriginal: string | null
 }
 
 export default function Contenido() {
@@ -67,6 +59,9 @@ export default function Contenido() {
   const [descargando, setDescargando] = useState<string | null>(null)
   const [abriendo, setAbriendo] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Último material abierto con un visor externo: si no cargó, se ofrece
+  // descargarlo y se anota el fallo (métrica de visores).
+  const [sinAbrir, setSinAbrir] = useState<Material | null>(null)
 
   const carpetaActual = pilaCarpetas[pilaCarpetas.length - 1]?.id ?? null
 
@@ -82,8 +77,7 @@ export default function Contenido() {
       const consultaCarpetas = supabase.from('content_folders').select('id, name')
       const consultaItems = supabase
         .from('content_items')
-        .select('id, title, week_number, size_bytes, type')
-        .in('type', ['pdf', 'video', 'presentacion'])
+        .select('id, title, week_number, size_bytes, type, original_name')
 
       const [{ data: subs }, { data: items }] = await Promise.all([
         (carpetaActual
@@ -104,6 +98,7 @@ export default function Contenido() {
           semana: m.week_number,
           tamañoKB: m.size_bytes ? Math.round(m.size_bytes / 1024) : null,
           tipo: m.type,
+          nombreOriginal: m.original_name,
         })),
       )
       setCargando(false)
@@ -150,6 +145,7 @@ export default function Contenido() {
 
     if (!item?.storage_path) {
       pestañaNueva?.close()
+      void registrarEvento({ contentId: m.id, event: 'descargar', outcome: 'error_url', viewer: 'descarga', fileType: m.tipo })
       setDescargando(null)
       setError('No se pudo descargar el archivo. Intenta de nuevo.')
       return
@@ -157,15 +153,20 @@ export default function Contenido() {
 
     const { data: firmada } = await supabase.storage
       .from('contenido')
-      .createSignedUrl(item.storage_path, 300, { download: nombreArchivoDescarga(m.titulo, item.storage_path) })
+      .createSignedUrl(item.storage_path, 300, { download: nombreDescarga({ originalName: m.nombreOriginal, titulo: m.titulo, rutaStorage: item.storage_path }) })
 
     setDescargando(null)
     if (!firmada?.signedUrl) {
       pestañaNueva?.close()
+      void registrarEvento({ contentId: m.id, event: 'descargar', outcome: 'error_url', viewer: 'descarga', fileType: m.tipo })
       setError('No se pudo descargar el archivo. Intenta de nuevo.')
       return
     }
 
+    void registrarEvento({
+      contentId: m.id, event: 'descargar', outcome: 'abierto', viewer: 'descarga',
+      fileType: m.tipo, sizeBytes: m.tamañoKB ? m.tamañoKB * 1024 : null,
+    })
     if (pestañaNueva) pestañaNueva.location.href = firmada.signedUrl
     else window.open(firmada.signedUrl, '_blank', 'noopener,noreferrer')
   }
@@ -179,6 +180,7 @@ export default function Contenido() {
   // servidor -- el estudiante no necesita tener PowerPoint instalado.
   async function ver(m: Material) {
     setError(null)
+    setSinAbrir(null)
     setAbriendo(m.id)
 
     const pestañaNueva = window.open('', '_blank')
@@ -189,6 +191,7 @@ export default function Contenido() {
 
     if (!item?.storage_path) {
       pestañaNueva?.close()
+      void registrarEvento({ contentId: m.id, event: 'ver', outcome: 'error_url', fileType: m.tipo })
       setAbriendo(null)
       setError('No se pudo abrir el archivo. Intenta de nuevo.')
       return
@@ -200,11 +203,13 @@ export default function Contenido() {
     // el resto, 5 minutos (el visor de Office la baja de una sola vez).
     const { data: firmada } = await supabase.storage
       .from('contenido')
-      .createSignedUrl(item.storage_path, m.tipo === 'pdf' ? 3600 : 300)
+            .createSignedUrl(item.storage_path, m.tipo === 'pdf' ? 3600 : 300)
 
     setAbriendo(null)
+    const visor = visorDe(m.tipo, item.storage_path)
     if (!firmada?.signedUrl) {
       pestañaNueva?.close()
+      void registrarEvento({ contentId: m.id, event: 'ver', outcome: 'error_url', viewer: visor, fileType: m.tipo })
       setError('No se pudo abrir el archivo. Intenta de nuevo.')
       return
     }
@@ -217,11 +222,12 @@ export default function Contenido() {
     // terceros), se adapta al ancho de pantalla y pide el archivo por
     // trozos -- importa con PDFs pesados como la presentación de 38 MB.
     // Storage ya permite CORS desde cualquier origen.
-    const urlFinal = m.tipo === 'presentacion'
-      ? `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(firmada.signedUrl)}`
-      : m.tipo === 'pdf'
-        ? `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(firmada.signedUrl)}`
-        : firmada.signedUrl
+    const urlFinal = urlDelVisor(visor, firmada.signedUrl)
+    void registrarEvento({
+      contentId: m.id, event: 'ver', outcome: 'abierto', viewer: visor,
+      fileType: m.tipo, sizeBytes: m.tamañoKB ? m.tamañoKB * 1024 : null,
+    })
+    if (visor !== 'nativo') setSinAbrir(m)
 
     if (pestañaNueva) pestañaNueva.location.href = urlFinal
     else window.open(urlFinal, '_blank', 'noopener,noreferrer')
@@ -291,7 +297,7 @@ export default function Contenido() {
             {materiales.map((m) => (
               <div key={m.id} className="zr-card p-4">
                 <div className="flex items-start gap-3">
-                  {m.tipo === 'video'
+                  {m.tipo === 'video' || m.tipo === 'audio'
                     ? <IconoVideo size={22} className="mt-0.5 shrink-0 text-zr-blue" />
                     : <IconoDocumento size={22} className="mt-0.5 shrink-0 text-zr-error" />}
                   <div className="min-w-0 flex-1">
@@ -301,8 +307,8 @@ export default function Contenido() {
                       {m.tamañoKB ? `${m.semana ? ' · ' : ''}${(m.tamañoKB / 1024).toFixed(1)} MB` : ''}
                     </p>
                   </div>
-                  <span className={`shrink-0 text-xs font-bold uppercase tracking-wide ${m.tipo === 'video' ? 'text-zr-blue/80' : 'text-zr-error/80'}`}>
-                    {m.tipo === 'video' ? 'VIDEO' : m.tipo === 'presentacion' ? 'PPT' : 'PDF'}
+                  <span className={`shrink-0 text-xs font-bold uppercase tracking-wide ${m.tipo === 'video' || m.tipo === 'audio' ? 'text-zr-blue/80' : 'text-zr-error/80'}`}>
+                    {ETIQUETA_TIPO[m.tipo] ?? m.tipo.toUpperCase()}
                   </span>
                 </div>
                 <div className="mt-3 flex gap-2">
@@ -323,6 +329,36 @@ export default function Contenido() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {sinAbrir && (
+          <div className="space-y-3 rounded-lg border border-zr-blue/30 bg-zr-blue/10 p-4">
+            <p className="text-sm text-zr-text">
+              ¿&ldquo;{sinAbrir.titulo}&rdquo; no se abrió o se ve mal? Descárgalo y ábrelo desde tu teléfono.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const m = sinAbrir
+                  setSinAbrir(null)
+                  void registrarEvento({
+                    contentId: m.id, event: 'ver', outcome: 'visor_fallo',
+                    viewer: visorDe(m.tipo, m.nombreOriginal ?? ''), fileType: m.tipo,
+                  })
+                  void descargar(m)
+                }}
+                className="flex min-h-11 flex-1 items-center justify-center rounded-lg bg-zr-blue text-sm font-bold text-white"
+              >
+                Descargar
+              </button>
+              <button
+                onClick={() => setSinAbrir(null)}
+                className="flex min-h-11 flex-1 items-center justify-center rounded-lg border border-zr-border text-sm font-bold text-zr-text"
+              >
+                Se abrió bien
+              </button>
+            </div>
           </div>
         )}
 

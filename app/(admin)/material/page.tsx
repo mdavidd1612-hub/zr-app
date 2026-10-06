@@ -10,7 +10,8 @@ import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
 import {
-  ACCEPT_MATERIAL, MENSAJE_FORMATOS, nombreDescarga, rutaDeStorage, tipoDeArchivo,
+  ACCEPT_MATERIAL, ETIQUETA_TIPO, MENSAJE_FORMATOS, nombreDescarga, rutaDeStorage, tipoDeArchivo,
+  urlDelVisor, visorDe,
 } from '@/lib/material'
 
 /**
@@ -46,6 +47,8 @@ interface Material {
   tamañoKB: number | null
   rutaStorage: string | null
   nombreOriginal: string | null
+  tipo: string
+  creado: string
   subidoPor: string | null
   autor: string | null
   estadoAprobacion: 'aprobado' | 'pendiente' | 'rechazado'
@@ -119,7 +122,7 @@ export default function MaterialAdmin() {
       const [{ data: pend }, { data: cohs }] = await Promise.all([
         supabase
           .from('content_items')
-          .select('id, title, week_number, is_published, size_bytes, storage_path, original_name, uploaded_by, approval_status, profiles!content_items_uploaded_by_fkey(full_name), modules(name)')
+          .select('id, title, week_number, is_published, size_bytes, storage_path, original_name, type, created_at, uploaded_by, approval_status, profiles!content_items_uploaded_by_fkey(full_name), modules(name)')
           .eq('approval_status', 'pendiente')
           .order('created_at', { ascending: false }),
         supabase.from('cohorts').select('id, name, current_module_id, program_id, modules(name)'),
@@ -130,7 +133,7 @@ export default function MaterialAdmin() {
 
       const filasPend = (pend ?? []) as unknown as {
         id: string; title: string; week_number: number | null
-        is_published: boolean; size_bytes: number | null; storage_path: string | null; original_name: string | null
+        is_published: boolean; size_bytes: number | null; storage_path: string | null; original_name: string | null; type: string; created_at: string
         uploaded_by: string | null; approval_status: 'aprobado' | 'pendiente' | 'rechazado'
         profiles: { full_name: string } | null
         modules: { name: string } | null
@@ -146,6 +149,8 @@ export default function MaterialAdmin() {
           tamañoKB: m.size_bytes ? Math.round(m.size_bytes / 1024) : null,
           rutaStorage: m.storage_path,
           nombreOriginal: m.original_name,
+          tipo: m.type,
+          creado: m.created_at,
           subidoPor: m.uploaded_by,
           autor: m.profiles?.full_name ?? null,
           estadoAprobacion: m.approval_status,
@@ -186,7 +191,7 @@ export default function MaterialAdmin() {
         .from('content_folders').select('id, name').eq('module_id', programa.moduloId)
       const consultaItems = supabase
         .from('content_items')
-        .select('id, title, week_number, is_published, size_bytes, storage_path, original_name, uploaded_by, approval_status, profiles!content_items_uploaded_by_fkey(full_name)')
+        .select('id, title, week_number, is_published, size_bytes, storage_path, original_name, type, created_at, uploaded_by, approval_status, profiles!content_items_uploaded_by_fkey(full_name)')
         .eq('module_id', programa.moduloId)
         .neq('approval_status', 'pendiente')
 
@@ -205,7 +210,7 @@ export default function MaterialAdmin() {
 
       const filas = (items ?? []) as unknown as {
         id: string; title: string; week_number: number | null
-        is_published: boolean; size_bytes: number | null; storage_path: string | null; original_name: string | null
+        is_published: boolean; size_bytes: number | null; storage_path: string | null; original_name: string | null; type: string; created_at: string
         uploaded_by: string | null; approval_status: 'aprobado' | 'pendiente' | 'rechazado'
         profiles: { full_name: string } | null
       }[]
@@ -220,6 +225,8 @@ export default function MaterialAdmin() {
           tamañoKB: m.size_bytes ? Math.round(m.size_bytes / 1024) : null,
           rutaStorage: m.storage_path,
           nombreOriginal: m.original_name,
+          tipo: m.type,
+          creado: m.created_at,
           subidoPor: m.uploaded_by,
           autor: m.profiles?.full_name ?? null,
           estadoAprobacion: m.approval_status,
@@ -485,6 +492,8 @@ export default function MaterialAdmin() {
   const [editandoCarpetaId, setEditandoCarpetaId] = useState<string | null>(null)
   const [nombreEdicionCarpeta, setNombreEdicionCarpeta] = useState('')
   const [editandoMaterialId, setEditandoMaterialId] = useState<string | null>(null)
+  const [reemplazando, setReemplazando] = useState(false)
+  const [confirmacionReemplazo, setConfirmacionReemplazo] = useState<string | null>(null)
   const [formEdicionMaterial, setFormEdicionMaterial] = useState<{ titulo: string; semana: number | '' }>({ titulo: '', semana: '' })
   const [guardandoEdicion, setGuardandoEdicion] = useState(false)
 
@@ -553,6 +562,7 @@ export default function MaterialAdmin() {
   }
 
   function abrirEdicionMaterial(m: Material) {
+    setConfirmacionReemplazo(null)
     setEditandoMaterialId(m.id)
     setFormEdicionMaterial({ titulo: m.titulo, semana: m.semana ?? '' })
   }
@@ -573,6 +583,87 @@ export default function MaterialAdmin() {
       return
     }
     setEditandoMaterialId(null)
+    setVersion((v) => v + 1)
+  }
+
+  // Vista previa desde la edición: pestaña nueva (un iframe dentro de la app
+  // fue lo que se quedó en blanco en Android, ver pantalla del estudiante).
+  async function vistaPrevia(m: Material) {
+    if (!m.rutaStorage) return
+    const pestaña = window.open('', '_blank')
+    const visor = visorDe(m.tipo, m.rutaStorage)
+    const { data: firmada } = await createClient().storage
+      .from('contenido')
+      .createSignedUrl(m.rutaStorage, m.tipo === 'pdf' ? 3600 : 300)
+    if (!firmada?.signedUrl) {
+      pestaña?.close()
+      setError('No se pudo abrir la vista previa. Intenta de nuevo.')
+      return
+    }
+    const url = urlDelVisor(visor, firmada.signedUrl)
+    if (pestaña) pestaña.location.href = url
+    else window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  // Reemplazar el archivo conserva la misma fila: mismo id, carpeta,
+  // publicación y permisos -- solo cambia el archivo detrás.
+  async function reemplazarArchivo(m: Material, nuevo: File) {
+    const tipo = tipoDeArchivo(nuevo)
+    if (!tipo) {
+      setError(MENSAJE_FORMATOS)
+      return
+    }
+    if (!confirm(`¿Reemplazar "${m.nombreOriginal ?? m.titulo}" por "${nuevo.name}"? Los estudiantes verán el archivo nuevo de inmediato; el anterior se elimina.`)) return
+
+    setReemplazando(true)
+    setError(null)
+    setConfirmacionReemplazo(null)
+    const supabase = createClient()
+
+    const { data: configTamano } = await supabase
+      .from('system_config').select('value').eq('key', 'content.max_size_mb').maybeSingle()
+    const maxMB = Number(configTamano?.value ?? 200)
+    if (nuevo.size > maxMB * 1024 * 1024) {
+      setError(`El archivo pesa más de ${maxMB} MB. Comprímelo antes de subirlo.`)
+      setReemplazando(false)
+      return
+    }
+
+    const { data: fila } = await supabase.from('content_items').select('module_id').eq('id', m.id).single()
+    if (!fila) {
+      setError('No se encontró el material. Recarga la página.')
+      setReemplazando(false)
+      return
+    }
+
+    const rutaNueva = rutaDeStorage(fila.module_id, nuevo.name)
+    const { error: falloSubida } = await supabase.storage
+      .from('contenido').upload(rutaNueva, nuevo, { contentType: nuevo.type || undefined })
+    if (falloSubida) {
+      setError(`No se pudo subir el archivo: ${falloSubida.message}`)
+      setReemplazando(false)
+      return
+    }
+
+    const { error: falloFila } = await supabase.from('content_items').update({
+      storage_path: rutaNueva,
+      original_name: nuevo.name,
+      mime_type: nuevo.type || null,
+      size_bytes: nuevo.size,
+      type: tipo,
+    }).eq('id', m.id)
+    if (falloFila) {
+      await supabase.storage.from('contenido').remove([rutaNueva])
+      setError(falloFila.message)
+      setReemplazando(false)
+      return
+    }
+
+    // Solo cuando la fila ya apunta al archivo nuevo se borra el viejo.
+    if (m.rutaStorage) await supabase.storage.from('contenido').remove([m.rutaStorage])
+
+    setReemplazando(false)
+    setConfirmacionReemplazo(`Archivo reemplazado: ${m.nombreOriginal ?? m.titulo} → ${nuevo.name}`)
     setVersion((v) => v + 1)
   }
 
@@ -868,6 +959,46 @@ export default function MaterialAdmin() {
                     )}
                     {editandoMaterialId === m.id ? (
                       <div className="space-y-2.5">
+                        <div className="space-y-1 rounded-lg border border-zr-border bg-zr-bg p-3 text-xs">
+                          <p className="font-bold uppercase tracking-wide text-zr-text-muted">Archivo actual</p>
+                          <p className="break-words text-sm font-semibold text-zr-text">
+                            {m.nombreOriginal ?? m.rutaStorage?.split('/').pop() ?? 'Sin archivo'}
+                          </p>
+                          <p className="text-zr-text-muted">
+                            {ETIQUETA_TIPO[m.tipo] ?? m.tipo}
+                            {m.tamañoKB ? ` · ${(m.tamañoKB / 1024).toFixed(1)} MB` : ''}
+                            {` · Subido el ${new Date(m.creado).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`}
+                          </p>
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => vistaPrevia(m)}
+                              disabled={!m.rutaStorage}
+                              className="min-h-10 flex-1 rounded-lg border border-zr-border text-xs font-bold text-zr-text disabled:opacity-50"
+                            >
+                              Ver vista previa
+                            </button>
+                            <label className={`flex min-h-10 flex-1 cursor-pointer items-center justify-center rounded-lg bg-zr-blue text-xs font-bold text-white ${reemplazando ? 'opacity-50' : ''}`}>
+                              {reemplazando ? 'Reemplazando…' : 'Reemplazar archivo'}
+                              <input
+                                type="file"
+                                accept={ACCEPT_MATERIAL}
+                                disabled={reemplazando}
+                                className="hidden"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0]
+                                  e.target.value = ''
+                                  if (f) void reemplazarArchivo(m, f)
+                                }}
+                              />
+                            </label>
+                          </div>
+                          {confirmacionReemplazo && (
+                            <p className="rounded-md bg-zr-success/15 px-2 py-1.5 font-semibold text-zr-success">
+                              ✓ {confirmacionReemplazo}
+                            </p>
+                          )}
+                        </div>
                         <input
                           autoFocus
                           value={formEdicionMaterial.titulo}

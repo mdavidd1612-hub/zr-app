@@ -63,11 +63,17 @@ export default function ContenidoProfesor() {
       const [{ data: items }, { data: mods }] = await Promise.all([
         supabase
           .from('content_items')
-          .select('id, title, week_number, is_published, visible_from, size_bytes, storage_path, original_name, uploaded_by, approval_status, review_message, modules(name)')
+          .select('id, title, week_number, is_published, visible_from, size_bytes, storage_path, original_name, uploaded_by, approval_status, review_message, modules(name, order_index, programs(siglas))')
           .or(`is_published.eq.true,uploaded_by.eq.${user.id}`)
           .order('created_at', { ascending: false }),
-        supabase.from('modules').select('id, name').order('order_index'),
+        // Solo los módulos que dicta este profesor (migración 123): ahí puede
+        // ver y subir material; en cualquier otro la base lo rechaza.
+        supabase.rpc('mis_modulos_docente'),
       ])
+      const idsMios = (mods ?? []) as unknown as string[]
+      const { data: modsInfo } = idsMios.length
+        ? await supabase.from('modules').select('id, name, order_index, programs(siglas)').in('id', idsMios).order('order_index')
+        : { data: [] }
 
       if (!vigente) return
 
@@ -76,14 +82,16 @@ export default function ContenidoProfesor() {
         is_published: boolean; visible_from: string | null; size_bytes: number | null
         storage_path: string | null; original_name: string | null; uploaded_by: string | null
         approval_status: 'aprobado' | 'pendiente' | 'rechazado'; review_message: string | null
-        modules: { name: string } | null
+        modules: { name: string; order_index: number; programs: { siglas: string | null } | null } | null
       }[]
 
       setMateriales(
         filas.map((m) => ({
           id: m.id,
           titulo: m.title,
-          modulo: m.modules?.name ?? 'Módulo',
+          modulo: m.modules
+            ? `${m.modules.programs?.siglas ? `${m.modules.programs.siglas} · ` : ''}Módulo ${m.modules.order_index} · ${m.modules.name}`
+            : 'Módulo',
           semana: m.week_number,
           publicado: m.is_published,
           visibleDesde: m.visible_from,
@@ -95,8 +103,10 @@ export default function ContenidoProfesor() {
         })),
       )
 
-      setModulos(mods ?? [])
-      if (mods?.length && !moduloId) setModuloId(mods[0].id)
+      const opciones = ((modsInfo ?? []) as unknown as { id: string; name: string; order_index: number; programs: { siglas: string | null } | null }[])
+        .map((m) => ({ id: m.id, name: `${m.programs?.siglas ? `${m.programs.siglas} · ` : ''}Módulo ${m.order_index} · ${m.name}` }))
+      setModulos(opciones)
+      if (opciones.length && !moduloId) setModuloId(opciones[0].id)
       setCargando(false)
     }
 

@@ -41,6 +41,13 @@ interface Carpeta {
   nombre: string
 }
 
+interface ModuloVisible {
+  id: string
+  nombre: string
+  orden: number
+  esActual: boolean
+}
+
 interface Material {
   id: string
   titulo: string
@@ -63,7 +70,42 @@ export default function Contenido() {
   // descargarlo y se anota el fallo (métrica de visores).
   const [sinAbrir, setSinAbrir] = useState<Material | null>(null)
 
+  // Desde la migración 123 el estudiante ve el material de todos los módulos
+  // que ya cursó de su programa (nunca los que aún no le tocan). La raíz
+  // lista esos módulos; si solo hay uno, se entra directo.
+  const [modulos, setModulos] = useState<ModuloVisible[]>([])
+  const [moduloActual, setModuloActual] = useState<ModuloVisible | null>(null)
+  const [modulosListos, setModulosListos] = useState(false)
+
   const carpetaActual = pilaCarpetas[pilaCarpetas.length - 1]?.id ?? null
+
+  useEffect(() => {
+    async function cargarModulos() {
+      const supabase = createClient()
+      const [{ data: ids }, { data: items }, { data: carpetas }, { data: actual }] = await Promise.all([
+        supabase.rpc('mis_modulos_cursados'),
+        supabase.from('content_items').select('module_id'),
+        supabase.from('content_folders').select('module_id'),
+        supabase.rpc('my_module_id'),
+      ])
+      const conMaterial = new Set([
+        ...(items ?? []).map((i) => i.module_id),
+        ...(carpetas ?? []).map((c) => c.module_id),
+      ])
+      const idsCursados = (ids ?? []) as unknown as string[]
+      const { data: mods } = idsCursados.length
+        ? await supabase.from('modules').select('id, name, order_index').in('id', idsCursados).order('order_index')
+        : { data: [] }
+      const lista = (mods ?? [])
+        .map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index, esActual: m.id === actual }))
+        .filter((m) => conMaterial.has(m.id) || m.esActual)
+      setModulos(lista)
+      if (lista.length === 1) setModuloActual(lista[0])
+      setModulosListos(true)
+      if (lista.length !== 1) setCargando(false)
+    }
+    cargarModulos()
+  }, [])
 
   useEffect(() => {
     async function cargar() {
@@ -73,11 +115,19 @@ export default function Contenido() {
         router.push('/login')
         return
       }
+      if (!modulosListos) return
+      if (!moduloActual) {
+        setSubcarpetas([])
+        setMateriales([])
+        setCargando(false)
+        return
+      }
 
-      const consultaCarpetas = supabase.from('content_folders').select('id, name')
+      const consultaCarpetas = supabase.from('content_folders').select('id, name').eq('module_id', moduloActual.id)
       const consultaItems = supabase
         .from('content_items')
         .select('id, title, week_number, size_bytes, type, original_name')
+        .eq('module_id', moduloActual.id)
 
       const [{ data: subs }, { data: items }] = await Promise.all([
         (carpetaActual
@@ -106,7 +156,7 @@ export default function Contenido() {
 
     cargar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, carpetaActual])
+  }, [router, carpetaActual, moduloActual, modulosListos])
 
   function abrirCarpeta(c: Carpeta) {
     setCargando(true)
@@ -114,6 +164,19 @@ export default function Contenido() {
   }
 
   function irARaiz() {
+    setCargando(true)
+    setPilaCarpetas([])
+    // Con varios módulos, la raíz es la lista de módulos.
+    if (modulos.length > 1) setModuloActual(null)
+  }
+
+  function abrirModulo(m: ModuloVisible) {
+    setCargando(true)
+    setPilaCarpetas([])
+    setModuloActual(m)
+  }
+
+  function irAModulo() {
     setCargando(true)
     setPilaCarpetas([])
   }
@@ -253,6 +316,17 @@ export default function Contenido() {
           >
             Material
           </button>
+          {moduloActual && modulos.length > 1 && (
+            <span className="flex items-center gap-1.5">
+              <span className="text-zr-text-muted">/</span>
+              <button
+                onClick={irAModulo}
+                className={`font-semibold ${pilaCarpetas.length === 0 ? 'text-zr-text' : 'text-zr-blue-mid'}`}
+              >
+                Módulo {moduloActual.orden}
+              </button>
+            </span>
+          )}
           {pilaCarpetas.map((c, i) => (
             <span key={c.id} className="flex items-center gap-1.5">
               <span className="text-zr-text-muted">/</span>
@@ -270,6 +344,22 @@ export default function Contenido() {
 
         {cargando ? (
           <p className="text-sm text-zr-text-muted">Cargando…</p>
+        ) : !moduloActual && modulos.length > 1 ? (
+          <div className="space-y-2">
+            {modulos.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => abrirModulo(m)}
+                className="zr-card zr-card-interactive flex w-full items-center gap-3 p-4 text-left"
+              >
+                <span className="text-xl">📚</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-zr-text">Módulo {m.orden} · {m.nombre}</span>
+                  {m.esActual && <span className="text-xs text-zr-blue-mid">Módulo actual</span>}
+                </span>
+              </button>
+            ))}
+          </div>
         ) : subcarpetas.length === 0 && materiales.length === 0 ? (
           <div className="zr-card p-8 text-center">
             <p className="text-base font-semibold text-zr-text">

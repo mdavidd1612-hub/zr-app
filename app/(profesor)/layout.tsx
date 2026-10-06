@@ -7,7 +7,7 @@ import { CASOS_HABILITADO } from '@/lib/flags'
 import { Marco } from '@/components/ui/Marco'
 import { BannerSimulacion } from '@/components/ui/BannerSimulacion'
 import {
-  IconoPanel, IconoDuda, IconoProgreso, IconoDocumento, IconoPerfil,
+  IconoPanel, IconoDuda, IconoProgreso, IconoDocumento, IconoNotas, IconoPerfil,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -15,8 +15,9 @@ import type { UserRole } from '@/lib/types'
  * El profesor también usa el teléfono. Fase 0
  * (docs/16_FASE0_PLAN_PROFESOR.md, Sprint A): Sesiones, Exámenes y Calificar
  * se retiran del menú (código intacto, se retoman en la fase siguiente).
- * Las 5 secciones que quedan caben todas en la barra fija — no hace falta
- * menú ☰.
+ *
+ * "Notas" se agrega al menú fijo (pedido explícito del coordinador, sept.
+ * 2026) -- antes solo se llegaba desde un botón dentro de "Hoy".
  */
 
 const NAV_BASE = [
@@ -24,6 +25,7 @@ const NAV_BASE = [
   { href: '/dudas-docente',      label: 'Dudas',    Icono: IconoDuda },
   { href: '/casos-docente',      label: 'Casos',    Icono: IconoProgreso },
   { href: '/contenido-docente',  label: 'Material',  Icono: IconoDocumento },
+  { href: '/notas-docente',      label: 'Notas',    Icono: IconoNotas },
   { href: '/perfil-docente',     label: 'Perfil',    Icono: IconoPerfil },
 ]
 

@@ -12,16 +12,34 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
  * Todo lo que se muestra aquí lo calcula la base (final_score y status son
  * columnas que mantiene un disparador). El navegador no suma nada: si sumara,
  * dos pantallas podrían mostrar notas distintas del mismo estudiante.
+ *
+ * Corrección (sept. 2026, junto con la migración 110/111): lo que antes era
+ * "participación" ahora se llama Puntualidad y se calcula solo de la
+ * asistencia -- "Participación" pasó a ser un campo nuevo y distinto
+ * (`class_participation_score`), el único de los cuatro que pone el
+ * profesor a mano.
  */
 
 type Estado = 'en_curso' | 'aprobado' | 'reprobado' | 'retirado'
 
+interface Detalle {
+  id: string
+  titulo: string
+  tipo: string
+  fecha: string
+  escala: number
+  minimo: number
+  nota: number | null
+}
+
 interface Nota {
   id: string
+  moduloId: string
   modulo: string
   teoria: number | null
   practica: number | null
-  participacion: number | null
+  puntualidad: number | null
+  participacionClase: number | null
   final: number | null
   umbral: number
   estado: Estado
@@ -38,6 +56,46 @@ export default function Notas() {
   const router = useRouter()
   const [notas, setNotas] = useState<Nota[]>([])
   const [cargando, setCargando] = useState(true)
+  // Segundo nivel (reunión de sept. 2026): primero lo general; el detalle por
+  // evaluación solo si el estudiante lo abre.
+  const [abierto, setAbierto] = useState<string | null>(null)
+  const [detalles, setDetalles] = useState<Record<string, Detalle[]>>({})
+  const [cargandoDetalle, setCargandoDetalle] = useState<string | null>(null)
+
+  async function alternarDetalle(n: Nota) {
+    if (abierto === n.moduloId) {
+      setAbierto(null)
+      return
+    }
+    setAbierto(n.moduloId)
+    if (detalles[n.moduloId]) return
+
+    setCargandoDetalle(n.moduloId)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const [{ data: defs }, { data: scores }] = await Promise.all([
+      supabase
+        .from('manual_exam_definitions')
+        .select('id, title, kind, kind_detail, exam_date, scale_max, passing_min')
+        .eq('module_id', n.moduloId)
+        .order('exam_date'),
+      supabase.from('manual_exam_scores').select('definition_id, score').eq('student_id', user?.id ?? ''),
+    ])
+    const porDef = new Map((scores ?? []).map((x) => [x.definition_id, Number(x.score)]))
+    setDetalles((d) => ({
+      ...d,
+      [n.moduloId]: (defs ?? []).map((e) => ({
+        id: e.id,
+        titulo: e.title,
+        tipo: e.kind === 'otro' && e.kind_detail ? e.kind_detail : e.kind === 'practica' ? 'Práctica' : e.kind === 'examen' ? 'Examen' : 'Otro',
+        fecha: e.exam_date,
+        escala: Number(e.scale_max),
+        minimo: Number(e.passing_min),
+        nota: porDef.get(e.id) ?? null,
+      })),
+    }))
+    setCargandoDetalle(null)
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -51,14 +109,16 @@ export default function Notas() {
 
       const { data } = await supabase
         .from('module_enrollments')
-        .select('id, theory_score, practice_score, participation_score, final_score, passing_threshold, status, modules(name, order_index)')
+        .select('id, module_id, theory_score, practice_score, participation_score, class_participation_score, final_score, passing_threshold, status, modules(name, order_index)')
         .eq('student_id', user.id)
 
       const filas = data as unknown as {
         id: string
+        module_id: string
         theory_score: number | null
         practice_score: number | null
         participation_score: number | null
+        class_participation_score: number | null
         final_score: number | null
         passing_threshold: number
         status: Estado
@@ -70,11 +130,13 @@ export default function Notas() {
           filas
             .map((n) => ({
               id: n.id,
+              moduloId: n.module_id,
               modulo: n.modules?.name ?? 'Módulo',
               orden: n.modules?.order_index ?? 0,
               teoria: n.theory_score === null ? null : Number(n.theory_score),
               practica: n.practice_score === null ? null : Number(n.practice_score),
-              participacion: n.participation_score === null ? null : Number(n.participation_score),
+              puntualidad: n.participation_score === null ? null : Number(n.participation_score),
+              participacionClase: n.class_participation_score === null ? null : Number(n.class_participation_score),
               final: n.final_score === null ? null : Number(n.final_score),
               umbral: Number(n.passing_threshold),
               estado: n.status,
@@ -117,8 +179,7 @@ export default function Notas() {
           <div className="zr-card animate-rise p-8" style={{ animationDelay: '120ms' }}>
             <p className="text-base font-semibold text-zr-text">Todavía no tienes notas</p>
             <p className="mt-2 text-sm text-zr-text-muted">
-              Aparecerán cuando tu profesor cargue las calificaciones del módulo que estás
-              cursando.
+              Aparecerán cuando tu profesor las cargue y Dirección Académica las valide.
             </p>
           </div>
         ) : (
@@ -127,16 +188,17 @@ export default function Notas() {
             return (
               <Seccion key={n.id} numero={i + 1} titulo={n.modulo} delay={120 + i * 80}>
                 <div className="zr-card overflow-hidden">
-                  {/* Las tres notas parciales */}
-                  <div className="grid grid-cols-3 divide-x divide-zr-border">
+                  {/* Las cuatro notas parciales */}
+                  <div className="grid grid-cols-4 divide-x divide-zr-border">
                     {[
                       { etiqueta: 'Teoría', valor: n.teoria },
                       { etiqueta: 'Práctica', valor: n.practica },
-                      { etiqueta: 'Participación', valor: n.participacion },
+                      { etiqueta: 'Puntualidad', valor: n.puntualidad },
+                      { etiqueta: 'Participación', valor: n.participacionClase },
                     ].map((p) => (
-                      <div key={p.etiqueta} className="px-4 py-5 text-center">
-                        <p className="zr-metric text-2xl text-zr-text">{cifra(p.valor)}</p>
-                        <p className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-zr-text-muted">
+                      <div key={p.etiqueta} className="px-1.5 py-5 text-center">
+                        <p className="zr-metric text-xl text-zr-text">{cifra(p.valor)}</p>
+                        <p className="mt-2 text-[9px] font-semibold uppercase leading-tight tracking-wider text-zr-text-muted">
                           {p.etiqueta}
                         </p>
                       </div>
@@ -155,6 +217,38 @@ export default function Notas() {
                     </div>
                     <Etiqueta tono={e.tono}>{e.texto}</Etiqueta>
                   </div>
+
+                  {/* Segundo nivel: detalle por evaluación, solo si lo abre */}
+                  <button
+                    onClick={() => alternarDetalle(n)}
+                    className="flex min-h-11 w-full items-center justify-center border-t border-zr-border text-sm font-bold text-zr-blue-mid"
+                  >
+                    {abierto === n.moduloId ? 'Ocultar detalle' : 'Ver detalle por evaluación'}
+                  </button>
+                  {abierto === n.moduloId && (
+                    <div className="space-y-2 border-t border-zr-border bg-zr-bg/50 px-5 py-4">
+                      {cargandoDetalle === n.moduloId ? (
+                        <p className="text-sm text-zr-text-muted">Cargando…</p>
+                      ) : (detalles[n.moduloId] ?? []).length === 0 ? (
+                        <p className="text-sm text-zr-text-muted">Este módulo no tiene evaluaciones registradas.</p>
+                      ) : (
+                        (detalles[n.moduloId] ?? []).map((d) => (
+                          <div key={d.id} className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-zr-text">{d.titulo}</p>
+                              <p className="text-xs text-zr-text-muted">
+                                {d.tipo} · {new Date(d.fecha + 'T00:00:00').toLocaleDateString('es-VE')}
+                              </p>
+                            </div>
+                            <p className={`shrink-0 text-base font-bold ${d.nota !== null && d.nota < d.minimo ? 'text-zr-error' : 'text-zr-text'}`}>
+                              {d.nota === null ? '—' : cifra(d.nota)}
+                              <span className="text-xs font-normal text-zr-text-muted"> / {d.escala}</span>
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               </Seccion>
             )

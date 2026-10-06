@@ -8,6 +8,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
  *
  * `claim-snack-cantina` queda sin usar (nadie la llama), no se borra por si
  * el patrón anterior hiciera falta de nuevo.
+ *
+ * Reunión de sept. 2026 (migración 129): la ventana se lee por turno y
+ * ZR Coffee puede abrir/cerrar a mano (snack_overrides).
  */
 
 const corsHeaders = {
@@ -72,16 +75,41 @@ Deno.serve(async (req: Request) => {
     const admin = adminClient()
     const hoy = new Date().toISOString().slice(0, 10)
 
-    // Ventana de horario -- se activa sola.
-    const { data: cfgInicio } = await admin.from('system_config').select('value').eq('key', 'attendance.refrigerio_hora_inicio').single()
-    const { data: cfgFin } = await admin.from('system_config').select('value').eq('key', 'attendance.refrigerio_hora_fin').single()
-    const horaInicio = (cfgInicio?.value as string) ?? '11:00'
-    const horaFin = (cfgFin?.value as string) ?? '11:30'
-    const horaActual = new Date().toLocaleTimeString('en-GB', {
-      timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit', hour12: false,
-    })
-    if (horaActual < horaInicio || horaActual > horaFin) {
-      return errorResponse('FUERA_DE_HORARIO', `El refrigerio se escanea entre las ${horaInicio} y las ${horaFin}.`)
+    const { data: student } = await admin.from('students').select('cohort_id').eq('id', authUser.id).single()
+    if (!student) return errorResponse('NO_AUTORIZADO', 'Solo estudiantes reclaman refrigerio así', 403)
+    if (!student.cohort_id) return errorResponse('SIN_COHORTE', 'Todavía no tienes cohorte asignada')
+
+    const { data: cohorte } = await admin.from('cohorts').select('turno').eq('id', student.cohort_id).single()
+    const turno = (cohorte?.turno as string | null) ?? 'mañana'
+
+    // Apertura/cierre manual de ZR Coffee (migración 129): manda sobre el horario.
+    const { data: manual } = await admin
+      .from('snack_overrides').select('estado').eq('checkin_date', hoy).eq('turno', turno).maybeSingle()
+
+    if (manual?.estado === 'cerrado') {
+      return errorResponse('FUERA_DE_HORARIO', 'ZR Coffee cerró el refrigerio de tu turno.')
+    }
+
+    if (manual?.estado !== 'abierto') {
+      // Ventana de horario por turno -- se activa sola. Clave general = mañana
+      // y turnos sin valor propio; el resto usa la clave con sufijo.
+      const sufijo = turno.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
+      const leer = async (clave: string, porDefecto: string) => {
+        if (sufijo !== 'manana') {
+          const { data: propio } = await admin.from('system_config').select('value').eq('key', `${clave}.${sufijo}`).maybeSingle()
+          if (propio?.value) return propio.value as string
+        }
+        const { data: general } = await admin.from('system_config').select('value').eq('key', clave).maybeSingle()
+        return (general?.value as string) ?? porDefecto
+      }
+      const horaInicio = await leer('attendance.refrigerio_hora_inicio', '11:00')
+      const horaFin = await leer('attendance.refrigerio_hora_fin', '11:30')
+      const horaActual = new Date().toLocaleTimeString('en-GB', {
+        timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit', hour12: false,
+      })
+      if (horaActual < horaInicio || horaActual > horaFin) {
+        return errorResponse('FUERA_DE_HORARIO', `El refrigerio de tu turno se escanea entre las ${horaInicio} y las ${horaFin}.`)
+      }
     }
 
     const { data: vigente } = await admin
@@ -89,10 +117,6 @@ Deno.serve(async (req: Request) => {
     if (!vigente || vigente.code !== code) {
       return errorResponse('QR_VENCIDO', 'Este código ya cambió — vuelve a escanear la pantalla')
     }
-
-    const { data: student } = await admin.from('students').select('cohort_id').eq('id', authUser.id).single()
-    if (!student) return errorResponse('NO_AUTORIZADO', 'Solo estudiantes reclaman refrigerio así', 403)
-    if (!student.cohort_id) return errorResponse('SIN_COHORTE', 'Todavía no tienes cohorte asignada')
 
     const { data: session } = await admin
       .from('class_sessions')

@@ -2561,6 +2561,38 @@ export type Database = {
           },
         ]
       }
+      snack_overrides: {
+        Row: {
+          checkin_date: string
+          estado: string
+          set_at: string
+          set_by: string | null
+          turno: string
+        }
+        Insert: {
+          checkin_date: string
+          estado: string
+          set_at?: string
+          set_by?: string | null
+          turno: string
+        }
+        Update: {
+          checkin_date?: string
+          estado?: string
+          set_at?: string
+          set_by?: string | null
+          turno?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "snack_overrides_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_profile_details: {
         Row: {
           completed_at: string
@@ -3341,6 +3373,7 @@ export type Database = {
       cfg: { Args: { p_key: string }; Returns: Json }
       cfg_int: { Args: { p_default: number; p_key: string }; Returns: number }
       cfg_num: { Args: { p_default: number; p_key: string }; Returns: number }
+      cfg_turno: { Args: { p_key: string; p_turno: string }; Returns: Json }
       cohorte_esta_vacia: { Args: { p_cohort_id: string }; Returns: boolean }
       crear_sede_con_programa: {
         Args: {
@@ -3359,6 +3392,7 @@ export type Database = {
         Returns: undefined
       }
       es_gestor_zr_coffee: { Args: never; Returns: boolean }
+      estudiante_solvente: { Args: never; Returns: boolean }
       fn_asegurar_enrollment: {
         Args: { p_cohort_id: string; p_module_id: string; p_student_id: string }
         Returns: undefined
@@ -3388,6 +3422,7 @@ export type Database = {
         Args: { p_module_id: string; p_student_id: string }
         Returns: undefined
       }
+      fn_recordar_solvencia_pendiente: { Args: never; Returns: undefined }
       fn_zr_coffee_eliminar_venta: {
         Args: { p_venta_id: string }
         Returns: undefined
@@ -3419,6 +3454,17 @@ export type Database = {
       mis_modulos_docente: { Args: never; Returns: string[] }
       my_cohort_id: { Args: never; Returns: string }
       my_module_id: { Args: never; Returns: string }
+      resumen_refrigerio_hoy: {
+        Args: never
+        Returns: {
+          cohort_id: string
+          cohorte: string
+          entregados: number
+          presentes: number
+          programa: string
+          turno: string
+        }[]
+      }
       set_student_code_calc: {
         Args: { p_cohort_id: string; p_enrollment_date: string; p_id: string }
         Returns: string

@@ -76,12 +76,25 @@ export default function Contenido() {
   const [modulos, setModulos] = useState<ModuloVisible[]>([])
   const [moduloActual, setModuloActual] = useState<ModuloVisible | null>(null)
   const [modulosListos, setModulosListos] = useState(false)
+  // 'No solvente' también bloquea Material (reunión de sept. 2026, migración
+  // 128). La base ya no entrega nada; esto solo explica por qué.
+  const [bloqueado, setBloqueado] = useState(false)
 
   const carpetaActual = pilaCarpetas[pilaCarpetas.length - 1]?.id ?? null
 
   useEffect(() => {
     async function cargarModulos() {
       const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: yo } = await supabase.from('students').select('payment_status').eq('id', user.id).maybeSingle()
+        if (yo?.payment_status === 'no_solvente') {
+          setBloqueado(true)
+          setModulosListos(true)
+          setCargando(false)
+          return
+        }
+      }
       const [{ data: ids }, { data: items }, { data: carpetas }, { data: actual }] = await Promise.all([
         supabase.rpc('mis_modulos_cursados'),
         supabase.from('content_items').select('module_id'),
@@ -344,6 +357,13 @@ export default function Contenido() {
 
         {cargando ? (
           <p className="text-sm text-zr-text-muted">Cargando…</p>
+        ) : bloqueado ? (
+          <div className="zr-card p-8 text-center">
+            <p className="text-base font-semibold text-zr-text">Material bloqueado</p>
+            <p className="mt-2 text-sm text-zr-text-muted">
+              Tienes un pago pendiente. Habla con administración para ponerte al día y recuperar el acceso.
+            </p>
+          </div>
         ) : !moduloActual && modulos.length > 1 ? (
           <div className="space-y-2">
             {modulos.map((m) => (

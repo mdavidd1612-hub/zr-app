@@ -1642,6 +1642,65 @@ export type Database = {
           },
         ]
       }
+      grade_submissions: {
+        Row: {
+          cohort_id: string
+          module_id: string
+          status: string
+          submitted_at: string
+          submitted_by: string | null
+          validated_at: string | null
+          validated_by: string | null
+        }
+        Insert: {
+          cohort_id: string
+          module_id: string
+          status: string
+          submitted_at?: string
+          submitted_by?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Update: {
+          cohort_id?: string
+          module_id?: string
+          status?: string
+          submitted_at?: string
+          submitted_by?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grade_submissions_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_submissions_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_submissions_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_submissions_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_guides: {
         Row: {
           created_at: string
@@ -1696,6 +1755,7 @@ export type Database = {
           exam_date: string
           id: string
           kind: string
+          kind_detail: string | null
           module_id: string
           passing_min: number
           scale_max: number
@@ -1707,6 +1767,7 @@ export type Database = {
           exam_date: string
           id?: string
           kind?: string
+          kind_detail?: string | null
           module_id: string
           passing_min?: number
           scale_max?: number
@@ -1718,6 +1779,7 @@ export type Database = {
           exam_date?: string
           id?: string
           kind?: string
+          kind_detail?: string | null
           module_id?: string
           passing_min?: number
           scale_max?: number
@@ -3288,6 +3350,14 @@ export type Database = {
         }
         Returns: string
       }
+      devolver_notas: {
+        Args: { p_cohort: string; p_module: string }
+        Returns: undefined
+      }
+      enviar_notas: {
+        Args: { p_cohort: string; p_module: string }
+        Returns: undefined
+      }
       es_gestor_zr_coffee: { Args: never; Returns: boolean }
       fn_asegurar_enrollment: {
         Args: { p_cohort_id: string; p_module_id: string; p_student_id: string }
@@ -3354,6 +3424,10 @@ export type Database = {
         Returns: string
       }
       teaches_cohort: { Args: { p_cohort: string }; Returns: boolean }
+      validar_notas: {
+        Args: { p_cohort: string; p_module: string }
+        Returns: undefined
+      }
     }
     Enums: {
       attempt_status: "en_progreso" | "entregado" | "calificado" | "abandonado"

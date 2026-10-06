@@ -15,17 +15,25 @@ import type { UserRole } from '@/lib/types'
  * eso lo llena el profesor. teoría y práctica del módulo se calculan solas
  * a partir de estas notas (trigger `fn_recalc_evaluacion_general`).
  *
- * El selector ya NO lista todos los módulos de la historia (lista gigante,
- * pedido explícito de corregir) -- lista las COHORTES ACTIVAS (ej. "PTMA
- * 2026-II") con una etiqueta del módulo que están cursando ahora, y de ahí
- * se toma el módulo real.
+ * Reunión de sept. 2026: dos casillas separadas, Programa (la cohorte) y
+ * Módulo (TODA la malla de ese programa, no solo el módulo actual) para
+ * poder cargar de una vez las evaluaciones de módulos que aún no empiezan.
+ * Orden del formulario: Título → Programa → Módulo → Tipo → Fecha → Escala →
+ * Mínimo. "Otro" pide escribir de qué se trata (migración 125). El historial
+ * se filtra por Programa y luego por Módulo.
  */
 
-interface CohorteActiva {
+interface Cohorte {
   id: string
   nombre: string
-  moduloId: string
-  moduloNombre: string
+  programId: string
+}
+
+interface Modulo {
+  id: string
+  nombre: string
+  orden: number
+  programId: string
 }
 
 interface Evaluacion {
@@ -37,6 +45,7 @@ interface Evaluacion {
   scaleMax: number
   passingMin: number
   kind: 'examen' | 'practica' | 'otro'
+  kindDetail: string | null
 }
 
 const ETIQUETA_KIND: Record<Evaluacion['kind'], string> = {
@@ -45,20 +54,53 @@ const ETIQUETA_KIND: Record<Evaluacion['kind'], string> = {
   otro: 'Otro',
 }
 
+const CAMPO =
+  'w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none'
+
+type ExamenCrudo = {
+  id: string; module_id: string; exam_date: string; title: string
+  scale_max: number; passing_min: number; kind: string; kind_detail: string | null
+  modules: { name: string } | null
+}
+
+function aEvaluacion(e: ExamenCrudo): Evaluacion {
+  return {
+    id: e.id,
+    moduleId: e.module_id,
+    moduloNombre: e.modules?.name ?? '—',
+    examDate: e.exam_date,
+    title: e.title,
+    scaleMax: Number(e.scale_max),
+    passingMin: Number(e.passing_min),
+    kind: e.kind as Evaluacion['kind'],
+    kindDetail: e.kind_detail,
+  }
+}
+
+const COLUMNAS = 'id, module_id, exam_date, title, scale_max, passing_min, kind, kind_detail, modules(name)'
+
 export default function RegistrarEvaluacion() {
   const router = useRouter()
   const [autorizado, setAutorizado] = useState<boolean | null>(null)
-  const [cohortes, setCohortes] = useState<CohorteActiva[]>([])
+  const [cohortes, setCohortes] = useState<Cohorte[]>([])
+  const [modulos, setModulos] = useState<Modulo[]>([])
   const [evaluaciones, setEvaluaciones] = useState<Evaluacion[]>([])
   const [error, setError] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
 
-  const [cohorteId, setCohorteId] = useState('')
-  const [kind, setKind] = useState<Evaluacion['kind']>('examen')
-  const [fecha, setFecha] = useState('')
+  // Formulario (en el orden pedido)
   const [titulo, setTitulo] = useState('')
+  const [cohorteId, setCohorteId] = useState('')
+  const [moduloId, setModuloId] = useState('')
+  const [kind, setKind] = useState<Evaluacion['kind']>('examen')
+  const [kindDetail, setKindDetail] = useState('')
+  const [fecha, setFecha] = useState('')
   const [escala, setEscala] = useState('20')
   const [minimo, setMinimo] = useState('12')
+
+  // Filtros del historial
+  const [filtroCohorteId, setFiltroCohorteId] = useState('')
+  const [filtroModuloId, setFiltroModuloId] = useState('')
 
   useEffect(() => {
     let vigente = true
@@ -80,57 +122,41 @@ export default function RegistrarEvaluacion() {
       }
       setAutorizado(true)
 
-      const [{ data: cohs }, { data: exs }] = await Promise.all([
-        supabase
-          .from('cohorts')
-          .select('id, name, current_module_id, modules(name)')
-          .eq('status', 'activa')
-          .not('current_module_id', 'is', null)
-          .order('name'),
-        supabase
-          .from('manual_exam_definitions')
-          .select('id, module_id, exam_date, title, scale_max, passing_min, kind, modules(name)')
-          .order('exam_date', { ascending: false }),
+      const [{ data: cohs }, { data: mods }, { data: exs }] = await Promise.all([
+        supabase.from('cohorts').select('id, name, program_id').eq('status', 'activa').order('name'),
+        supabase.from('modules').select('id, name, order_index, program_id').order('order_index'),
+        supabase.from('manual_exam_definitions').select(COLUMNAS).order('exam_date', { ascending: false }),
       ])
-
       if (!vigente) return
 
-      type CohorteCruda = { id: string; name: string; current_module_id: string; modules: { name: string } | null }
-      setCohortes(
-        ((cohs ?? []) as unknown as CohorteCruda[]).map((c) => ({
-          id: c.id,
-          nombre: c.name,
-          moduloId: c.current_module_id,
-          moduloNombre: c.modules?.name ?? '—',
-        })),
-      )
-
-      type ExamenCrudo = {
-        id: string; module_id: string; exam_date: string; title: string
-        scale_max: number; passing_min: number; kind: string; modules: { name: string } | null
-      }
-      setEvaluaciones(
-        ((exs ?? []) as unknown as ExamenCrudo[]).map((e) => ({
-          id: e.id,
-          moduleId: e.module_id,
-          moduloNombre: e.modules?.name ?? '—',
-          examDate: e.exam_date,
-          title: e.title,
-          scaleMax: Number(e.scale_max),
-          passingMin: Number(e.passing_min),
-          kind: e.kind as Evaluacion['kind'],
-        })),
-      )
+      setCohortes((cohs ?? []).map((c) => ({ id: c.id, nombre: c.name, programId: c.program_id })))
+      setModulos((mods ?? []).map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index, programId: m.program_id })))
+      setEvaluaciones(((exs ?? []) as unknown as ExamenCrudo[]).map(aEvaluacion))
     }
 
     cargar()
     return () => { vigente = false }
   }, [router])
 
+  const cohorteForm = cohortes.find((c) => c.id === cohorteId)
+  const modulosForm = modulos.filter((m) => m.programId === cohorteForm?.programId)
+  const cohorteFiltro = cohortes.find((c) => c.id === filtroCohorteId)
+  const modulosFiltro = modulos.filter((m) => m.programId === cohorteFiltro?.programId)
+  const idsModulosFiltro = new Set(modulosFiltro.map((m) => m.id))
+
+  const visibles = evaluaciones.filter((e) => {
+    if (filtroModuloId) return e.moduleId === filtroModuloId
+    if (filtroCohorteId) return idsModulosFiltro.has(e.moduleId)
+    return true
+  })
+
   async function crear() {
-    const cohorte = cohortes.find((c) => c.id === cohorteId)
-    if (!cohorte || !fecha || !titulo.trim()) {
-      setError('Cohorte, fecha y título son obligatorios.')
+    if (!titulo.trim() || !cohorteId || !moduloId || !fecha) {
+      setError('El nombre, el programa, el módulo y la fecha son obligatorios.')
+      return
+    }
+    if (kind === 'otro' && !kindDetail.trim()) {
+      setError('Escribe de qué se trata la evaluación de tipo "Otro".')
       return
     }
 
@@ -140,14 +166,15 @@ export default function RegistrarEvaluacion() {
     const { data, error: fallo } = await supabase
       .from('manual_exam_definitions')
       .insert({
-        module_id: cohorte.moduloId,
+        module_id: moduloId,
         exam_date: fecha,
         title: titulo.trim(),
         scale_max: Number(escala) || 20,
         passing_min: Number(minimo) || 12,
         kind,
+        kind_detail: kind === 'otro' ? kindDetail.trim() : null,
       })
-      .select('id, module_id, exam_date, title, scale_max, passing_min, kind, modules(name)')
+      .select(COLUMNAS)
       .single()
 
     if (fallo) {
@@ -156,24 +183,10 @@ export default function RegistrarEvaluacion() {
       return
     }
 
-    const fila = data as unknown as {
-      id: string; module_id: string; exam_date: string; title: string
-      scale_max: number; passing_min: number; kind: string; modules: { name: string } | null
-    }
-    setEvaluaciones((ex) => [
-      {
-        id: fila.id,
-        moduleId: fila.module_id,
-        moduloNombre: fila.modules?.name ?? '—',
-        examDate: fila.exam_date,
-        title: fila.title,
-        scaleMax: Number(fila.scale_max),
-        passingMin: Number(fila.passing_min),
-        kind: fila.kind as Evaluacion['kind'],
-      },
-      ...ex,
-    ])
+    setEvaluaciones((ex) => [aEvaluacion(data as unknown as ExamenCrudo), ...ex])
+    // Programa y módulo se conservan: lo normal es cargar varias seguidas.
     setTitulo('')
+    setKindDetail('')
     setFecha('')
     setGuardando(false)
   }
@@ -224,43 +237,73 @@ export default function RegistrarEvaluacion() {
       <div className="zr-card space-y-3 p-5">
         <p className="text-xs font-bold uppercase tracking-wide text-zr-text-muted">Nueva evaluación</p>
 
-        <select
-          value={cohorteId}
-          onChange={(e) => setCohorteId(e.target.value)}
-          className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
-        >
-          <option value="">Programa…</option>
-          {cohortes.map((c) => (
-            <option key={c.id} value={c.id}>{c.nombre} — {c.moduloNombre}</option>
-          ))}
-        </select>
-
-        <div className="flex overflow-hidden rounded-full border border-zr-border">
-          {(['examen', 'practica', 'otro'] as const).map((k) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => setKind(k)}
-              className={`flex-1 py-2 text-xs font-bold ${kind === k ? 'bg-zr-blue text-white' : 'text-zr-text-muted'}`}
-            >
-              {ETIQUETA_KIND[k]}
-            </button>
-          ))}
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Nombre de la evaluación</label>
+          <input
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+            placeholder='Ej. "Examen 2 Instrumentación"'
+            className={CAMPO}
+          />
         </div>
 
-        <input
-          type="date"
-          value={fecha}
-          onChange={(e) => setFecha(e.target.value)}
-          className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
-        />
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Programa</label>
+          <select
+            value={cohorteId}
+            onChange={(e) => { setCohorteId(e.target.value); setModuloId('') }}
+            className={CAMPO}
+          >
+            <option value="">Elige el programa…</option>
+            {cohortes.map((c) => (
+              <option key={c.id} value={c.id}>{c.nombre}</option>
+            ))}
+          </select>
+        </div>
 
-        <input
-          value={titulo}
-          onChange={(e) => setTitulo(e.target.value)}
-          placeholder='Ej. "Examen 2 Instrumentación"'
-          className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
-        />
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Módulo</label>
+          <select
+            value={moduloId}
+            onChange={(e) => setModuloId(e.target.value)}
+            disabled={!cohorteId}
+            className={`${CAMPO} disabled:opacity-50`}
+          >
+            <option value="">{cohorteId ? 'Elige el módulo…' : 'Primero elige el programa'}</option>
+            {modulosForm.map((m) => (
+              <option key={m.id} value={m.id}>Módulo {m.orden} · {m.nombre}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Tipo</label>
+          <div className="flex overflow-hidden rounded-full border border-zr-border">
+            {(['examen', 'practica', 'otro'] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setKind(k)}
+                className={`flex-1 py-2 text-xs font-bold ${kind === k ? 'bg-zr-blue text-white' : 'text-zr-text-muted'}`}
+              >
+                {ETIQUETA_KIND[k]}
+              </button>
+            ))}
+          </div>
+          {kind === 'otro' && (
+            <input
+              value={kindDetail}
+              onChange={(e) => setKindDetail(e.target.value)}
+              placeholder='¿De qué se trata? Ej. "Recuperación", "Bonificación"'
+              className={`${CAMPO} mt-2`}
+            />
+          )}
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Fecha en que se realiza</label>
+          <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className={CAMPO} />
+        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -269,7 +312,7 @@ export default function RegistrarEvaluacion() {
               type="number"
               value={escala}
               onChange={(e) => setEscala(e.target.value)}
-              className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-center text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+              className={`${CAMPO} text-center`}
             />
           </div>
           <div>
@@ -278,7 +321,7 @@ export default function RegistrarEvaluacion() {
               type="number"
               value={minimo}
               onChange={(e) => setMinimo(e.target.value)}
-              className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-center text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+              className={`${CAMPO} text-center`}
             />
           </div>
         </div>
@@ -293,17 +336,52 @@ export default function RegistrarEvaluacion() {
       </div>
 
       <div className="space-y-3">
-        {evaluaciones.map((e) => (
-          <div key={e.id} className="zr-card flex items-center justify-between p-4">
-            <div>
+        <p className="text-xs font-bold uppercase tracking-wide text-zr-text-muted">
+          Evaluaciones registradas ({visibles.length})
+        </p>
+
+        <div className="grid grid-cols-2 gap-3">
+          <select
+            value={filtroCohorteId}
+            onChange={(e) => { setFiltroCohorteId(e.target.value); setFiltroModuloId('') }}
+            className={CAMPO}
+          >
+            <option value="">Todos los programas</option>
+            {cohortes.map((c) => (
+              <option key={c.id} value={c.id}>{c.nombre}</option>
+            ))}
+          </select>
+          <select
+            value={filtroModuloId}
+            onChange={(e) => setFiltroModuloId(e.target.value)}
+            disabled={!filtroCohorteId}
+            className={`${CAMPO} disabled:opacity-50`}
+          >
+            <option value="">Todos los módulos</option>
+            {modulosFiltro.map((m) => (
+              <option key={m.id} value={m.id}>Módulo {m.orden} · {m.nombre}</option>
+            ))}
+          </select>
+        </div>
+
+        {visibles.length === 0 && (
+          <p className="text-sm text-zr-text-muted">No hay evaluaciones con ese filtro.</p>
+        )}
+
+        {visibles.map((e) => (
+          <div key={e.id} className="zr-card flex items-center justify-between gap-3 p-4">
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-zr-text">
-                {e.title} <span className="text-xs font-normal text-zr-text-muted">· {ETIQUETA_KIND[e.kind]}</span>
+                {e.title}{' '}
+                <span className="text-xs font-normal text-zr-text-muted">
+                  · {e.kind === 'otro' && e.kindDetail ? `Otro: ${e.kindDetail}` : ETIQUETA_KIND[e.kind]}
+                </span>
               </p>
               <p className="text-xs text-zr-text-muted">
                 {e.moduloNombre} · {e.examDate} · Escala {e.scaleMax} · Mínimo {e.passingMin}
               </p>
             </div>
-            <button onClick={() => borrar(e.id)} className="text-xs font-bold text-zr-error">
+            <button onClick={() => borrar(e.id)} className="shrink-0 text-xs font-bold text-zr-error">
               Quitar
             </button>
           </div>

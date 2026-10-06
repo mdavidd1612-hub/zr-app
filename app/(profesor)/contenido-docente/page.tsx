@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import {
+  ACCEPT_MATERIAL, MENSAJE_FORMATOS, nombreDescarga, rutaDeStorage, tipoDeArchivo,
+} from '@/lib/material'
 
 /**
  * T-401 · Subida de material de estudio por el profesor.
@@ -13,12 +16,6 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
  * content_items es lo que decide si el estudiante lo ve — is_published en
  * falso lo deja como borrador aunque el archivo ya esté subido.
  */
-
-const TIPOS_ACEPTADOS: Record<string, 'pdf' | 'presentacion'> = {
-  'application/pdf': 'pdf',
-  'application/vnd.ms-powerpoint': 'presentacion',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'presentacion',
-}
 
 interface Material {
   id: string
@@ -29,6 +26,7 @@ interface Material {
   visibleDesde: string | null
   tamañoKB: number | null
   rutaStorage: string | null
+  nombreOriginal: string | null
   estadoAprobacion: 'aprobado' | 'pendiente' | 'rechazado'
   mensajeRevision: string | null
 }
@@ -65,7 +63,7 @@ export default function ContenidoProfesor() {
       const [{ data: items }, { data: mods }] = await Promise.all([
         supabase
           .from('content_items')
-          .select('id, title, week_number, is_published, visible_from, size_bytes, storage_path, uploaded_by, approval_status, review_message, modules(name)')
+          .select('id, title, week_number, is_published, visible_from, size_bytes, storage_path, original_name, uploaded_by, approval_status, review_message, modules(name)')
           .or(`is_published.eq.true,uploaded_by.eq.${user.id}`)
           .order('created_at', { ascending: false }),
         supabase.from('modules').select('id, name').order('order_index'),
@@ -76,7 +74,7 @@ export default function ContenidoProfesor() {
       const filas = (items ?? []) as unknown as {
         id: string; title: string; week_number: number | null
         is_published: boolean; visible_from: string | null; size_bytes: number | null
-        storage_path: string | null; uploaded_by: string | null
+        storage_path: string | null; original_name: string | null; uploaded_by: string | null
         approval_status: 'aprobado' | 'pendiente' | 'rechazado'; review_message: string | null
         modules: { name: string } | null
       }[]
@@ -91,6 +89,7 @@ export default function ContenidoProfesor() {
           visibleDesde: m.visible_from,
           tamañoKB: m.size_bytes ? Math.round(m.size_bytes / 1024) : null,
           rutaStorage: m.storage_path,
+          nombreOriginal: m.original_name,
           estadoAprobacion: m.approval_status,
           mensajeRevision: m.review_message,
         })),
@@ -108,9 +107,9 @@ export default function ContenidoProfesor() {
 
   async function subir() {
     if (!archivo || !titulo.trim() || !moduloId) return
-    const tipo = TIPOS_ACEPTADOS[archivo.type]
+    const tipo = tipoDeArchivo(archivo)
     if (!tipo) {
-      setError('Solo se aceptan archivos PDF o PowerPoint.')
+      setError(MENSAJE_FORMATOS)
       return
     }
 
@@ -124,8 +123,7 @@ export default function ContenidoProfesor() {
       return
     }
 
-    const nombreLimpio = archivo.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')
-    const ruta = `${moduloId}/${crypto.randomUUID()}-${nombreLimpio}`
+    const ruta = rutaDeStorage(moduloId, archivo.name)
 
     const { error: falloSubida } = await supabase.storage
       .from('contenido')
@@ -146,6 +144,8 @@ export default function ContenidoProfesor() {
       title: titulo.trim(),
       type: tipo,
       storage_path: ruta,
+      original_name: archivo.name,
+      mime_type: archivo.type || null,
       size_bytes: archivo.size,
       uploaded_by: user.id,
       is_published: false,
@@ -170,16 +170,6 @@ export default function ContenidoProfesor() {
 
   const [descargando, setDescargando] = useState<string | null>(null)
 
-  // Bug real reportado por el coordinador (sept. 2026): "el archivo se
-  // descarga con un nombre todo raro" -- sin `download`, algunos navegadores
-  // usan el nombre crudo de storage_path (con el UUID pegado al inicio) al
-  // guardar el archivo. Se manda el nombre correcto explícito.
-  function nombreArchivoDescarga(titulo: string, rutaStorage: string): string {
-    const ext = rutaStorage.split('.').pop()
-    const tituloLimpio = titulo.replace(/[^a-zA-Z0-9 ._-]/g, '').trim() || 'archivo'
-    return ext ? `${tituloLimpio}.${ext}` : tituloLimpio
-  }
-
   async function descargar(m: Material) {
     if (!m.rutaStorage) return
     setDescargando(m.id)
@@ -190,7 +180,7 @@ export default function ContenidoProfesor() {
     const pestañaNueva = window.open('', '_blank')
     const { data: firmada } = await createClient().storage
       .from('contenido')
-      .createSignedUrl(m.rutaStorage, 300, { download: nombreArchivoDescarga(m.titulo, m.rutaStorage) })
+      .createSignedUrl(m.rutaStorage, 300, { download: nombreDescarga({ originalName: m.nombreOriginal, titulo: m.titulo, rutaStorage: m.rutaStorage }) })
     setDescargando(null)
     if (!firmada?.signedUrl) {
       pestañaNueva?.close()
@@ -231,10 +221,10 @@ export default function ContenidoProfesor() {
       {formAbierto && (
         <div className="zr-card space-y-5 p-6">
           <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Archivo (PDF o PowerPoint)</label>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Archivo (PDF, PowerPoint, Word, Excel, imagen, video o audio)</label>
             <input
               type="file"
-              accept="application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              accept={ACCEPT_MATERIAL}
               onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-sm text-zr-text file:mr-4 file:rounded file:border-0 file:bg-zr-blue file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
             />

@@ -3345,6 +3345,8 @@ export type Database = {
       is_student: { Args: never; Returns: boolean }
       is_super: { Args: never; Returns: boolean }
       is_vendedor: { Args: never; Returns: boolean }
+      mis_modulos_cursados: { Args: never; Returns: string[] }
+      mis_modulos_docente: { Args: never; Returns: string[] }
       my_cohort_id: { Args: never; Returns: string }
       my_module_id: { Args: never; Returns: string }
       set_student_code_calc: {

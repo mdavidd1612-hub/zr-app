@@ -29,6 +29,7 @@ interface Cohorte {
   nombre: string
   moduloId: string | null
   moduloNombre: string | null
+  programId: string | null
 }
 
 interface Carpeta {
@@ -75,7 +76,20 @@ export default function MaterialAdmin() {
   const [error, setError] = useState<string | null>(null)
   const [formAbierto, setFormAbierto] = useState(false)
 
-  const programa = cohortes.find((c) => c.id === programaId)
+  // Un material pertenece a un módulo, y cada módulo a un programa (migración
+  // 123): "programa + módulo" son las etiquetas del material. Se puede
+  // explorar cualquier módulo del programa, no solo el actual de la cohorte.
+  const [moduloSelId, setModuloSelId] = useState<string | null>(null)
+  const [modulosPrograma, setModulosPrograma] = useState<{ id: string; nombre: string; orden: number }[]>([])
+  const cohorteBase = cohortes.find((c) => c.id === programaId)
+  const moduloElegido = modulosPrograma.find((m) => m.id === moduloSelId)
+  const programa = cohorteBase
+    ? {
+        ...cohorteBase,
+        moduloId: moduloSelId ?? cohorteBase.moduloId,
+        moduloNombre: moduloElegido?.nombre ?? cohorteBase.moduloNombre,
+      }
+    : undefined
   const carpetaActual = pilaCarpetas[pilaCarpetas.length - 1]?.id ?? null
   const puedeCrearCarpetas = esDireccionAcademica(rol)
 
@@ -108,7 +122,7 @@ export default function MaterialAdmin() {
           .select('id, title, week_number, is_published, size_bytes, storage_path, original_name, uploaded_by, approval_status, profiles!content_items_uploaded_by_fkey(full_name), modules(name)')
           .eq('approval_status', 'pendiente')
           .order('created_at', { ascending: false }),
-        supabase.from('cohorts').select('id, name, current_module_id, modules(name)'),
+        supabase.from('cohorts').select('id, name, current_module_id, program_id, modules(name)'),
       ])
 
       if (!vigente) return
@@ -143,6 +157,7 @@ export default function MaterialAdmin() {
         nombre: c.name,
         moduloId: c.current_module_id,
         moduloNombre: (c as unknown as { modules: { name: string } | null }).modules?.name ?? null,
+        programId: c.program_id,
       }))
       setCohortes(listaCohortes)
       if (listaCohortes.length && !programaId) setProgramaId(listaCohortes[0].id)
@@ -215,11 +230,109 @@ export default function MaterialAdmin() {
 
     cargarCarpeta()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [programaId, carpetaActual, version])
+  }, [programaId, moduloSelId, carpetaActual, version])
+
+  useEffect(() => {
+    const programId = cohorteBase?.programId
+    if (!programId) return
+    createClient()
+      .from('modules').select('id, name, order_index').eq('program_id', programId).order('order_index')
+      .then(({ data }) => setModulosPrograma((data ?? []).map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index }))))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cohorteBase?.programId])
 
   function cambiarPrograma(id: string) {
     setProgramaId(id)
+    setModuloSelId(null)
     setPilaCarpetas([])
+  }
+
+  function cambiarModulo(id: string) {
+    setModuloSelId(id)
+    setPilaCarpetas([])
+  }
+
+  // ---- Mover (reunión de oct. 2026): botón "Mover" con selector de carpeta
+  // (sirve en teléfono/tableta) y arrastrar y soltar en computador. Solo
+  // dentro del mismo módulo -- lo exige además un trigger en la base (123).
+  type Movible = { tipo: 'item' | 'carpeta'; id: string; nombre: string }
+  const [moviendo, setMoviendo] = useState<Movible | null>(null)
+  const [arbol, setArbol] = useState<{ id: string; nombre: string; padre: string | null }[]>([])
+  const [moviendoEnCurso, setMoviendoEnCurso] = useState(false)
+  const [mensajeMovido, setMensajeMovido] = useState<string | null>(null)
+
+  async function abrirMover(m: Movible) {
+    if (!programa?.moduloId) return
+    setMoviendo(m)
+    const { data } = await createClient()
+      .from('content_folders').select('id, name, parent_folder_id').eq('module_id', programa.moduloId).order('name')
+    setArbol((data ?? []).map((f) => ({ id: f.id, nombre: f.name, padre: f.parent_folder_id })))
+  }
+
+  async function moverA(m: Movible, destinoId: string | null, nombreDestino: string) {
+    if (m.tipo === 'carpeta' && destinoId === m.id) return
+    setMoviendoEnCurso(true)
+    setError(null)
+    const supabase = createClient()
+    const { error: fallo } = m.tipo === 'item'
+      ? await supabase.from('content_items').update({ folder_id: destinoId }).eq('id', m.id)
+      : await supabase.from('content_folders').update({ parent_folder_id: destinoId }).eq('id', m.id)
+    setMoviendoEnCurso(false)
+    setMoviendo(null)
+    if (fallo) {
+      setError(fallo.message.includes('mismo módulo') || fallo.message.includes('sí misma')
+        ? fallo.message
+        : 'No se pudo mover. Intenta de nuevo.')
+      return
+    }
+    setMensajeMovido(`"${m.nombre}" se movió a ${nombreDestino}.`)
+    setTimeout(() => setMensajeMovido(null), 4000)
+    setVersion((v) => v + 1)
+  }
+
+  // Arrastrar y soltar (solo computador; en teléfono se usa el botón Mover).
+  function iniciarArrastre(e: React.DragEvent, m: Movible) {
+    e.dataTransfer.setData('application/x-zr-mover', JSON.stringify(m))
+    e.dataTransfer.effectAllowed = 'move'
+  }
+  function soltarEn(e: React.DragEvent, destinoId: string | null, nombreDestino: string) {
+    e.preventDefault()
+    const crudo = e.dataTransfer.getData('application/x-zr-mover')
+    if (!crudo) return
+    void moverA(JSON.parse(crudo) as Movible, destinoId, nombreDestino)
+  }
+  function permitirSoltar(e: React.DragEvent) {
+    if (puedeCrearCarpetas) e.preventDefault()
+  }
+
+  // Carpetas destino con sangría; se excluye la carpeta movida y sus hijas.
+  function opcionesDestino(): { id: string | null; nombre: string; nivel: number }[] {
+    const excluidas = new Set<string>()
+    if (moviendo?.tipo === 'carpeta') {
+      excluidas.add(moviendo.id)
+      let creciendo = true
+      while (creciendo) {
+        creciendo = false
+        for (const f of arbol) {
+          if (f.padre && excluidas.has(f.padre) && !excluidas.has(f.id)) {
+            excluidas.add(f.id)
+            creciendo = true
+          }
+        }
+      }
+    }
+    const salida: { id: string | null; nombre: string; nivel: number }[] = [
+      { id: null, nombre: programa?.moduloNombre ?? 'Raíz del módulo', nivel: 0 },
+    ]
+    const agregar = (padre: string | null, nivel: number) => {
+      for (const f of arbol.filter((x) => x.padre === padre)) {
+        if (excluidas.has(f.id)) continue
+        salida.push({ id: f.id, nombre: f.nombre, nivel })
+        agregar(f.id, nivel + 1)
+      }
+    }
+    agregar(null, 1)
+    return salida
   }
 
   function abrirCarpeta(c: Carpeta) {
@@ -581,6 +694,23 @@ export default function MaterialAdmin() {
           </select>
         </div>
 
+        {modulosPrograma.length > 0 && (
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Módulo</label>
+            <select
+              value={programa?.moduloId ?? ''}
+              onChange={(e) => cambiarModulo(e.target.value)}
+              className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+            >
+              {modulosPrograma.map((m) => (
+                <option key={m.id} value={m.id}>
+                  Módulo {m.orden} · {m.nombre}{m.id === cohorteBase?.moduloId ? ' (actual)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {!programa?.moduloId ? (
           <div className="flex gap-3 rounded-lg border border-zr-warning/30 bg-zr-warning/10 p-4">
             <IconoAviso size={18} className="mt-0.5 shrink-0 text-zr-warning" />
@@ -592,6 +722,8 @@ export default function MaterialAdmin() {
             <div className="flex flex-wrap items-center gap-1.5 text-sm">
               <button
                 onClick={irARaiz}
+                onDragOver={permitirSoltar}
+                onDrop={(e) => soltarEn(e, null, programa.moduloNombre ?? 'el módulo')}
                 className={`font-semibold ${pilaCarpetas.length === 0 ? 'text-zr-text' : 'text-zr-blue-mid'}`}
               >
                 {programa.moduloNombre ?? 'Módulo'}
@@ -601,6 +733,8 @@ export default function MaterialAdmin() {
                   <span className="text-zr-text-muted">/</span>
                   <button
                     onClick={() => volverA(i)}
+                    onDragOver={permitirSoltar}
+                    onDrop={(e) => soltarEn(e, c.id, c.nombre)}
                     className={`font-semibold ${i === pilaCarpetas.length - 1 ? 'text-zr-text' : 'text-zr-blue-mid'}`}
                   >
                     {c.nombre}
@@ -649,7 +783,14 @@ export default function MaterialAdmin() {
             ) : (
               <div className="space-y-2">
                 {subcarpetas.map((c) => (
-                  <div key={c.id} className="zr-card flex items-center gap-3 p-4">
+                  <div
+                    key={c.id}
+                    className="zr-card flex items-center gap-3 p-4"
+                    draggable={puedeCrearCarpetas && editandoCarpetaId !== c.id}
+                    onDragStart={(e) => iniciarArrastre(e, { tipo: 'carpeta', id: c.id, nombre: c.nombre })}
+                    onDragOver={permitirSoltar}
+                    onDrop={(e) => soltarEn(e, c.id, c.nombre)}
+                  >
                     {editandoCarpetaId === c.id ? (
                       <>
                         <input
@@ -685,6 +826,12 @@ export default function MaterialAdmin() {
                         {puedeCrearCarpetas && (
                           <>
                             <button
+                              onClick={() => abrirMover({ tipo: 'carpeta', id: c.id, nombre: c.nombre })}
+                              className="shrink-0 rounded-full border border-zr-border px-3 py-1.5 text-xs font-bold text-zr-text"
+                            >
+                              Mover
+                            </button>
+                            <button
                               onClick={() => abrirEdicionCarpeta(c)}
                               className="shrink-0 rounded-full border border-zr-border px-3 py-1.5 text-xs font-bold text-zr-text"
                             >
@@ -707,6 +854,8 @@ export default function MaterialAdmin() {
                 {materiales.map((m) => (
                   <div
                     key={m.id}
+                    draggable={puedeCrearCarpetas && editandoMaterialId !== m.id}
+                    onDragStart={(e) => iniciarArrastre(e, { tipo: 'item', id: m.id, nombre: m.titulo })}
                     className={`zr-card p-4 ${
                       !m.publicado && m.estadoAprobacion !== 'rechazado' ? 'border-2 border-zr-warning/60' : ''
                     }`}
@@ -771,6 +920,14 @@ export default function MaterialAdmin() {
                           >
                             {descargando === m.id ? '…' : 'Descargar'}
                           </button>
+                          {puedeCrearCarpetas && (
+                            <button
+                              onClick={() => abrirMover({ tipo: 'item', id: m.id, nombre: m.titulo })}
+                              className="rounded-full border border-zr-border px-3 py-1.5 text-xs font-bold text-zr-text"
+                            >
+                              Mover
+                            </button>
+                          )}
                           <button
                             onClick={() => abrirEdicionMaterial(m)}
                             className="rounded-full border border-zr-border px-3 py-1.5 text-xs font-bold text-zr-text"
@@ -803,6 +960,48 @@ export default function MaterialAdmin() {
           </>
         )}
       </Seccion>
+
+      {mensajeMovido && (
+        <p className="fixed inset-x-5 bottom-24 z-40 rounded-lg bg-zr-success px-4 py-3 text-center text-sm font-semibold text-white shadow-lg">
+          {mensajeMovido}
+        </p>
+      )}
+
+      {moviendo && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-5">
+          <div className="max-h-[80dvh] w-full max-w-md space-y-4 overflow-y-auto rounded-t-2xl bg-zr-surface p-5 sm:rounded-2xl">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-zr-text-muted">
+                Mover {moviendo.tipo === 'item' ? 'archivo' : 'carpeta'}
+              </p>
+              <p className="mt-1 break-words text-base font-semibold text-zr-text">{moviendo.nombre}</p>
+              <p className="mt-1 text-xs text-zr-text-muted">
+                Elige la carpeta de destino (dentro de {programa?.moduloNombre ?? 'este módulo'}).
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              {opcionesDestino().map((o) => (
+                <button
+                  key={o.id ?? 'raiz'}
+                  disabled={moviendoEnCurso}
+                  onClick={() => moverA(moviendo, o.id, o.nombre)}
+                  style={{ paddingLeft: 12 + o.nivel * 18 }}
+                  className="flex min-h-11 w-full items-center gap-2 rounded-lg border border-zr-border pr-3 text-left text-sm font-semibold text-zr-text disabled:opacity-50"
+                >
+                  <span>{o.id === null ? '🏠' : '📁'}</span>
+                  <span className="truncate">{o.nombre}</span>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setMoviendo(null)}
+              className="min-h-11 w-full rounded-lg border border-zr-border text-sm font-bold text-zr-text"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {formAbierto && (
         <div className="zr-card space-y-5 p-6">

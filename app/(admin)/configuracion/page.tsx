@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { CalendarioModulos } from '@/components/CalendarioModulos'
 
 /**
  * T-411 · Panel de configuración. Solo super_admin — la RLS de la migración
@@ -188,7 +189,11 @@ export default function Configuracion() {
         </p>
       )}
 
-      <Seccion numero={1} titulo="Valores" delay={120}>
+      <Seccion numero={1} titulo="Calendario de módulos" delay={100}>
+        <CalendarioModulos />
+      </Seccion>
+
+      <Seccion numero={2} titulo="Valores" delay={120}>
         <div className="space-y-3">
           {config.map((c) => {
             const enEdicion = borradores[c.key] !== undefined
@@ -247,7 +252,7 @@ export default function Configuracion() {
       </Seccion>
 
       {historial.length > 0 && (
-        <Seccion numero={2} titulo="Historial de cambios" delay={220}>
+        <Seccion numero={3} titulo="Historial de cambios" delay={220}>
           <div className="zr-card divide-y divide-zr-border">
             {historial.map((h) => (
               <div key={h.id} className="p-4">

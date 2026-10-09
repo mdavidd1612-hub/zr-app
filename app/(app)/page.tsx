@@ -504,11 +504,15 @@ export default function Inicio() {
               {[
                 { href: '/contenido', titulo: 'Material', sub: 'Guías y PDFs' },
                 { href: '/dudas',     titulo: 'Dudas',    sub: 'Pregúntale al profesor' },
-              ].map((a) => (
+                // "Notas" no está en la barra fija (decisión de Fase 0), así que
+                // este es su único acceso: sin él el estudiante no llegaba a
+                // "Mis notas" (detectado al probar en staging, oct. 2026).
+                { href: '/notas',     titulo: 'Mis notas', sub: 'Tus calificaciones por módulo' },
+              ].map((a, i) => (
                 <button
                   key={a.href}
                   onClick={() => router.push(a.href)}
-                  className="zr-card zr-card-interactive px-4 py-4 text-left"
+                  className={`zr-card zr-card-interactive px-4 py-4 text-left ${i === 2 ? 'col-span-2' : ''}`}
                 >
                   <p className="text-sm font-bold text-zr-text">{a.titulo}</p>
                   <p className="mt-0.5 text-xs text-zr-text-muted">{a.sub}</p>

@@ -506,6 +506,48 @@ export type Database = {
           },
         ]
       }
+      cohort_module_calendar: {
+        Row: {
+          cohort_id: string
+          created_at: string
+          end_date: string
+          id: string
+          module_id: string
+          start_date: string
+        }
+        Insert: {
+          cohort_id: string
+          created_at?: string
+          end_date: string
+          id?: string
+          module_id: string
+          start_date: string
+        }
+        Update: {
+          cohort_id?: string
+          created_at?: string
+          end_date?: string
+          id?: string
+          module_id?: string
+          start_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cohort_module_calendar_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cohort_module_calendar_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cohorts: {
         Row: {
           code_number: number | null
@@ -1645,6 +1687,7 @@ export type Database = {
       grade_submissions: {
         Row: {
           cohort_id: string
+          id: string
           module_id: string
           status: string
           submitted_at: string
@@ -1654,6 +1697,7 @@ export type Database = {
         }
         Insert: {
           cohort_id: string
+          id?: string
           module_id: string
           status: string
           submitted_at?: string
@@ -1663,6 +1707,7 @@ export type Database = {
         }
         Update: {
           cohort_id?: string
+          id?: string
           module_id?: string
           status?: string
           submitted_at?: string
@@ -3393,10 +3438,15 @@ export type Database = {
       }
       es_gestor_zr_coffee: { Args: never; Returns: boolean }
       estudiante_solvente: { Args: never; Returns: boolean }
+      fn_aplicar_calendario_cohorte: {
+        Args: { p_cohort: string }
+        Returns: undefined
+      }
       fn_asegurar_enrollment: {
         Args: { p_cohort_id: string; p_module_id: string; p_student_id: string }
         Returns: undefined
       }
+      fn_avanzar_modulos_por_calendario: { Args: never; Returns: undefined }
       fn_cambiar_mi_rol: {
         Args: { nuevo_rol: Database["public"]["Enums"]["user_role"] }
         Returns: undefined
@@ -3452,6 +3502,10 @@ export type Database = {
       is_vendedor: { Args: never; Returns: boolean }
       mis_modulos_cursados: { Args: never; Returns: string[] }
       mis_modulos_docente: { Args: never; Returns: string[] }
+      modulo_por_calendario: {
+        Args: { p_cohort: string; p_fecha: string }
+        Returns: string
+      }
       my_cohort_id: { Args: never; Returns: string }
       my_module_id: { Args: never; Returns: string }
       resumen_refrigerio_hoy: {

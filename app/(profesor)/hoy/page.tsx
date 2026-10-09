@@ -19,7 +19,6 @@ interface Sesion {
   taller: string | null
   horario: string
   esHoy: boolean
-  cohortId: string
 }
 
 interface Resumen {
@@ -72,7 +71,6 @@ export default function Hoy() {
           taller: s.cohorts?.location ?? null,
           horario,
           esHoy: s.session_date === hoy,
-          cohortId: s.cohort_id,
         })
 
         const [{ count: presentes }, { count: inscritos }] = await Promise.all([
@@ -167,23 +165,6 @@ export default function Hoy() {
           <span className="shrink-0 text-zr-text-muted">›</span>
         </button>
       </Seccion>
-
-      {/* Notas (pedido explícito del coordinador, sept. 2026): mismo patrón
-          que Feedback -- no está en la barra fija, se llega desde aquí. */}
-      {sesion && (
-        <Seccion numero={4} titulo="Notas" delay={340}>
-          <button
-            onClick={() => router.push(`/notas/${sesion.cohortId}`)}
-            className="zr-card zr-card-interactive flex w-full items-center justify-between gap-3 p-5 text-left"
-          >
-            <div>
-              <p className="text-sm font-semibold text-zr-text">Evaluar a tus estudiantes</p>
-              <p className="mt-0.5 text-sm text-zr-text-muted">Por módulo y por examen.</p>
-            </div>
-            <span className="shrink-0 text-zr-text-muted">›</span>
-          </button>
-        </Seccion>
-      )}
     </div>
   )
 }

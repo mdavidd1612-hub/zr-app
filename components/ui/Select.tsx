@@ -101,6 +101,9 @@ export function Select({
             className="max-h-[70dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-zr-border bg-zr-surface p-2 pb-6 sm:rounded-2xl sm:pb-2"
             onClick={(e) => e.stopPropagation()}
           >
+            {opciones.length === 0 && (
+              <p className="px-4 py-6 text-center text-sm text-zr-text-muted">No hay opciones para elegir.</p>
+            )}
             {opciones.map((o, i) => {
               const elegida = o.value === String(value ?? '')
               return (

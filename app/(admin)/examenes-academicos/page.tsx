@@ -52,7 +52,7 @@ export default function ExamenesAcademicos() {
 
       const { data } = await supabase
         .from('exams')
-        .select('id, title, status, created_at, modules(name), cohorts(name), teachers(profiles(full_name))')
+        .select('id, title, status, created_at, modules(name), cohorts(name), teachers!exams_teacher_id_fkey(profiles(full_name))')
         .order('created_at', { ascending: false })
 
       if (!vigente) return

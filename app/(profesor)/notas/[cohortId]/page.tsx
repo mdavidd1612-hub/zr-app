@@ -50,6 +50,9 @@ export default function NotasCohorteProfesor() {
   // notas[studentId][evalId]
   const [notas, setNotas] = useState<Record<string, Record<string, number | null>>>({})
   const [envio, setEnvio] = useState<Envio | null>(null)
+  // Se vuelve a leer todo cuando Dirección registra algo nuevo mientras esta
+  // pantalla está abierta (al volver a la pestaña).
+  const [version, setVersion] = useState(0)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
@@ -139,9 +142,22 @@ export default function NotasCohorteProfesor() {
 
     cargar()
     return () => { vigente = false }
-  }, [router, cohortId])
+  }, [router, cohortId, version])
 
-  const bloqueado = envio !== null
+  useEffect(() => {
+    const alVolver = () => { if (document.visibilityState === 'visible') setVersion((v) => v + 1) }
+    document.addEventListener('visibilitychange', alVolver)
+    window.addEventListener('focus', alVolver)
+    return () => {
+      document.removeEventListener('visibilitychange', alVolver)
+      window.removeEventListener('focus', alVolver)
+    }
+  }, [])
+
+  // Solo está bloqueado mientras espera la validación. Si Dirección registra
+  // una evaluación nueva, el servidor reabre el envío solo (migración 136); y
+  // si cambias algo ya validado, también se reabre y hay que volver a enviar.
+  const bloqueado = envio?.status === 'enviado'
 
   // Después de guardar una nota, el servidor ya recalculó teoría/práctica/
   // nota final: se vuelven a leer de la base, nunca se suman aquí.
@@ -183,6 +199,7 @@ export default function NotasCohorteProfesor() {
       return
     }
     setNotas((n) => ({ ...n, [studentId]: { ...n[studentId], [ev.id]: valor } }))
+    setEnvio((e) => (e?.status === 'validado' ? null : e))
     await releerEstudiante(studentId)
     setGuardando(null)
   }
@@ -207,6 +224,7 @@ export default function NotasCohorteProfesor() {
     setFilas((fs) => fs.map((f) => f.studentId === studentId
       ? { ...f, participacionClase: valor, finalScore: data.final_score }
       : f))
+    setEnvio((e) => (e?.status === 'validado' ? null : e))
     setGuardando(null)
   }
 
@@ -256,13 +274,15 @@ export default function NotasCohorteProfesor() {
       {envio?.status === 'enviado' && (
         <p className="rounded-lg border border-zr-blue/30 bg-zr-blue/10 px-4 py-3 text-sm font-medium text-zr-text">
           Enviadas a Dirección Académica el {new Date(envio.submittedAt).toLocaleDateString('es-VE')}.
-          Los estudiantes las verán cuando se validen. Si hay que corregir algo, pídele a Dirección
-          Académica que las devuelva.
+          Los estudiantes las verán cuando se validen. Si Dirección registra una evaluación nueva, esto
+          se reabre solo para que cargues su nota y vuelvas a enviar. Para corregir algo ya enviado,
+          pídele a Dirección Académica que las devuelva.
         </p>
       )}
       {envio?.status === 'validado' && (
         <p className="rounded-lg border border-zr-success/30 bg-zr-success/10 px-4 py-3 text-sm font-medium text-zr-success">
-          Notas validadas. Los estudiantes ya las ven.
+          Notas validadas. Los estudiantes ya las ven. Si cambias una nota, se reabren: tendrás que
+          volver a enviarlas y Dirección a validarlas, y mientras tanto el estudiante no las ve.
         </p>
       )}
 
@@ -314,6 +334,7 @@ export default function NotasCohorteProfesor() {
                     {evaluaciones.map((ev) => (
                       <td key={ev.id} className="px-2 py-2 text-center">
                         <input
+                          key={`${f.studentId}-${ev.id}-${notas[f.studentId]?.[ev.id] ?? ''}`}
                           type="number" inputMode="decimal" min={0} max={ev.scaleMax} step={0.5}
                           defaultValue={notas[f.studentId]?.[ev.id] ?? ''}
                           onBlur={(e) => guardarNota(f.studentId, ev, e.target.value)}
@@ -327,6 +348,7 @@ export default function NotasCohorteProfesor() {
                     <td className="px-2 py-2 text-center text-zr-text">{fmt(f.puntualidad)}</td>
                     <td className="px-2 py-2 text-center">
                       <input
+                        key={`${f.studentId}-part-${f.participacionClase ?? ''}`}
                         type="number" inputMode="decimal" min={0} max={20} step={0.5}
                         defaultValue={f.participacionClase ?? ''}
                         onBlur={(e) => guardarParticipacionClase(f.studentId, e.target.value)}

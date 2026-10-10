@@ -3613,6 +3613,10 @@ export type Database = {
       modulos_que_imparto: { Args: never; Returns: string[] }
       my_cohort_id: { Args: never; Returns: string }
       my_module_id: { Args: never; Returns: string }
+      publicar_cambios: {
+        Args: { p_cohort: string; p_module: string }
+        Returns: undefined
+      }
       resumen_refrigerio_hoy: {
         Args: never
         Returns: {

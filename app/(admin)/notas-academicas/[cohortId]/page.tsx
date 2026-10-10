@@ -72,6 +72,8 @@ export default function VerCalificacionesCohorte() {
   const [guardando, setGuardando] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [version, setVersion] = useState(0)
+  // Evaluaciones con notas que Dirección tocó (o que aún no valida) y los estudiantes todavía no ven.
+  const [sinPublicar, setSinPublicar] = useState(0)
 
   // 1) Autorización + datos de la cohorte y la malla de su programa
   useEffect(() => {
@@ -179,6 +181,7 @@ export default function VerCalificacionesCohorte() {
       }
       setNotas(mapa)
       setEnvio(sub ? { status: sub.status as Envio['status'], submittedAt: sub.submitted_at, validatedAt: sub.validated_at, motivo: sub.return_reason } : null)
+      void contarSinPublicar()
       setCargando(false)
     }
 
@@ -218,7 +221,33 @@ export default function VerCalificacionesCohorte() {
     if (fallo) { setError(fallo.message); setGuardando(null); return }
     setNotas((n) => ({ ...n, [studentId]: { ...n[studentId], [ev.id]: valor } }))
     await releer(studentId)
+    void contarSinPublicar()
     setGuardando(null)
+  }
+
+  async function contarSinPublicar() {
+    if (!moduleId) return
+    const supabase = createClient()
+    const { data: defs } = await supabase.from('manual_exam_definitions').select('id').eq('module_id', moduleId)
+    const ids = (defs ?? []).map((d) => d.id)
+    if (ids.length === 0) { setSinPublicar(0); return }
+    const [{ data: validadas }, { data: conNota }] = await Promise.all([
+      supabase.from('grade_validated_evals').select('definition_id').eq('cohort_id', cohortId).eq('module_id', moduleId),
+      supabase.from('manual_exam_scores').select('definition_id').in('definition_id', ids),
+    ])
+    const ok = new Set((validadas ?? []).map((v) => v.definition_id))
+    const conNotas = new Set((conNota ?? []).map((n) => n.definition_id))
+    setSinPublicar([...conNotas].filter((id) => !ok.has(id)).length)
+  }
+
+  async function publicar() {
+    if (!moduleId || !confirm('¿Validar y publicar estos cambios? Los estudiantes los verán de inmediato.')) return
+    setAccionando(true)
+    setError(null)
+    const { error: fallo } = await createClient().rpc('publicar_cambios', { p_cohort: cohortId, p_module: moduleId })
+    setAccionando(false)
+    if (fallo) { setError(fallo.message); return }
+    setVersion((v) => v + 1)
   }
 
   async function validar() {
@@ -345,12 +374,30 @@ export default function VerCalificacionesCohorte() {
       {envio?.status === 'validado' && (
         <div className="space-y-2 rounded-lg border border-zr-success/30 bg-zr-success/10 p-4">
           <p className="text-sm font-semibold text-zr-success">
-            Validadas{envio.validatedAt ? ` el ${new Date(envio.validatedAt).toLocaleDateString('es-VE')}` : ''}. Los estudiantes ya las ven
-            (y verán al instante cualquier cambio que hagas aquí).
+            Validadas{envio.validatedAt ? ` el ${new Date(envio.validatedAt).toLocaleDateString('es-VE')}` : ''}. Los estudiantes ya las ven.
+            Si cambias una nota, ese cambio no les llega hasta que pulses «Validar y publicar».
           </p>
           <p className="text-xs text-zr-text-muted">
             Si el profesor carga evaluaciones nuevas, solo esas quedan por validar; lo ya validado no se les quita a los estudiantes.
           </p>
+        </div>
+      )}
+
+      {sinPublicar > 0 && envio?.status !== 'enviado' && (
+        <div className="space-y-3 rounded-lg border border-zr-warning/40 bg-zr-warning/10 p-4">
+          <p className="text-sm font-semibold text-zr-text">
+            {sinPublicar === 1 ? 'Hay 1 evaluación con cambios sin publicar.' : `Hay ${sinPublicar} evaluaciones con cambios sin publicar.`}
+          </p>
+          <p className="text-xs text-zr-text-muted">
+            Los estudiantes no ven esos cambios hasta que revises y pulses «Validar y publicar».
+          </p>
+          <button
+            onClick={publicar}
+            disabled={accionando}
+            className="min-h-11 w-full rounded-lg bg-zr-success text-sm font-bold text-white disabled:opacity-50"
+          >
+            Validar y publicar
+          </button>
         </div>
       )}
 

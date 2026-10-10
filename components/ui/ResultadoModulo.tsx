@@ -97,15 +97,24 @@ export function ResultadoModulo() {
   return (
     <>
     {actual.aprobo && <Confeti key={actual.clave} />}
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/55 p-5 backdrop-blur-md">
+    <div
+      className={`fixed inset-0 z-[90] flex items-center justify-center p-5 backdrop-blur-md ${
+        actual.aprobo ? 'bg-emerald-950/70' : 'animate-[zrSacudir_.5s_ease-in-out_1] bg-red-950/80'
+      }`}
+    >
+      <style>{`@keyframes zrSacudir{0%,100%{transform:translateX(0)}20%{transform:translateX(-10px)}40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}`}</style>
       <div
         role="dialog"
         aria-modal="true"
-        className="w-full max-w-sm space-y-5 rounded-2xl border border-white/15 bg-zr-surface/90 p-7 text-center shadow-[0_16px_48px_rgba(0,0,0,0.55)] backdrop-blur-xl"
+        className={`w-full max-w-sm space-y-5 rounded-2xl border-2 p-7 text-center backdrop-blur-xl ${
+          actual.aprobo
+            ? 'border-zr-success/60 bg-emerald-950/80 shadow-[0_0_60px_rgba(34,197,94,0.35)]'
+            : 'border-zr-error/70 bg-red-950/85 shadow-[0_0_60px_rgba(239,68,68,0.45)]'
+        }`}
       >
         <div
           className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full ${
-            actual.aprobo ? 'bg-zr-success/15 text-zr-success' : 'bg-zr-error/15 text-zr-error'
+            actual.aprobo ? 'bg-zr-success/20 text-zr-success' : 'bg-zr-error/25 text-red-300'
           }`}
         >
           {actual.aprobo ? (
@@ -123,7 +132,7 @@ export function ResultadoModulo() {
             {actual.aprobo ? 'Has aprobado el módulo' : 'No aprobaste el módulo'}
           </p>
           <p className="text-sm font-semibold text-zr-text">{actual.modulo}</p>
-          <p className={`zr-metric text-5xl ${actual.aprobo ? 'text-zr-success' : 'text-zr-error'}`}>{cifra}</p>
+          <p className={`zr-metric text-5xl ${actual.aprobo ? 'text-zr-success' : 'text-red-300'}`}>{cifra}</p>
           <p className="text-sm text-zr-text-muted">
             {actual.aprobo
               ? 'Esta es tu nota final. ¡Buen trabajo!'
@@ -132,7 +141,7 @@ export function ResultadoModulo() {
         </div>
         <button
           onClick={cerrar}
-          className="min-h-12 w-full rounded-lg bg-zr-blue text-base font-bold text-white"
+          className={`min-h-12 w-full rounded-lg text-base font-bold text-white ${actual.aprobo ? 'bg-zr-success' : 'bg-zr-error'}`}
         >
           Entendido
         </button>

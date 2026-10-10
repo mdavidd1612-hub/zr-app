@@ -11,6 +11,43 @@ import { createClient } from '@/lib/supabase/client'
  * Se recuerda en este teléfono para no repetirlo; si la nota cambia, vuelve a salir.
  */
 
+// Confeti: piezas de colores que caen una sola vez (CSS puro, sin librerías).
+const COLORES = ['#2f6bff', '#22c55e', '#f5b514', '#ef4444', '#a855f7', '#06b6d4']
+const PIEZAS = Array.from({ length: 48 }, (_, i) => ({
+  izq: (i * 37) % 100,
+  demora: ((i * 53) % 100) / 100 * 0.9,
+  dura: 2.4 + ((i * 29) % 10) / 10 * 1.6,
+  color: COLORES[i % COLORES.length],
+  ancho: 6 + (i % 4) * 2,
+  giro: (i % 2 ? 1 : -1) * (180 + (i * 47) % 360),
+  redonda: i % 3 === 0,
+}))
+
+function Confeti() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[91] overflow-hidden">
+      <style>{`@keyframes zrConfeti{0%{transform:translate3d(0,-12vh,0) rotate(0);opacity:1}100%{transform:translate3d(var(--dx),108vh,0) rotate(var(--giro));opacity:.9}}`}</style>
+      {PIEZAS.map((p, i) => (
+        <span
+          key={i}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: `${p.izq}%`,
+            width: p.ancho,
+            height: p.ancho * (p.redonda ? 1 : 1.8),
+            background: p.color,
+            borderRadius: p.redonda ? '50%' : 2,
+            animation: `zrConfeti ${p.dura}s ${p.demora}s ease-in forwards`,
+            ['--giro' as string]: `${p.giro}deg`,
+            ['--dx' as string]: `${((i % 5) - 2) * 14}px`,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 interface Resultado { moduloId: string; modulo: string; nota: number; aprobo: boolean; clave: string }
 
 function yaVisto(clave: string): boolean {
@@ -58,6 +95,8 @@ export function ResultadoModulo() {
   }
 
   return (
+    <>
+    {actual.aprobo && <Confeti key={actual.clave} />}
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/55 p-5 backdrop-blur-md">
       <div
         role="dialog"
@@ -99,5 +138,6 @@ export function ResultadoModulo() {
         </button>
       </div>
     </div>
+    </>
   )
 }

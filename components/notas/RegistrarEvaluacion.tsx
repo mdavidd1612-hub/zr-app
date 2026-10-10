@@ -401,45 +401,48 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
           )}
         </div>
 
-        <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Fecha en que se realiza</label>
-          <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className={CAMPO} />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
+        {/* Fecha, escala, mínimo y porcentaje: números cortos, los cuatro en una fila. */}
+        <div className="grid grid-cols-[minmax(0,1.7fr)_repeat(3,minmax(0,1fr))] gap-2">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Escala</label>
+            <label className="mb-1.5 block truncate text-[11px] font-semibold uppercase text-zr-text-muted">Fecha</label>
+            <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className={`${CAMPO} px-2`} />
+          </div>
+          <div>
+            <label className="mb-1.5 block truncate text-[11px] font-semibold uppercase text-zr-text-muted">Escala</label>
             <input
               type="number"
+              inputMode="decimal"
               value={escala}
               onChange={(e) => setEscala(e.target.value)}
-              className={`${CAMPO} text-center`}
+              className={`${CAMPO} px-2 text-center`}
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Mínimo aprobatorio</label>
+            <label className="mb-1.5 block truncate text-[11px] font-semibold uppercase text-zr-text-muted">Mínimo</label>
             <input
               type="number"
+              inputMode="decimal"
               value={minimo}
               onChange={(e) => setMinimo(e.target.value)}
-              className={`${CAMPO} text-center`}
+              className={`${CAMPO} px-2 text-center`}
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block truncate text-[11px] font-semibold uppercase text-zr-text-muted">Vale (%)</label>
+            <input
+              type="number"
+              inputMode="decimal"
+              value={peso}
+              onChange={(e) => setPeso(e.target.value)}
+              placeholder="30"
+              className={`${CAMPO} px-2 text-center`}
             />
           </div>
         </div>
-
-        <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">
-            Porcentaje de la nota del módulo (%){kind === 'participacion' ? ` · entre ${partMin} % y ${partMax} %` : ''}
-          </label>
-          <input
-            type="number"
-            inputMode="decimal"
-            value={peso}
-            onChange={(e) => setPeso(e.target.value)}
-            placeholder="Ej. 30"
-            className={`${CAMPO} text-center`}
-          />
-        </div>
+        <p className="-mt-1 text-[11px] text-zr-text-muted">
+          Fecha en que se realiza · escala · mínimo aprobatorio · porcentaje de la nota del módulo
+          {kind === 'participacion' ? ` (la participación vale entre ${partMin} % y ${partMax} %)` : ''}
+        </p>
 
         {moduloId && (
           <p className={`text-xs font-semibold ${sumaTotal === 100 ? 'text-zr-success' : sumaTotal > 100 ? 'text-zr-error' : 'text-zr-warning'}`}>

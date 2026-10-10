@@ -1016,21 +1016,29 @@ export default function MaterialAdmin() {
                             </p>
                           )}
                         </div>
-                        <input
-                          autoFocus
-                          value={formEdicionMaterial.titulo}
-                          onChange={(e) => setFormEdicionMaterial((f) => ({ ...f, titulo: e.target.value }))}
-                          placeholder="Título"
-                          className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
-                        />
-                        <input
-                          type="number"
-                          min={1}
-                          value={formEdicionMaterial.semana}
-                          onChange={(e) => setFormEdicionMaterial((f) => ({ ...f, semana: e.target.value === '' ? '' : Number(e.target.value) }))}
-                          placeholder="Semana (opcional)"
-                          className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2 text-sm tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
-                        />
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold uppercase text-zr-text-muted">Nombre del material</label>
+                          <input
+                            autoFocus
+                            value={formEdicionMaterial.titulo}
+                            onChange={(e) => setFormEdicionMaterial((f) => ({ ...f, titulo: e.target.value }))}
+                            placeholder="Título"
+                            className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold uppercase text-zr-text-muted">
+                            Semana <span className="font-normal normal-case">(opcional)</span>
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={formEdicionMaterial.semana}
+                            onChange={(e) => setFormEdicionMaterial((f) => ({ ...f, semana: e.target.value === '' ? '' : Number(e.target.value) }))}
+                            placeholder="Ej. 3"
+                            className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2 text-sm tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+                          />
+                        </div>
                         <div className="flex gap-2">
                           <button
                             onClick={() => guardarEdicionMaterial(m)}

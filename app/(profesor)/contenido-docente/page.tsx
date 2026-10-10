@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
-import { prepararArchivo } from '@/lib/subida'
+import { prepararArchivo, subirAlBucket } from '@/lib/subida'
 import { EtiquetaTipoArchivo } from '@/components/ui/EtiquetaTipoArchivo'
 import {
   ACCEPT_MATERIAL, MENSAJE_FORMATOS, nombreDescarga, rutaDeStorage, tipoDeArchivo,
@@ -147,9 +147,7 @@ export default function ContenidoProfesor() {
 
     const ruta = rutaDeStorage(moduloId, aSubir.name)
 
-    const { error: falloSubida } = await supabase.storage
-      .from('contenido')
-      .upload(ruta, aSubir, { contentType: aSubir.type })
+    const { error: falloSubida } = await subirAlBucket(ruta, aSubir)
 
     if (falloSubida) {
       setError(`No se pudo subir el archivo: ${falloSubida.message}`)

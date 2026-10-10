@@ -10,7 +10,7 @@ import { IconoDocumento, IconoAviso } from '@/components/ui/Iconos'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
-import { prepararArchivo } from '@/lib/subida'
+import { prepararArchivo, subirAlBucket } from '@/lib/subida'
 import { EtiquetaTipoArchivo } from '@/components/ui/EtiquetaTipoArchivo'
 import {
   ACCEPT_MATERIAL, ETIQUETA_TIPO, MENSAJE_FORMATOS, nombreDescarga, rutaDeStorage, tipoDeArchivo,
@@ -414,9 +414,7 @@ export default function MaterialAdmin() {
 
     const ruta = rutaDeStorage(programa.moduloId, aSubir.name)
 
-    const { error: falloSubida } = await supabase.storage
-      .from('contenido')
-      .upload(ruta, aSubir, { contentType: aSubir.type })
+    const { error: falloSubida } = await subirAlBucket(ruta, aSubir)
 
     if (falloSubida) {
       setError(`No se pudo subir el archivo: ${falloSubida.message}`)
@@ -652,8 +650,7 @@ export default function MaterialAdmin() {
     }
 
     const rutaNueva = rutaDeStorage(fila.module_id, aSubir.name)
-    const { error: falloSubida } = await supabase.storage
-      .from('contenido').upload(rutaNueva, aSubir, { contentType: aSubir.type || undefined })
+    const { error: falloSubida } = await subirAlBucket(rutaNueva, aSubir)
     if (falloSubida) {
       setError(`No se pudo subir el archivo: ${falloSubida.message}`)
       setReemplazando(false)

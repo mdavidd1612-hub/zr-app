@@ -207,7 +207,7 @@ export default function NotasCohorteProfesor() {
   async function guardarParticipacionClase(studentId: string, texto: string) {
     if (bloqueado) return
     const valor = parseFloat(texto.replace(',', '.'))
-    if (Number.isNaN(valor)) return
+    if (Number.isNaN(valor) || !moduleId) return
     if (valor < 0 || valor > 20) {
       setError('La participación debe estar entre 0 y 20.')
       return
@@ -217,7 +217,7 @@ export default function NotasCohorteProfesor() {
     const { data, error: fallo } = await createClient()
       .from('module_enrollments')
       .update({ class_participation_score: valor })
-      .eq('student_id', studentId).eq('cohort_id', cohortId)
+      .eq('student_id', studentId).eq('cohort_id', cohortId).eq('module_id', moduleId)
       .select('final_score')
       .single()
     if (fallo) { setError(fallo.message); setGuardando(null); return }

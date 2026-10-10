@@ -2809,6 +2809,7 @@ export type Database = {
           enrollment_date: string
           id: string
           onboarding_status: Database["public"]["Enums"]["onboarding_status"]
+          payment_pending_until: string | null
           payment_status: string
           student_code: string | null
           tour_completed_at: string | null
@@ -2828,6 +2829,7 @@ export type Database = {
           enrollment_date?: string
           id: string
           onboarding_status?: Database["public"]["Enums"]["onboarding_status"]
+          payment_pending_until?: string | null
           payment_status?: string
           student_code?: string | null
           tour_completed_at?: string | null
@@ -2847,6 +2849,7 @@ export type Database = {
           enrollment_date?: string
           id?: string
           onboarding_status?: Database["public"]["Enums"]["onboarding_status"]
+          payment_pending_until?: string | null
           payment_status?: string
           student_code?: string | null
           tour_completed_at?: string | null
@@ -3350,6 +3353,7 @@ export type Database = {
           onboarding_status:
             | Database["public"]["Enums"]["onboarding_status"]
             | null
+          payment_pending_until: string | null
           payment_status: string | null
           phone: string | null
           status: Database["public"]["Enums"]["profile_status"] | null
@@ -3483,6 +3487,7 @@ export type Database = {
       }
       fn_recalc_puntualidad_todos: { Args: never; Returns: undefined }
       fn_recordar_solvencia_pendiente: { Args: never; Returns: undefined }
+      fn_vencer_solvencia_pendiente: { Args: never; Returns: undefined }
       fn_zr_coffee_eliminar_venta: {
         Args: { p_venta_id: string }
         Returns: undefined
@@ -3510,6 +3515,10 @@ export type Database = {
       is_student: { Args: never; Returns: boolean }
       is_super: { Args: never; Returns: boolean }
       is_vendedor: { Args: never; Returns: boolean }
+      limite_llegada_tarde: {
+        Args: { p_fecha: string; p_turno: string }
+        Returns: string
+      }
       mis_modulos_cursados: { Args: never; Returns: string[] }
       mis_modulos_docente: { Args: never; Returns: string[] }
       modulo_por_calendario: {

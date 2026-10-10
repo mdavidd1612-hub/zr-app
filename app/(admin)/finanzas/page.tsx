@@ -34,6 +34,8 @@ interface FilaEstudiante {
   programa: string | null
   modulo: string | null
   estado: Estado
+  /** Último día del plazo (solo en 'solvente_pendiente'). */
+  hasta: string | null
 }
 
 const ETIQUETA: Record<Estado, string> = {
@@ -85,12 +87,12 @@ export default function Finanzas() {
 
       const { data } = await supabase
         .from('v_students')
-        .select('id, full_name, cedula, payment_status, cohorts(name, modules(name, programs(name)))')
+        .select('id, full_name, cedula, payment_status, payment_pending_until, cohorts(name, modules(name, programs(name)))')
         .order('full_name')
 
       if (!vigente) return
 
-      type Cruda = { id: string; full_name: string; cedula: string; payment_status: Estado; cohorts: { name: string; modules: { name: string; programs: { name: string } | null } | null } | null }
+      type Cruda = { id: string; full_name: string; cedula: string; payment_status: Estado; payment_pending_until: string | null; cohorts: { name: string; modules: { name: string; programs: { name: string } | null } | null } | null }
       setFilas(
         ((data ?? []) as unknown as Cruda[]).map((e) => ({
           studentId: e.id,
@@ -100,6 +102,7 @@ export default function Finanzas() {
           programa: e.cohorts?.modules?.programs?.name ?? e.cohorts?.name ?? null,
           modulo: e.cohorts?.modules?.name ?? null,
           estado: e.payment_status,
+          hasta: e.payment_pending_until,
         })),
       )
       setCargando(false)
@@ -109,18 +112,45 @@ export default function Finanzas() {
     return () => { vigente = false }
   }, [router])
 
-  async function cambiarEstado(studentId: string, estado: Estado) {
+  // "Solvente (PENDIENTE)" pide hasta cuándo (por defecto el próximo sábado).
+  // Pasada esa fecha sin confirmar, la base lo pasa sola a "No solvente"
+  // (migración 142).
+  const [plazo, setPlazo] = useState<{ studentId: string; nombre: string; fecha: string } | null>(null)
+
+  function proximoSabadoISO(): string {
+    const d = new Date()
+    const dias = d.getDay() === 6 ? 7 : 6 - d.getDay()
+    d.setDate(d.getDate() + dias)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  function elegirEstado(f: FilaEstudiante, estado: Estado) {
+    if (estado === 'solvente_pendiente') {
+      setPlazo({ studentId: f.studentId, nombre: f.nombre, fecha: f.hasta ?? proximoSabadoISO() })
+    } else {
+      void cambiarEstado(f.studentId, estado)
+    }
+  }
+
+  function textoFecha(iso: string): string {
+    return new Date(`${iso}T12:00:00`).toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'long' })
+  }
+
+  async function cambiarEstado(studentId: string, estado: Estado, hasta?: string) {
     setGuardandoId(studentId)
     setError(null)
     const supabase = createClient()
-    const { error: fallo } = await supabase.from('students').update({ payment_status: estado }).eq('id', studentId)
+    const { error: fallo } = await supabase
+      .from('students')
+      .update(estado === 'solvente_pendiente' ? { payment_status: estado, payment_pending_until: hasta ?? null } : { payment_status: estado })
+      .eq('id', studentId)
 
     if (fallo) {
       setError(fallo.message)
       setGuardandoId(null)
       return
     }
-    setFilas((fs) => fs.map((f) => f.studentId === studentId ? { ...f, estado } : f))
+    setFilas((fs) => fs.map((f) => f.studentId === studentId ? { ...f, estado, hasta: estado === 'solvente_pendiente' ? (hasta ?? null) : null } : f))
     setGuardandoId(null)
   }
 
@@ -222,7 +252,7 @@ export default function Finanzas() {
                         {(Object.keys(ETIQUETA) as Estado[]).map((estado) => (
                           <button
                             key={estado}
-                            onClick={() => cambiarEstado(f.studentId, estado)}
+                            onClick={() => elegirEstado(f, estado)}
                             disabled={guardandoId === f.studentId}
                             className={`rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-50 ${
                               f.estado === estado ? ESTILO[estado] : 'bg-zr-bg text-zr-text-muted'
@@ -232,6 +262,9 @@ export default function Finanzas() {
                           </button>
                         ))}
                       </div>
+                      {f.estado === 'solvente_pendiente' && f.hasta && (
+                        <p className="mt-1 text-xs font-semibold text-zr-warning">Hasta el {textoFecha(f.hasta)}</p>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -249,7 +282,7 @@ export default function Finanzas() {
                   {(Object.keys(ETIQUETA) as Estado[]).map((estado) => (
                     <button
                       key={estado}
-                      onClick={() => cambiarEstado(f.studentId, estado)}
+                      onClick={() => elegirEstado(f, estado)}
                       disabled={guardandoId === f.studentId}
                       className={`rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-50 ${
                         f.estado === estado ? ESTILO[estado] : 'bg-zr-bg text-zr-text-muted'
@@ -259,10 +292,64 @@ export default function Finanzas() {
                     </button>
                   ))}
                 </div>
+                {f.estado === 'solvente_pendiente' && f.hasta && (
+                  <p className="mt-1.5 text-xs font-semibold text-zr-warning">Hasta el {textoFecha(f.hasta)}</p>
+                )}
               </div>
             ))}
           </div>
         </>
+      )}
+
+      {plazo && (
+        <div
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 backdrop-blur-md sm:items-center sm:p-5"
+          onClick={() => setPlazo(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm space-y-4 rounded-t-2xl border border-white/15 bg-zr-surface/85 p-6 pb-8 shadow-[0_16px_48px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:rounded-2xl sm:pb-6"
+          >
+            <div>
+              <p className="zr-display text-xl text-zr-text">Solvente (PENDIENTE)</p>
+              <p className="mt-1 text-sm text-zr-text-muted">{plazo.nombre}</p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">¿Hasta cuándo tiene chance?</label>
+              <input
+                type="date"
+                value={plazo.fecha}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setPlazo({ ...plazo, fecha: e.target.value })}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-3 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+              />
+              <p className="mt-2 text-xs text-zr-text-muted">
+                Si pasa ese día y no se confirma el pago, pasa solo a &ldquo;No Solvente&rdquo; y queda bloqueado.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPlazo(null)}
+                className="min-h-12 flex-1 rounded-lg border border-zr-border text-sm font-bold text-zr-text"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  const { studentId, fecha } = plazo
+                  setPlazo(null)
+                  void cambiarEstado(studentId, 'solvente_pendiente', fecha)
+                }}
+                disabled={!plazo.fecha}
+                className="min-h-12 flex-1 rounded-lg bg-zr-warning text-sm font-bold text-zr-bg disabled:opacity-50"
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

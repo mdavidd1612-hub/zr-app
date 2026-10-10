@@ -1,5 +1,6 @@
 'use client'
 
+import { Select } from '@/components/ui/Select'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -488,7 +489,7 @@ function SelectorSede({
   return (
     <div>
       <label className="mb-2 block text-sm font-semibold text-zr-text">Sede</label>
-      <select
+      <Select
         value={sede}
         onChange={(e) => setSede(e.target.value)}
         className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
@@ -498,7 +499,7 @@ function SelectorSede({
           <option key={s} value={s}>{s}</option>
         ))}
         <option value="__nueva__">Otra sede…</option>
-      </select>
+      </Select>
       {sede === '__nueva__' && (
         <input
           value={sedeNueva}
@@ -517,14 +518,14 @@ function SelectorTurno({
   return (
     <div>
       <label className="mb-2 block text-sm font-semibold text-zr-text">Turno</label>
-      <select
+      <Select
         value={turno}
         onChange={(e) => setTurno(e.target.value as 'mañana' | 'tarde')}
         className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
       >
         <option value="mañana">Mañana</option>
         <option value="tarde">Tarde</option>
-      </select>
+      </Select>
     </div>
   )
 }

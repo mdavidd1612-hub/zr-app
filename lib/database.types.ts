@@ -944,6 +944,39 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_notification_log: {
+        Row: {
+          sent_on: string
+          type: string
+        }
+        Insert: {
+          sent_on?: string
+          type: string
+        }
+        Update: {
+          sent_on?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      daily_snack_codes: {
+        Row: {
+          checkin_date: string
+          code: string
+          rotated_at: string
+        }
+        Insert: {
+          checkin_date: string
+          code: string
+          rotated_at?: string
+        }
+        Update: {
+          checkin_date?: string
+          code?: string
+          rotated_at?: string
+        }
+        Relationships: []
+      }
       doubts: {
         Row: {
           body: string
@@ -2377,6 +2410,38 @@ export type Database = {
           },
         ]
       }
+      snack_overrides: {
+        Row: {
+          checkin_date: string
+          estado: string
+          set_at: string
+          set_by: string | null
+          turno: string
+        }
+        Insert: {
+          checkin_date: string
+          estado: string
+          set_at?: string
+          set_by?: string | null
+          turno: string
+        }
+        Update: {
+          checkin_date?: string
+          estado?: string
+          set_at?: string
+          set_by?: string | null
+          turno?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "snack_overrides_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_profile_details: {
         Row: {
           completed_at: string
@@ -3153,6 +3218,7 @@ export type Database = {
       cfg: { Args: { p_key: string }; Returns: Json }
       cfg_int: { Args: { p_default: number; p_key: string }; Returns: number }
       cfg_num: { Args: { p_default: number; p_key: string }; Returns: number }
+      cfg_turno: { Args: { p_key: string; p_turno: string }; Returns: Json }
       cohorte_esta_vacia: { Args: { p_cohort_id: string }; Returns: boolean }
       crear_sede_con_programa: {
         Args: {
@@ -3184,6 +3250,7 @@ export type Database = {
       fn_generar_caso_del_dia: { Args: never; Returns: undefined }
       fn_generar_sesion_semanal: { Args: never; Returns: undefined }
       fn_marcar_tour_visto: { Args: never; Returns: undefined }
+      fn_notify_hora_refrigerio: { Args: never; Returns: undefined }
       fn_zr_coffee_eliminar_venta: {
         Args: { p_venta_id: string }
         Returns: undefined
@@ -3211,6 +3278,10 @@ export type Database = {
       is_student: { Args: never; Returns: boolean }
       is_super: { Args: never; Returns: boolean }
       is_vendedor: { Args: never; Returns: boolean }
+      limite_llegada_tarde: {
+        Args: { p_fecha: string; p_turno: string }
+        Returns: string
+      }
       mis_modulos_cursados: { Args: never; Returns: string[] }
       mis_modulos_docente: { Args: never; Returns: string[] }
       modulo_por_calendario: {
@@ -3219,6 +3290,17 @@ export type Database = {
       }
       my_cohort_id: { Args: never; Returns: string }
       my_module_id: { Args: never; Returns: string }
+      resumen_refrigerio_hoy: {
+        Args: never
+        Returns: {
+          cohort_id: string
+          cohorte: string
+          entregados: number
+          presentes: number
+          programa: string
+          turno: string
+        }[]
+      }
       seed_user: {
         Args: {
           p_cedula: string

@@ -1,5 +1,6 @@
 'use client'
 
+import { Select } from '@/components/ui/Select'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -568,7 +569,7 @@ export default function Personal() {
           </div>
           <div>
             <label className="mb-2 block text-sm font-semibold text-zr-text">Rol</label>
-            <select
+            <Select
               value={rol}
               onChange={(e) => setRol(e.target.value as UserRole)}
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
@@ -576,7 +577,7 @@ export default function Personal() {
               {rolesDisponibles.map((r) => (
                 <option key={r.valor} value={r.valor}>{r.etiqueta}</option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {rol === 'profesor' && (
@@ -622,7 +623,7 @@ export default function Personal() {
                 <label className="mb-2 block text-sm font-semibold text-zr-text">
                   Cohorte que atiende esta semana <span className="font-normal text-zr-text-muted">(opcional)</span>
                 </label>
-                <select
+                <Select
                   value={cohorteId}
                   onChange={(e) => setCohorteId(e.target.value)}
                   className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
@@ -633,7 +634,7 @@ export default function Personal() {
                       {c.nombre}{c.moduloNombre ? ` · ${c.moduloNombre}` : ''}
                     </option>
                   ))}
-                </select>
+                </Select>
                 <p className="mt-1.5 text-xs text-zr-text-muted">
                   Aparte de los módulos: es lo que de verdad abre la sesión y controla la asistencia
                   de ese programa.

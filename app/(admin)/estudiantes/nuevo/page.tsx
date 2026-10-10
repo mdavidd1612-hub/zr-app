@@ -1,5 +1,6 @@
 'use client'
 
+import { Select } from '@/components/ui/Select'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -139,7 +140,7 @@ export default function NuevoEstudiante() {
           <Campo etiqueta="Dirección" valor={direccion} onChange={setDireccion} placeholder="Para la planilla" />
           <div>
             <label className="mb-2 block text-sm font-semibold text-zr-text">Programa</label>
-            <select
+            <Select
               value={cohorteId}
               onChange={(e) => setCohorteId(e.target.value)}
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
@@ -148,7 +149,7 @@ export default function NuevoEstudiante() {
               {cohortes.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
       </Seccion>

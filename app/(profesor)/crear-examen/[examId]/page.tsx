@@ -1,5 +1,6 @@
 'use client'
 
+import { Select } from '@/components/ui/Select'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -234,25 +235,25 @@ export default function EditarExamen() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-2 block text-sm font-semibold text-zr-text">Módulo</label>
-              <select
+              <Select
                 value={moduloId}
                 onChange={(e) => setModuloId(e.target.value)}
                 className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
               >
                 {modulos.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-              </select>
+              </Select>
             </div>
 
             <div>
               <label className="mb-2 block text-sm font-semibold text-zr-text">Programa</label>
-              <select
+              <Select
                 value={cohorteId}
                 onChange={(e) => setCohorteId(e.target.value)}
                 className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
               >
                 <option value="">Todos los programas</option>
                 {cohortes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              </Select>
             </div>
 
             <div>

@@ -1,5 +1,6 @@
 'use client'
 
+import { Select } from '@/components/ui/Select'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -791,7 +792,7 @@ export default function MaterialAdmin() {
         )}
         <div>
           <label className="mb-2 block text-sm font-semibold text-zr-text">Programa</label>
-          <select
+          <Select
             value={programaId}
             onChange={(e) => cambiarPrograma(e.target.value)}
             className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
@@ -799,13 +800,13 @@ export default function MaterialAdmin() {
             {cohortes.map((c) => (
               <option key={c.id} value={c.id}>{c.nombre}</option>
             ))}
-          </select>
+          </Select>
         </div>
 
         {modulosPrograma.length > 0 && (
           <div>
             <label className="mb-2 block text-sm font-semibold text-zr-text">Módulo</label>
-            <select
+            <Select
               value={programa?.moduloId ?? ''}
               onChange={(e) => cambiarModulo(e.target.value)}
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
@@ -815,7 +816,7 @@ export default function MaterialAdmin() {
                   Módulo {m.orden} · {m.nombre}{m.id === cohorteBase?.moduloId ? ' (actual)' : ''}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         )}
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { Select } from '@/components/ui/Select'
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -195,7 +196,7 @@ export default function MarcarDominio() {
         <>
           <div>
             <label className="mb-2 block text-sm font-semibold text-zr-text">Competencia</label>
-            <select
+            <Select
               value={competenciaId}
               onChange={(e) => setCompetenciaId(e.target.value)}
               className="w-full rounded-lg border border-zr-border bg-zr-surface px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
@@ -203,7 +204,7 @@ export default function MarcarDominio() {
               {competencias.map((c) => (
                 <option key={c.id} value={c.id}>Semana {c.semana} · {c.nombre}</option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <p className="text-sm text-zr-text-muted">

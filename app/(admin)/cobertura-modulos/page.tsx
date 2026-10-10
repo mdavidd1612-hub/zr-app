@@ -1,5 +1,6 @@
 'use client'
 
+import { Select } from '@/components/ui/Select'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -210,7 +211,7 @@ export default function CoberturaModulos() {
                 <p className="min-w-0 flex-1 truncate text-sm font-semibold text-zr-text">
                   {m.orden}. {m.nombre}
                 </p>
-                <select
+                <Select
                   value={profesorActualId}
                   onChange={(e) => asignarProfesor(m.id, e.target.value)}
                   disabled={ocupado}
@@ -220,7 +221,7 @@ export default function CoberturaModulos() {
                   {profesores.map((p) => (
                     <option key={p.id} value={p.id}>{p.nombre}</option>
                   ))}
-                </select>
+                </Select>
               </div>
             )
           })}

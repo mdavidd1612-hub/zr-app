@@ -10,6 +10,7 @@ import { EditarDatosEstudiante } from '@/components/ui/EditarDatosEstudiante'
 import { BotonRestablecerPassword } from '@/components/ui/BotonRestablecerPassword'
 import { Aviso } from '@/components/ui/Aviso'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * A pedido explícito del coordinador (transcripción de audio,
@@ -110,9 +111,7 @@ export default function FichaEstudianteVendedor() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

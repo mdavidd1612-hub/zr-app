@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * Notas del profesor -- reunión de sept. 2026: UNA sola tabla tipo Excel por
@@ -226,9 +227,7 @@ export default function NotasCohorteProfesor() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando notas…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 
@@ -281,8 +280,9 @@ export default function NotasCohorteProfesor() {
       )}
       {envio?.status === 'validado' && (
         <p className="rounded-lg border border-zr-success/30 bg-zr-success/10 px-4 py-3 text-sm font-medium text-zr-success">
-          Notas validadas. Los estudiantes ya las ven. Si cambias una nota, se reabren: tendrás que
-          volver a enviarlas y Dirección a validarlas, y mientras tanto el estudiante no las ve.
+          Notas validadas: los estudiantes ya las ven. Si cambias una nota o Dirección registra una
+          evaluación nueva, solo esa evaluación queda por validar (tendrás que volver a enviar); lo
+          que ya estaba validado se sigue viendo.
         </p>
       )}
 

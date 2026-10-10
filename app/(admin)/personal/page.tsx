@@ -11,6 +11,7 @@ import { cedulaSchema } from '@/lib/validators'
 import { esAdmin, esDireccionAcademica } from '@/lib/auth-helpers'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * spec/03_EDGE_FUNCTIONS.md · FUNCIÓN 6 create-staff-user.
@@ -496,9 +497,7 @@ export default function Personal() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando personal…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

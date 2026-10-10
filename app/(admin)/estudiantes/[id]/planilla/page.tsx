@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PlanillaDocumento, type DatosPlanilla } from '@/components/planilla/PlanillaDocumento'
 import { cargarDatosPlanilla } from '@/lib/planilla-datos'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 // "Imprimir" usa el diálogo del navegador (Guardar como PDF), sin depender de
 // ninguna librería de PDF en el servidor. El diseño de la planilla vive en
@@ -29,9 +30,7 @@ export default function PlanillaEstudiante() {
 
   if (cargando || !datos) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando planilla…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

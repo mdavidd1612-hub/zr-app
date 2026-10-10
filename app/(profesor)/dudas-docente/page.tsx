@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * Fase 0 (docs/16_FASE0_PLAN_PROFESOR.md, Sprint C): dudas de los
@@ -75,9 +76,7 @@ export default function DudasDocente() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

@@ -7,6 +7,7 @@ import { Encabezado, Regla, Seccion, Dato, Etiqueta } from '@/components/ui/Edit
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * Estadísticas de estudiantes — pedido explícito del coordinador (sept.
@@ -162,9 +163,7 @@ export default function EstadisticasEstudiantes() {
 
   if (verificando || cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando estadísticas…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

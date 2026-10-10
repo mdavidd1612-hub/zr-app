@@ -7,6 +7,7 @@ import { Encabezado, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { descargarPlanillasDelPrograma } from '@/lib/planilla-pdf-bulk'
 import type { UserRole } from '@/lib/types'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * T-113 · Lista de estudiantes.
@@ -170,9 +171,7 @@ export default function Estudiantes() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando estudiantes…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

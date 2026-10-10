@@ -7,6 +7,7 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * Calificaciones de una cohorte -- Dirección Académica. Pedido del
@@ -256,9 +257,7 @@ export default function VerCalificacionesCohorte() {
 
   if (autorizado === null) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando calificaciones…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 
@@ -349,13 +348,9 @@ export default function VerCalificacionesCohorte() {
             Validadas{envio.validatedAt ? ` el ${new Date(envio.validatedAt).toLocaleDateString('es-VE')}` : ''}. Los estudiantes ya las ven
             (y verán al instante cualquier cambio que hagas aquí).
           </p>
-          <button
-            onClick={() => setDevolviendo(true)}
-            disabled={accionando}
-            className="text-xs font-bold text-zr-error underline disabled:opacity-50"
-          >
-            Retirar validación y devolver al profesor
-          </button>
+          <p className="text-xs text-zr-text-muted">
+            Si el profesor carga evaluaciones nuevas, solo esas quedan por validar; lo ya validado no se les quita a los estudiantes.
+          </p>
         </div>
       )}
 

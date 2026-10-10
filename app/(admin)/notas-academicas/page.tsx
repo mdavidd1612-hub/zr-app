@@ -9,6 +9,7 @@ import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 // Notas de CUALQUIER cohorte, para Dirección Académica y super_admin — el
 // profesor solo ve la suya propia en /notas/[cohortId]. Se agrupa por
@@ -91,9 +92,7 @@ export default function NotasAcademicas() {
 
   if (cargando || autorizado === null) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando programas…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

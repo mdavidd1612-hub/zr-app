@@ -8,6 +8,7 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 // Vista de solo lectura: Dirección Académica supervisa qué exámenes existen,
 // quién los hizo y en qué estado están — no los edita desde aquí (eso sigue
@@ -95,9 +96,7 @@ export default function ExamenesAcademicos() {
 
   if (cargando || autorizado === null) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando exámenes…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

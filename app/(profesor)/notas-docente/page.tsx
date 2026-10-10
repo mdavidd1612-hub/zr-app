@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * Índice de `/notas` -- pedido explícito del coordinador (sept. 2026): que
@@ -55,9 +56,7 @@ export default function NotasIndice() {
 
   if (cohortes === null) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

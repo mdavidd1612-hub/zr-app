@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { IconoCheck } from '@/components/ui/Iconos'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * Formulario de feedback de módulo, del lado del estudiante — pedido
@@ -129,9 +130,7 @@ export default function FeedbackModulo() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

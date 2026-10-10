@@ -16,6 +16,7 @@ import {
   ACCEPT_MATERIAL, ETIQUETA_TIPO, MENSAJE_FORMATOS, nombreDescarga, rutaDeStorage, tipoDeArchivo,
   urlDelVisor, visorDe,
 } from '@/lib/material'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, Sprint C): material que sube
@@ -699,9 +700,7 @@ export default function MaterialAdmin() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando material…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

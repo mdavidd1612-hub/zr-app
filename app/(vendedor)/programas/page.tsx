@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 import { EtiquetaSede } from '@/components/ui/EtiquetaSede'
 import { ordenarCohortesPorPrioridad, ordenarProgramasPorPrioridad } from '@/lib/cohortes'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 interface Cohorte {
   id: string
@@ -259,9 +260,7 @@ export default function ProgramasVendedor() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

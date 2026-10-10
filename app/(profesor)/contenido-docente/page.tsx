@@ -11,6 +11,7 @@ import { EtiquetaTipoArchivo } from '@/components/ui/EtiquetaTipoArchivo'
 import {
   ACCEPT_MATERIAL, MENSAJE_FORMATOS, nombreDescarga, rutaDeStorage, tipoDeArchivo,
 } from '@/lib/material'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * T-401 · Subida de material de estudio por el profesor.
@@ -213,9 +214,7 @@ export default function ContenidoProfesor() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando material…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import QRCode from 'qrcode'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, ajuste): el QR es universal y
@@ -123,9 +124,7 @@ export default function QRAdmin() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

@@ -6,6 +6,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * T-416 · Marcar competencia dominada.
@@ -168,9 +169,7 @@ export default function MarcarDominio() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

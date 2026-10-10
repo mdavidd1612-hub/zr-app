@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * Finanzas -- excepción explícita de Fase 1, aprobada directamente por el
@@ -172,9 +173,7 @@ export default function Finanzas() {
 
   if (cargando || autorizado === null) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

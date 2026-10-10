@@ -1762,6 +1762,59 @@ export type Database = {
           },
         ]
       }
+      grade_validated_evals: {
+        Row: {
+          cohort_id: string
+          definition_id: string
+          module_id: string
+          validated_at: string
+          validated_by: string | null
+        }
+        Insert: {
+          cohort_id: string
+          definition_id: string
+          module_id: string
+          validated_at?: string
+          validated_by?: string | null
+        }
+        Update: {
+          cohort_id?: string
+          definition_id?: string
+          module_id?: string
+          validated_at?: string
+          validated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grade_validated_evals_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_validated_evals_definition_id_fkey"
+            columns: ["definition_id"]
+            isOneToOne: false
+            referencedRelation: "manual_exam_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_validated_evals_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_validated_evals_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_guides: {
         Row: {
           created_at: string
@@ -3543,6 +3596,16 @@ export type Database = {
       }
       mis_modulos_cursados: { Args: never; Returns: string[] }
       mis_modulos_docente: { Args: never; Returns: string[] }
+      mis_notas_modulos: {
+        Args: never
+        Returns: {
+          estado: string
+          evaluado_pct: number
+          module_id: string
+          puntos: number
+          umbral: number
+        }[]
+      }
       modulo_por_calendario: {
         Args: { p_cohort: string; p_fecha: string }
         Returns: string

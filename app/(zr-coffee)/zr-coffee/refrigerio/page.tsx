@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import QRCode from 'qrcode'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * `/zr-coffee/refrigerio` -- corrección explícita del coordinador (sept.
@@ -128,9 +129,7 @@ export default function RefrigerioCantina() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

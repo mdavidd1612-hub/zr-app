@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla } from '@/components/ui/Editorial'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * R-31 · docs/19_PLAN_CAMBIOS_POST_DIRECTIVA.md
@@ -106,9 +107,7 @@ export default function MisInscripciones() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

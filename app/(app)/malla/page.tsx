@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { IconoCheck } from '@/components/ui/Iconos'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * Malla curricular (especificacion-funcional-zrm-academy.md §9, Módulo 7):
@@ -200,9 +201,7 @@ export default function MallaCurricular() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando la malla…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { CalendarioModulos } from '@/components/CalendarioModulos'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * T-411 · Panel de configuración. Solo super_admin — la RLS de la migración
@@ -178,9 +179,7 @@ export default function Configuracion() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

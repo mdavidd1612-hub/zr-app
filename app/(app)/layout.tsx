@@ -8,6 +8,7 @@ import { Marco } from '@/components/ui/Marco'
 import { BannerSimulacion } from '@/components/ui/BannerSimulacion'
 import { TourEstudiante } from '@/components/ui/TourEstudiante'
 import { BannerNoSolvente, ModalNoSolvente } from '@/components/ui/AvisoSolvencia'
+import { ResultadoModulo } from '@/components/ui/ResultadoModulo'
 import {
   IconoInicio, IconoPerfil, IconoProgreso, IconoDocumento, IconoDuda, IconoNotas,
 } from '@/components/ui/Iconos'
@@ -243,6 +244,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       sinNavegacion={enExamen || enOnboarding}
       alTocarBloqueado={() => setAvisoAbierto(true)}
     >
+      {rol === 'estudiante' && validado && !noSolvente && <ResultadoModulo />}
       {noSolvente && !avisoAbierto && <BannerNoSolvente whatsapp={whatsapp} />}
       {noSolvente && avisoAbierto && <ModalNoSolvente whatsapp={whatsapp} onEntendido={entendido} />}
       {enOnboarding && (

@@ -8,6 +8,7 @@ import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EtiquetaSede } from '@/components/ui/EtiquetaSede'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * T-211 · Gestión de cohortes.
@@ -199,9 +200,7 @@ export default function Cohortes() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando programas…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

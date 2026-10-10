@@ -1,9 +1,10 @@
 import type { MetadataRoute } from 'next'
+import { SUFIJO_ENTORNO } from '@/lib/entorno'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'ZR App',
-    short_name: 'ZR Mecademy',
+    name: `ZR App${SUFIJO_ENTORNO}`,
+    short_name: SUFIJO_ENTORNO ? 'ZR Prueba' : 'ZR Mecademy',
     description: 'Plataforma académica de la Academia Técnica ZR Mecademy',
     start_url: '/',
     scope: '/',

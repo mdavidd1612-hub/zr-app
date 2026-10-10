@@ -5,8 +5,9 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { IconoDocumento, IconoVideo, IconoAviso } from '@/components/ui/Iconos'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { EtiquetaTipoArchivo } from '@/components/ui/EtiquetaTipoArchivo'
 import {
-  ETIQUETA_TIPO, nombreDescarga, registrarEvento, urlDelVisor, visorDe,
+  nombreDescarga, registrarEvento, urlDelVisor, visorDe,
 } from '@/lib/material'
 
 /**
@@ -55,6 +56,7 @@ interface Material {
   tamañoKB: number | null
   tipo: string
   nombreOriginal: string | null
+  rutaStorage: string | null
 }
 
 export default function Contenido() {
@@ -139,7 +141,7 @@ export default function Contenido() {
       const consultaCarpetas = supabase.from('content_folders').select('id, name').eq('module_id', moduloActual.id)
       const consultaItems = supabase
         .from('content_items')
-        .select('id, title, week_number, size_bytes, type, original_name')
+        .select('id, title, week_number, size_bytes, type, original_name, storage_path')
         .eq('module_id', moduloActual.id)
 
       const [{ data: subs }, { data: items }] = await Promise.all([
@@ -162,6 +164,7 @@ export default function Contenido() {
           tamañoKB: m.size_bytes ? Math.round(m.size_bytes / 1024) : null,
           tipo: m.type,
           nombreOriginal: m.original_name,
+          rutaStorage: m.storage_path,
         })),
       )
       setCargando(false)
@@ -411,15 +414,13 @@ export default function Contenido() {
                     ? <IconoVideo size={22} className="mt-0.5 shrink-0 text-zr-blue" />
                     : <IconoDocumento size={22} className="mt-0.5 shrink-0 text-zr-error" />}
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-zr-text">{m.titulo}</p>
+                    <div className="mb-1"><EtiquetaTipoArchivo tipo={m.tipo} nombre={m.rutaStorage} /></div>
+                    <p className="break-words text-sm font-semibold text-zr-text">{m.titulo}</p>
                     <p className="mt-1 text-xs text-zr-text-muted">
                       {m.semana ? `Semana ${m.semana}` : ''}
                       {m.tamañoKB ? `${m.semana ? ' · ' : ''}${(m.tamañoKB / 1024).toFixed(1)} MB` : ''}
                     </p>
                   </div>
-                  <span className={`shrink-0 text-xs font-bold uppercase tracking-wide ${m.tipo === 'video' || m.tipo === 'audio' ? 'text-zr-blue/80' : 'text-zr-error/80'}`}>
-                    {ETIQUETA_TIPO[m.tipo] ?? m.tipo.toUpperCase()}
-                  </span>
                 </div>
                 <div className="mt-3 flex gap-2">
                   <button

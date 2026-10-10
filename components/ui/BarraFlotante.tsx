@@ -163,7 +163,7 @@ export function BarraFlotante({ items, todasLasSecciones, deslizable = true }: P
                   key={item.href}
                   onClick={() => router.push(item.href)}
                   aria-current={on ? 'page' : undefined}
-                  className={`flex w-14 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 transition-all duration-300 ${
+                  className={`flex ${items.length > 5 ? 'w-[52px]' : 'w-14'} flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 transition-all duration-300 ${
                     on
                       ? 'bg-zr-blue/20 text-zr-blue'
                       : 'text-zr-text-muted active:bg-white/10'

@@ -39,6 +39,8 @@ interface Nota {
   teoria: number | null
   practica: number | null
   puntualidad: number | null
+  sabadosContados: number | null
+  sabadosTotal: number | null
   participacionClase: number | null
   final: number | null
   umbral: number
@@ -109,12 +111,14 @@ export default function Notas() {
 
       const { data } = await supabase
         .from('module_enrollments')
-        .select('id, module_id, theory_score, practice_score, participation_score, class_participation_score, final_score, passing_threshold, status, modules(name, order_index)')
+        .select('id, module_id, puntualidad_sabados, puntualidad_sabados_total, theory_score, practice_score, participation_score, class_participation_score, final_score, passing_threshold, status, modules(name, order_index)')
         .eq('student_id', user.id)
 
       const filas = data as unknown as {
         id: string
         module_id: string
+        puntualidad_sabados: number | null
+        puntualidad_sabados_total: number | null
         theory_score: number | null
         practice_score: number | null
         participation_score: number | null
@@ -136,6 +140,8 @@ export default function Notas() {
               teoria: n.theory_score === null ? null : Number(n.theory_score),
               practica: n.practice_score === null ? null : Number(n.practice_score),
               puntualidad: n.participation_score === null ? null : Number(n.participation_score),
+              sabadosContados: n.puntualidad_sabados,
+              sabadosTotal: n.puntualidad_sabados_total,
               participacionClase: n.class_participation_score === null ? null : Number(n.class_participation_score),
               final: n.final_score === null ? null : Number(n.final_score),
               umbral: Number(n.passing_threshold),
@@ -191,16 +197,17 @@ export default function Notas() {
                   {/* Las cuatro notas parciales */}
                   <div className="grid grid-cols-4 divide-x divide-zr-border">
                     {[
-                      { etiqueta: 'Teoría', valor: n.teoria },
-                      { etiqueta: 'Práctica', valor: n.practica },
-                      { etiqueta: 'Puntualidad', valor: n.puntualidad },
-                      { etiqueta: 'Participación', valor: n.participacionClase },
+                      { etiqueta: 'Teoría', valor: n.teoria, sub: null as string | null },
+                      { etiqueta: 'Práctica', valor: n.practica, sub: null },
+                      { etiqueta: 'Puntualidad', valor: n.puntualidad, sub: n.sabadosTotal ? `${n.sabadosContados ?? 0} de ${n.sabadosTotal} sáb.` : null },
+                      { etiqueta: 'Participación', valor: n.participacionClase, sub: null },
                     ].map((p) => (
                       <div key={p.etiqueta} className="px-1.5 py-5 text-center">
                         <p className="zr-metric text-xl text-zr-text">{cifra(p.valor)}</p>
                         <p className="mt-2 text-[9px] font-semibold uppercase leading-tight tracking-wider text-zr-text-muted">
                           {p.etiqueta}
                         </p>
+                        {p.sub && <p className="mt-1 text-[9px] leading-tight text-zr-text-muted">{p.sub}</p>}
                       </div>
                     ))}
                   </div>

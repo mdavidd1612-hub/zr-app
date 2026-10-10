@@ -2,12 +2,14 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import ServiceWorkerInit from './service-worker-init'
 import InstalarApp from '@/components/ui/InstalarApp'
+import EtiquetaEntorno from '@/components/ui/EtiquetaEntorno'
+import { SUFIJO_ENTORNO } from '@/lib/entorno'
 
 export const metadata: Metadata = {
-  title: 'ZR App',
+  title: `ZR App${SUFIJO_ENTORNO}`,
   description: 'Plataforma académica de la Academia Técnica ZR Mecademy',
   icons: { icon: '/favicon.ico', apple: '/apple-touch-icon.png' },
-  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'ZR App' },
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: `ZR App${SUFIJO_ENTORNO}` },
   formatDetection: { telephone: false },
 }
 
@@ -29,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" className="h-full antialiased">
       <body className="flex min-h-full flex-col bg-zr-bg">
+        <EtiquetaEntorno />
         {children}
         <ServiceWorkerInit />
         <InstalarApp />

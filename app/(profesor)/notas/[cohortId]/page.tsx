@@ -29,6 +29,9 @@ interface FilaEstudiante {
   theory: number | null
   practice: number | null
   puntualidad: number | null
+  puntualidadManual: number | null
+  sabadosContados: number | null
+  sabadosTotal: number | null
   participacionClase: number | null
   finalScore: number | null
 }
@@ -80,7 +83,7 @@ export default function NotasCohorteProfesor() {
         supabase.from('students').select('id, profiles!students_id_fkey(full_name, cedula)').eq('cohort_id', cohortId),
         supabase
           .from('module_enrollments')
-          .select('student_id, theory_score, practice_score, participation_score, class_participation_score, final_score')
+          .select('student_id, theory_score, practice_score, participation_score, class_participation_score, final_score, puntualidad_manual, puntualidad_sabados, puntualidad_sabados_total')
           .eq('cohort_id', cohortId)
           .eq('module_id', modulo),
         supabase
@@ -107,6 +110,7 @@ export default function NotasCohorteProfesor() {
       type MatriculaCruda = {
         student_id: string; theory_score: number | null; practice_score: number | null
         participation_score: number | null; class_participation_score: number | null; final_score: number | null
+        puntualidad_manual: number | null; puntualidad_sabados: number | null; puntualidad_sabados_total: number | null
       }
       const porEstudiante = new Map(((matriculas ?? []) as unknown as MatriculaCruda[]).map((n) => [n.student_id, n]))
 
@@ -132,6 +136,9 @@ export default function NotasCohorteProfesor() {
             theory: n?.theory_score ?? null,
             practice: n?.practice_score ?? null,
             puntualidad: n?.participation_score ?? null,
+            puntualidadManual: n?.puntualidad_manual ?? null,
+            sabadosContados: n?.puntualidad_sabados ?? null,
+            sabadosTotal: n?.puntualidad_sabados_total ?? null,
             participacionClase: n?.class_participation_score ?? null,
             finalScore: n?.final_score ?? null,
           }
@@ -165,12 +172,12 @@ export default function NotasCohorteProfesor() {
     if (!moduleId) return
     const { data } = await createClient()
       .from('module_enrollments')
-      .select('theory_score, practice_score, participation_score, final_score')
+      .select('theory_score, practice_score, participation_score, final_score, puntualidad_sabados, puntualidad_sabados_total')
       .eq('student_id', studentId).eq('cohort_id', cohortId).eq('module_id', moduleId)
       .maybeSingle()
     if (!data) return
     setFilas((fs) => fs.map((f) => f.studentId === studentId
-      ? { ...f, theory: data.theory_score, practice: data.practice_score, puntualidad: data.participation_score, finalScore: data.final_score }
+      ? { ...f, theory: data.theory_score, practice: data.practice_score, puntualidad: data.participation_score, sabadosContados: data.puntualidad_sabados, sabadosTotal: data.puntualidad_sabados_total, finalScore: data.final_score }
       : f))
   }
 
@@ -228,6 +235,30 @@ export default function NotasCohorteProfesor() {
     setGuardando(null)
   }
 
+  // Puntualidad: sale sola de la asistencia, pero el profesor también puede
+  // escribirla; si la borra, vuelve a ser automática (migración 139).
+  async function guardarPuntualidad(studentId: string, texto: string) {
+    if (bloqueado || !moduleId) return
+    const valor = texto.trim() === '' ? null : parseFloat(texto.replace(',', '.'))
+    if (valor !== null && (Number.isNaN(valor) || valor < 0 || valor > 20)) {
+      setError('La puntualidad debe estar entre 0 y 20.')
+      return
+    }
+    const actual = filas.find((f) => f.studentId === studentId)?.puntualidadManual ?? null
+    if (valor === actual) return
+    setGuardando(`${studentId}:pun`)
+    setError(null)
+    const { error: fallo } = await createClient()
+      .from('module_enrollments')
+      .update({ puntualidad_manual: valor })
+      .eq('student_id', studentId).eq('cohort_id', cohortId).eq('module_id', moduleId)
+    if (fallo) { setError(fallo.message); setGuardando(null); return }
+    setFilas((fs) => fs.map((f) => f.studentId === studentId ? { ...f, puntualidadManual: valor } : f))
+    setEnvio((e) => (e?.status === 'validado' ? null : e))
+    await releerEstudiante(studentId)
+    setGuardando(null)
+  }
+
   async function confirmarEnvio() {
     if (!moduleId) return
     const faltan = filas.reduce(
@@ -267,7 +298,7 @@ export default function NotasCohorteProfesor() {
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">Notas</p>
         <h1 className="zr-display mt-3 text-3xl text-zr-text">Tus estudiantes</h1>
         <p className="mt-2 text-sm text-zr-text-muted">
-          Llena la tabla a tu ritmo. Teoría, práctica, puntualidad y nota se calculan solas.
+          Llena la tabla a tu ritmo. Teoría, práctica y nota se calculan solas. La puntualidad también sale sola de la asistencia, sábado a sábado, pero puedes escribirla tú; si la borras, vuelve a ser automática.
         </p>
       </header>
 
@@ -345,7 +376,21 @@ export default function NotasCohorteProfesor() {
                     ))}
                     <td className="border-l border-zr-border px-2 py-2 text-center text-zr-text">{fmt(f.theory)}</td>
                     <td className="px-2 py-2 text-center text-zr-text">{fmt(f.practice)}</td>
-                    <td className="px-2 py-2 text-center text-zr-text">{fmt(f.puntualidad)}</td>
+                    <td className="px-2 py-2 text-center">
+                      <input
+                        key={`${f.studentId}-pun-${f.puntualidadManual ?? ''}-${f.puntualidad ?? ''}`}
+                        type="number" inputMode="decimal" min={0} max={20} step={0.5}
+                        defaultValue={f.puntualidadManual ?? ''}
+                        placeholder={f.puntualidad !== null ? fmt(f.puntualidad) : '—'}
+                        onBlur={(e) => guardarPuntualidad(f.studentId, e.target.value)}
+                        disabled={bloqueado || guardando === `${f.studentId}:pun`}
+                        className={celda}
+                      />
+                      <p className="mt-0.5 text-[10px] leading-tight text-zr-text-muted">
+                        {f.puntualidadManual !== null ? 'manual' : 'automática'}
+                        {f.sabadosTotal ? ` · ${f.sabadosContados ?? 0} de ${f.sabadosTotal} sáb.` : ''}
+                      </p>
+                    </td>
                     <td className="px-2 py-2 text-center">
                       <input
                         key={`${f.studentId}-part-${f.participacionClase ?? ''}`}

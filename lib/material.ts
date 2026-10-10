@@ -61,17 +61,25 @@ export function rutaDeStorage(moduloId: string, nombreOriginal: string): string 
 }
 
 /**
- * Nombre con el que se guarda el archivo al descargar. Prioridad: el nombre
- * original exacto (con tildes y espacios); si es un material anterior sin ese
- * dato, el título + la extensión real. Solo se quitan los caracteres que
- * ningún sistema de archivos admite.
+ * Nombre con el que se guarda el archivo al descargar: el TÍTULO que le puso
+ * quien lo montó, más la extensión real (pedido del coordinador, oct. 2026,
+ * que reemplaza al de "conservar el nombre original del archivo"). Solo se
+ * quitan los caracteres que ningún sistema de archivos admite; tildes,
+ * espacios y eñes se conservan. `originalName` se sigue guardando en la base
+ * pero ya no decide el nombre de descarga.
  */
 export function nombreDescarga(m: { originalName?: string | null; titulo: string; rutaStorage: string }): string {
   const ext = extensionDe(m.rutaStorage)
-  const base = (m.originalName?.trim() || (ext ? `${m.titulo}.${ext}` : m.titulo))
-    .replace(/[\/:*?"<>|\u0000-\u001f]/g, '')
-    .trim()
-  return base || 'archivo'
+  const titulo = m.titulo.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '').trim() || 'archivo'
+  const yaTieneExt = ext && titulo.toLowerCase().endsWith('.' + ext)
+  return ext && !yaTieneExt ? `${titulo}.${ext}` : titulo
+}
+
+/** Etiqueta visible del tipo de documento: la extensión real (PDF, PPTX, DOCX, MP4…). */
+export function etiquetaDeArchivo(tipo: string, nombreORuta: string | null | undefined): string {
+  const ext = nombreORuta ? extensionDe(nombreORuta) : ''
+  if (ext && ext.length <= 5) return ext.toUpperCase()
+  return ETIQUETA_TIPO[tipo] ?? tipo.toUpperCase()
 }
 
 export type Visor = 'pdfjs' | 'office' | 'nativo'

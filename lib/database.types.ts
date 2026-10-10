@@ -2040,6 +2040,9 @@ export type Database = {
           participation_weight: number
           passing_threshold: number
           practice_score: number | null
+          puntualidad_manual: number | null
+          puntualidad_sabados: number | null
+          puntualidad_sabados_total: number | null
           status: Database["public"]["Enums"]["enrollment_status"]
           student_id: string
           theory_score: number | null
@@ -2057,6 +2060,9 @@ export type Database = {
           participation_weight?: number
           passing_threshold: number
           practice_score?: number | null
+          puntualidad_manual?: number | null
+          puntualidad_sabados?: number | null
+          puntualidad_sabados_total?: number | null
           status?: Database["public"]["Enums"]["enrollment_status"]
           student_id: string
           theory_score?: number | null
@@ -2074,6 +2080,9 @@ export type Database = {
           participation_weight?: number
           passing_threshold?: number
           practice_score?: number | null
+          puntualidad_manual?: number | null
+          puntualidad_sabados?: number | null
+          puntualidad_sabados_total?: number | null
           status?: Database["public"]["Enums"]["enrollment_status"]
           student_id?: string
           theory_score?: number | null
@@ -3472,6 +3481,7 @@ export type Database = {
         Args: { p_module_id: string; p_student_id: string }
         Returns: undefined
       }
+      fn_recalc_puntualidad_todos: { Args: never; Returns: undefined }
       fn_recordar_solvencia_pendiente: { Args: never; Returns: undefined }
       fn_zr_coffee_eliminar_venta: {
         Args: { p_venta_id: string }

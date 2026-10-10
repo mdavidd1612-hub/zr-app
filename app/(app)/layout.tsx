@@ -8,7 +8,7 @@ import { Marco } from '@/components/ui/Marco'
 import { BannerSimulacion } from '@/components/ui/BannerSimulacion'
 import { TourEstudiante } from '@/components/ui/TourEstudiante'
 import {
-  IconoInicio, IconoPerfil, IconoProgreso, IconoDocumento, IconoDuda,
+  IconoInicio, IconoPerfil, IconoProgreso, IconoDocumento, IconoDuda, IconoNotas,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -24,6 +24,7 @@ const NAV: ItemBarra[] = [
   { href: '/',          label: 'Inicio',    Icono: IconoInicio },
   { href: '/clases',    label: 'Mi módulo', Icono: IconoProgreso },
   { href: '/contenido', label: 'Material',  Icono: IconoDocumento },
+  { href: '/notas',     label: 'Notas',     Icono: IconoNotas },
   { href: '/dudas',     label: 'Dudas',     Icono: IconoDuda },
   { href: '/perfil',    label: 'Perfil',    Icono: IconoPerfil },
 ]
@@ -31,7 +32,7 @@ const NAV: ItemBarra[] = [
 // Mientras administración no valida al estudiante (firma física de la
 // planilla, ver docs/17_PLAN_CONSOLIDADO...), solo tiene sentido mostrarle
 // dos pestañas: Inicio (con el mensaje de "en validación") y Perfil.
-const NAV_PENDIENTE: ItemBarra[] = [NAV[0], NAV[4]]
+const NAV_PENDIENTE: ItemBarra[] = [NAV[0], NAV[NAV.length - 1]]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()

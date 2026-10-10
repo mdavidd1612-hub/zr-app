@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Dato } from '@/components/ui/Editorial'
@@ -454,7 +454,7 @@ export default function Asistencias() {
             <>
               {/* Computadora (≥1024px): tabla completa, columna de nombre
                   fija, fechas deslizables. */}
-              <div className="hidden overflow-x-auto rounded-lg border border-zr-border lg:block">
+              <TiraDeFechas className="hidden overflow-x-auto rounded-lg border border-zr-border lg:block" cantidad={sesiones.length}>
                 <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="bg-zr-surface">
@@ -493,7 +493,7 @@ export default function Asistencias() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </TiraDeFechas>
 
               {/* Teléfono: una tarjeta por estudiante, con una tira
                   horizontal de chips (uno por fecha) en vez de una tabla
@@ -503,7 +503,7 @@ export default function Asistencias() {
                   <div key={f.id} className="zr-card p-4">
                     <p className="truncate text-sm font-semibold text-zr-text">{f.nombre}</p>
                     <p className="text-xs tabular-nums text-zr-text-muted">{f.cedula} · {f.telefono ?? 'sin teléfono'}</p>
-                    <div className="mt-3 flex gap-2 overflow-x-auto pb-1 zr-scroll-x">
+                    <TiraDeFechas className="mt-3 flex gap-2 overflow-x-auto pb-1 zr-scroll-x" cantidad={f.celdas.length}>
                       {f.celdas.map((c) => (
                         <ChipAsistencia
                           key={c.sessionId}
@@ -513,7 +513,7 @@ export default function Asistencias() {
                           onJustificar={() => justificar(c.sessionId, f.id)}
                         />
                       ))}
-                    </div>
+                    </TiraDeFechas>
                   </div>
                 ))}
               </div>
@@ -523,6 +523,21 @@ export default function Asistencias() {
       )}
     </div>
   )
+}
+
+/**
+ * Contenedor con scroll horizontal que arranca mostrando las fechas MÁS
+ * RECIENTES (la derecha), no las del principio del programa: con muchos
+ * sábados ya cursados, lo que importa es la fecha de hoy (pedido de
+ * administración, oct. 2026). La persona puede deslizar hacia atrás.
+ */
+function TiraDeFechas({ className, cantidad, children }: { className: string; cantidad: number; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (el) el.scrollLeft = el.scrollWidth
+  }, [cantidad])
+  return <div ref={ref} className={className}>{children}</div>
 }
 
 function CeldaAsistencia({

@@ -10,6 +10,8 @@ import { IconoDocumento, IconoAviso } from '@/components/ui/Iconos'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
+import { prepararArchivo } from '@/lib/subida'
+import { EtiquetaTipoArchivo } from '@/components/ui/EtiquetaTipoArchivo'
 import {
   ACCEPT_MATERIAL, ETIQUETA_TIPO, MENSAJE_FORMATOS, nombreDescarga, rutaDeStorage, tipoDeArchivo,
   urlDelVisor, visorDe,
@@ -75,6 +77,8 @@ export default function MaterialAdmin() {
   const [subiendo, setSubiendo] = useState(false)
   const [archivo, setArchivo] = useState<File | null>(null)
   const [avisoPeso, setAvisoPeso] = useState<string | null>(null)
+  // Resultado de la compresión automática del último archivo subido.
+  const [avisoSubida, setAvisoSubida] = useState<string | null>(null)
   const [titulo, setTitulo] = useState('')
   const [semana, setSemana] = useState<number | ''>('')
   const [error, setError] = useState<string | null>(null)
@@ -383,16 +387,21 @@ export default function MaterialAdmin() {
 
     setSubiendo(true)
     setError(null)
+    setAvisoSubida(null)
 
     const supabase = createClient()
+
+    // Si pesa mucho, se comprime solo (lib/comprimir.ts) antes de subir.
+    const prep = await prepararArchivo(archivo)
+    const aSubir = prep.archivo
 
     // El tope de tamaño es de negocio (regla 5 de CLAUDE.md): vive en
     // system_config, nunca escrito en el código.
     const { data: configTamano } = await supabase
       .from('system_config').select('value').eq('key', 'content.max_size_mb').maybeSingle()
     const maxMB = Number(configTamano?.value ?? 200)
-    if (archivo.size > maxMB * 1024 * 1024) {
-      setError(`El archivo pesa más de ${maxMB} MB. Comprímelo o pide que se suba en partes.`)
+    if (aSubir.size > maxMB * 1024 * 1024) {
+      setError(`El archivo pesa más de ${maxMB} MB${prep.comprimido ? ' incluso comprimido' : ''}. Comprímelo o pide que se suba en partes.`)
       setSubiendo(false)
       return
     }
@@ -403,11 +412,11 @@ export default function MaterialAdmin() {
       return
     }
 
-    const ruta = rutaDeStorage(programa.moduloId, archivo.name)
+    const ruta = rutaDeStorage(programa.moduloId, aSubir.name)
 
     const { error: falloSubida } = await supabase.storage
       .from('contenido')
-      .upload(ruta, archivo, { contentType: archivo.type })
+      .upload(ruta, aSubir, { contentType: aSubir.type })
 
     if (falloSubida) {
       setError(`No se pudo subir el archivo: ${falloSubida.message}`)
@@ -423,8 +432,8 @@ export default function MaterialAdmin() {
       type: tipo,
       storage_path: ruta,
       original_name: archivo.name,
-      mime_type: archivo.type || null,
-      size_bytes: archivo.size,
+      mime_type: aSubir.type || null,
+      size_bytes: aSubir.size,
       uploaded_by: user.id,
       is_published: true,
     })
@@ -441,6 +450,7 @@ export default function MaterialAdmin() {
     setSemana('')
     setFormAbierto(false)
     setSubiendo(false)
+    setAvisoSubida(prep.mensaje)
     setVersion((v) => v + 1)
   }
 
@@ -621,10 +631,14 @@ export default function MaterialAdmin() {
     setConfirmacionReemplazo(null)
     const supabase = createClient()
 
+    // Si pesa mucho, se comprime solo antes de subir (lib/comprimir.ts).
+    const prep = await prepararArchivo(nuevo)
+    const aSubir = prep.archivo
+
     const { data: configTamano } = await supabase
       .from('system_config').select('value').eq('key', 'content.max_size_mb').maybeSingle()
     const maxMB = Number(configTamano?.value ?? 200)
-    if (nuevo.size > maxMB * 1024 * 1024) {
+    if (aSubir.size > maxMB * 1024 * 1024) {
       setError(`El archivo pesa más de ${maxMB} MB. Comprímelo antes de subirlo.`)
       setReemplazando(false)
       return
@@ -637,9 +651,9 @@ export default function MaterialAdmin() {
       return
     }
 
-    const rutaNueva = rutaDeStorage(fila.module_id, nuevo.name)
+    const rutaNueva = rutaDeStorage(fila.module_id, aSubir.name)
     const { error: falloSubida } = await supabase.storage
-      .from('contenido').upload(rutaNueva, nuevo, { contentType: nuevo.type || undefined })
+      .from('contenido').upload(rutaNueva, aSubir, { contentType: aSubir.type || undefined })
     if (falloSubida) {
       setError(`No se pudo subir el archivo: ${falloSubida.message}`)
       setReemplazando(false)
@@ -649,8 +663,8 @@ export default function MaterialAdmin() {
     const { error: falloFila } = await supabase.from('content_items').update({
       storage_path: rutaNueva,
       original_name: nuevo.name,
-      mime_type: nuevo.type || null,
-      size_bytes: nuevo.size,
+      mime_type: aSubir.type || null,
+      size_bytes: aSubir.size,
       type: tipo,
     }).eq('id', m.id)
     if (falloFila) {
@@ -664,7 +678,7 @@ export default function MaterialAdmin() {
     if (m.rutaStorage) await supabase.storage.from('contenido').remove([m.rutaStorage])
 
     setReemplazando(false)
-    setConfirmacionReemplazo(`Archivo reemplazado: ${m.nombreOriginal ?? m.titulo} → ${nuevo.name}`)
+    setConfirmacionReemplazo(`Archivo reemplazado: ${m.nombreOriginal ?? m.titulo} → ${nuevo.name}${prep.mensaje ? `. ${prep.mensaje}` : ''}`)
     setVersion((v) => v + 1)
   }
 
@@ -731,7 +745,8 @@ export default function MaterialAdmin() {
             {pendientes.map((m) => (
               <div key={m.id} className="zr-card space-y-3 border-zr-warning/30 bg-zr-warning/8 p-5">
                 <div className="min-w-0">
-                  <p className="truncate text-base font-semibold text-zr-text">{m.titulo}</p>
+                  <div className="mb-1"><EtiquetaTipoArchivo tipo={m.tipo} nombre={m.rutaStorage} /></div>
+                  <p className="break-words text-base font-semibold text-zr-text">{m.titulo}</p>
                   <p className="mt-1 text-sm text-zr-text-muted">
                     {m.autor ?? 'Profesor'} · {m.modulo}
                     {m.semana ? ` · Semana ${m.semana}` : ''}
@@ -768,6 +783,11 @@ export default function MaterialAdmin() {
         {/* Antes este aviso solo vivía dentro del formulario de subida — un
             error al borrar o descargar (con el formulario cerrado, el caso
             normal) no se veía en ningún lado. */}
+        {avisoSubida && !formAbierto && (
+          <p className="rounded-lg border border-zr-blue/30 bg-zr-blue/10 px-4 py-3 text-sm font-medium text-zr-text">
+            {avisoSubida}
+          </p>
+        )}
         {error && !formAbierto && (
           <p className="rounded-lg border border-zr-error/30 bg-zr-error/12 px-4 py-3 text-sm font-medium text-zr-error">
             {error}
@@ -913,7 +933,7 @@ export default function MaterialAdmin() {
                           className="flex min-w-0 flex-1 items-center gap-3 text-left"
                         >
                           <span className="text-xl">📁</span>
-                          <span className="truncate text-sm font-semibold text-zr-text">{c.nombre}</span>
+                          <span className="break-words text-sm font-semibold text-zr-text">{c.nombre}</span>
                         </button>
                         {puedeCrearCarpetas && (
                           <>
@@ -1032,11 +1052,12 @@ export default function MaterialAdmin() {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <IconoDocumento size={20} className="shrink-0 text-zr-text-muted" />
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <IconoDocumento size={20} className="mt-0.5 shrink-0 text-zr-text-muted" />
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-zr-text">{m.titulo}</p>
+                            <div className="mb-1"><EtiquetaTipoArchivo tipo={m.tipo} nombre={m.rutaStorage} /></div>
+                            <p className="break-words text-sm font-semibold text-zr-text">{m.titulo}</p>
                             <p className="mt-0.5 text-xs text-zr-text-muted">
                               {m.autor ? `${m.autor} · ` : ''}
                               {m.semana ? `Semana ${m.semana}` : ''}
@@ -1044,7 +1065,7 @@ export default function MaterialAdmin() {
                             </p>
                           </div>
                         </div>
-                        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                        <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
                           <button
                             onClick={() => descargar(m)}
                             disabled={descargando === m.id || !m.rutaStorage}
@@ -1203,7 +1224,7 @@ export default function MaterialAdmin() {
             disabled={!archivo || !titulo.trim() || !programa?.moduloId || subiendo}
             className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-40"
           >
-            {subiendo ? 'Subiendo…' : 'Subir material'}
+            {subiendo ? 'Comprimiendo y subiendo…' : 'Subir material'}
           </button>
         </div>
       )}

@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { prepararArchivo } from '@/lib/subida'
+import { EtiquetaTipoArchivo } from '@/components/ui/EtiquetaTipoArchivo'
 import {
   ACCEPT_MATERIAL, MENSAJE_FORMATOS, nombreDescarga, rutaDeStorage, tipoDeArchivo,
 } from '@/lib/material'
@@ -28,6 +30,7 @@ interface Material {
   tamañoKB: number | null
   rutaStorage: string | null
   nombreOriginal: string | null
+  tipo: string
   estadoAprobacion: 'aprobado' | 'pendiente' | 'rechazado'
   mensajeRevision: string | null
 }
@@ -45,6 +48,8 @@ export default function ContenidoProfesor() {
   const [moduloId, setModuloId] = useState('')
   const [semana, setSemana] = useState<number | ''>('')
   const [error, setError] = useState<string | null>(null)
+  // Resultado de la compresión automática del último archivo subido.
+  const [avisoSubida, setAvisoSubida] = useState<string | null>(null)
   const [formAbierto, setFormAbierto] = useState(false)
 
   useEffect(() => {
@@ -64,7 +69,7 @@ export default function ContenidoProfesor() {
       const [{ data: items }, { data: mods }] = await Promise.all([
         supabase
           .from('content_items')
-          .select('id, title, week_number, is_published, visible_from, size_bytes, storage_path, original_name, uploaded_by, approval_status, review_message, modules(name, order_index, programs(siglas))')
+          .select('id, title, week_number, is_published, visible_from, size_bytes, storage_path, original_name, type, uploaded_by, approval_status, review_message, modules(name, order_index, programs(siglas))')
           .or(`is_published.eq.true,uploaded_by.eq.${user.id}`)
           .order('created_at', { ascending: false }),
         // Solo los módulos que dicta este profesor (migración 123): ahí puede
@@ -81,7 +86,7 @@ export default function ContenidoProfesor() {
       const filas = (items ?? []) as unknown as {
         id: string; title: string; week_number: number | null
         is_published: boolean; visible_from: string | null; size_bytes: number | null
-        storage_path: string | null; original_name: string | null; uploaded_by: string | null
+        storage_path: string | null; original_name: string | null; type: string; uploaded_by: string | null
         approval_status: 'aprobado' | 'pendiente' | 'rechazado'; review_message: string | null
         modules: { name: string; order_index: number; programs: { siglas: string | null } | null } | null
       }[]
@@ -99,6 +104,7 @@ export default function ContenidoProfesor() {
           tamañoKB: m.size_bytes ? Math.round(m.size_bytes / 1024) : null,
           rutaStorage: m.storage_path,
           nombreOriginal: m.original_name,
+          tipo: m.type,
           estadoAprobacion: m.approval_status,
           mensajeRevision: m.review_message,
         })),
@@ -126,6 +132,11 @@ export default function ContenidoProfesor() {
 
     setSubiendo(true)
     setError(null)
+    setAvisoSubida(null)
+
+    // Si pesa mucho, se comprime solo (lib/comprimir.ts) antes de subir.
+    const prep = await prepararArchivo(archivo)
+    const aSubir = prep.archivo
 
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -134,11 +145,11 @@ export default function ContenidoProfesor() {
       return
     }
 
-    const ruta = rutaDeStorage(moduloId, archivo.name)
+    const ruta = rutaDeStorage(moduloId, aSubir.name)
 
     const { error: falloSubida } = await supabase.storage
       .from('contenido')
-      .upload(ruta, archivo, { contentType: archivo.type })
+      .upload(ruta, aSubir, { contentType: aSubir.type })
 
     if (falloSubida) {
       setError(`No se pudo subir el archivo: ${falloSubida.message}`)
@@ -156,8 +167,8 @@ export default function ContenidoProfesor() {
       type: tipo,
       storage_path: ruta,
       original_name: archivo.name,
-      mime_type: archivo.type || null,
-      size_bytes: archivo.size,
+      mime_type: aSubir.type || null,
+      size_bytes: aSubir.size,
       uploaded_by: user.id,
       is_published: false,
       approval_status: 'pendiente',
@@ -174,6 +185,7 @@ export default function ContenidoProfesor() {
     setArchivo(null)
     setTitulo('')
     setSemana('')
+    setAvisoSubida(prep.mensaje)
     setFormAbierto(false)
     setSubiendo(false)
     setVersion((v) => v + 1)
@@ -228,6 +240,12 @@ export default function ContenidoProfesor() {
       />
 
       <Regla delay={60} />
+
+      {avisoSubida && (
+        <p className="rounded-lg border border-zr-blue/30 bg-zr-blue/10 px-4 py-3 text-sm font-medium text-zr-text">
+          {avisoSubida}
+        </p>
+      )}
 
       {formAbierto && (
         <div className="zr-card space-y-5 p-6">
@@ -291,7 +309,7 @@ export default function ContenidoProfesor() {
             disabled={!archivo || !titulo.trim() || !moduloId || subiendo}
             className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-40"
           >
-            {subiendo ? 'Subiendo…' : 'Subir material'}
+            {subiendo ? 'Comprimiendo y subiendo…' : 'Subir material'}
           </button>
         </div>
       )}
@@ -308,16 +326,17 @@ export default function ContenidoProfesor() {
           <div className="space-y-3">
             {materiales.map((m) => (
               <div key={m.id} className="zr-card space-y-3 p-5">
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                   <div className="min-w-0">
-                    <p className="truncate text-base font-semibold text-zr-text">{m.titulo}</p>
+                    <div className="mb-1"><EtiquetaTipoArchivo tipo={m.tipo} nombre={m.rutaStorage} /></div>
+                    <p className="break-words text-base font-semibold text-zr-text">{m.titulo}</p>
                     <p className="mt-1 text-sm text-zr-text-muted">
                       {m.modulo}
                       {m.semana ? ` · Semana ${m.semana}` : ''}
                       {m.tamañoKB ? ` · ${(m.tamañoKB / 1024).toFixed(1)} MB` : ''}
                     </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                     <button
                       onClick={() => descargar(m)}
                       disabled={descargando === m.id || !m.rutaStorage}

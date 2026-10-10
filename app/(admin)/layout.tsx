@@ -8,7 +8,7 @@ import { salirDeVistaRecorrido } from '@/lib/vista-recorrido'
 import { type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Marco } from '@/components/ui/Marco'
 import {
-  IconoPanel, IconoEstudiantes, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoProgreso, IconoDuda,
+  IconoPanel, IconoEstudiantes, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoProgreso, IconoDuda, IconoCalificar,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -56,6 +56,12 @@ const NAV_DIRECCION: ItemBarra[] = [NAV[0], NAV[1], NAV[2], MATERIAL, NAV[3]]
 // botones seguidos sin agrupar en el menú de super_admin "no se explica
 // para qué". La hoja ☰ y la barra de escritorio ya saben pintar el
 // encabezado de grupo cuando cambia respecto al anterior.
+// Finanzas -- excepción explícita de Fase 1 aprobada por el coordinador
+// (sept. 2026, mismo mecanismo que ZR Coffee). Solo admin y super_admin --
+// pedido explícito de que Dirección Académica no entra aquí, por eso no
+// aparece en TODAS_DIRECCION.
+const FINANZAS: ItemBarra = { href: '/finanzas', label: 'Finanzas', Icono: IconoCalificar, grupo: 'Administración' }
+
 const TODAS: ItemBarra[] = [
   { ...NAV[0], grupo: 'General' },
   { href: '/inscribir',       label: 'Inscribir',       Icono: IconoEstudiantes, grupo: 'Estudiantes' },
@@ -63,6 +69,7 @@ const TODAS: ItemBarra[] = [
   { ...NAV[1], grupo: 'Clase de hoy' },
   { ...NAV[2], grupo: 'Clase de hoy' },
   { href: '/personal',        label: 'Personal',        Icono: IconoPersonal,    grupo: 'Administración' },
+  FINANZAS,
   { ...NAV[3], grupo: 'Cuenta' },
 ]
 
@@ -97,6 +104,7 @@ const TODAS_SUPER: ItemBarra[] = [
   { href: '/examenes-academicos',  label: 'Exámenes',      Icono: IconoExamen,   grupo: 'Dirección académica' },
   { href: '/modulos',              label: 'Módulos',       Icono: IconoProgreso, grupo: 'Dirección académica' },
   { href: '/feedback-modulos',     label: 'Feedback',      Icono: IconoDuda,     grupo: 'Dirección académica' },
+  FINANZAS,
   // R-20/R-21: crear programas y sedes es exclusivo de super_admin
   // (migración 066) — el enlace solo aparece en este menú.
   { href: '/catalogo',             label: 'Catálogo',      Icono: IconoDocumento, grupo: 'Solo super admin' },

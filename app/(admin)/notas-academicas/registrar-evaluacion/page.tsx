@@ -35,6 +35,7 @@ interface Modulo {
   nombre: string
   orden: number
   programId: string
+  participacionPct: number
 }
 
 interface Evaluacion {
@@ -45,6 +46,7 @@ interface Evaluacion {
   title: string
   scaleMax: number
   passingMin: number
+  pesoPct: number
   kind: 'examen' | 'practica' | 'otro'
   kindDetail: string | null
 }
@@ -60,7 +62,7 @@ const CAMPO =
 
 type ExamenCrudo = {
   id: string; module_id: string; exam_date: string; title: string
-  scale_max: number; passing_min: number; kind: string; kind_detail: string | null
+  scale_max: number; passing_min: number; weight_pct: number; kind: string; kind_detail: string | null
   modules: { name: string } | null
 }
 
@@ -73,12 +75,13 @@ function aEvaluacion(e: ExamenCrudo): Evaluacion {
     title: e.title,
     scaleMax: Number(e.scale_max),
     passingMin: Number(e.passing_min),
+    pesoPct: Number(e.weight_pct),
     kind: e.kind as Evaluacion['kind'],
     kindDetail: e.kind_detail,
   }
 }
 
-const COLUMNAS = 'id, module_id, exam_date, title, scale_max, passing_min, kind, kind_detail, modules(name)'
+const COLUMNAS = 'id, module_id, exam_date, title, scale_max, passing_min, weight_pct, kind, kind_detail, modules(name)'
 
 export default function RegistrarEvaluacion() {
   const router = useRouter()
@@ -98,6 +101,12 @@ export default function RegistrarEvaluacion() {
   const [fecha, setFecha] = useState('')
   const [escala, setEscala] = useState('20')
   const [minimo, setMinimo] = useState('12')
+  const [peso, setPeso] = useState('')
+  // Si hay un id, el formulario está editando esa evaluación (no creando una).
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  // Rango del peso de la participación (system_config, en %).
+  const [partMin, setPartMin] = useState(5)
+  const [partMax, setPartMax] = useState(10)
 
   // Filtros del historial
   const [filtroCohorteId, setFiltroCohorteId] = useState('')
@@ -123,15 +132,21 @@ export default function RegistrarEvaluacion() {
       }
       setAutorizado(true)
 
-      const [{ data: cohs }, { data: mods }, { data: exs }] = await Promise.all([
+      const [{ data: cohs }, { data: mods }, { data: exs }, { data: cfg }] = await Promise.all([
         supabase.from('cohorts').select('id, name, program_id').eq('status', 'activa').order('name'),
-        supabase.from('modules').select('id, name, order_index, program_id').order('order_index'),
+        supabase.from('modules').select('id, name, order_index, program_id, participation_pct').order('order_index'),
         supabase.from('manual_exam_definitions').select(COLUMNAS).order('exam_date', { ascending: false }),
+        supabase.from('system_config').select('key, value').in('key', ['module.participation_weight_min', 'module.participation_weight_max']),
       ])
       if (!vigente) return
 
+      for (const c of cfg ?? []) {
+        const pct = Math.round(Number(c.value) * 100)
+        if (c.key === 'module.participation_weight_min') setPartMin(pct)
+        else setPartMax(pct)
+      }
       setCohortes((cohs ?? []).map((c) => ({ id: c.id, nombre: c.name, programId: c.program_id })))
-      setModulos((mods ?? []).map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index, programId: m.program_id })))
+      setModulos((mods ?? []).map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index, programId: m.program_id, participacionPct: Number(m.participation_pct) })))
       setEvaluaciones(((exs ?? []) as unknown as ExamenCrudo[]).map(aEvaluacion))
     }
 
@@ -151,9 +166,65 @@ export default function RegistrarEvaluacion() {
     return true
   })
 
+  const moduloForm = modulos.find((m) => m.id === moduloId)
+  const evalsDelModulo = evaluaciones.filter((e) => e.moduleId === moduloId)
+  const sumaEvals = evalsDelModulo.filter((e) => e.id !== editandoId).reduce((t, e) => t + e.pesoPct, 0)
+  const pesoNuevo = Number(peso.replace(',', '.')) || 0
+  const sumaTotal = sumaEvals + pesoNuevo + (moduloForm?.participacionPct ?? 0)
+
+  function limpiarFormulario() {
+    setEditandoId(null)
+    setTitulo('')
+    setKindDetail('')
+    setFecha('')
+    setPeso('')
+    setKind('examen')
+    setEscala('20')
+    setMinimo('12')
+  }
+
+  function empezarEdicion(e: Evaluacion) {
+    const modulo = modulos.find((m) => m.id === e.moduleId)
+    const cohorte = cohortes.find((c) => c.programId === modulo?.programId)
+    setEditandoId(e.id)
+    if (cohorte) setCohorteId(cohorte.id)
+    setModuloId(e.moduleId)
+    setTitulo(e.title)
+    setKind(e.kind)
+    setKindDetail(e.kindDetail ?? '')
+    setFecha(e.examDate)
+    setEscala(String(e.scaleMax))
+    setMinimo(String(e.passingMin))
+    setPeso(String(e.pesoPct))
+    setError(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  async function cambiarParticipacion(valor: string) {
+    if (!moduloForm) return
+    const n = Number(valor.replace(',', '.'))
+    if (Number.isNaN(n) || n < partMin || n > partMax) {
+      setError(`La participación debe valer entre ${partMin} % y ${partMax} %.`)
+      return
+    }
+    if (n === moduloForm.participacionPct) return
+    setError(null)
+    const { error: fallo } = await createClient().from('modules').update({ participation_pct: n }).eq('id', moduloForm.id)
+    if (fallo) { setError(fallo.message); return }
+    setModulos((ms) => ms.map((m) => m.id === moduloForm.id ? { ...m, participacionPct: n } : m))
+  }
+
   async function crear() {
     if (!titulo.trim() || !cohorteId || !moduloId || !fecha) {
       setError('El nombre, el programa, el módulo y la fecha son obligatorios.')
+      return
+    }
+    if (!(pesoNuevo > 0)) {
+      setError('Escribe el porcentaje que vale esta evaluación en la nota del módulo.')
+      return
+    }
+    if (sumaTotal > 100) {
+      setError(`Los porcentajes pasan de 100 % (${sumaTotal} %). Baja el de esta evaluación o el de otra.`)
       return
     }
     if (kind === 'otro' && !kindDetail.trim()) {
@@ -164,19 +235,19 @@ export default function RegistrarEvaluacion() {
     setGuardando(true)
     setError(null)
     const supabase = createClient()
-    const { data, error: fallo } = await supabase
-      .from('manual_exam_definitions')
-      .insert({
-        module_id: moduloId,
-        exam_date: fecha,
-        title: titulo.trim(),
-        scale_max: Number(escala) || 20,
-        passing_min: Number(minimo) || 12,
-        kind,
-        kind_detail: kind === 'otro' ? kindDetail.trim() : null,
-      })
-      .select(COLUMNAS)
-      .single()
+    const campos = {
+      module_id: moduloId,
+      exam_date: fecha,
+      title: titulo.trim(),
+      scale_max: Number(escala) || 20,
+      passing_min: Number(minimo) || 12,
+      weight_pct: pesoNuevo,
+      kind,
+      kind_detail: kind === 'otro' ? kindDetail.trim() : null,
+    }
+    const { data, error: fallo } = editandoId
+      ? await supabase.from('manual_exam_definitions').update(campos).eq('id', editandoId).select(COLUMNAS).single()
+      : await supabase.from('manual_exam_definitions').insert(campos).select(COLUMNAS).single()
 
     if (fallo) {
       setError(fallo.message)
@@ -184,18 +255,19 @@ export default function RegistrarEvaluacion() {
       return
     }
 
-    setEvaluaciones((ex) => [aEvaluacion(data as unknown as ExamenCrudo), ...ex])
+    const nueva = aEvaluacion(data as unknown as ExamenCrudo)
+    setEvaluaciones((ex) => editandoId ? ex.map((x) => x.id === editandoId ? nueva : x) : [nueva, ...ex])
     // Programa y módulo se conservan: lo normal es cargar varias seguidas.
-    setTitulo('')
-    setKindDetail('')
-    setFecha('')
+    limpiarFormulario()
     setGuardando(false)
   }
 
   async function borrar(id: string) {
+    if (!confirm('¿Quitar esta evaluación? También se borran las notas que ya tenga cargadas.')) return
     const supabase = createClient()
     const { error: fallo } = await supabase.from('manual_exam_definitions').delete().eq('id', id)
     if (!fallo) setEvaluaciones((ex) => ex.filter((e) => e.id !== id))
+    if (editandoId === id) limpiarFormulario()
   }
 
   if (autorizado === false) {
@@ -225,7 +297,7 @@ export default function RegistrarEvaluacion() {
         <h1 className="zr-display mt-3 text-3xl text-zr-text">Registrar Evaluación</h1>
         <p className="mt-2 text-sm text-zr-text-muted">
           Exámenes, prácticas u otra cosa evaluativa. El profesor pone la nota de cada estudiante en
-          su propia pantalla — teoría y práctica del módulo se calculan solas a partir de esto.
+          su propia pantalla. Cada evaluación vale un porcentaje de la nota del módulo; con la participación deben sumar 100 %.
         </p>
       </header>
 
@@ -236,7 +308,9 @@ export default function RegistrarEvaluacion() {
       )}
 
       <div className="zr-card space-y-3 p-5">
-        <p className="text-xs font-bold uppercase tracking-wide text-zr-text-muted">Nueva evaluación</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-zr-text-muted">
+          {editandoId ? 'Editando evaluación' : 'Nueva evaluación'}
+        </p>
 
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Nombre de la evaluación</label>
@@ -327,13 +401,59 @@ export default function RegistrarEvaluacion() {
           </div>
         </div>
 
-        <button
-          onClick={crear}
-          disabled={guardando}
-          className="w-full rounded-lg bg-zr-blue px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
-        >
-          {guardando ? 'Guardando…' : 'Registrar'}
-        </button>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Porcentaje de la nota del módulo (%)</label>
+          <input
+            type="number"
+            inputMode="decimal"
+            value={peso}
+            onChange={(e) => setPeso(e.target.value)}
+            placeholder="Ej. 30"
+            className={`${CAMPO} text-center`}
+          />
+        </div>
+
+        {moduloForm && (
+          <div className="space-y-2 rounded-lg border border-zr-border bg-zr-bg/50 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-zr-text-muted">
+                Participación del módulo ({partMin} % a {partMax} %)
+              </p>
+              <input
+                key={moduloForm.id + moduloForm.participacionPct}
+                type="number"
+                inputMode="decimal"
+                defaultValue={moduloForm.participacionPct}
+                min={partMin}
+                max={partMax}
+                onBlur={(e) => cambiarParticipacion(e.target.value)}
+                className="w-16 rounded border border-zr-border bg-zr-bg px-1 py-1.5 text-center text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+              />
+            </div>
+            <p className={`text-xs font-semibold ${sumaTotal === 100 ? 'text-zr-success' : sumaTotal > 100 ? 'text-zr-error' : 'text-zr-warning'}`}>
+              Evaluaciones {sumaEvals + pesoNuevo} % + participación {moduloForm.participacionPct} % = {sumaTotal} %
+              {sumaTotal === 100 ? ' ✓ completo' : sumaTotal > 100 ? ' · se pasa de 100 %' : ` · faltan ${100 - sumaTotal} %`}
+            </p>
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          {editandoId && (
+            <button
+              onClick={limpiarFormulario}
+              className="rounded-lg border border-zr-border px-4 py-2.5 text-sm font-bold text-zr-text"
+            >
+              Cancelar
+            </button>
+          )}
+          <button
+            onClick={crear}
+            disabled={guardando}
+            className="flex-1 rounded-lg bg-zr-blue px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+          >
+            {guardando ? 'Guardando…' : editandoId ? 'Guardar cambios' : 'Registrar'}
+          </button>
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -379,12 +499,17 @@ export default function RegistrarEvaluacion() {
                 </span>
               </p>
               <p className="text-xs text-zr-text-muted">
-                {e.moduloNombre} · {e.examDate} · Escala {e.scaleMax} · Mínimo {e.passingMin}
+                {e.moduloNombre} · {e.examDate} · Vale {e.pesoPct} % · Escala {e.scaleMax} · Mínimo {e.passingMin}
               </p>
             </div>
-            <button onClick={() => borrar(e.id)} className="shrink-0 text-xs font-bold text-zr-error">
-              Quitar
-            </button>
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
+              <button onClick={() => empezarEdicion(e)} className="text-xs font-bold text-zr-blue-mid">
+                Editar
+              </button>
+              <button onClick={() => borrar(e.id)} className="text-xs font-bold text-zr-error">
+                Quitar
+              </button>
+            </div>
           </div>
         ))}
       </div>

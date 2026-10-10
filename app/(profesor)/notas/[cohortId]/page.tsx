@@ -9,34 +9,30 @@ import { EstadoVacio } from '@/components/ui/EstadoVacio'
 /**
  * Notas del profesor -- reunión de sept. 2026: UNA sola tabla tipo Excel por
  * programa, con todo el curso en una vista (una columna por cada evaluación
- * que registró Dirección Académica + Teoría, Práctica, Puntualidad,
- * Participación y Nota), en vez de entrar y salir de una pantalla por
- * evaluación. Al terminar, el profesor "Confirma y envía": desde ahí queda
+ * que registró Dirección Académica + Participación y Nota), en vez de entrar
+ * y salir de una pantalla por evaluación. Reunión de oct. 2026: cada
+ * evaluación lleva un porcentaje; ya no hay Teoría / Práctica / Puntualidad
+ * como notas (migración 143). Al terminar, el profesor "Confirma y envía": desde ahí queda
  * bloqueado para él y el estudiante NO ve nada hasta que Dirección Académica
  * lo valide (migración 126).
  *
- * teoría, práctica, puntualidad y nota final se calculan solas en el
- * servidor -- de solo lectura aquí (regla 2 de CLAUDE.md). Lo que el
- * profesor escribe: la nota de cada evaluación y la participación en clase.
+ * La nota se calcula sola en el servidor -- de solo lectura aquí (regla 2 de
+ * CLAUDE.md). Lo que el profesor escribe: la nota de cada evaluación y la
+ * participación en clase.
  */
 
-interface Evaluacion { id: string; title: string; examDate: string; kind: string; scaleMax: number }
+interface Evaluacion { id: string; title: string; examDate: string; kind: string; scaleMax: number; passingMin: number; pesoPct: number }
 
 interface FilaEstudiante {
   studentId: string
   nombre: string
   cedula: string
-  theory: number | null
-  practice: number | null
-  puntualidad: number | null
-  puntualidadManual: number | null
-  sabadosContados: number | null
-  sabadosTotal: number | null
   participacionClase: number | null
   finalScore: number | null
+  evaluadoPct: number
 }
 
-interface Envio { status: 'enviado' | 'validado'; submittedAt: string }
+interface Envio { status: 'enviado' | 'validado' | 'devuelto'; submittedAt: string; motivo: string | null }
 
 const ABREV_KIND: Record<string, string> = { examen: 'Ex', practica: 'Pr', otro: 'Ot' }
 
@@ -48,6 +44,9 @@ export default function NotasCohorteProfesor() {
   const cohortId = params.cohortId as string
 
   const [moduleId, setModuleId] = useState<string | null>(null)
+  const [umbral, setUmbral] = useState(12)
+  const [partPct, setPartPct] = useState(5)
+  const [sumaPct, setSumaPct] = useState(0)
   const [filas, setFilas] = useState<FilaEstudiante[]>([])
   const [evaluaciones, setEvaluaciones] = useState<Evaluacion[]>([])
   // notas[studentId][evalId]
@@ -79,27 +78,28 @@ export default function NotasCohorteProfesor() {
       if (!cohorte?.current_module_id) { setCargando(false); return }
       const modulo = cohorte.current_module_id
 
-      const [{ data: estudiantes }, { data: matriculas }, { data: exs }, { data: sub }] = await Promise.all([
+      const [{ data: estudiantes }, { data: matriculas }, { data: exs }, { data: sub }, { data: mod }] = await Promise.all([
         supabase.from('students').select('id, profiles!students_id_fkey(full_name, cedula)').eq('cohort_id', cohortId),
         supabase
           .from('module_enrollments')
-          .select('student_id, theory_score, practice_score, participation_score, class_participation_score, final_score, puntualidad_manual, puntualidad_sabados, puntualidad_sabados_total')
+          .select('student_id, class_participation_score, final_score, evaluated_pct, passing_threshold')
           .eq('cohort_id', cohortId)
           .eq('module_id', modulo),
         supabase
           .from('manual_exam_definitions')
-          .select('id, title, exam_date, kind, scale_max')
+          .select('id, title, exam_date, kind, scale_max, passing_min, weight_pct')
           .eq('module_id', modulo)
           .order('exam_date'),
         supabase
           .from('grade_submissions')
-          .select('status, submitted_at')
+          .select('status, submitted_at, return_reason')
           .eq('cohort_id', cohortId)
           .eq('module_id', modulo)
           .maybeSingle(),
+        supabase.from('modules').select('participation_pct').eq('id', modulo).single(),
       ])
 
-      const defs = (exs ?? []) as { id: string; title: string; exam_date: string; kind: string; scale_max: number }[]
+      const defs = (exs ?? []) as { id: string; title: string; exam_date: string; kind: string; scale_max: number; passing_min: number; weight_pct: number }[]
       const { data: scores } = defs.length
         ? await supabase.from('manual_exam_scores').select('definition_id, student_id, score').in('definition_id', defs.map((d) => d.id))
         : { data: [] }
@@ -108,15 +108,20 @@ export default function NotasCohorteProfesor() {
 
       type EstudianteCrudo = { id: string; profiles: { full_name: string; cedula: string } | null }
       type MatriculaCruda = {
-        student_id: string; theory_score: number | null; practice_score: number | null
-        participation_score: number | null; class_participation_score: number | null; final_score: number | null
-        puntualidad_manual: number | null; puntualidad_sabados: number | null; puntualidad_sabados_total: number | null
+        student_id: string; class_participation_score: number | null; final_score: number | null
+        evaluated_pct: number; passing_threshold: number
       }
       const porEstudiante = new Map(((matriculas ?? []) as unknown as MatriculaCruda[]).map((n) => [n.student_id, n]))
 
       setEvaluaciones(defs.map((e) => ({
         id: e.id, title: e.title, examDate: e.exam_date, kind: e.kind, scaleMax: Number(e.scale_max),
+        passingMin: Number(e.passing_min), pesoPct: Number(e.weight_pct),
       })))
+      const pPct = Number(mod?.participation_pct ?? 5)
+      setPartPct(pPct)
+      setSumaPct(defs.reduce((t, d) => t + Number(d.weight_pct), 0) + pPct)
+      const algunaMatricula = (matriculas ?? [])[0] as unknown as MatriculaCruda | undefined
+      if (algunaMatricula) setUmbral(Number(algunaMatricula.passing_threshold))
 
       const mapa: Record<string, Record<string, number | null>> = {}
       for (const s of (scores ?? []) as { definition_id: string; student_id: string; score: number }[]) {
@@ -124,7 +129,7 @@ export default function NotasCohorteProfesor() {
       }
       setNotas(mapa)
 
-      setEnvio(sub ? { status: sub.status as Envio['status'], submittedAt: sub.submitted_at } : null)
+      setEnvio(sub ? { status: sub.status as Envio['status'], submittedAt: sub.submitted_at, motivo: sub.return_reason } : null)
 
       setFilas(
         ((estudiantes ?? []) as unknown as EstudianteCrudo[]).map((e) => {
@@ -133,14 +138,9 @@ export default function NotasCohorteProfesor() {
             studentId: e.id,
             nombre: e.profiles?.full_name ?? '—',
             cedula: e.profiles?.cedula ?? '—',
-            theory: n?.theory_score ?? null,
-            practice: n?.practice_score ?? null,
-            puntualidad: n?.participation_score ?? null,
-            puntualidadManual: n?.puntualidad_manual ?? null,
-            sabadosContados: n?.puntualidad_sabados ?? null,
-            sabadosTotal: n?.puntualidad_sabados_total ?? null,
             participacionClase: n?.class_participation_score ?? null,
-            finalScore: n?.final_score ?? null,
+            finalScore: n?.final_score === null || n?.final_score === undefined ? null : Number(n.final_score),
+            evaluadoPct: Number(n?.evaluated_pct ?? 0),
           }
         }),
       )
@@ -166,18 +166,18 @@ export default function NotasCohorteProfesor() {
   // si cambias algo ya validado, también se reabre y hay que volver a enviar.
   const bloqueado = envio?.status === 'enviado'
 
-  // Después de guardar una nota, el servidor ya recalculó teoría/práctica/
-  // nota final: se vuelven a leer de la base, nunca se suman aquí.
+  // Después de guardar una nota, el servidor ya recalculó la nota final:
+  // se vuelve a leer de la base, nunca se suma aquí.
   async function releerEstudiante(studentId: string) {
     if (!moduleId) return
     const { data } = await createClient()
       .from('module_enrollments')
-      .select('theory_score, practice_score, participation_score, final_score, puntualidad_sabados, puntualidad_sabados_total')
+      .select('final_score, evaluated_pct')
       .eq('student_id', studentId).eq('cohort_id', cohortId).eq('module_id', moduleId)
       .maybeSingle()
     if (!data) return
     setFilas((fs) => fs.map((f) => f.studentId === studentId
-      ? { ...f, theory: data.theory_score, practice: data.practice_score, puntualidad: data.participation_score, sabadosContados: data.puntualidad_sabados, sabadosTotal: data.puntualidad_sabados_total, finalScore: data.final_score }
+      ? { ...f, finalScore: data.final_score === null ? null : Number(data.final_score), evaluadoPct: Number(data.evaluated_pct) }
       : f))
   }
 
@@ -225,37 +225,13 @@ export default function NotasCohorteProfesor() {
       .from('module_enrollments')
       .update({ class_participation_score: valor })
       .eq('student_id', studentId).eq('cohort_id', cohortId).eq('module_id', moduleId)
-      .select('final_score')
+      .select('final_score, evaluated_pct')
       .single()
     if (fallo) { setError(fallo.message); setGuardando(null); return }
     setFilas((fs) => fs.map((f) => f.studentId === studentId
-      ? { ...f, participacionClase: valor, finalScore: data.final_score }
+      ? { ...f, participacionClase: valor, finalScore: data.final_score === null ? null : Number(data.final_score), evaluadoPct: Number(data.evaluated_pct) }
       : f))
     setEnvio((e) => (e?.status === 'validado' ? null : e))
-    setGuardando(null)
-  }
-
-  // Puntualidad: sale sola de la asistencia, pero el profesor también puede
-  // escribirla; si la borra, vuelve a ser automática (migración 139).
-  async function guardarPuntualidad(studentId: string, texto: string) {
-    if (bloqueado || !moduleId) return
-    const valor = texto.trim() === '' ? null : parseFloat(texto.replace(',', '.'))
-    if (valor !== null && (Number.isNaN(valor) || valor < 0 || valor > 20)) {
-      setError('La puntualidad debe estar entre 0 y 20.')
-      return
-    }
-    const actual = filas.find((f) => f.studentId === studentId)?.puntualidadManual ?? null
-    if (valor === actual) return
-    setGuardando(`${studentId}:pun`)
-    setError(null)
-    const { error: fallo } = await createClient()
-      .from('module_enrollments')
-      .update({ puntualidad_manual: valor })
-      .eq('student_id', studentId).eq('cohort_id', cohortId).eq('module_id', moduleId)
-    if (fallo) { setError(fallo.message); setGuardando(null); return }
-    setFilas((fs) => fs.map((f) => f.studentId === studentId ? { ...f, puntualidadManual: valor } : f))
-    setEnvio((e) => (e?.status === 'validado' ? null : e))
-    await releerEstudiante(studentId)
     setGuardando(null)
   }
 
@@ -277,7 +253,7 @@ export default function NotasCohorteProfesor() {
     const { error: fallo } = await createClient().rpc('enviar_notas', { p_cohort: cohortId, p_module: moduleId })
     setEnviando(false)
     if (fallo) { setError(fallo.message); return }
-    setEnvio({ status: 'enviado', submittedAt: new Date().toISOString() })
+    setEnvio({ status: 'enviado', submittedAt: new Date().toISOString(), motivo: null })
   }
 
   if (cargando) {
@@ -288,7 +264,11 @@ export default function NotasCohorteProfesor() {
     )
   }
 
-  const celda = 'w-16 rounded border border-zr-border bg-zr-bg px-1 py-1.5 text-center text-sm text-zr-text focus:border-zr-blue focus:outline-none disabled:opacity-60'
+  const celda = 'w-16 rounded border border-zr-border bg-zr-bg px-1 py-1.5 text-center text-sm focus:border-zr-blue focus:outline-none disabled:opacity-60'
+  // Menos del mínimo en rojo, el mínimo o más en verde (reunión oct. 2026).
+  const tonoNota = (v: number | undefined, min: number) =>
+    v === undefined ? 'text-zr-text' : v < min ? 'text-zr-error' : 'text-zr-success'
+  const faltaPorcentaje = Math.round(sumaPct * 100) !== 10000
 
   return (
     <div className="space-y-6 px-5 pt-14 pb-10">
@@ -298,9 +278,23 @@ export default function NotasCohorteProfesor() {
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">Notas</p>
         <h1 className="zr-display mt-3 text-3xl text-zr-text">Tus estudiantes</h1>
         <p className="mt-2 text-sm text-zr-text-muted">
-          Llena la tabla a tu ritmo. Teoría, práctica y nota se calculan solas. La puntualidad también sale sola de la asistencia, sábado a sábado, pero puedes escribirla tú; si la borras, vuelve a ser automática.
+          Llena la tabla a tu ritmo. Cada evaluación vale un porcentaje de la nota del módulo y la nota se calcula sola, con lo que ya cargaste.
         </p>
       </header>
+
+      {envio?.status === 'devuelto' && (
+        <div className="rounded-lg border border-zr-error/30 bg-zr-error/10 px-4 py-3 text-sm text-zr-text">
+          <p className="font-bold text-zr-error">Dirección Académica te devolvió las notas</p>
+          {envio.motivo && <p className="mt-1 font-medium">{envio.motivo}</p>}
+          <p className="mt-1 text-xs text-zr-text-muted">Corrige lo que pide y vuelve a enviarlas.</p>
+        </div>
+      )}
+      {faltaPorcentaje && evaluaciones.length > 0 && (
+        <p className="rounded-lg border border-zr-warning/40 bg-zr-warning/10 px-4 py-3 text-sm font-medium text-zr-text">
+          Los porcentajes del módulo suman {sumaPct} % y deben sumar 100 %. Mientras tanto no podrás enviar las notas:
+          avísale a Dirección Académica para que lo ajuste.
+        </p>
+      )}
 
       {envio?.status === 'enviado' && (
         <p className="rounded-lg border border-zr-blue/30 bg-zr-blue/10 px-4 py-3 text-sm font-medium text-zr-text">
@@ -344,15 +338,15 @@ export default function NotasCohorteProfesor() {
                     <th key={ev.id} className="min-w-[88px] border-b border-zr-border px-2 py-2 text-center align-bottom">
                       <span className="block text-xs font-bold text-zr-text">{ev.title}</span>
                       <span className="block text-[10px] font-normal text-zr-text-muted">
-                        {ABREV_KIND[ev.kind] ?? ev.kind} · /{ev.scaleMax}
+                        {ABREV_KIND[ev.kind] ?? ev.kind} · /{ev.scaleMax} · {ev.pesoPct} %
                       </span>
                     </th>
                   ))}
-                  <th className="min-w-[64px] border-b border-l border-zr-border px-2 py-2.5 text-center text-xs font-bold text-zr-text-muted">Teoría</th>
-                  <th className="min-w-[64px] border-b border-zr-border px-2 py-2.5 text-center text-xs font-bold text-zr-text-muted">Práctica</th>
-                  <th className="min-w-[84px] border-b border-zr-border px-2 py-2.5 text-center text-xs font-bold text-zr-text-muted">Puntualidad</th>
-                  <th className="min-w-[96px] border-b border-zr-border px-2 py-2.5 text-center text-xs font-bold text-zr-text-muted">Participación</th>
-                  <th className="min-w-[64px] border-b border-zr-border px-2 py-2.5 text-center text-xs font-bold text-zr-text-muted">Nota</th>
+                  <th className="min-w-[96px] border-b border-l border-zr-border px-2 py-2.5 text-center align-bottom text-xs font-bold text-zr-text-muted">
+                    Participación
+                    <span className="block text-[10px] font-normal">{partPct} %</span>
+                  </th>
+                  <th className="min-w-[84px] border-b border-zr-border px-2 py-2.5 text-center align-bottom text-xs font-bold text-zr-text-muted">Nota</th>
                 </tr>
               </thead>
               <tbody>
@@ -370,38 +364,36 @@ export default function NotasCohorteProfesor() {
                           defaultValue={notas[f.studentId]?.[ev.id] ?? ''}
                           onBlur={(e) => guardarNota(f.studentId, ev, e.target.value)}
                           disabled={bloqueado || guardando === `${f.studentId}:${ev.id}`}
-                          className={celda}
+                          className={`${celda} ${tonoNota(notas[f.studentId]?.[ev.id] ?? undefined, ev.passingMin)}`}
                         />
                       </td>
                     ))}
-                    <td className="border-l border-zr-border px-2 py-2 text-center text-zr-text">{fmt(f.theory)}</td>
-                    <td className="px-2 py-2 text-center text-zr-text">{fmt(f.practice)}</td>
-                    <td className="px-2 py-2 text-center">
-                      <input
-                        key={`${f.studentId}-pun-${f.puntualidadManual ?? ''}-${f.puntualidad ?? ''}`}
-                        type="number" inputMode="decimal" min={0} max={20} step={0.5}
-                        defaultValue={f.puntualidadManual ?? ''}
-                        placeholder={f.puntualidad !== null ? fmt(f.puntualidad) : '—'}
-                        onBlur={(e) => guardarPuntualidad(f.studentId, e.target.value)}
-                        disabled={bloqueado || guardando === `${f.studentId}:pun`}
-                        className={celda}
-                      />
-                      <p className="mt-0.5 text-[10px] leading-tight text-zr-text-muted">
-                        {f.puntualidadManual !== null ? 'manual' : 'automática'}
-                        {f.sabadosTotal ? ` · ${f.sabadosContados ?? 0} de ${f.sabadosTotal} sáb.` : ''}
-                      </p>
-                    </td>
-                    <td className="px-2 py-2 text-center">
+                    <td className="border-l border-zr-border px-2 py-2 text-center">
                       <input
                         key={`${f.studentId}-part-${f.participacionClase ?? ''}`}
                         type="number" inputMode="decimal" min={0} max={20} step={0.5}
                         defaultValue={f.participacionClase ?? ''}
                         onBlur={(e) => guardarParticipacionClase(f.studentId, e.target.value)}
                         disabled={bloqueado || guardando === `${f.studentId}:part`}
-                        className={celda}
+                        className={`${celda} ${tonoNota(f.participacionClase ?? undefined, umbral)}`}
                       />
                     </td>
-                    <td className="px-2 py-2 text-center font-bold text-zr-blue">{fmt(f.finalScore)}</td>
+                    <td className="px-2 py-2 text-center">
+                      {f.finalScore === null ? (
+                        <span className="text-zr-text-muted">—</span>
+                      ) : (
+                        <>
+                          {/* En progreso: puntos ganados de los que ya se evaluaron.
+                              Completo (100 %): la nota final del módulo. */}
+                          <span className={`font-bold ${tonoNota(f.finalScore * 100 / Math.max(f.evaluadoPct, 1), umbral)}`}>
+                            {fmt(f.finalScore)}
+                          </span>
+                          <span className="block text-[10px] leading-tight text-zr-text-muted">
+                            {f.evaluadoPct >= 100 ? 'final' : `de ${fmt(Math.round(f.evaluadoPct * 20) / 100)}`}
+                          </span>
+                        </>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -1689,6 +1689,9 @@ export type Database = {
           cohort_id: string
           id: string
           module_id: string
+          return_reason: string | null
+          returned_at: string | null
+          returned_by: string | null
           status: string
           submitted_at: string
           submitted_by: string | null
@@ -1699,6 +1702,9 @@ export type Database = {
           cohort_id: string
           id?: string
           module_id: string
+          return_reason?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
           status: string
           submitted_at?: string
           submitted_by?: string | null
@@ -1709,6 +1715,9 @@ export type Database = {
           cohort_id?: string
           id?: string
           module_id?: string
+          return_reason?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
           status?: string
           submitted_at?: string
           submitted_by?: string | null
@@ -1728,6 +1737,13 @@ export type Database = {
             columns: ["module_id"]
             isOneToOne: false
             referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_submissions_returned_by_fkey"
+            columns: ["returned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1805,6 +1821,7 @@ export type Database = {
           passing_min: number
           scale_max: number
           title: string
+          weight_pct: number
         }
         Insert: {
           created_at?: string
@@ -1817,6 +1834,7 @@ export type Database = {
           passing_min?: number
           scale_max?: number
           title: string
+          weight_pct?: number
         }
         Update: {
           created_at?: string
@@ -1829,6 +1847,7 @@ export type Database = {
           passing_min?: number
           scale_max?: number
           title?: string
+          weight_pct?: number
         }
         Relationships: [
           {
@@ -2033,6 +2052,7 @@ export type Database = {
           class_participation_score: number | null
           cohort_id: string
           created_at: string
+          evaluated_pct: number
           final_score: number | null
           id: string
           module_id: string
@@ -2053,6 +2073,7 @@ export type Database = {
           class_participation_score?: number | null
           cohort_id: string
           created_at?: string
+          evaluated_pct?: number
           final_score?: number | null
           id?: string
           module_id: string
@@ -2073,6 +2094,7 @@ export type Database = {
           class_participation_score?: number | null
           cohort_id?: string
           created_at?: string
+          evaluated_pct?: number
           final_score?: number | null
           id?: string
           module_id?: string
@@ -2151,6 +2173,7 @@ export type Database = {
           is_complementario: boolean
           name: string
           order_index: number
+          participation_pct: number
           program_id: string
           resumen_largo: string | null
         }
@@ -2164,6 +2187,7 @@ export type Database = {
           is_complementario?: boolean
           name: string
           order_index: number
+          participation_pct?: number
           program_id: string
           resumen_largo?: string | null
         }
@@ -2177,6 +2201,7 @@ export type Database = {
           is_complementario?: boolean
           name?: string
           order_index?: number
+          participation_pct?: number
           program_id?: string
           resumen_largo?: string | null
         }
@@ -3442,7 +3467,7 @@ export type Database = {
         Returns: string
       }
       devolver_notas: {
-        Args: { p_cohort: string; p_module: string }
+        Args: { p_cohort: string; p_module: string; p_motivo: string }
         Returns: undefined
       }
       enviar_notas: {

@@ -18,6 +18,10 @@ import type { UserRole } from '@/lib/types'
  * asistencia, pero se puede escribir a mano; si se borra, vuelve a ser
  * automática).
  *
+ * Reunión de oct. 2026 (migración 143): cada evaluación vale un porcentaje, ya
+ * no hay Teoría / Práctica / Puntualidad como notas, y "Devolver al profesor"
+ * pide un motivo que el profesor ve.
+ *
  * Aquí también se VALIDA lo que el profesor envió (migración 126): hasta
  * entonces el estudiante no ve nada. Filtros por Módulo y por Tipo de
  * evaluación (Examen / Práctica / Otro).
@@ -27,20 +31,16 @@ interface FilaNota {
   studentId: string
   nombre: string
   cedula: string
-  theory: number | null
-  practice: number | null
-  puntualidad: number | null
-  puntualidadManual: number | null
-  sabadosContados: number | null
-  sabadosTotal: number | null
   participacionClase: number | null
   finalScore: number | null
+  evaluadoPct: number
+  umbral: number
   status: string | null
 }
 
-interface Evaluacion { id: string; titulo: string; kind: 'examen' | 'practica' | 'otro'; detalle: string | null; scaleMax: number }
-interface Modulo { id: string; nombre: string; orden: number }
-interface Envio { status: 'enviado' | 'validado'; submittedAt: string; validatedAt: string | null }
+interface Evaluacion { id: string; titulo: string; kind: 'examen' | 'practica' | 'otro'; detalle: string | null; scaleMax: number; passingMin: number; pesoPct: number }
+interface Modulo { id: string; nombre: string; orden: number; participacionPct: number }
+interface Envio { status: 'enviado' | 'validado' | 'devuelto'; submittedAt: string; validatedAt: string | null; motivo: string | null }
 type Tipo = 'todos' | 'examen' | 'practica' | 'otro'
 
 const fmt = (v: number | null) => (v === null ? '—' : Number(v).toFixed(v % 1 === 0 ? 0 : 1))
@@ -49,7 +49,7 @@ const ABREV: Record<string, string> = { examen: 'Ex', practica: 'Pr', otro: 'Ot'
 const CAMPO =
   'w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none'
 const CELDA =
-  'w-16 rounded border border-zr-border bg-zr-bg px-1 py-1.5 text-center text-sm text-zr-text focus:border-zr-blue focus:outline-none disabled:opacity-60'
+  'w-16 rounded border border-zr-border bg-zr-bg px-1 py-1.5 text-center text-sm focus:border-zr-blue focus:outline-none disabled:opacity-60'
 
 export default function VerCalificacionesCohorte() {
   const router = useRouter()
@@ -67,6 +67,8 @@ export default function VerCalificacionesCohorte() {
   const [envio, setEnvio] = useState<Envio | null>(null)
   const [cargando, setCargando] = useState(true)
   const [accionando, setAccionando] = useState(false)
+  const [devolviendo, setDevolviendo] = useState(false)
+  const [motivo, setMotivo] = useState('')
   const [guardando, setGuardando] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [version, setVersion] = useState(0)
@@ -97,9 +99,9 @@ export default function VerCalificacionesCohorte() {
       if (!cohorte) { setCargando(false); return }
 
       const { data: mods } = await supabase
-        .from('modules').select('id, name, order_index').eq('program_id', cohorte.program_id).order('order_index')
+        .from('modules').select('id, name, order_index, participation_pct').eq('program_id', cohorte.program_id).order('order_index')
       if (!vigente) return
-      setModulos((mods ?? []).map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index })))
+      setModulos((mods ?? []).map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index, participacionPct: Number(m.participation_pct) })))
       setModuleId(cohorte.current_module_id ?? mods?.[0]?.id ?? null)
       if (!cohorte.current_module_id && !mods?.length) setCargando(false)
     }
@@ -120,18 +122,18 @@ export default function VerCalificacionesCohorte() {
         supabase.from('students').select('id, profiles!students_id_fkey(full_name, cedula)').eq('cohort_id', cohortId),
         supabase
           .from('module_enrollments')
-          .select('student_id, theory_score, practice_score, participation_score, class_participation_score, final_score, status, puntualidad_manual, puntualidad_sabados, puntualidad_sabados_total')
+          .select('student_id, class_participation_score, final_score, evaluated_pct, passing_threshold, status')
           .eq('cohort_id', cohortId)
           .eq('module_id', moduleId as string),
         supabase
           .from('grade_submissions')
-          .select('status, submitted_at, validated_at')
+          .select('status, submitted_at, validated_at, return_reason')
           .eq('cohort_id', cohortId)
           .eq('module_id', moduleId as string)
           .maybeSingle(),
         supabase
           .from('manual_exam_definitions')
-          .select('id, title, kind, kind_detail, scale_max, exam_date')
+          .select('id, title, kind, kind_detail, scale_max, passing_min, weight_pct, exam_date')
           .eq('module_id', moduleId as string)
           .order('exam_date'),
       ])
@@ -145,10 +147,9 @@ export default function VerCalificacionesCohorte() {
 
       type EstudianteCrudo = { id: string; profiles: { full_name: string; cedula: string } | null }
       type MatriculaCruda = {
-        student_id: string; theory_score: number | null; practice_score: number | null
-        participation_score: number | null; class_participation_score: number | null
+        student_id: string; class_participation_score: number | null
         final_score: number | null; status: string | null
-        puntualidad_manual: number | null; puntualidad_sabados: number | null; puntualidad_sabados_total: number | null
+        evaluated_pct: number; passing_threshold: number
       }
       const porEstudiante = new Map(((matriculas ?? []) as unknown as MatriculaCruda[]).map((n) => [n.student_id, n]))
 
@@ -160,14 +161,10 @@ export default function VerCalificacionesCohorte() {
               studentId: e.id,
               nombre: e.profiles?.full_name ?? '—',
               cedula: e.profiles?.cedula ?? '—',
-              theory: n?.theory_score ?? null,
-              practice: n?.practice_score ?? null,
-              puntualidad: n?.participation_score ?? null,
-              puntualidadManual: n?.puntualidad_manual ?? null,
-              sabadosContados: n?.puntualidad_sabados ?? null,
-              sabadosTotal: n?.puntualidad_sabados_total ?? null,
               participacionClase: n?.class_participation_score ?? null,
-              finalScore: n?.final_score ?? null,
+              finalScore: n?.final_score === null || n?.final_score === undefined ? null : Number(n.final_score),
+              evaluadoPct: Number(n?.evaluated_pct ?? 0),
+              umbral: Number(n?.passing_threshold ?? 12),
               status: n?.status ?? null,
             }
           })
@@ -175,13 +172,14 @@ export default function VerCalificacionesCohorte() {
       )
       setEvaluaciones((defs ?? []).map((d) => ({
         id: d.id, titulo: d.title, kind: d.kind as Evaluacion['kind'], detalle: d.kind_detail, scaleMax: Number(d.scale_max),
+        passingMin: Number(d.passing_min), pesoPct: Number(d.weight_pct),
       })))
       const mapa: Record<string, Record<string, number | null>> = {}
       for (const s of (scores ?? []) as { definition_id: string; student_id: string; score: number }[]) {
         ;(mapa[s.student_id] ??= {})[s.definition_id] = Number(s.score)
       }
       setNotas(mapa)
-      setEnvio(sub ? { status: sub.status as Envio['status'], submittedAt: sub.submitted_at, validatedAt: sub.validated_at } : null)
+      setEnvio(sub ? { status: sub.status as Envio['status'], submittedAt: sub.submitted_at, validatedAt: sub.validated_at, motivo: sub.return_reason } : null)
       setCargando(false)
     }
 
@@ -189,21 +187,17 @@ export default function VerCalificacionesCohorte() {
     return () => { vigente = false }
   }, [cohortId, moduleId, autorizado, version])
 
-  // El servidor recalcula teoría/práctica/nota: se vuelven a leer, nunca se suman aquí.
+  // El servidor recalcula la nota: se vuelve a leer, nunca se suma aquí.
   async function releer(studentId: string) {
     if (!moduleId) return
     const { data } = await createClient()
       .from('module_enrollments')
-      .select('theory_score, practice_score, participation_score, final_score, status, puntualidad_sabados, puntualidad_sabados_total')
+      .select('final_score, evaluated_pct, status')
       .eq('student_id', studentId).eq('cohort_id', cohortId).eq('module_id', moduleId)
       .maybeSingle()
     if (!data) return
     setFilas((fs) => fs.map((f) => f.studentId === studentId
-      ? {
-          ...f, theory: data.theory_score, practice: data.practice_score, puntualidad: data.participation_score,
-          finalScore: data.final_score, status: data.status,
-          sabadosContados: data.puntualidad_sabados, sabadosTotal: data.puntualidad_sabados_total,
-        }
+      ? { ...f, finalScore: data.final_score === null ? null : Number(data.final_score), evaluadoPct: Number(data.evaluated_pct), status: data.status }
       : f))
   }
 
@@ -228,36 +222,50 @@ export default function VerCalificacionesCohorte() {
     setGuardando(null)
   }
 
-  async function guardarCampo(studentId: string, campo: 'class_participation_score' | 'puntualidad_manual', texto: string) {
+  async function guardarParticipacion(studentId: string, texto: string) {
     if (!moduleId) return
     const valor = texto.trim() === '' ? null : parseFloat(texto.replace(',', '.'))
     if (valor !== null && (Number.isNaN(valor) || valor < 0 || valor > 20)) {
-      setError('El valor debe estar entre 0 y 20.')
+      setError('La participación debe estar entre 0 y 20.')
       return
     }
     // La participación no se puede dejar en blanco (no hay "automática").
-    if (campo === 'class_participation_score' && valor === null) return
-    setGuardando(`${studentId}:${campo}`)
+    if (valor === null) return
+    setGuardando(`${studentId}:part`)
     setError(null)
     const { error: fallo } = await createClient()
       .from('module_enrollments')
-      .update(campo === 'puntualidad_manual' ? { puntualidad_manual: valor } : { class_participation_score: valor })
+      .update({ class_participation_score: valor })
       .eq('student_id', studentId).eq('cohort_id', cohortId).eq('module_id', moduleId)
     if (fallo) { setError(fallo.message); setGuardando(null); return }
-    setFilas((fs) => fs.map((f) => f.studentId === studentId
-      ? campo === 'puntualidad_manual' ? { ...f, puntualidadManual: valor } : { ...f, participacionClase: valor }
-      : f))
+    setFilas((fs) => fs.map((f) => f.studentId === studentId ? { ...f, participacionClase: valor } : f))
     await releer(studentId)
     setGuardando(null)
   }
 
-  async function ejecutar(accion: 'validar_notas' | 'devolver_notas', confirmacion: string) {
-    if (!moduleId || !confirm(confirmacion)) return
+  async function validar() {
+    if (!moduleId || !confirm('¿Validar estas notas? Los estudiantes las verán de inmediato.')) return
     setAccionando(true)
     setError(null)
-    const { error: fallo } = await createClient().rpc(accion, { p_cohort: cohortId, p_module: moduleId })
+    const { error: fallo } = await createClient().rpc('validar_notas', { p_cohort: cohortId, p_module: moduleId })
     setAccionando(false)
     if (fallo) { setError(fallo.message); return }
+    setVersion((v) => v + 1)
+  }
+
+  async function devolver() {
+    if (!moduleId) return
+    if (!motivo.trim()) {
+      setError('Escribe qué debe corregir el profesor.')
+      return
+    }
+    setAccionando(true)
+    setError(null)
+    const { error: fallo } = await createClient().rpc('devolver_notas', { p_cohort: cohortId, p_module: moduleId, p_motivo: motivo.trim() })
+    setAccionando(false)
+    if (fallo) { setError(fallo.message); return }
+    setDevolviendo(false)
+    setMotivo('')
     setVersion((v) => v + 1)
   }
 
@@ -278,9 +286,12 @@ export default function VerCalificacionesCohorte() {
   }
 
   const visibles = tipo === 'todos' ? evaluaciones : evaluaciones.filter((e) => e.kind === tipo)
-  const mostrarTeoria = tipo === 'todos' || tipo === 'examen'
-  const mostrarPractica = tipo === 'todos' || tipo === 'practica'
   const mostrarResto = tipo === 'todos'
+  const modulo = modulos.find((m) => m.id === moduleId)
+  const sumaPct = evaluaciones.reduce((t, e) => t + e.pesoPct, 0) + (modulo?.participacionPct ?? 0)
+  // Menos del mínimo en rojo, el mínimo o más en verde (reunión oct. 2026).
+  const tonoNota = (v: number | undefined, min: number) =>
+    v === undefined ? 'text-zr-text' : v < min ? 'text-zr-error' : 'text-zr-success'
 
   return (
     <div className="space-y-6 px-5 pt-14 pb-10">
@@ -292,10 +303,8 @@ export default function VerCalificacionesCohorte() {
         </p>
         <h1 className="zr-display mt-3 text-3xl text-zr-text">{cohorteNombre}</h1>
         <p className="mt-2 text-sm text-zr-text-muted">
-          El cuadro completo: una columna por cada examen y práctica. Puedes editar las notas, la
-          participación y la puntualidad. Teoría, práctica y nota final se calculan solas. La
-          puntualidad sale de la asistencia; si la escribes tú, queda como manual, y si la borras
-          vuelve a ser automática.
+          El cuadro completo: una columna por cada examen y práctica, con su porcentaje. Puedes editar
+          las notas y la participación; la nota del módulo se calcula sola.
         </p>
       </header>
 
@@ -333,20 +342,26 @@ export default function VerCalificacionesCohorte() {
           <p className="text-xs text-zr-text-muted">Los estudiantes las verán cuando las valides.</p>
           <div className="flex gap-2">
             <button
-              onClick={() => ejecutar('validar_notas', '¿Validar estas notas? Los estudiantes las verán de inmediato.')}
+              onClick={validar}
               disabled={accionando}
               className="min-h-11 flex-1 rounded-lg bg-zr-success text-sm font-bold text-white disabled:opacity-50"
             >
               Validar y publicar
             </button>
             <button
-              onClick={() => ejecutar('devolver_notas', '¿Devolver las notas al profesor para que las corrija?')}
+              onClick={() => setDevolviendo(true)}
               disabled={accionando}
               className="min-h-11 flex-1 rounded-lg border border-zr-error/40 text-sm font-bold text-zr-error disabled:opacity-50"
             >
               Devolver al profesor
             </button>
           </div>
+        </div>
+      )}
+      {envio?.status === 'devuelto' && (
+        <div className="rounded-lg border border-zr-error/30 bg-zr-error/10 p-4 text-sm text-zr-text">
+          <p className="font-semibold text-zr-error">Devueltas al profesor para corregir.</p>
+          {envio.motivo && <p className="mt-1">{envio.motivo}</p>}
         </div>
       )}
       {envio?.status === 'validado' && (
@@ -356,7 +371,7 @@ export default function VerCalificacionesCohorte() {
             (y verán al instante cualquier cambio que hagas aquí).
           </p>
           <button
-            onClick={() => ejecutar('devolver_notas', 'Esto oculta las notas a los estudiantes y las devuelve al profesor. ¿Continuar?')}
+            onClick={() => setDevolviendo(true)}
             disabled={accionando}
             className="text-xs font-bold text-zr-error underline disabled:opacity-50"
           >
@@ -365,10 +380,61 @@ export default function VerCalificacionesCohorte() {
         </div>
       )}
 
+      {!cargando && evaluaciones.length > 0 && Math.round(sumaPct * 100) !== 10000 && (
+        <p className="rounded-lg border border-zr-warning/40 bg-zr-warning/10 px-4 py-3 text-sm font-medium text-zr-text">
+          Los porcentajes de este módulo suman {sumaPct} % (con la participación) y deben sumar 100 %.
+          Ajústalos en Registrar Evaluación; mientras tanto el profesor no puede enviar las notas.
+        </p>
+      )}
+
       {error && (
         <p className="rounded-lg border border-zr-error/30 bg-zr-error/12 px-4 py-3 text-sm font-medium text-zr-error">
           {error}
         </p>
+      )}
+
+      {devolviendo && (
+        <div
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 backdrop-blur-md sm:items-center sm:p-5"
+          onClick={() => setDevolviendo(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm space-y-4 rounded-t-2xl border border-white/15 bg-zr-surface/85 p-6 pb-8 shadow-[0_16px_48px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:rounded-2xl sm:pb-6"
+          >
+            <p className="zr-display text-xl text-zr-text">Devolver al profesor</p>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">¿Qué debe corregir?</label>
+              <textarea
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                rows={4}
+                placeholder="Ej. Falta la nota del examen 2 de varios estudiantes."
+                className={CAMPO}
+              />
+              <p className="mt-2 text-xs text-zr-text-muted">
+                El profesor recibe este mensaje y las notas dejan de verse para los estudiantes hasta que las vuelva a enviar.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setDevolviendo(false)}
+                className="min-h-12 flex-1 rounded-lg border border-zr-border text-sm font-bold text-zr-text"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={devolver}
+                disabled={accionando}
+                className="min-h-12 flex-1 rounded-lg bg-zr-error text-sm font-bold text-white disabled:opacity-50"
+              >
+                Devolver
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {cargando ? (
@@ -389,17 +455,17 @@ export default function VerCalificacionesCohorte() {
                   <th key={ev.id} className="min-w-[88px] border-b border-zr-border px-2 py-2 text-center align-bottom">
                     <span className="block text-xs font-bold text-zr-text">{ev.titulo}</span>
                     <span className="block text-[10px] font-normal text-zr-text-muted">
-                      {ev.kind === 'otro' && ev.detalle ? ev.detalle : ABREV[ev.kind]} · /{ev.scaleMax}
+                      {ev.kind === 'otro' && ev.detalle ? ev.detalle : ABREV[ev.kind]} · /{ev.scaleMax} · {ev.pesoPct} %
                     </span>
                   </th>
                 ))}
-                {mostrarTeoria && <th className="min-w-[64px] border-b border-l border-zr-border px-2 py-2.5 text-center text-xs font-bold text-zr-text-muted">Teoría</th>}
-                {mostrarPractica && <th className="min-w-[64px] border-b border-zr-border px-2 py-2.5 text-center text-xs font-bold text-zr-text-muted">Práctica</th>}
                 {mostrarResto && (
                   <>
-                    <th className="min-w-[96px] border-b border-zr-border px-2 py-2.5 text-center text-xs font-bold text-zr-text-muted">Puntualidad</th>
-                    <th className="min-w-[96px] border-b border-zr-border px-2 py-2.5 text-center text-xs font-bold text-zr-text-muted">Participación</th>
-                    <th className="min-w-[64px] border-b border-zr-border px-2 py-2.5 text-center text-xs font-bold text-zr-text-muted">Nota</th>
+                    <th className="min-w-[96px] border-b border-l border-zr-border px-2 py-2.5 text-center align-bottom text-xs font-bold text-zr-text-muted">
+                      Participación
+                      <span className="block text-[10px] font-normal">{modulo?.participacionPct ?? 0} %</span>
+                    </th>
+                    <th className="min-w-[84px] border-b border-zr-border px-2 py-2.5 text-center align-bottom text-xs font-bold text-zr-text-muted">Nota</th>
                     <th className="min-w-[84px] border-b border-zr-border px-2 py-2.5 text-center text-xs font-bold text-zr-text-muted">Estado</th>
                   </>
                 )}
@@ -420,40 +486,37 @@ export default function VerCalificacionesCohorte() {
                         defaultValue={notas[f.studentId]?.[ev.id] ?? ''}
                         onBlur={(e) => guardarNota(f.studentId, ev, e.target.value)}
                         disabled={guardando === `${f.studentId}:${ev.id}`}
-                        className={CELDA}
+                        className={`${CELDA} ${tonoNota(notas[f.studentId]?.[ev.id] ?? undefined, ev.passingMin)}`}
                       />
                     </td>
                   ))}
-                  {mostrarTeoria && <td className="border-l border-zr-border px-2 py-2 text-center text-zr-text">{fmt(f.theory)}</td>}
-                  {mostrarPractica && <td className="px-2 py-2 text-center text-zr-text">{fmt(f.practice)}</td>}
                   {mostrarResto && (
                     <>
-                      <td className="px-2 py-2 text-center">
-                        <input
-                          key={`${f.studentId}-pun-${f.puntualidadManual ?? ''}-${f.puntualidad ?? ''}`}
-                          type="number" inputMode="decimal" min={0} max={20} step={0.5}
-                          defaultValue={f.puntualidadManual ?? ''}
-                          placeholder={f.puntualidad !== null ? fmt(f.puntualidad) : '—'}
-                          onBlur={(e) => guardarCampo(f.studentId, 'puntualidad_manual', e.target.value)}
-                          disabled={guardando === `${f.studentId}:puntualidad_manual`}
-                          className={CELDA}
-                        />
-                        <p className="mt-0.5 text-[10px] leading-tight text-zr-text-muted">
-                          {f.puntualidadManual !== null ? 'manual' : 'automática'}
-                          {f.sabadosTotal ? ` · ${f.sabadosContados ?? 0} de ${f.sabadosTotal} sáb.` : ''}
-                        </p>
-                      </td>
-                      <td className="px-2 py-2 text-center">
+                      <td className="border-l border-zr-border px-2 py-2 text-center">
                         <input
                           key={`${f.studentId}-part-${f.participacionClase ?? ''}`}
                           type="number" inputMode="decimal" min={0} max={20} step={0.5}
                           defaultValue={f.participacionClase ?? ''}
-                          onBlur={(e) => guardarCampo(f.studentId, 'class_participation_score', e.target.value)}
-                          disabled={guardando === `${f.studentId}:class_participation_score`}
-                          className={CELDA}
+                          onBlur={(e) => guardarParticipacion(f.studentId, e.target.value)}
+                          disabled={guardando === `${f.studentId}:part`}
+                          className={`${CELDA} ${tonoNota(f.participacionClase ?? undefined, f.umbral)}`}
                         />
                       </td>
-                      <td className="px-2 py-2 text-center font-bold text-zr-blue">{fmt(f.finalScore)}</td>
+                      <td className="px-2 py-2 text-center">
+                        {f.finalScore === null ? (
+                          <span className="text-zr-text-muted">—</span>
+                        ) : (
+                          <>
+                            {/* En progreso: puntos ganados de los ya evaluados. Con 100 % evaluado: nota final. */}
+                            <span className={`font-bold ${tonoNota(f.finalScore * 100 / Math.max(f.evaluadoPct, 1), f.umbral)}`}>
+                              {fmt(f.finalScore)}
+                            </span>
+                            <span className="block text-[10px] leading-tight text-zr-text-muted">
+                              {f.evaluadoPct >= 100 ? 'final' : `de ${fmt(Math.round(f.evaluadoPct * 20) / 100)}`}
+                            </span>
+                          </>
+                        )}
+                      </td>
                       <td
                         className={`px-2 py-2 text-center text-xs font-semibold ${
                           f.status === 'aprobado' ? 'text-zr-success' : f.status === 'reprobado' ? 'text-zr-error' : 'text-zr-text-muted'

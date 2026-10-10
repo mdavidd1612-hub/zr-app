@@ -359,8 +359,10 @@ export default function Inicio() {
                         sept. 2026): la cantina muestra el QR, se escanea desde
                         aquí -- claim-snack-checkin valida el resto. */}
                     <button
-                      onClick={() => router.push('/refrigerio')}
-                      className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg border border-zr-blue/40 text-base font-bold text-zr-blue-mid"
+                      onClick={() => (noSolvente ? setAvisoBloqueado(true) : router.push('/refrigerio'))}
+                      className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-lg border text-base font-bold ${
+                        noSolvente ? 'border-zr-border bg-zr-border text-zr-error' : 'border-zr-blue/40 text-zr-blue-mid'
+                      }`}
                     >
                       <IconoTaza size={20} />
                       Escanear refrigerio

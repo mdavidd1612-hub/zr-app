@@ -56,11 +56,11 @@ export default function Finanzas() {
   const [guardandoId, setGuardandoId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Buscador y filtros (reunión de sept. 2026): nombre/cédula, programa,
-  // módulo y estado.
+  // Buscador y filtros: nombre/cédula, programa y estado. Sin módulo: todos
+  // los estudiantes cursan el mismo programa y no aporta nada (pedido del
+  // coordinador, oct. 2026).
   const [busqueda, setBusqueda] = useState('')
   const [filtroPrograma, setFiltroPrograma] = useState('')
-  const [filtroModulo, setFiltroModulo] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<'' | Estado>('')
 
   useEffect(() => {
@@ -134,13 +134,9 @@ export default function Finanzas() {
 
   const q = busqueda.trim().toLowerCase()
   const programas = [...new Set(filas.map((f) => f.programa).filter((x): x is string => !!x))].sort()
-  const modulos = [...new Set(
-    filas.filter((f) => !filtroPrograma || f.programa === filtroPrograma).map((f) => f.modulo).filter((x): x is string => !!x),
-  )].sort()
   const visibles = filas.filter((f) =>
     (!q || `${f.nombre} ${f.cedula}`.toLowerCase().includes(q))
     && (!filtroPrograma || f.programa === filtroPrograma)
-    && (!filtroModulo || f.modulo === filtroModulo)
     && (!filtroEstado || f.estado === filtroEstado),
   )
 
@@ -180,22 +176,14 @@ export default function Finanzas() {
               placeholder="Buscar por nombre o cédula"
               className="w-full rounded-lg border border-zr-border bg-zr-surface px-4 py-3 text-sm text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
             />
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <Select
                 value={filtroPrograma}
-                onChange={(e) => { setFiltroPrograma(e.target.value); setFiltroModulo('') }}
+                onChange={(e) => setFiltroPrograma(e.target.value)}
                 className="rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
               >
                 <option value="">Todos los programas</option>
                 {programas.map((p) => <option key={p} value={p}>{p}</option>)}
-              </Select>
-              <Select
-                value={filtroModulo}
-                onChange={(e) => setFiltroModulo(e.target.value)}
-                className="rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
-              >
-                <option value="">Todos los módulos</option>
-                {modulos.map((m) => <option key={m} value={m}>{m}</option>)}
               </Select>
               <Select
                 value={filtroEstado}

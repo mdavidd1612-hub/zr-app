@@ -7,6 +7,7 @@ import { type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Marco } from '@/components/ui/Marco'
 import { BannerSimulacion } from '@/components/ui/BannerSimulacion'
 import { TourEstudiante } from '@/components/ui/TourEstudiante'
+import { BannerNoSolvente, ModalNoSolvente } from '@/components/ui/AvisoSolvencia'
 import {
   IconoInicio, IconoPerfil, IconoProgreso, IconoDocumento, IconoDuda, IconoNotas,
 } from '@/components/ui/Iconos'
@@ -52,6 +53,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // ruta dentro del mismo grupo. Nunca en la vista de recorrido de
   // super_admin (no tiene fila en `students`, no hay nada que marcar).
   const [mostrarTour, setMostrarTour] = useState(false)
+
+  // Solvencia (finanzas, migraciones 115/128/140): un estudiante 'no_solvente'
+  // queda bloqueado en TODA la app salvo Perfil. La base ya no le entrega
+  // material ni notas y los servidores rechazan asistencia y refrigerio; esto
+  // pone las secciones en gris y le explica qué hacer.
+  const [noSolvente, setNoSolvente] = useState(false)
+  const [whatsapp, setWhatsapp] = useState<string | null>(null)
+  const [avisoAbierto, setAvisoAbierto] = useState(false)
+  const [avisoVisto, setAvisoVisto] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -150,6 +160,62 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     verificarValidacion()
   }, [pathname, router, rol, simulando])
 
+  useEffect(() => {
+    if (rol === undefined || simulando) return
+    const supabase = createClient()
+    async function revisarSolvencia() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: est } = await supabase.from('students').select('payment_status').eq('id', user.id).maybeSingle()
+      const bloqueado = est?.payment_status === 'no_solvente'
+      setNoSolvente(bloqueado)
+      if (bloqueado) {
+        const { data: cfg } = await supabase
+          .from('system_config').select('value').eq('key', 'finanzas.whatsapp_administracion').maybeSingle()
+        if (cfg?.value) setWhatsapp(String(cfg.value))
+      }
+    }
+    revisarSolvencia()
+    // Administración puede cambiar el estado mientras la app está abierta.
+    const alVolver = () => { if (document.visibilityState === 'visible') revisarSolvencia() }
+    document.addEventListener('visibilitychange', alVolver)
+    window.addEventListener('focus', alVolver)
+    return () => {
+      document.removeEventListener('visibilitychange', alVolver)
+      window.removeEventListener('focus', alVolver)
+    }
+  }, [rol, simulando, pathname])
+
+  const rutaPermitidaSiBloqueado =
+    pathname === '/' || pathname.startsWith('/perfil') || pathname === '/completar-perfil' || pathname === '/aceptar-terminos'
+
+  // Al entrar a Inicio bloqueado, el mensaje sale una vez por sesión; si toca
+  // una sección en gris (o llega a una ruta bloqueada), sale siempre.
+  useEffect(() => {
+    if (!noSolvente) { setAvisoAbierto(false); return }
+    if (!rutaPermitidaSiBloqueado) {
+      router.replace('/')
+      setAvisoAbierto(true)
+      return
+    }
+    if (pathname === '/' && !avisoVisto) {
+      try {
+        if (!sessionStorage.getItem('zr_bloqueo_visto')) setAvisoAbierto(true)
+      } catch { setAvisoAbierto(true) }
+    }
+  }, [noSolvente, pathname, rutaPermitidaSiBloqueado, avisoVisto, router])
+
+  function entendido() {
+    try { sessionStorage.setItem('zr_bloqueo_visto', '1') } catch { /* sin almacenamiento: no es crítico */ }
+    setAvisoVisto(true)
+    setAvisoAbierto(false)
+  }
+
+  // Secciones bloqueadas: todas menos Inicio y Perfil.
+  const itemsVista = noSolvente
+    ? NAV.map((i) => (i.href === '/' || i.href === '/perfil' ? i : { ...i, bloqueado: true }))
+    : NAV
+
   // Dentro de un examen no se desliza: el gesto de pasar de sección chocaría
   // con el de pasar de pregunta y el estudiante saldría del examen a medias.
   const enExamen = /^\/examenes\/[^/]+$/.test(pathname)
@@ -172,10 +238,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <Marco
-      items={validado ? NAV : NAV_PENDIENTE}
+      items={validado ? itemsVista : NAV_PENDIENTE}
       deslizable={validado}
       sinNavegacion={enExamen || enOnboarding}
+      alTocarBloqueado={() => setAvisoAbierto(true)}
     >
+      {noSolvente && !avisoAbierto && <BannerNoSolvente whatsapp={whatsapp} />}
+      {noSolvente && avisoAbierto && <ModalNoSolvente whatsapp={whatsapp} onEntendido={entendido} />}
       {enOnboarding && (
         <button
           onClick={salir}

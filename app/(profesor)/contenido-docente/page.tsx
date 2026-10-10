@@ -246,7 +246,29 @@ export default function ContenidoProfesor() {
       )}
 
       {formAbierto && (
-        <div className="zr-card space-y-5 p-6">
+        <div
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 backdrop-blur-md sm:items-center sm:p-5"
+          onClick={() => { if (!subiendo) setFormAbierto(false) }}
+        >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Subir material"
+          onClick={(e) => e.stopPropagation()}
+          className="max-h-[92dvh] w-full max-w-lg space-y-5 overflow-y-auto rounded-t-2xl border border-white/15 bg-zr-surface/85 p-6 pb-8 shadow-[0_16px_48px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:rounded-2xl sm:pb-6"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <p className="zr-display text-xl text-zr-text">Subir material</p>
+            <button
+              type="button"
+              onClick={() => setFormAbierto(false)}
+              disabled={subiendo}
+              aria-label="Cerrar"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-zr-border text-zr-text-muted disabled:opacity-40"
+            >
+              ✕
+            </button>
+          </div>
           <div>
             <label className="mb-2 block text-sm font-semibold text-zr-text">Archivo (PDF, PowerPoint, Word, Excel, imagen, video o audio)</label>
             <input
@@ -309,6 +331,7 @@ export default function ContenidoProfesor() {
           >
             {subiendo ? 'Comprimiendo y subiendo…' : 'Subir material'}
           </button>
+        </div>
         </div>
       )}
 

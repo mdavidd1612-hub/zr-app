@@ -16,6 +16,11 @@ import { IconoMenu, IconoCerrar } from '@/components/ui/Iconos'
 export interface ItemBarra {
   href: string
   label: string
+  /**
+   * Sección bloqueada (estudiante no solvente): se ve en gris y al tocarla no
+   * navega, avisa con `alTocarBloqueado`.
+   */
+  bloqueado?: boolean
   Icono: (p: { size?: number }) => React.ReactElement
   /**
    * Encabezado del grupo al que pertenece, solo para la hoja de "Todas las
@@ -40,9 +45,11 @@ interface Props {
   todasLasSecciones?: ItemBarra[]
   /** Deslizar de lado cambia de sección. Se apaga donde estorbe (un examen). */
   deslizable?: boolean
+  /** Qué hacer cuando se toca una sección con `bloqueado`. */
+  alTocarBloqueado?: () => void
 }
 
-export function BarraFlotante({ items, todasLasSecciones, deslizable = true }: Props) {
+export function BarraFlotante({ items, todasLasSecciones, deslizable = true, alTocarBloqueado }: Props) {
   const pathname = usePathname()
   const router = useRouter()
   const inicioX = useRef(0)
@@ -78,8 +85,10 @@ export function BarraFlotante({ items, todasLasSecciones, deslizable = true }: P
       const i = items.findIndex((x) => x.href === pathname)
       if (i === -1) return
 
-      if (dx > 0 && i < items.length - 1) router.push(items[i + 1].href)
-      else if (dx < 0 && i > 0) router.push(items[i - 1].href)
+      const destino = dx > 0 && i < items.length - 1 ? items[i + 1] : dx < 0 && i > 0 ? items[i - 1] : null
+      if (!destino) return
+      if (destino.bloqueado) alTocarBloqueado?.()
+      else router.push(destino.href)
     }
 
     window.addEventListener('touchstart', alTocar, { passive: true })
@@ -88,7 +97,7 @@ export function BarraFlotante({ items, todasLasSecciones, deslizable = true }: P
       window.removeEventListener('touchstart', alTocar)
       window.removeEventListener('touchend', alSoltar)
     }
-  }, [pathname, items, router, deslizable])
+  }, [pathname, items, router, deslizable, alTocarBloqueado])
 
   const activo = (href: string) =>
     href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/')
@@ -161,12 +170,15 @@ export function BarraFlotante({ items, todasLasSecciones, deslizable = true }: P
               return (
                 <button
                   key={item.href}
-                  onClick={() => router.push(item.href)}
+                  onClick={() => (item.bloqueado ? alTocarBloqueado?.() : router.push(item.href))}
                   aria-current={on ? 'page' : undefined}
+                  aria-disabled={item.bloqueado || undefined}
                   className={`flex ${items.length > 5 ? 'w-[52px]' : 'w-14'} flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 transition-all duration-300 ${
-                    on
-                      ? 'bg-zr-blue/20 text-zr-blue'
-                      : 'text-zr-text-muted active:bg-white/10'
+                    item.bloqueado
+                      ? 'text-zr-text-muted/40 grayscale'
+                      : on
+                        ? 'bg-zr-blue/20 text-zr-blue'
+                        : 'text-zr-text-muted active:bg-white/10'
                   }`}
                 >
                   <item.Icono size={21} />

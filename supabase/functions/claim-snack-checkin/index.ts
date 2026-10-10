@@ -75,8 +75,18 @@ Deno.serve(async (req: Request) => {
     const admin = adminClient()
     const hoy = new Date().toISOString().slice(0, 10)
 
-    const { data: student } = await admin.from('students').select('cohort_id').eq('id', authUser.id).single()
+    const { data: student } = await admin.from('students').select('cohort_id, payment_status').eq('id', authUser.id).single()
     if (!student) return errorResponse('NO_AUTORIZADO', 'Solo estudiantes reclaman refrigerio así', 403)
+    // Si administración lo marcó no solvente después de pasar asistencia, el
+    // refrigerio también se bloquea (migración 115/140) -- regla 2 de CLAUDE.md:
+    // se valida en el servidor, no solo ocultando el botón.
+    if (student.payment_status === 'no_solvente') {
+      return errorResponse(
+        'NO_SOLVENTE',
+        'No estás solvente con los pagos de tu mensualidad, por favor conversar con la administradora.',
+        403,
+      )
+    }
     if (!student.cohort_id) return errorResponse('SIN_COHORTE', 'Todavía no tienes cohorte asignada')
 
     const { data: cohorte } = await admin.from('cohorts').select('turno').eq('id', student.cohort_id).single()

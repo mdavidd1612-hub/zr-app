@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { CalendarioModulos } from '@/components/CalendarioModulos'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * T-411 · Panel de configuración. Solo super_admin — la RLS de la migración
@@ -44,6 +45,34 @@ export default function Configuracion() {
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const [version, setVersion] = useState(0)
+  const [probandoMoodle, setProbandoMoodle] = useState(false)
+  const [resultadoMoodle, setResultadoMoodle] = useState<
+    | {
+        conectado: true
+        sitio: string
+        version: string
+        prueba: {
+          estudiante: string
+          cursos: { id: number; nombre: string }[]
+          notas: { actividad: string; nota: string }[]
+        } | null
+      }
+    | { conectado: false; error: string }
+    | null
+  >(null)
+
+  async function probarMoodle() {
+    setProbandoMoodle(true)
+    setResultadoMoodle(null)
+    try {
+      const res = await fetch('/api/moodle-test')
+      setResultadoMoodle(await res.json())
+    } catch {
+      setResultadoMoodle({ conectado: false, error: 'No se pudo conectar. Intenta de nuevo.' })
+    } finally {
+      setProbandoMoodle(false)
+    }
+  }
 
   useEffect(() => {
     let vigente = true
@@ -150,9 +179,7 @@ export default function Configuracion() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 
@@ -251,8 +278,58 @@ export default function Configuracion() {
         </div>
       </Seccion>
 
+      <Seccion numero={3} titulo="Conexión con Moodle (prueba)" delay={200}>
+        <p className="text-sm text-zr-text-muted">
+          Solo confirma que este entorno puede hablar con Moodle — todavía no hay ninguna pantalla
+          real conectada. Moodle está en una dirección temporal mientras se decide dónde va a vivir.
+        </p>
+        <button
+          onClick={probarMoodle}
+          disabled={probandoMoodle}
+          className="mt-3 w-full rounded-lg border border-zr-blue/40 py-2.5 text-sm font-bold text-zr-blue-mid disabled:opacity-50"
+        >
+          {probandoMoodle ? 'Probando…' : 'Probar conexión'}
+        </button>
+        {resultadoMoodle && (
+          <div
+            className={`mt-3 rounded-lg border px-4 py-3 text-sm ${
+              resultadoMoodle.conectado
+                ? 'border-zr-success/30 bg-zr-success/12 text-zr-success'
+                : 'border-zr-error/30 bg-zr-error/12 text-zr-error'
+            }`}
+          >
+            {resultadoMoodle.conectado
+              ? `Conectado — ${resultadoMoodle.sitio} (Moodle ${resultadoMoodle.version})`
+              : `No se pudo conectar: ${resultadoMoodle.error}`}
+          </div>
+        )}
+        {resultadoMoodle?.conectado && resultadoMoodle.prueba && (
+          <div className="mt-3 rounded-lg border border-zr-border bg-zr-bg px-4 py-3 text-sm text-zr-text">
+            <p className="font-semibold">Prueba real: {resultadoMoodle.prueba.estudiante}</p>
+            <p className="mt-2 text-xs font-bold uppercase tracking-wide text-zr-text-muted">Cursos</p>
+            <ul className="mt-1 list-disc pl-5">
+              {resultadoMoodle.prueba.cursos.map((c) => (
+                <li key={c.id}>{c.nombre}</li>
+              ))}
+            </ul>
+            {resultadoMoodle.prueba.notas.length > 0 && (
+              <>
+                <p className="mt-2 text-xs font-bold uppercase tracking-wide text-zr-text-muted">Notas</p>
+                <ul className="mt-1 list-disc pl-5">
+                  {resultadoMoodle.prueba.notas.map((n) => (
+                    <li key={n.actividad}>
+                      {n.actividad}: {n.nota}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        )}
+      </Seccion>
+
       {historial.length > 0 && (
-        <Seccion numero={3} titulo="Historial de cambios" delay={220}>
+        <Seccion numero={4} titulo="Historial de cambios" delay={220}>
           <div className="zr-card divide-y divide-zr-border">
             {historial.map((h) => (
               <div key={h.id} className="p-4">

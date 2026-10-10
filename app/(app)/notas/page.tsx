@@ -5,24 +5,41 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * T-311 · Vista de notas del estudiante.
  *
- * Todo lo que se muestra aquí lo calcula la base (final_score y status son
- * columnas que mantiene un disparador). El navegador no suma nada: si sumara,
- * dos pantallas podrían mostrar notas distintas del mismo estudiante.
+ * Todo lo que se muestra aquí lo calcula la base (función mis_notas_modulos):
+ * el navegador no suma nada, si sumara dos pantallas podrían mostrar notas
+ * distintas del mismo estudiante.
+ *
+ * Reunión de Dirección Académica (oct. 2026, migraciones 143-145): la
+ * validación es POR EVALUACIÓN. El estudiante ve, durante todo el módulo, lo
+ * que Dirección ya validó y lo va acumulando ("para que se pongan las pilas");
+ * lo que aún no se valida aparece en rayitas. La nota final llega cuando el
+ * módulo está 100 % evaluado.
  */
 
 type Estado = 'en_curso' | 'aprobado' | 'reprobado' | 'retirado'
 
-interface Nota {
+interface Detalle {
   id: string
+  titulo: string
+  tipo: string
+  fecha: string
+  escala: number
+  minimo: number
+  peso: number
+  nota: number | null
+}
+
+interface Nota {
+  moduloId: string
   modulo: string
-  teoria: number | null
-  practica: number | null
-  participacion: number | null
-  final: number | null
+  orden: number
+  puntos: number
+  evaluadoPct: number
   umbral: number
   estado: Estado
 }
@@ -34,9 +51,14 @@ const ETIQUETA: Record<Estado, { texto: string; tono: 'exito' | 'error' | 'info'
   retirado:  { texto: 'Retirado',  tono: 'neutro' },
 }
 
+const ETIQUETA_TIPO: Record<string, string> = {
+  examen: 'Examen', practica: 'Práctica', prepractica: 'Pre-práctica', exposicion: 'Exposición', participacion: 'Participación', otro: 'Otro',
+}
+
 export default function Notas() {
   const router = useRouter()
   const [notas, setNotas] = useState<Nota[]>([])
+  const [detalles, setDetalles] = useState<Record<string, Detalle[]>>({})
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
@@ -49,55 +71,65 @@ export default function Notas() {
         return
       }
 
-      const { data } = await supabase
-        .from('module_enrollments')
-        .select('id, theory_score, practice_score, participation_score, final_score, passing_threshold, status, modules(name, order_index)')
-        .eq('student_id', user.id)
-
-      const filas = data as unknown as {
-        id: string
-        theory_score: number | null
-        practice_score: number | null
-        participation_score: number | null
-        final_score: number | null
-        passing_threshold: number
-        status: Estado
-        modules: { name: string; order_index: number } | null
-      }[] | null
-
-      if (filas) {
-        setNotas(
-          filas
-            .map((n) => ({
-              id: n.id,
-              modulo: n.modules?.name ?? 'Módulo',
-              orden: n.modules?.order_index ?? 0,
-              teoria: n.theory_score === null ? null : Number(n.theory_score),
-              practica: n.practice_score === null ? null : Number(n.practice_score),
-              participacion: n.participation_score === null ? null : Number(n.participation_score),
-              final: n.final_score === null ? null : Number(n.final_score),
-              umbral: Number(n.passing_threshold),
-              estado: n.status,
-            }))
-            .sort((a, b) => a.orden - b.orden),
-        )
+      const { data: resumen } = await supabase.rpc('mis_notas_modulos')
+      const filas = resumen ?? []
+      if (filas.length === 0) {
+        setCargando(false)
+        return
       }
+      const ids = filas.map((f) => f.module_id)
 
+      const [{ data: mods }, { data: defs }, { data: scores }] = await Promise.all([
+        supabase.from('modules').select('id, name, order_index').in('id', ids),
+        supabase
+          .from('manual_exam_definitions')
+          .select('id, module_id, title, kind, kind_detail, exam_date, scale_max, passing_min, weight_pct')
+          .in('module_id', ids)
+          .order('exam_date'),
+        supabase.from('manual_exam_scores').select('definition_id, score').eq('student_id', user.id),
+      ])
+      const infoModulo = new Map((mods ?? []).map((m) => [m.id, m]))
+
+      setNotas(
+        filas
+          .map((f) => ({
+            moduloId: f.module_id,
+            modulo: infoModulo.get(f.module_id)?.name ?? 'Módulo',
+            orden: infoModulo.get(f.module_id)?.order_index ?? 0,
+            puntos: Number(f.puntos),
+            evaluadoPct: Number(f.evaluado_pct),
+            umbral: Number(f.umbral),
+            estado: f.estado as Estado,
+          }))
+          .sort((a, b) => a.orden - b.orden),
+      )
+
+      const porDef = new Map((scores ?? []).map((x) => [x.definition_id, Number(x.score)]))
+      const porModulo: Record<string, Detalle[]> = {}
+      for (const e of defs ?? []) {
+        ;(porModulo[e.module_id] ??= []).push({
+          id: e.id,
+          titulo: e.title,
+          tipo: e.kind === 'otro' && e.kind_detail ? e.kind_detail : (ETIQUETA_TIPO[e.kind] ?? 'Otro'),
+          fecha: e.exam_date,
+          escala: Number(e.scale_max),
+          minimo: Number(e.passing_min),
+          peso: Number(e.weight_pct),
+          nota: porDef.get(e.id) ?? null,
+        })
+      }
+      setDetalles(porModulo)
       setCargando(false)
     }
 
     cargar()
   }, [router])
 
-  if (cargando) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando notas…</p>
-      </div>
-    )
-  }
+  if (cargando) return <PantallaEsqueleto />
 
   const cifra = (v: number | null) => (v === null ? '—' : v.toFixed(v % 1 === 0 ? 0 : 1))
+  // Menos del mínimo en rojo, el mínimo o más en verde.
+  const tono = (v: number, min: number) => (v < min ? 'text-zr-error' : 'text-zr-success')
 
   return (
     <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
@@ -117,39 +149,49 @@ export default function Notas() {
           <div className="zr-card animate-rise p-8" style={{ animationDelay: '120ms' }}>
             <p className="text-base font-semibold text-zr-text">Todavía no tienes notas</p>
             <p className="mt-2 text-sm text-zr-text-muted">
-              Aparecerán cuando tu profesor cargue las calificaciones del módulo que estás
-              cursando.
+              Aparecerán cuando tu profesor las cargue y Dirección Académica las valide.
             </p>
           </div>
         ) : (
           notas.map((n, i) => {
             const e = ETIQUETA[n.estado]
+            const lista = detalles[n.moduloId] ?? []
+            const completo = n.estado === 'aprobado' || n.estado === 'reprobado'
+            // Puntos que se podían ganar con lo ya evaluado (50 % evaluado = 10 de 20).
+            const posibles = n.evaluadoPct * 20 / 100
+            const promedio = n.evaluadoPct > 0 ? n.puntos * 100 / n.evaluadoPct : 0
             return (
-              <Seccion key={n.id} numero={i + 1} titulo={n.modulo} delay={120 + i * 80}>
+              <Seccion key={n.moduloId} numero={i + 1} titulo={n.modulo} delay={120 + i * 80}>
                 <div className="zr-card overflow-hidden">
-                  {/* Las tres notas parciales */}
-                  <div className="grid grid-cols-3 divide-x divide-zr-border">
-                    {[
-                      { etiqueta: 'Teoría', valor: n.teoria },
-                      { etiqueta: 'Práctica', valor: n.practica },
-                      { etiqueta: 'Participación', valor: n.participacion },
-                    ].map((p) => (
-                      <div key={p.etiqueta} className="px-4 py-5 text-center">
-                        <p className="zr-metric text-2xl text-zr-text">{cifra(p.valor)}</p>
-                        <p className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-zr-text-muted">
-                          {p.etiqueta}
+                  <div className="divide-y divide-zr-border">
+                    {lista.map((d) => (
+                      <div key={d.id} className="flex items-center justify-between gap-3 px-6 py-4">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-zr-text">{d.titulo}</p>
+                          <p className="text-xs text-zr-text-muted">
+                            {d.tipo} · vale {cifra(d.peso)} % · {new Date(d.fecha + 'T00:00:00').toLocaleDateString('es-VE')}
+                          </p>
+                        </div>
+                        <p className={`shrink-0 text-lg font-bold ${d.nota === null ? 'text-zr-text-muted' : tono(d.nota, d.minimo)}`}>
+                          {d.nota === null ? '—' : cifra(d.nota)}
+                          <span className="text-xs font-normal text-zr-text-muted"> / {d.escala}</span>
                         </p>
                       </div>
                     ))}
                   </div>
 
-                  {/* Nota final: la calcula la base, aquí solo se muestra */}
+                  {/* Nota acumulada: la calcula la base con lo ya validado */}
                   <div className="flex items-center justify-between gap-4 border-t border-zr-border bg-zr-bg/50 px-6 py-5">
                     <div>
                       <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-text-muted">
-                        Nota final
+                        {completo ? 'Nota final' : 'Llevas'}
                       </p>
-                      <p className="zr-metric mt-1 text-4xl text-zr-blue">{cifra(n.final)}</p>
+                      <p className={`zr-metric mt-1 text-4xl ${tono(promedio, n.umbral)}`}>{cifra(n.puntos)}</p>
+                      {!completo && (
+                        <p className="mt-1 text-sm text-zr-text-muted">
+                          de {cifra(Math.round(posibles * 100) / 100)} puntos evaluados · {cifra(n.evaluadoPct)} % del módulo
+                        </p>
+                      )}
                       {/* El umbral siempre visible: cambia por módulo. */}
                       <p className="mt-2 text-sm text-zr-text-muted">Aprueba con {n.umbral}</p>
                     </div>

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { MarcaZR } from '@/components/ui/Iconos'
 import { ETIQUETA_ROL, INICIO_POR_ROL } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * Selector de rol activo (migración 085 — pedido explícito del coordinador):
@@ -65,9 +66,7 @@ export default function ElegirRol() {
 
   if (!roles) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

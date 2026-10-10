@@ -10,6 +10,7 @@ import { EditarFichaCompleta, type Representante } from '@/components/ui/EditarF
 import { BotonRestablecerPassword } from '@/components/ui/BotonRestablecerPassword'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import Link from 'next/link'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 interface Ficha {
   nombre: string
@@ -137,9 +138,7 @@ export default function FichaEstudiante() {
 
   if (cargando || !ficha) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando ficha…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

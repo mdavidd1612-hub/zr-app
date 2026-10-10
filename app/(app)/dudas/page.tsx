@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { IconoAviso } from '@/components/ui/Iconos'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * Fase 0 (docs/14_FASE0_PLAN_SPRINTS.md, Sprint 5): el estudiante manda una
@@ -95,9 +96,7 @@ export default function Dudas() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

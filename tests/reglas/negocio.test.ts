@@ -23,6 +23,7 @@ const admin = createClient(URL, SERVICE_KEY)
 
 const idsACrear: string[] = []
 const cohortesACrear: string[] = []
+const definicionesACrear: string[] = []
 
 function cedulaAlAzar(prefijo: string) {
   return `V-${prefijo}${Math.floor(Math.random() * 10_000_000).toString().padStart(7, '0')}`
@@ -73,6 +74,10 @@ async function crearCohorte(moduloId: string, teacherId?: string) {
 }
 
 afterAll(async () => {
+  // Las evaluaciones de prueba cuentan para el 100 % del módulo: se quitan siempre.
+  for (const id of definicionesACrear) {
+    try { await admin.from('manual_exam_definitions').delete().eq('id', id) } catch { /* ya no existe */ }
+  }
   // Los estudiantes de prueba tienen que dejar de apuntar a la cohorte
   // ANTES de borrarla — students.cohort_id no tiene on delete cascade
   // porque perder a un estudiante nunca debe borrar la cohorte de otros.
@@ -126,117 +131,128 @@ describe('Reglas de negocio — inscripción y notas', () => {
     expect(Number(data!.passing_threshold)).toBe(12)
   })
 
-  it('calcula la nota final con la fórmula documentada', async () => {
-    const modulo1 = await moduloPorOrden(1)
-    const cohorte = await crearCohorte(modulo1)
-    const estudiante = await crearEstudiante('Test Calculo Nota', '2005-01-01', cohorte)
-
+  // Migraciones 143-144: cada evaluación vale un porcentaje; la nota del módulo
+  // es la suma ponderada de lo calificado. La participación es un tipo de
+  // evaluación más (entre el mínimo y el máximo de system_config). Ya no hay
+  // teoría / práctica / puntualidad.
+  async function evaluacion(moduloId: string, pesoPct: number, titulo: string, kind = 'examen') {
     const { data, error } = await admin
-      .from('module_enrollments')
-      .insert({
-        student_id: estudiante,
-        module_id: modulo1,
-        cohort_id: cohorte,
-        theory_score: 16,
-        practice_score: 14,
-        participation_score: 20,
-        participation_weight: 0.10,
-      })
-      .select('final_score')
+      .from('manual_exam_definitions')
+      .insert({ module_id: moduloId, exam_date: '2026-01-10', title: titulo, weight_pct: pesoPct, kind })
+      .select('id')
       .single()
-
     expect(error).toBeNull()
-    expect(Number(data!.final_score)).toBe(15.50)
+    definicionesACrear.push(data!.id)
+    return data!.id as string
+  }
+
+  async function matricular(estudiante: string, modulo: string, cohorte: string) {
+    const { error } = await admin
+      .from('module_enrollments')
+      .insert({ student_id: estudiante, module_id: modulo, cohort_id: cohorte })
+    expect(error).toBeNull()
+  }
+
+  it('calcula la nota del módulo como suma ponderada de las evaluaciones, participación incluida', async () => {
+    const modulo3 = await moduloPorOrden(3)
+    const cohorte = await crearCohorte(modulo3)
+    const estudiante = await crearEstudiante('Test Calculo Nota', '2005-01-01', cohorte)
+    const ev1 = await evaluacion(modulo3, 60, 'Examen A')
+    const ev2 = await evaluacion(modulo3, 30, 'Práctica B', 'practica')
+    const ev3 = await evaluacion(modulo3, 10, 'Participación', 'participacion')
+    await matricular(estudiante, modulo3, cohorte)
+
+    await admin.from('manual_exam_scores').insert([
+      { definition_id: ev1, student_id: estudiante, score: 16 },
+      { definition_id: ev2, student_id: estudiante, score: 10 },
+    ])
+    const { data: parcial } = await admin
+      .from('module_enrollments').select('final_score, evaluated_pct, status').eq('student_id', estudiante).single()
+    // 16*0.60 + 10*0.30 = 12.6; falta la participación: sigue en curso.
+    expect(Number(parcial!.final_score)).toBe(12.6)
+    expect(Number(parcial!.evaluated_pct)).toBe(90)
+    expect(parcial!.status).toBe('en_curso')
+
+    await admin.from('manual_exam_scores').insert({ definition_id: ev3, student_id: estudiante, score: 20 })
+    const { data } = await admin
+      .from('module_enrollments').select('final_score, evaluated_pct').eq('student_id', estudiante).single()
+    // + 20 * 0.10 = 14.6
+    expect(Number(data!.final_score)).toBe(14.6)
+    expect(Number(data!.evaluated_pct)).toBe(100)
   })
 
-  it('aprueba cuando la nota alcanza el umbral', async () => {
+  it('aprueba cuando el módulo está completo y la nota alcanza el umbral', async () => {
     const modulo3 = await moduloPorOrden(3) // umbral 12
     const cohorte = await crearCohorte(modulo3)
     const estudiante = await crearEstudiante('Test Aprueba', '2005-01-01', cohorte)
+    const ev = await evaluacion(modulo3, 100, 'Examen único')
+    await matricular(estudiante, modulo3, cohorte)
 
-    // theory=13.5, practice=13.5, participation=10, weight=0.05
-    // (1-0.05)/2 = 0.475 → 13.5*0.475*2 + 10*0.05 = 12.825 + 0.5 = 13.325 → alcanza 12
-    const { data, error } = await admin
-      .from('module_enrollments')
-      .insert({
-        student_id: estudiante,
-        module_id: modulo3,
-        cohort_id: cohorte,
-        theory_score: 13.5,
-        practice_score: 13.5,
-        participation_score: 10,
-        participation_weight: 0.05,
-      })
-      .select('status')
-      .single()
-
-    expect(error).toBeNull()
+    await admin.from('manual_exam_scores').insert({ definition_id: ev, student_id: estudiante, score: 13 })
+    const { data } = await admin.from('module_enrollments').select('status').eq('student_id', estudiante).single()
     expect(data!.status).toBe('aprobado')
   })
 
-  it('reprueba cuando la nota queda debajo del umbral', async () => {
+  it('reprueba cuando el módulo está completo y la nota queda debajo del umbral', async () => {
     const modulo3 = await moduloPorOrden(3) // umbral 12
     const cohorte = await crearCohorte(modulo3)
     const estudiante = await crearEstudiante('Test Reprueba', '2005-01-01', cohorte)
+    const ev = await evaluacion(modulo3, 100, 'Examen único')
+    await matricular(estudiante, modulo3, cohorte)
 
-    const { data, error } = await admin
-      .from('module_enrollments')
-      .insert({
-        student_id: estudiante,
-        module_id: modulo3,
-        cohort_id: cohorte,
-        theory_score: 11.9,
-        practice_score: 11.9,
-        participation_score: 11.9,
-        participation_weight: 0.05,
-      })
-      .select('status, final_score')
-      .single()
-
-    expect(error).toBeNull()
+    await admin.from('manual_exam_scores').insert({ definition_id: ev, student_id: estudiante, score: 11 })
+    const { data } = await admin
+      .from('module_enrollments').select('status, final_score').eq('student_id', estudiante).single()
     expect(Number(data!.final_score)).toBeLessThan(12)
     expect(data!.status).toBe('reprobado')
   })
 
-  it('rechaza un peso de participación por debajo del mínimo (5%)', async () => {
-    const modulo1 = await moduloPorOrden(1)
-    const cohorte = await crearCohorte(modulo1)
-    const estudiante = await crearEstudiante('Test Peso Minimo', '2005-01-01', cohorte)
+  it('no decide aprobado ni reprobado mientras el módulo no esté completamente evaluado', async () => {
+    const modulo3 = await moduloPorOrden(3)
+    const cohorte = await crearCohorte(modulo3)
+    const estudiante = await crearEstudiante('Test En Curso', '2005-01-01', cohorte)
+    const ev = await evaluacion(modulo3, 50, 'Examen parcial')
+    await matricular(estudiante, modulo3, cohorte)
 
-    const { error } = await admin.from('module_enrollments').insert({
-      student_id: estudiante,
-      module_id: modulo1,
-      cohort_id: cohorte,
-      participation_weight: 0.04,
-    })
+    await admin.from('manual_exam_scores').insert({ definition_id: ev, student_id: estudiante, score: 2 })
+    const { data } = await admin.from('module_enrollments').select('status').eq('student_id', estudiante).single()
+    expect(data!.status).toBe('en_curso')
+  })
 
+  it('rechaza evaluaciones cuyos porcentajes pasan de 100', async () => {
+    const modulo3 = await moduloPorOrden(3)
+    await evaluacion(modulo3, 100, 'Completa')
+    const { error } = await admin
+      .from('manual_exam_definitions')
+      .insert({ module_id: modulo3, exam_date: '2026-01-10', title: 'Sobra', weight_pct: 1, kind: 'examen' })
     expect(error).not.toBeNull()
+  })
+
+  it('rechaza una participación fuera del rango (5 % a 10 %)', async () => {
+    const modulo1 = await moduloPorOrden(1)
+    const { error: bajo } = await admin
+      .from('manual_exam_definitions')
+      .insert({ module_id: modulo1, exam_date: '2026-01-10', title: 'Part baja', weight_pct: 4, kind: 'participacion' })
+    expect(bajo).not.toBeNull()
+    const { error: alto } = await admin
+      .from('manual_exam_definitions')
+      .insert({ module_id: modulo1, exam_date: '2026-01-10', title: 'Part alta', weight_pct: 11, kind: 'participacion' })
+    expect(alto).not.toBeNull()
   })
 
   it('un estudiante sin asistencia y con notas suficientes sigue aprobado — nunca reprueba por faltas', async () => {
     const modulo1 = await moduloPorOrden(1) // umbral 10
     const cohorte = await crearCohorte(modulo1)
     const estudiante = await crearEstudiante('Test Sin Faltas', '2005-01-01', cohorte)
+    const ev = await evaluacion(modulo1, 100, 'Examen único')
+    await matricular(estudiante, modulo1, cohorte)
 
-    const { data, error } = await admin
-      .from('module_enrollments')
-      .insert({
-        student_id: estudiante,
-        module_id: modulo1,
-        cohort_id: cohorte,
-        theory_score: 15,
-        practice_score: 15,
-        participation_score: 15,
-        participation_weight: 0.05,
-      })
-      .select('status')
-      .single()
+    await admin.from('manual_exam_scores').insert({ definition_id: ev, student_id: estudiante, score: 15 })
+    const { data } = await admin.from('module_enrollments').select('status').eq('student_id', estudiante).single()
 
     // Cero asistencia: no se inserta ningún attendance_event para este
     // estudiante. No existe ningún disparador que lea attendance_events al
-    // calcular el estado — si lo hubiera, esta prueba lo detectaría porque
-    // el estado seguiría siendo 'aprobado' de todas formas.
-    expect(error).toBeNull()
+    // calcular el estado.
     expect(data!.status).toBe('aprobado')
   })
 })

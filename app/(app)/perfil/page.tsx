@@ -10,6 +10,7 @@ import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
 import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
 import { FotoPerfil } from '@/components/ui/FotoPerfil'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 interface Perfil {
   uid: string
@@ -95,9 +96,7 @@ export default function PerfilEstudiante() {
 
   if (cargando || !perfil) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

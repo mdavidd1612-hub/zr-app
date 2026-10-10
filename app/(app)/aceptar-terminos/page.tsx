@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla } from '@/components/ui/Editorial'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 // B-1 (docs/18_BRECHAS_SPEC_FUNCIONAL_ZRM.md, spec §20): casilla obligatoria
 // y NO premarcada, con el texto completo visible antes de poder aceptar.
@@ -54,9 +55,7 @@ export default function AceptarTerminos() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

@@ -3,12 +3,23 @@ import './globals.css'
 import ServiceWorkerInit from './service-worker-init'
 import InstalarApp from '@/components/ui/InstalarApp'
 import EtiquetaEntorno from '@/components/ui/EtiquetaEntorno'
-import { SUFIJO_ENTORNO } from '@/lib/entorno'
+import { ES_ENTORNO_PRUEBA, SUFIJO_ENTORNO } from '@/lib/entorno'
+
+// En el entorno de prueba todos los iconos llevan una etiqueta amarilla STAGING
+// (public/staging/*): se reconoce de un vistazo en la pestaña, en la pantalla de
+// inicio y en la app instalada.
+const CARPETA_ICONOS = ES_ENTORNO_PRUEBA ? '/staging' : ''
 
 export const metadata: Metadata = {
   title: `ZR App${SUFIJO_ENTORNO}`,
   description: 'Plataforma académica de la Academia Técnica ZR Mecademy',
-  icons: { icon: '/favicon.ico', apple: '/apple-touch-icon.png' },
+  icons: {
+    icon: [
+      { url: `${CARPETA_ICONOS}/favicon.ico` },
+      { url: `${CARPETA_ICONOS}/icon.png`, type: 'image/png' },
+    ],
+    apple: `${CARPETA_ICONOS}/apple-touch-icon.png`,
+  },
   appleWebApp: { capable: true, statusBarStyle: 'default', title: `ZR App${SUFIJO_ENTORNO}` },
   formatDetection: { telephone: false },
 }

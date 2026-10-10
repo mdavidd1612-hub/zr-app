@@ -17,6 +17,8 @@ interface Props {
   campanita?: boolean
   /** Extra para el caso de impresión de admin. */
   imprimible?: boolean
+  /** Se llama al tocar una sección marcada `bloqueado` (estudiante no solvente). */
+  alTocarBloqueado?: () => void
   children: React.ReactNode
 }
 
@@ -37,11 +39,12 @@ export function Marco({
   sinNavegacion = false,
   campanita = true,
   imprimible = false,
+  alTocarBloqueado,
   children,
 }: Props) {
   return (
     <div className={`zr-app-shell${imprimible ? ' print:bg-white' : ''}`}>
-      {!sinNavegacion && <BarraLateral items={todasLasSecciones ?? items} />}
+      {!sinNavegacion && <BarraLateral items={todasLasSecciones ?? items} alTocarBloqueado={alTocarBloqueado} />}
 
       {!sinNavegacion && campanita && (
         <div
@@ -68,6 +71,7 @@ export function Marco({
             items={items}
             todasLasSecciones={todasLasSecciones}
             deslizable={deslizable}
+            alTocarBloqueado={alTocarBloqueado}
           />
         </div>
       )}

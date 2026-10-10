@@ -100,18 +100,18 @@ describe('Aislamiento entre estudiantes', () => {
     // Pedirle un error a esa respuesta hace que la prueba pase incluso si la
     // política desaparece. Lo que importa es si la nota cambió.
     const { data: antes } = await cliA.from('module_enrollments')
-      .select('id, theory_score').eq('student_id', A.id).maybeSingle()
+      .select('id, class_participation_score').eq('student_id', A.id).maybeSingle()
 
     expect(antes, 'el seed tiene que dejar una inscripción, si no la prueba no prueba nada')
       .not.toBeNull()
 
     await cliA.from('module_enrollments')
-      .update({ theory_score: 20 }).eq('student_id', A.id)
+      .update({ class_participation_score: 20 }).eq('student_id', A.id)
 
     const { data: despues } = await cliA.from('module_enrollments')
-      .select('theory_score').eq('id', antes!.id).single()
+      .select('class_participation_score').eq('id', antes!.id).single()
 
-    expect(despues!.theory_score).toBe(antes!.theory_score)
+    expect(despues!.class_participation_score).toBe(antes!.class_participation_score)
   })
 
   it('no puede registrar su propia asistencia', async () => {

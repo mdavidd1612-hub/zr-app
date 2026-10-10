@@ -10,6 +10,7 @@ import { ResultadosFeedback, type FilaResumenFeedback } from '@/components/ui/Re
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * Feedback de módulo — pedido explícito del coordinador (sept. 2026), exclusivo
@@ -251,9 +252,7 @@ export default function FeedbackModulos() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

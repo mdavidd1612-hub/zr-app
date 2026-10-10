@@ -1684,6 +1684,137 @@ export type Database = {
           },
         ]
       }
+      grade_submissions: {
+        Row: {
+          cohort_id: string
+          id: string
+          module_id: string
+          return_reason: string | null
+          returned_at: string | null
+          returned_by: string | null
+          status: string
+          submitted_at: string
+          submitted_by: string | null
+          validated_at: string | null
+          validated_by: string | null
+        }
+        Insert: {
+          cohort_id: string
+          id?: string
+          module_id: string
+          return_reason?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
+          status: string
+          submitted_at?: string
+          submitted_by?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Update: {
+          cohort_id?: string
+          id?: string
+          module_id?: string
+          return_reason?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
+          status?: string
+          submitted_at?: string
+          submitted_by?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grade_submissions_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_submissions_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_submissions_returned_by_fkey"
+            columns: ["returned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_submissions_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_submissions_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      grade_validated_evals: {
+        Row: {
+          cohort_id: string
+          definition_id: string
+          module_id: string
+          validated_at: string
+          validated_by: string | null
+        }
+        Insert: {
+          cohort_id: string
+          definition_id: string
+          module_id: string
+          validated_at?: string
+          validated_by?: string | null
+        }
+        Update: {
+          cohort_id?: string
+          definition_id?: string
+          module_id?: string
+          validated_at?: string
+          validated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grade_validated_evals_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_validated_evals_definition_id_fkey"
+            columns: ["definition_id"]
+            isOneToOne: false
+            referencedRelation: "manual_exam_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_validated_evals_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grade_validated_evals_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_guides: {
         Row: {
           created_at: string
@@ -1727,6 +1858,140 @@ export type Database = {
             columns: ["module_id"]
             isOneToOne: false
             referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_exam_definitions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          exam_date: string
+          id: string
+          kind: string
+          kind_detail: string | null
+          module_id: string
+          passing_min: number
+          scale_max: number
+          title: string
+          weight_pct: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          exam_date: string
+          id?: string
+          kind?: string
+          kind_detail?: string | null
+          module_id: string
+          passing_min?: number
+          scale_max?: number
+          title: string
+          weight_pct?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          exam_date?: string
+          id?: string
+          kind?: string
+          kind_detail?: string | null
+          module_id?: string
+          passing_min?: number
+          scale_max?: number
+          title?: string
+          weight_pct?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_exam_definitions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_exam_definitions_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_exam_scores: {
+        Row: {
+          definition_id: string
+          graded_at: string
+          graded_by: string | null
+          id: string
+          score: number
+          student_id: string
+        }
+        Insert: {
+          definition_id: string
+          graded_at?: string
+          graded_by?: string | null
+          id?: string
+          score: number
+          student_id: string
+        }
+        Update: {
+          definition_id?: string
+          graded_at?: string
+          graded_by?: string | null
+          id?: string
+          score?: number
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_exam_scores_definition_id_fkey"
+            columns: ["definition_id"]
+            isOneToOne: false
+            referencedRelation: "manual_exam_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_exam_scores_graded_by_fkey"
+            columns: ["graded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_exam_scores_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_exam_scores_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_mi_dominio"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "manual_exam_scores_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_proximo_sabado"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "manual_exam_scores_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_exam_scores_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students_blocked"
             referencedColumns: ["id"]
           },
         ]
@@ -1837,8 +2102,10 @@ export type Database = {
       module_enrollments: {
         Row: {
           approved_at: string | null
+          class_participation_score: number | null
           cohort_id: string
           created_at: string
+          evaluated_pct: number
           final_score: number | null
           id: string
           module_id: string
@@ -1846,6 +2113,9 @@ export type Database = {
           participation_weight: number
           passing_threshold: number
           practice_score: number | null
+          puntualidad_manual: number | null
+          puntualidad_sabados: number | null
+          puntualidad_sabados_total: number | null
           status: Database["public"]["Enums"]["enrollment_status"]
           student_id: string
           theory_score: number | null
@@ -1853,8 +2123,10 @@ export type Database = {
         }
         Insert: {
           approved_at?: string | null
+          class_participation_score?: number | null
           cohort_id: string
           created_at?: string
+          evaluated_pct?: number
           final_score?: number | null
           id?: string
           module_id: string
@@ -1862,6 +2134,9 @@ export type Database = {
           participation_weight?: number
           passing_threshold: number
           practice_score?: number | null
+          puntualidad_manual?: number | null
+          puntualidad_sabados?: number | null
+          puntualidad_sabados_total?: number | null
           status?: Database["public"]["Enums"]["enrollment_status"]
           student_id: string
           theory_score?: number | null
@@ -1869,8 +2144,10 @@ export type Database = {
         }
         Update: {
           approved_at?: string | null
+          class_participation_score?: number | null
           cohort_id?: string
           created_at?: string
+          evaluated_pct?: number
           final_score?: number | null
           id?: string
           module_id?: string
@@ -1878,6 +2155,9 @@ export type Database = {
           participation_weight?: number
           passing_threshold?: number
           practice_score?: number | null
+          puntualidad_manual?: number | null
+          puntualidad_sabados?: number | null
+          puntualidad_sabados_total?: number | null
           status?: Database["public"]["Enums"]["enrollment_status"]
           student_id?: string
           theory_score?: number | null
@@ -2604,6 +2884,8 @@ export type Database = {
           enrollment_date: string
           id: string
           onboarding_status: Database["public"]["Enums"]["onboarding_status"]
+          payment_pending_until: string | null
+          payment_status: string
           student_code: string | null
           tour_completed_at: string | null
           trust_level: number | null
@@ -2622,6 +2904,8 @@ export type Database = {
           enrollment_date?: string
           id: string
           onboarding_status?: Database["public"]["Enums"]["onboarding_status"]
+          payment_pending_until?: string | null
+          payment_status?: string
           student_code?: string | null
           tour_completed_at?: string | null
           trust_level?: number | null
@@ -2640,6 +2924,8 @@ export type Database = {
           enrollment_date?: string
           id?: string
           onboarding_status?: Database["public"]["Enums"]["onboarding_status"]
+          payment_pending_until?: string | null
+          payment_status?: string
           student_code?: string | null
           tour_completed_at?: string | null
           trust_level?: number | null
@@ -3142,6 +3428,8 @@ export type Database = {
           onboarding_status:
             | Database["public"]["Enums"]["onboarding_status"]
             | null
+          payment_pending_until: string | null
+          payment_status: string | null
           phone: string | null
           status: Database["public"]["Enums"]["profile_status"] | null
           validated_at: string | null
@@ -3228,9 +3516,22 @@ export type Database = {
         }
         Returns: string
       }
+      devolver_notas: {
+        Args: { p_cohort: string; p_module: string; p_motivo: string }
+        Returns: undefined
+      }
+      enviar_notas: {
+        Args: { p_cohort: string; p_module: string }
+        Returns: undefined
+      }
       es_gestor_zr_coffee: { Args: never; Returns: boolean }
+      estudiante_solvente: { Args: never; Returns: boolean }
       fn_aplicar_calendario_cohorte: {
         Args: { p_cohort: string }
+        Returns: undefined
+      }
+      fn_asegurar_enrollment: {
+        Args: { p_cohort_id: string; p_module_id: string; p_student_id: string }
         Returns: undefined
       }
       fn_avanzar_modulos_por_calendario: { Args: never; Returns: undefined }
@@ -3251,6 +3552,17 @@ export type Database = {
       fn_generar_sesion_semanal: { Args: never; Returns: undefined }
       fn_marcar_tour_visto: { Args: never; Returns: undefined }
       fn_notify_hora_refrigerio: { Args: never; Returns: undefined }
+      fn_recalc_evaluacion_general: {
+        Args: { p_module_id: string; p_student_id: string }
+        Returns: undefined
+      }
+      fn_recalc_puntualidad: {
+        Args: { p_module_id: string; p_student_id: string }
+        Returns: undefined
+      }
+      fn_recalc_puntualidad_todos: { Args: never; Returns: undefined }
+      fn_recordar_solvencia_pendiente: { Args: never; Returns: undefined }
+      fn_vencer_solvencia_pendiente: { Args: never; Returns: undefined }
       fn_zr_coffee_eliminar_venta: {
         Args: { p_venta_id: string }
         Returns: undefined
@@ -3284,12 +3596,27 @@ export type Database = {
       }
       mis_modulos_cursados: { Args: never; Returns: string[] }
       mis_modulos_docente: { Args: never; Returns: string[] }
+      mis_notas_modulos: {
+        Args: never
+        Returns: {
+          estado: string
+          evaluado_pct: number
+          module_id: string
+          puntos: number
+          umbral: number
+        }[]
+      }
       modulo_por_calendario: {
         Args: { p_cohort: string; p_fecha: string }
         Returns: string
       }
+      modulos_que_imparto: { Args: never; Returns: string[] }
       my_cohort_id: { Args: never; Returns: string }
       my_module_id: { Args: never; Returns: string }
+      publicar_cambios: {
+        Args: { p_cohort: string; p_module: string }
+        Returns: undefined
+      }
       resumen_refrigerio_hoy: {
         Args: never
         Returns: {
@@ -3301,21 +3628,15 @@ export type Database = {
           turno: string
         }[]
       }
-      seed_user: {
-        Args: {
-          p_cedula: string
-          p_email: string
-          p_full_name: string
-          p_id: string
-          p_role: Database["public"]["Enums"]["user_role"]
-        }
-        Returns: string
-      }
       set_student_code_calc: {
         Args: { p_cohort_id: string; p_enrollment_date: string; p_id: string }
         Returns: string
       }
       teaches_cohort: { Args: { p_cohort: string }; Returns: boolean }
+      validar_notas: {
+        Args: { p_cohort: string; p_module: string }
+        Returns: undefined
+      }
     }
     Enums: {
       attempt_status: "en_progreso" | "entregado" | "calificado" | "abandonado"

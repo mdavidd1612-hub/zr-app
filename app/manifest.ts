@@ -1,5 +1,8 @@
 import type { MetadataRoute } from 'next'
-import { SUFIJO_ENTORNO } from '@/lib/entorno'
+import { ES_ENTORNO_PRUEBA, SUFIJO_ENTORNO } from '@/lib/entorno'
+
+// Entorno de prueba: iconos con la etiqueta amarilla STAGING (public/staging/).
+const CARPETA = ES_ENTORNO_PRUEBA ? '/staging' : ''
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -18,25 +21,25 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: 'any',
     icons: [
       {
-        src: '/icon-192.png',
+        src: `${CARPETA}/icon-192.png`,
         sizes: '192x192',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/icon-512.png',
+        src: `${CARPETA}/icon-512.png`,
         sizes: '512x512',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/icon-maskable-192.png',
+        src: `${CARPETA}/icon-maskable-192.png`,
         sizes: '192x192',
         type: 'image/png',
         purpose: 'maskable',
       },
       {
-        src: '/icon-maskable-512.png',
+        src: `${CARPETA}/icon-maskable-512.png`,
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable',
@@ -48,7 +51,7 @@ export default function manifest(): MetadataRoute.Manifest {
         short_name: 'Carnet',
         description: 'Ver mi carnet digital con QR',
         url: '/carnet',
-        icons: [{ src: '/icon-96.png', sizes: '96x96', type: 'image/png' }],
+        icons: [{ src: `${CARPETA}/icon-96.png`, sizes: '96x96', type: 'image/png' }],
       },
     ],
     categories: ['education', 'productivity'],

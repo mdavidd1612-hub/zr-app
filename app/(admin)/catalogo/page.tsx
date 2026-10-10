@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EtiquetaSede } from '@/components/ui/EtiquetaSede'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * R-20 y R-21 · docs/19_PLAN_CAMBIOS_POST_DIRECTIVA.md
@@ -156,9 +157,7 @@ export default function Catalogo() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

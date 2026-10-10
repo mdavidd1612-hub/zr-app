@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * T-305 · Lista de exámenes del estudiante.
@@ -146,9 +147,7 @@ export default function Examenes() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando exámenes…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

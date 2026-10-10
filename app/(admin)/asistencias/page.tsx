@@ -9,6 +9,7 @@ import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { IconoCheck } from '@/components/ui/Iconos'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import { esDiaDeClase, hoyLocalISO } from '@/lib/dias-clase'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * Asistencia — cuadro completo (sept. 2026, pedido explícito del
@@ -342,9 +343,7 @@ export default function Asistencias() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

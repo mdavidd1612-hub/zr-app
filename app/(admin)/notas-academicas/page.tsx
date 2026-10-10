@@ -9,6 +9,7 @@ import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 // Notas de CUALQUIER cohorte, para Dirección Académica y super_admin — el
 // profesor solo ve la suya propia en /notas/[cohortId]. Se agrupa por
@@ -91,9 +92,7 @@ export default function NotasAcademicas() {
 
   if (cargando || autorizado === null) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando programas…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 
@@ -104,6 +103,21 @@ export default function NotasAcademicas() {
       <Encabezado sobretitulo="Dirección Académica" titulo="Notas" descripcion="Calificaciones por programa" />
 
       <Regla delay={60} />
+
+      {/* "General - Por Módulo" se quitó (pedido explícito del coordinador,
+          sept. 2026): teoría y práctica ahora se calculan solas a partir de
+          lo que se registra aquí -- nadie las pone a mano. */}
+      <button
+        onClick={() => router.push('/notas-academicas/registrar-evaluacion')}
+        className="zr-card zr-card-interactive block w-full p-4 text-left"
+      >
+        <p className="text-sm font-bold text-zr-text">Registrar Evaluación</p>
+        <p className="mt-1 text-xs text-zr-text-muted">Exámenes, prácticas y otras evaluaciones</p>
+      </button>
+
+      <p className="text-xs font-bold uppercase tracking-wide text-zr-text-muted">
+        Ver calificaciones (por estudiante)
+      </p>
 
       {cohortes.length === 0 ? (
         <EstadoVacio titulo="Sin programas" explicacion="Todavía no hay ningún programa creado." />

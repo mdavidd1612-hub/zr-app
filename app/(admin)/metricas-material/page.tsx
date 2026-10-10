@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * Métricas del material (pedido de Dirección Académica, oct. 2026): medir con
@@ -117,9 +118,7 @@ export default function MetricasMaterial() {
   }
   if (autorizado === null) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

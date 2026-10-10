@@ -9,6 +9,7 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 import { IconoCheck } from '@/components/ui/Iconos'
 import { esAdmin } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * "Mi módulo": el módulo que el estudiante está cursando ahora mismo. La
@@ -136,9 +137,7 @@ export default function MiModulo() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

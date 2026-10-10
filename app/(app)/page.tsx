@@ -10,6 +10,7 @@ import { CASOS_HABILITADO } from '@/lib/flags'
 import { IconoCarnet, IconoCheck, IconoTaza } from '@/components/ui/Iconos'
 import { esAdmin } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 interface ProximoSabado {
   sessionId: string
@@ -216,9 +217,7 @@ export default function Inicio() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

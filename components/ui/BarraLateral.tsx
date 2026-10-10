@@ -15,7 +15,7 @@ import type { ItemBarra } from '@/components/ui/BarraFlotante'
  * Mismas rutas, mismos iconos, mismo resaltado que la barra del teléfono: es
  * la misma app, no una versión de escritorio aparte.
  */
-export function BarraLateral({ items }: { items: ItemBarra[] }) {
+export function BarraLateral({ items, alTocarBloqueado }: { items: ItemBarra[]; alTocarBloqueado?: () => void }) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -38,12 +38,15 @@ export function BarraLateral({ items }: { items: ItemBarra[] }) {
                 </p>
               )}
               <button
-                onClick={() => router.push(item.href)}
+                onClick={() => (item.bloqueado ? alTocarBloqueado?.() : router.push(item.href))}
                 aria-current={on ? 'page' : undefined}
+                aria-disabled={item.bloqueado || undefined}
                 className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors ${
-                  on
-                    ? 'bg-zr-blue/15 text-zr-blue'
-                    : 'text-zr-text-muted hover:bg-white/5 hover:text-zr-text'
+                  item.bloqueado
+                    ? 'text-zr-text-muted/40 grayscale'
+                    : on
+                      ? 'bg-zr-blue/15 text-zr-blue'
+                      : 'text-zr-text-muted hover:bg-white/5 hover:text-zr-text'
                 }`}
               >
                 <item.Icono size={20} />

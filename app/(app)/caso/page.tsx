@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { CASOS, diaSemanaISO, fechaISO, type Caso, type PasoCaso } from '@/lib/casos-fase0'
 import { CASOS_HABILITADO } from '@/lib/flags'
 import { IconoFlechaAtras, IconoCheck } from '@/components/ui/Iconos'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 // Fase 0 (docs/16_FASE0_PLAN_PROFESOR.md, Sprint D): si el profesor ya
 // generó los casos de la semana con IA para el módulo del estudiante, se
@@ -95,9 +96,7 @@ export default function TrabajarCaso() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

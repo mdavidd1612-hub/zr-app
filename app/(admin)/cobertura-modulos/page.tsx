@@ -9,6 +9,7 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * Cobertura de módulos por profesor (pedido explícito del coordinador):
@@ -133,9 +134,7 @@ export default function CoberturaModulos() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

@@ -1,6 +1,5 @@
 'use client'
 
-import { Select } from '@/components/ui/Select'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -163,9 +162,9 @@ export function CalendarioModulos() {
 
       <div>
         <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Cohorte</label>
-        <Select value={cohorteId} onChange={(e) => setCohorteId(e.target.value)} className={CAMPO}>
+        <select value={cohorteId} onChange={(e) => setCohorteId(e.target.value)} className={CAMPO}>
           {cohortes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-        </Select>
+        </select>
         {actual && (
           <p className="mt-2 text-xs font-semibold text-zr-blue-mid">Ahora cursa: {actual}</p>
         )}
@@ -243,10 +242,10 @@ export function CalendarioModulos() {
 
       <div className="zr-card space-y-3 p-4">
         <p className="text-xs font-bold uppercase tracking-wide text-zr-text-muted">Agregar tramo</p>
-        <Select value={nuevoModulo} onChange={(e) => setNuevoModulo(e.target.value)} className={CAMPO}>
+        <select value={nuevoModulo} onChange={(e) => setNuevoModulo(e.target.value)} className={CAMPO}>
           <option value="">Elige el módulo…</option>
           {modulos.map((m) => <option key={m.id} value={m.id}>Módulo {m.orden} · {m.nombre}</option>)}
-        </Select>
+        </select>
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="mb-1 block text-[10px] font-semibold uppercase text-zr-text-muted">Inicio (sábado)</label>

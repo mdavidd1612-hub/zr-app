@@ -7,6 +7,7 @@ import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { ResultadosFeedback, type FilaResumenFeedback } from '@/components/ui/ResultadosFeedback'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * Feedback de módulo, del lado del profesor — pedido explícito del
@@ -79,9 +80,7 @@ export default function FeedbackModuloDocente() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

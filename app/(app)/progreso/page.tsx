@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * T-415 · Mapa de dominio del estudiante.
@@ -75,9 +76,7 @@ export default function Progreso() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando competencias…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

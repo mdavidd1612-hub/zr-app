@@ -9,6 +9,7 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 import { Boton } from '@/components/ui/Boton'
 import { Aviso } from '@/components/ui/Aviso'
 import type { UserRole } from '@/lib/types'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * A pedido explícito (fuera del plan post-directiva): editor de los
@@ -156,9 +157,7 @@ export default function EditarModulos() {
 
   if (cargando) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
+      <PantallaEsqueleto />
     )
   }
 

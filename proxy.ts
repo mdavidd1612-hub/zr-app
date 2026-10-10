@@ -19,7 +19,7 @@ const PUBLIC_ROUTES = ['/login', '/recuperar', '/api/auth/callback', '/descargar
 // (sin nada más), el profesor ve '/notas/[cohortId]'. Va aparte para no
 // hacer match de prefijo con el otro rol por accidente.
 const RUTAS_ESTUDIANTE = ['/', '/clases', '/contenido', '/examenes', '/perfil', '/progreso', '/completar-perfil', '/aceptar-terminos', '/malla', '/feedback-modulo']
-const RUTAS_PROFESOR = ['/hoy', '/sesiones', '/crear-examen', '/calificar', '/perfil-docente', '/contenido-docente', '/dominio', '/escanear', '/feedback-clase', '/feedback-modulo-docente']
+const RUTAS_PROFESOR = ['/hoy', '/sesiones', '/crear-examen', '/calificar', '/perfil-docente', '/contenido-docente', '/dominio', '/escanear', '/feedback-clase', '/feedback-modulo-docente', '/notas-docente', '/evaluaciones']
 const RUTAS_ADMIN = ['/panel', '/estudiantes', '/consentimientos', '/cohortes', '/reportes', '/perfil-admin', '/configuracion', '/personal', '/notas-academicas', '/examenes-academicos', '/cobertura-modulos', '/feedback-modulos', '/metricas-material']
 
 function empiezaConAlguna(pathname: string, rutas: string[]) {

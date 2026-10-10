@@ -2173,7 +2173,6 @@ export type Database = {
           is_complementario: boolean
           name: string
           order_index: number
-          participation_pct: number
           program_id: string
           resumen_largo: string | null
         }
@@ -2187,7 +2186,6 @@ export type Database = {
           is_complementario?: boolean
           name: string
           order_index: number
-          participation_pct?: number
           program_id: string
           resumen_largo?: string | null
         }
@@ -2201,7 +2199,6 @@ export type Database = {
           is_complementario?: boolean
           name?: string
           order_index?: number
-          participation_pct?: number
           program_id?: string
           resumen_largo?: string | null
         }
@@ -3550,6 +3547,7 @@ export type Database = {
         Args: { p_cohort: string; p_fecha: string }
         Returns: string
       }
+      modulos_que_imparto: { Args: never; Returns: string[] }
       my_cohort_id: { Args: never; Returns: string }
       my_module_id: { Args: never; Returns: string }
       resumen_refrigerio_hoy: {

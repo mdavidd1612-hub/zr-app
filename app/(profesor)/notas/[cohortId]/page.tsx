@@ -27,14 +27,13 @@ interface FilaEstudiante {
   studentId: string
   nombre: string
   cedula: string
-  participacionClase: number | null
   finalScore: number | null
   evaluadoPct: number
 }
 
 interface Envio { status: 'enviado' | 'validado' | 'devuelto'; submittedAt: string; motivo: string | null }
 
-const ABREV_KIND: Record<string, string> = { examen: 'Ex', practica: 'Pr', otro: 'Ot' }
+const ABREV_KIND: Record<string, string> = { examen: 'Examen', practica: 'Práctica', prepractica: 'Pre-práctica', exposicion: 'Exposición', participacion: 'Participación', otro: 'Otro' }
 
 const fmt = (v: number | null) => (v === null ? '—' : Number(v).toFixed(v % 1 === 0 ? 0 : 1))
 
@@ -45,7 +44,6 @@ export default function NotasCohorteProfesor() {
 
   const [moduleId, setModuleId] = useState<string | null>(null)
   const [umbral, setUmbral] = useState(12)
-  const [partPct, setPartPct] = useState(5)
   const [sumaPct, setSumaPct] = useState(0)
   const [filas, setFilas] = useState<FilaEstudiante[]>([])
   const [evaluaciones, setEvaluaciones] = useState<Evaluacion[]>([])
@@ -78,11 +76,11 @@ export default function NotasCohorteProfesor() {
       if (!cohorte?.current_module_id) { setCargando(false); return }
       const modulo = cohorte.current_module_id
 
-      const [{ data: estudiantes }, { data: matriculas }, { data: exs }, { data: sub }, { data: mod }] = await Promise.all([
+      const [{ data: estudiantes }, { data: matriculas }, { data: exs }, { data: sub }] = await Promise.all([
         supabase.from('students').select('id, profiles!students_id_fkey(full_name, cedula)').eq('cohort_id', cohortId),
         supabase
           .from('module_enrollments')
-          .select('student_id, class_participation_score, final_score, evaluated_pct, passing_threshold')
+          .select('student_id, final_score, evaluated_pct, passing_threshold')
           .eq('cohort_id', cohortId)
           .eq('module_id', modulo),
         supabase
@@ -96,7 +94,6 @@ export default function NotasCohorteProfesor() {
           .eq('cohort_id', cohortId)
           .eq('module_id', modulo)
           .maybeSingle(),
-        supabase.from('modules').select('participation_pct').eq('id', modulo).single(),
       ])
 
       const defs = (exs ?? []) as { id: string; title: string; exam_date: string; kind: string; scale_max: number; passing_min: number; weight_pct: number }[]
@@ -108,7 +105,7 @@ export default function NotasCohorteProfesor() {
 
       type EstudianteCrudo = { id: string; profiles: { full_name: string; cedula: string } | null }
       type MatriculaCruda = {
-        student_id: string; class_participation_score: number | null; final_score: number | null
+        student_id: string; final_score: number | null
         evaluated_pct: number; passing_threshold: number
       }
       const porEstudiante = new Map(((matriculas ?? []) as unknown as MatriculaCruda[]).map((n) => [n.student_id, n]))
@@ -117,9 +114,7 @@ export default function NotasCohorteProfesor() {
         id: e.id, title: e.title, examDate: e.exam_date, kind: e.kind, scaleMax: Number(e.scale_max),
         passingMin: Number(e.passing_min), pesoPct: Number(e.weight_pct),
       })))
-      const pPct = Number(mod?.participation_pct ?? 5)
-      setPartPct(pPct)
-      setSumaPct(defs.reduce((t, d) => t + Number(d.weight_pct), 0) + pPct)
+      setSumaPct(defs.reduce((t, d) => t + Number(d.weight_pct), 0))
       const algunaMatricula = (matriculas ?? [])[0] as unknown as MatriculaCruda | undefined
       if (algunaMatricula) setUmbral(Number(algunaMatricula.passing_threshold))
 
@@ -138,7 +133,6 @@ export default function NotasCohorteProfesor() {
             studentId: e.id,
             nombre: e.profiles?.full_name ?? '—',
             cedula: e.profiles?.cedula ?? '—',
-            participacionClase: n?.class_participation_score ?? null,
             finalScore: n?.final_score === null || n?.final_score === undefined ? null : Number(n.final_score),
             evaluadoPct: Number(n?.evaluated_pct ?? 0),
           }
@@ -211,36 +205,10 @@ export default function NotasCohorteProfesor() {
     setGuardando(null)
   }
 
-  async function guardarParticipacionClase(studentId: string, texto: string) {
-    if (bloqueado) return
-    const valor = parseFloat(texto.replace(',', '.'))
-    if (Number.isNaN(valor) || !moduleId) return
-    if (valor < 0 || valor > 20) {
-      setError('La participación debe estar entre 0 y 20.')
-      return
-    }
-    setGuardando(`${studentId}:part`)
-    setError(null)
-    const { data, error: fallo } = await createClient()
-      .from('module_enrollments')
-      .update({ class_participation_score: valor })
-      .eq('student_id', studentId).eq('cohort_id', cohortId).eq('module_id', moduleId)
-      .select('final_score, evaluated_pct')
-      .single()
-    if (fallo) { setError(fallo.message); setGuardando(null); return }
-    setFilas((fs) => fs.map((f) => f.studentId === studentId
-      ? { ...f, participacionClase: valor, finalScore: data.final_score === null ? null : Number(data.final_score), evaluadoPct: Number(data.evaluated_pct) }
-      : f))
-    setEnvio((e) => (e?.status === 'validado' ? null : e))
-    setGuardando(null)
-  }
-
   async function confirmarEnvio() {
     if (!moduleId) return
     const faltan = filas.reduce(
-      (total, f) => total
-        + evaluaciones.filter((e) => notas[f.studentId]?.[e.id] == null).length
-        + (f.participacionClase == null ? 1 : 0),
+      (total, f) => total + evaluaciones.filter((e) => notas[f.studentId]?.[e.id] == null).length,
       0,
     )
     const aviso = faltan > 0
@@ -278,9 +246,16 @@ export default function NotasCohorteProfesor() {
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">Notas</p>
         <h1 className="zr-display mt-3 text-3xl text-zr-text">Tus estudiantes</h1>
         <p className="mt-2 text-sm text-zr-text-muted">
-          Llena la tabla a tu ritmo. Cada evaluación vale un porcentaje de la nota del módulo y la nota se calcula sola, con lo que ya cargaste.
+          Llena la tabla a tu ritmo. Cada evaluación vale un porcentaje de la nota del módulo y la nota se calcula sola, con lo que ya cargaste. La participación es una evaluación más.
         </p>
       </header>
+
+      <button
+        onClick={() => router.push('/evaluaciones')}
+        className="min-h-12 w-full rounded-lg border border-zr-blue/40 text-sm font-bold text-zr-blue-mid"
+      >
+        Registrar o editar evaluaciones
+      </button>
 
       {envio?.status === 'devuelto' && (
         <div className="rounded-lg border border-zr-error/30 bg-zr-error/10 px-4 py-3 text-sm text-zr-text">
@@ -292,7 +267,7 @@ export default function NotasCohorteProfesor() {
       {faltaPorcentaje && evaluaciones.length > 0 && (
         <p className="rounded-lg border border-zr-warning/40 bg-zr-warning/10 px-4 py-3 text-sm font-medium text-zr-text">
           Los porcentajes del módulo suman {sumaPct} % y deben sumar 100 %. Mientras tanto no podrás enviar las notas:
-          avísale a Dirección Académica para que lo ajuste.
+          ajusta las evaluaciones en «Registrar o editar evaluaciones».
         </p>
       )}
 
@@ -342,11 +317,7 @@ export default function NotasCohorteProfesor() {
                       </span>
                     </th>
                   ))}
-                  <th className="min-w-[96px] border-b border-l border-zr-border px-2 py-2.5 text-center align-bottom text-xs font-bold text-zr-text-muted">
-                    Participación
-                    <span className="block text-[10px] font-normal">{partPct} %</span>
-                  </th>
-                  <th className="min-w-[84px] border-b border-zr-border px-2 py-2.5 text-center align-bottom text-xs font-bold text-zr-text-muted">Nota</th>
+                  <th className="min-w-[84px] border-b border-l border-zr-border px-2 py-2.5 text-center align-bottom text-xs font-bold text-zr-text-muted">Nota</th>
                 </tr>
               </thead>
               <tbody>
@@ -369,16 +340,6 @@ export default function NotasCohorteProfesor() {
                       </td>
                     ))}
                     <td className="border-l border-zr-border px-2 py-2 text-center">
-                      <input
-                        key={`${f.studentId}-part-${f.participacionClase ?? ''}`}
-                        type="number" inputMode="decimal" min={0} max={20} step={0.5}
-                        defaultValue={f.participacionClase ?? ''}
-                        onBlur={(e) => guardarParticipacionClase(f.studentId, e.target.value)}
-                        disabled={bloqueado || guardando === `${f.studentId}:part`}
-                        className={`${celda} ${tonoNota(f.participacionClase ?? undefined, umbral)}`}
-                      />
-                    </td>
-                    <td className="px-2 py-2 text-center">
                       {f.finalScore === null ? (
                         <span className="text-zr-text-muted">—</span>
                       ) : (

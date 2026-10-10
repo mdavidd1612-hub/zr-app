@@ -31,20 +31,19 @@ interface FilaNota {
   studentId: string
   nombre: string
   cedula: string
-  participacionClase: number | null
   finalScore: number | null
   evaluadoPct: number
   umbral: number
   status: string | null
 }
 
-interface Evaluacion { id: string; titulo: string; kind: 'examen' | 'practica' | 'otro'; detalle: string | null; scaleMax: number; passingMin: number; pesoPct: number }
-interface Modulo { id: string; nombre: string; orden: number; participacionPct: number }
+interface Evaluacion { id: string; titulo: string; kind: 'examen' | 'practica' | 'prepractica' | 'exposicion' | 'participacion' | 'otro'; detalle: string | null; scaleMax: number; passingMin: number; pesoPct: number }
+interface Modulo { id: string; nombre: string; orden: number }
 interface Envio { status: 'enviado' | 'validado' | 'devuelto'; submittedAt: string; validatedAt: string | null; motivo: string | null }
-type Tipo = 'todos' | 'examen' | 'practica' | 'otro'
+type Tipo = 'todos' | 'examen' | 'practica' | 'prepractica' | 'exposicion' | 'participacion' | 'otro'
 
 const fmt = (v: number | null) => (v === null ? '—' : Number(v).toFixed(v % 1 === 0 ? 0 : 1))
-const ABREV: Record<string, string> = { examen: 'Ex', practica: 'Pr', otro: 'Ot' }
+const ABREV: Record<string, string> = { examen: 'Examen', practica: 'Práctica', prepractica: 'Pre-práctica', exposicion: 'Exposición', participacion: 'Participación', otro: 'Otro' }
 
 const CAMPO =
   'w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none'
@@ -99,9 +98,9 @@ export default function VerCalificacionesCohorte() {
       if (!cohorte) { setCargando(false); return }
 
       const { data: mods } = await supabase
-        .from('modules').select('id, name, order_index, participation_pct').eq('program_id', cohorte.program_id).order('order_index')
+        .from('modules').select('id, name, order_index').eq('program_id', cohorte.program_id).order('order_index')
       if (!vigente) return
-      setModulos((mods ?? []).map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index, participacionPct: Number(m.participation_pct) })))
+      setModulos((mods ?? []).map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index })))
       setModuleId(cohorte.current_module_id ?? mods?.[0]?.id ?? null)
       if (!cohorte.current_module_id && !mods?.length) setCargando(false)
     }
@@ -122,7 +121,7 @@ export default function VerCalificacionesCohorte() {
         supabase.from('students').select('id, profiles!students_id_fkey(full_name, cedula)').eq('cohort_id', cohortId),
         supabase
           .from('module_enrollments')
-          .select('student_id, class_participation_score, final_score, evaluated_pct, passing_threshold, status')
+          .select('student_id, final_score, evaluated_pct, passing_threshold, status')
           .eq('cohort_id', cohortId)
           .eq('module_id', moduleId as string),
         supabase
@@ -147,7 +146,7 @@ export default function VerCalificacionesCohorte() {
 
       type EstudianteCrudo = { id: string; profiles: { full_name: string; cedula: string } | null }
       type MatriculaCruda = {
-        student_id: string; class_participation_score: number | null
+        student_id: string
         final_score: number | null; status: string | null
         evaluated_pct: number; passing_threshold: number
       }
@@ -161,7 +160,6 @@ export default function VerCalificacionesCohorte() {
               studentId: e.id,
               nombre: e.profiles?.full_name ?? '—',
               cedula: e.profiles?.cedula ?? '—',
-              participacionClase: n?.class_participation_score ?? null,
               finalScore: n?.final_score === null || n?.final_score === undefined ? null : Number(n.final_score),
               evaluadoPct: Number(n?.evaluated_pct ?? 0),
               umbral: Number(n?.passing_threshold ?? 12),
@@ -222,27 +220,6 @@ export default function VerCalificacionesCohorte() {
     setGuardando(null)
   }
 
-  async function guardarParticipacion(studentId: string, texto: string) {
-    if (!moduleId) return
-    const valor = texto.trim() === '' ? null : parseFloat(texto.replace(',', '.'))
-    if (valor !== null && (Number.isNaN(valor) || valor < 0 || valor > 20)) {
-      setError('La participación debe estar entre 0 y 20.')
-      return
-    }
-    // La participación no se puede dejar en blanco (no hay "automática").
-    if (valor === null) return
-    setGuardando(`${studentId}:part`)
-    setError(null)
-    const { error: fallo } = await createClient()
-      .from('module_enrollments')
-      .update({ class_participation_score: valor })
-      .eq('student_id', studentId).eq('cohort_id', cohortId).eq('module_id', moduleId)
-    if (fallo) { setError(fallo.message); setGuardando(null); return }
-    setFilas((fs) => fs.map((f) => f.studentId === studentId ? { ...f, participacionClase: valor } : f))
-    await releer(studentId)
-    setGuardando(null)
-  }
-
   async function validar() {
     if (!moduleId || !confirm('¿Validar estas notas? Los estudiantes las verán de inmediato.')) return
     setAccionando(true)
@@ -287,8 +264,7 @@ export default function VerCalificacionesCohorte() {
 
   const visibles = tipo === 'todos' ? evaluaciones : evaluaciones.filter((e) => e.kind === tipo)
   const mostrarResto = tipo === 'todos'
-  const modulo = modulos.find((m) => m.id === moduleId)
-  const sumaPct = evaluaciones.reduce((t, e) => t + e.pesoPct, 0) + (modulo?.participacionPct ?? 0)
+  const sumaPct = evaluaciones.reduce((t, e) => t + e.pesoPct, 0)
   // Menos del mínimo en rojo, el mínimo o más en verde (reunión oct. 2026).
   const tonoNota = (v: number | undefined, min: number) =>
     v === undefined ? 'text-zr-text' : v < min ? 'text-zr-error' : 'text-zr-success'
@@ -304,7 +280,7 @@ export default function VerCalificacionesCohorte() {
         <h1 className="zr-display mt-3 text-3xl text-zr-text">{cohorteNombre}</h1>
         <p className="mt-2 text-sm text-zr-text-muted">
           El cuadro completo: una columna por cada examen y práctica, con su porcentaje. Puedes editar
-          las notas y la participación; la nota del módulo se calcula sola.
+          las notas; la nota del módulo se calcula sola.
         </p>
       </header>
 
@@ -323,6 +299,9 @@ export default function VerCalificacionesCohorte() {
             <option value="todos">Todo</option>
             <option value="examen">Examen</option>
             <option value="practica">Práctica</option>
+            <option value="prepractica">Pre-práctica</option>
+            <option value="exposicion">Exposición</option>
+            <option value="participacion">Participación</option>
             <option value="otro">Otro</option>
           </select>
         </div>
@@ -382,7 +361,7 @@ export default function VerCalificacionesCohorte() {
 
       {!cargando && evaluaciones.length > 0 && Math.round(sumaPct * 100) !== 10000 && (
         <p className="rounded-lg border border-zr-warning/40 bg-zr-warning/10 px-4 py-3 text-sm font-medium text-zr-text">
-          Los porcentajes de este módulo suman {sumaPct} % (con la participación) y deben sumar 100 %.
+          Los porcentajes de este módulo suman {sumaPct} % y deben sumar 100 %.
           Ajústalos en Registrar Evaluación; mientras tanto el profesor no puede enviar las notas.
         </p>
       )}
@@ -461,11 +440,7 @@ export default function VerCalificacionesCohorte() {
                 ))}
                 {mostrarResto && (
                   <>
-                    <th className="min-w-[96px] border-b border-l border-zr-border px-2 py-2.5 text-center align-bottom text-xs font-bold text-zr-text-muted">
-                      Participación
-                      <span className="block text-[10px] font-normal">{modulo?.participacionPct ?? 0} %</span>
-                    </th>
-                    <th className="min-w-[84px] border-b border-zr-border px-2 py-2.5 text-center align-bottom text-xs font-bold text-zr-text-muted">Nota</th>
+                    <th className="min-w-[84px] border-b border-l border-zr-border px-2 py-2.5 text-center align-bottom text-xs font-bold text-zr-text-muted">Nota</th>
                     <th className="min-w-[84px] border-b border-zr-border px-2 py-2.5 text-center text-xs font-bold text-zr-text-muted">Estado</th>
                   </>
                 )}
@@ -493,16 +468,6 @@ export default function VerCalificacionesCohorte() {
                   {mostrarResto && (
                     <>
                       <td className="border-l border-zr-border px-2 py-2 text-center">
-                        <input
-                          key={`${f.studentId}-part-${f.participacionClase ?? ''}`}
-                          type="number" inputMode="decimal" min={0} max={20} step={0.5}
-                          defaultValue={f.participacionClase ?? ''}
-                          onBlur={(e) => guardarParticipacion(f.studentId, e.target.value)}
-                          disabled={guardando === `${f.studentId}:part`}
-                          className={`${CELDA} ${tonoNota(f.participacionClase ?? undefined, f.umbral)}`}
-                        />
-                      </td>
-                      <td className="px-2 py-2 text-center">
                         {f.finalScore === null ? (
                           <span className="text-zr-text-muted">—</span>
                         ) : (

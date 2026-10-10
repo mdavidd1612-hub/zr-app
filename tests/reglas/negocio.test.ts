@@ -131,14 +131,14 @@ describe('Reglas de negocio — inscripción y notas', () => {
     expect(Number(data!.passing_threshold)).toBe(12)
   })
 
-  // Migración 143: cada evaluación vale un porcentaje; la nota del módulo es la
-  // suma ponderada de lo calificado + la participación (que vale lo que fije el
-  // módulo, entre el mínimo y el máximo de system_config). Ya no hay
+  // Migraciones 143-144: cada evaluación vale un porcentaje; la nota del módulo
+  // es la suma ponderada de lo calificado. La participación es un tipo de
+  // evaluación más (entre el mínimo y el máximo de system_config). Ya no hay
   // teoría / práctica / puntualidad.
-  async function evaluacion(moduloId: string, pesoPct: number, titulo: string) {
+  async function evaluacion(moduloId: string, pesoPct: number, titulo: string, kind = 'examen') {
     const { data, error } = await admin
       .from('manual_exam_definitions')
-      .insert({ module_id: moduloId, exam_date: '2026-01-10', title: titulo, weight_pct: pesoPct, kind: 'examen' })
+      .insert({ module_id: moduloId, exam_date: '2026-01-10', title: titulo, weight_pct: pesoPct, kind })
       .select('id')
       .single()
     expect(error).toBeNull()
@@ -153,12 +153,13 @@ describe('Reglas de negocio — inscripción y notas', () => {
     expect(error).toBeNull()
   }
 
-  it('calcula la nota del módulo como suma ponderada de las evaluaciones y la participación', async () => {
+  it('calcula la nota del módulo como suma ponderada de las evaluaciones, participación incluida', async () => {
     const modulo3 = await moduloPorOrden(3)
     const cohorte = await crearCohorte(modulo3)
     const estudiante = await crearEstudiante('Test Calculo Nota', '2005-01-01', cohorte)
     const ev1 = await evaluacion(modulo3, 60, 'Examen A')
-    const ev2 = await evaluacion(modulo3, 35, 'Práctica B')
+    const ev2 = await evaluacion(modulo3, 30, 'Práctica B', 'practica')
+    const ev3 = await evaluacion(modulo3, 10, 'Participación', 'participacion')
     await matricular(estudiante, modulo3, cohorte)
 
     await admin.from('manual_exam_scores').insert([
@@ -167,16 +168,16 @@ describe('Reglas de negocio — inscripción y notas', () => {
     ])
     const { data: parcial } = await admin
       .from('module_enrollments').select('final_score, evaluated_pct, status').eq('student_id', estudiante).single()
-    // 16*0.60 + 10*0.35 = 13.1, y falta la participación: sigue en curso.
-    expect(Number(parcial!.final_score)).toBe(13.1)
-    expect(Number(parcial!.evaluated_pct)).toBe(95)
+    // 16*0.60 + 10*0.30 = 12.6; falta la participación: sigue en curso.
+    expect(Number(parcial!.final_score)).toBe(12.6)
+    expect(Number(parcial!.evaluated_pct)).toBe(90)
     expect(parcial!.status).toBe('en_curso')
 
-    await admin.from('module_enrollments').update({ class_participation_score: 20 }).eq('student_id', estudiante)
+    await admin.from('manual_exam_scores').insert({ definition_id: ev3, student_id: estudiante, score: 20 })
     const { data } = await admin
       .from('module_enrollments').select('final_score, evaluated_pct').eq('student_id', estudiante).single()
-    // + 20 * 0.05 = 14.1
-    expect(Number(data!.final_score)).toBe(14.1)
+    // + 20 * 0.10 = 14.6
+    expect(Number(data!.final_score)).toBe(14.6)
     expect(Number(data!.evaluated_pct)).toBe(100)
   })
 
@@ -184,12 +185,10 @@ describe('Reglas de negocio — inscripción y notas', () => {
     const modulo3 = await moduloPorOrden(3) // umbral 12
     const cohorte = await crearCohorte(modulo3)
     const estudiante = await crearEstudiante('Test Aprueba', '2005-01-01', cohorte)
-    const ev = await evaluacion(modulo3, 95, 'Examen único')
+    const ev = await evaluacion(modulo3, 100, 'Examen único')
     await matricular(estudiante, modulo3, cohorte)
 
     await admin.from('manual_exam_scores').insert({ definition_id: ev, student_id: estudiante, score: 13 })
-    await admin.from('module_enrollments').update({ class_participation_score: 10 }).eq('student_id', estudiante)
-
     const { data } = await admin.from('module_enrollments').select('status').eq('student_id', estudiante).single()
     expect(data!.status).toBe('aprobado')
   })
@@ -198,12 +197,10 @@ describe('Reglas de negocio — inscripción y notas', () => {
     const modulo3 = await moduloPorOrden(3) // umbral 12
     const cohorte = await crearCohorte(modulo3)
     const estudiante = await crearEstudiante('Test Reprueba', '2005-01-01', cohorte)
-    const ev = await evaluacion(modulo3, 95, 'Examen único')
+    const ev = await evaluacion(modulo3, 100, 'Examen único')
     await matricular(estudiante, modulo3, cohorte)
 
     await admin.from('manual_exam_scores').insert({ definition_id: ev, student_id: estudiante, score: 11 })
-    await admin.from('module_enrollments').update({ class_participation_score: 11 }).eq('student_id', estudiante)
-
     const { data } = await admin
       .from('module_enrollments').select('status, final_score').eq('student_id', estudiante).single()
     expect(Number(data!.final_score)).toBeLessThan(12)
@@ -222,20 +219,24 @@ describe('Reglas de negocio — inscripción y notas', () => {
     expect(data!.status).toBe('en_curso')
   })
 
-  it('rechaza evaluaciones cuyos porcentajes pasan de 100 con la participación', async () => {
+  it('rechaza evaluaciones cuyos porcentajes pasan de 100', async () => {
     const modulo3 = await moduloPorOrden(3)
-    await evaluacion(modulo3, 95, 'Completa')
+    await evaluacion(modulo3, 100, 'Completa')
     const { error } = await admin
       .from('manual_exam_definitions')
       .insert({ module_id: modulo3, exam_date: '2026-01-10', title: 'Sobra', weight_pct: 1, kind: 'examen' })
     expect(error).not.toBeNull()
   })
 
-  it('rechaza un peso de participación fuera del rango (5 % a 10 %)', async () => {
+  it('rechaza una participación fuera del rango (5 % a 10 %)', async () => {
     const modulo1 = await moduloPorOrden(1)
-    const { error: bajo } = await admin.from('modules').update({ participation_pct: 4 }).eq('id', modulo1)
+    const { error: bajo } = await admin
+      .from('manual_exam_definitions')
+      .insert({ module_id: modulo1, exam_date: '2026-01-10', title: 'Part baja', weight_pct: 4, kind: 'participacion' })
     expect(bajo).not.toBeNull()
-    const { error: alto } = await admin.from('modules').update({ participation_pct: 11 }).eq('id', modulo1)
+    const { error: alto } = await admin
+      .from('manual_exam_definitions')
+      .insert({ module_id: modulo1, exam_date: '2026-01-10', title: 'Part alta', weight_pct: 11, kind: 'participacion' })
     expect(alto).not.toBeNull()
   })
 
@@ -243,11 +244,10 @@ describe('Reglas de negocio — inscripción y notas', () => {
     const modulo1 = await moduloPorOrden(1) // umbral 10
     const cohorte = await crearCohorte(modulo1)
     const estudiante = await crearEstudiante('Test Sin Faltas', '2005-01-01', cohorte)
-    const ev = await evaluacion(modulo1, 95, 'Examen único')
+    const ev = await evaluacion(modulo1, 100, 'Examen único')
     await matricular(estudiante, modulo1, cohorte)
 
     await admin.from('manual_exam_scores').insert({ definition_id: ev, student_id: estudiante, score: 15 })
-    await admin.from('module_enrollments').update({ class_participation_score: 15 }).eq('student_id', estudiante)
     const { data } = await admin.from('module_enrollments').select('status').eq('student_id', estudiante).single()
 
     // Cero asistencia: no se inserta ningún attendance_event para este

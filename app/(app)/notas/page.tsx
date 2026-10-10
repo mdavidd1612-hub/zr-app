@@ -31,14 +31,13 @@ interface Detalle {
   minimo: number
   peso: number
   nota: number | null
+  esParticipacion: boolean
 }
 
 interface Nota {
   id: string
   moduloId: string
   modulo: string
-  participacionClase: number | null
-  participacionPct: number
   final: number | null
   evaluadoPct: number
   umbral: number
@@ -50,6 +49,10 @@ const ETIQUETA: Record<Estado, { texto: string; tono: 'exito' | 'error' | 'info'
   reprobado: { texto: 'Reprobado', tono: 'error'  },
   en_curso:  { texto: 'En curso',  tono: 'info'   },
   retirado:  { texto: 'Retirado',  tono: 'neutro' },
+}
+
+const ETIQUETA_TIPO: Record<string, string> = {
+  examen: 'Examen', practica: 'Práctica', prepractica: 'Pre-práctica', exposicion: 'Exposición', participacion: 'Participación', otro: 'Otro',
 }
 
 export default function Notas() {
@@ -70,18 +73,17 @@ export default function Notas() {
 
       const { data } = await supabase
         .from('module_enrollments')
-        .select('id, module_id, class_participation_score, final_score, evaluated_pct, passing_threshold, status, modules(name, order_index, participation_pct)')
+        .select('id, module_id, final_score, evaluated_pct, passing_threshold, status, modules(name, order_index)')
         .eq('student_id', user.id)
 
       const filas = data as unknown as {
         id: string
         module_id: string
-        class_participation_score: number | null
         final_score: number | null
         evaluated_pct: number
         passing_threshold: number
         status: Estado
-        modules: { name: string; order_index: number; participation_pct: number } | null
+        modules: { name: string; order_index: number } | null
       }[] | null
 
       if (!filas) {
@@ -96,8 +98,6 @@ export default function Notas() {
             moduloId: n.module_id,
             modulo: n.modules?.name ?? 'Módulo',
             orden: n.modules?.order_index ?? 0,
-            participacionClase: n.class_participation_score === null ? null : Number(n.class_participation_score),
-            participacionPct: Number(n.modules?.participation_pct ?? 0),
             final: n.final_score === null ? null : Number(n.final_score),
             evaluadoPct: Number(n.evaluated_pct),
             umbral: Number(n.passing_threshold),
@@ -123,7 +123,8 @@ export default function Notas() {
         ;(porModulo[e.module_id] ??= []).push({
           id: e.id,
           titulo: e.title,
-          tipo: e.kind === 'otro' && e.kind_detail ? e.kind_detail : e.kind === 'practica' ? 'Práctica' : e.kind === 'examen' ? 'Examen' : 'Otro',
+          tipo: e.kind === 'otro' && e.kind_detail ? e.kind_detail : (ETIQUETA_TIPO[e.kind] ?? 'Otro'),
+          esParticipacion: e.kind === 'participacion',
           fecha: e.exam_date,
           escala: Number(e.scale_max),
           minimo: Number(e.passing_min),
@@ -174,9 +175,9 @@ export default function Notas() {
         ) : (
           notas.map((n, i) => {
             const e = ETIQUETA[n.estado]
-            const lista = detalles[n.moduloId] ?? []
-            // Participación y total solo cuando el módulo ya está completo.
+            // La participación y el total solo se ven cuando el módulo ya está completo.
             const completo = n.evaluadoPct >= 100 && n.final !== null
+            const lista = (detalles[n.moduloId] ?? []).filter((d) => completo || !d.esParticipacion)
             return (
               <Seccion key={n.id} numero={i + 1} titulo={n.modulo} delay={120 + i * 80}>
                 <div className="zr-card overflow-hidden">
@@ -200,18 +201,6 @@ export default function Notas() {
                           </p>
                         </div>
                       ))}
-                      {completo && n.participacionClase !== null && (
-                        <div className="flex items-center justify-between gap-3 px-6 py-4">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-zr-text">Participación</p>
-                            <p className="text-xs text-zr-text-muted">vale {cifra(n.participacionPct)} %</p>
-                          </div>
-                          <p className={`shrink-0 text-lg font-bold ${tono(n.participacionClase, n.umbral)}`}>
-                            {cifra(n.participacionClase)}
-                            <span className="text-xs font-normal text-zr-text-muted"> / 20</span>
-                          </p>
-                        </div>
-                      )}
                     </div>
                   )}
 

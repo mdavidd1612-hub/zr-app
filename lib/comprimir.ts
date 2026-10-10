@@ -12,8 +12,12 @@ import JSZip from 'jszip'
  *   - PowerPoint, Word y Excel (.pptx/.docx/.xlsx): son un ZIP; se reducen las
  *     imágenes que llevan dentro (casi siempre es lo que más pesa) sin tocar
  *     el texto, los diseños ni las animaciones.
- *   - PDF, video y audio: no se pueden comprimir bien en el navegador sin
- *     dañarlos; se suben tal cual y se avisa para que se suban ya comprimidos.
+ *   - PDF (lib/comprimir-pdf.ts): primero se reducen las fotos internas (el
+ *     texto sigue siendo texto); si no alcanza, cada página pasa a ser una
+ *     imagen de buena resolución (pesa mucho menos, pero el texto ya no se
+ *     puede seleccionar ni buscar -- se avisa).
+ *   - Video y audio: no se pueden comprimir bien en el navegador sin dañarlos;
+ *     se suben tal cual y se avisa para que se suban ya comprimidos.
  *
  * Solo se usa el archivo comprimido si de verdad pesa menos que el original.
  */
@@ -125,10 +129,19 @@ export async function comprimirSiPesa(archivo: File, limiteBytes: number): Promi
 
   const ext = extension(archivo.name)
   let nuevo: File | null = null
+  let metodoPdf: 'imagenes' | 'paginas' | null = null
 
   try {
     if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) nuevo = await comprimirImagen(archivo)
     else if (['pptx', 'docx', 'xlsx'].includes(ext)) nuevo = await comprimirOffice(archivo)
+    else if (ext === 'pdf') {
+      const { comprimirPdf } = await import('./comprimir-pdf')
+      const r = await comprimirPdf(archivo, limiteBytes)
+      if (r) {
+        nuevo = new File([r.bytes as BlobPart], archivo.name, { type: 'application/pdf', lastModified: Date.now() })
+        metodoPdf = r.metodo
+      }
+    }
   } catch {
     nuevo = null
   }
@@ -139,11 +152,15 @@ export async function comprimirSiPesa(archivo: File, limiteBytes: number): Promi
       comprimido: true,
       bytesAntes: archivo.size,
       bytesDespues: nuevo.size,
-      mensaje: `Se comprimió automáticamente de ${mb(archivo.size)} a ${mb(nuevo.size)}.`,
+      mensaje:
+        `Se comprimió automáticamente de ${mb(archivo.size)} a ${mb(nuevo.size)}.` +
+        (metodoPdf === 'paginas'
+          ? ' Para lograrlo, las páginas del PDF se convirtieron en imágenes: se ven igual, pero el texto ya no se puede seleccionar ni buscar.'
+          : ''),
     }
   }
 
-  const sePuede = ['jpg', 'jpeg', 'png', 'webp', 'pptx', 'docx', 'xlsx'].includes(ext)
+  const sePuede = ['jpg', 'jpeg', 'png', 'webp', 'pptx', 'docx', 'xlsx', 'pdf'].includes(ext)
   return intacto(
     sePuede
       ? `El archivo pesa ${mb(archivo.size)} y no se pudo reducir más automáticamente.`

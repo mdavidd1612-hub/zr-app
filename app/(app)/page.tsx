@@ -11,6 +11,7 @@ import { IconoCarnet, IconoCheck, IconoTaza } from '@/components/ui/Iconos'
 import { esAdmin } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+import { useEsqueletoVisible } from '@/lib/useEsqueletoVisible'
 
 interface ProximoSabado {
   sessionId: string
@@ -228,10 +229,9 @@ export default function Inicio() {
     return () => clearTimeout(t)
   }, [avisoBloqueado])
 
-  if (cargando) {
-    return (
-      <PantallaEsqueleto />
-    )
+  const mostrarEsqueleto = useEsqueletoVisible(cargando)
+  if (mostrarEsqueleto) {
+    return <PantallaEsqueleto />
   }
 
   if (!validado) {

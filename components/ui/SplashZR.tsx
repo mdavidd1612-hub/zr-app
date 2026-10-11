@@ -15,8 +15,10 @@ export function SplashZR() {
   const [fase, setFase] = useState<'dentro' | 'saliendo' | 'fuera'>('dentro')
 
   useEffect(() => {
-    const t1 = setTimeout(() => setFase('saliendo'), 1300)
-    const t2 = setTimeout(() => setFase('fuera'), 1750)
+    // Un poco más largo (pedido del coordinador): el nombre alcanza a leerse
+    // antes de que entre la app.
+    const t1 = setTimeout(() => setFase('saliendo'), 2200)
+    const t2 = setTimeout(() => setFase('fuera'), 2650)
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [])
 

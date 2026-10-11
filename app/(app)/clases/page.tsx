@@ -10,6 +10,7 @@ import { IconoCheck } from '@/components/ui/Iconos'
 import { esAdmin } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+import { useEsqueletoVisible } from '@/lib/useEsqueletoVisible'
 
 /**
  * "Mi módulo": el módulo que el estudiante está cursando ahora mismo. La
@@ -135,7 +136,8 @@ export default function MiModulo() {
     cargar()
   }, [router])
 
-  if (cargando) {
+  const mostrarEsqueleto = useEsqueletoVisible(cargando)
+  if (mostrarEsqueleto) {
     return (
       <PantallaEsqueleto />
     )

@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+import { useEsqueletoVisible } from '@/lib/useEsqueletoVisible'
 import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
 import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
@@ -134,12 +136,9 @@ export default function PerfilAdmin() {
     setPreparando(false)
   }
 
-  if (cargando || !perfil) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <p className="text-sm text-zr-text-muted">Cargando…</p>
-      </div>
-    )
+  const mostrarEsqueleto = useEsqueletoVisible(cargando)
+  if (mostrarEsqueleto || !perfil) {
+    return <PantallaEsqueleto />
   }
 
   return (

@@ -133,7 +133,10 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(datos.title || 'ZR App', {
       body: datos.body || '',
       icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      // badge = iconito monocromático de la barra de estado de Android (como
+      // el de WhatsApp): el logo ZR en blanco sobre transparente. Android lo
+      // pinta como silueta; por eso no sirve el icono a color.
+      badge: '/badge-96.png',
       data: datos.payload || {},
     }),
   )

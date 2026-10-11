@@ -11,6 +11,7 @@ import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
 import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
 import { FotoPerfil } from '@/components/ui/FotoPerfil'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+import { useEsqueletoVisible } from '@/lib/useEsqueletoVisible'
 
 interface Perfil {
   uid: string
@@ -94,7 +95,8 @@ export default function PerfilEstudiante() {
     cargar()
   }, [router])
 
-  if (cargando || !perfil) {
+  const mostrarEsqueleto = useEsqueletoVisible(cargando)
+  if (mostrarEsqueleto || !perfil) {
     return (
       <PantallaEsqueleto />
     )

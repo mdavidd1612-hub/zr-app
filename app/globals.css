@@ -218,10 +218,11 @@ body {
   animation: zrShimmer 1.5s ease-in-out infinite;
   border-radius: 10px;
 }
-/* El esqueleto aparece con un pelín de retraso: si la carga es casi instantánea
-   no alcanza a verse, y se acaba el parpadeo raro. */
+/* El esqueleto aparece de una, con un fundido corto. El tiempo mínimo que se
+   queda en pantalla lo controla el hook useEsqueletoVisible (así se alcanza a
+   ver incluso cuando los datos cargan rapidísimo). */
 @keyframes zrSkelIn { from { opacity: 0; } to { opacity: 1; } }
-.zr-skel-in { animation: zrSkelIn 0.3s ease-out 0.12s both; }
+.zr-skel-in { animation: zrSkelIn 0.25s ease-out both; }
 
 /* ---------------------------------------------------------------------------
    SPLASH DE APERTURA · el logo ZR se agita y luego aparece el nombre

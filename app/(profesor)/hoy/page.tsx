@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+import { useEsqueletoVisible } from '@/lib/useEsqueletoVisible'
 import { Encabezado, Seccion, Regla, Dato } from '@/components/ui/Editorial'
 
 /**
@@ -89,12 +91,9 @@ export default function Hoy() {
     cargar()
   }, [])
 
-  if (cargando) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <p className="text-sm text-zr-text-muted">Preparando la clase…</p>
-      </div>
-    )
+  const mostrarEsqueleto = useEsqueletoVisible(cargando)
+  if (mostrarEsqueleto) {
+    return <PantallaEsqueleto />
   }
 
   const fechaLarga = sesion

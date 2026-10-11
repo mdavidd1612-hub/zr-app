@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Bloque } from '@/components/ui/Esqueleto'
 import { IconoDocumento, IconoVideo, IconoAviso } from '@/components/ui/Iconos'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EtiquetaTipoArchivo } from '@/components/ui/EtiquetaTipoArchivo'
@@ -359,7 +360,17 @@ export default function Contenido() {
         <div className="h-px bg-zr-border" />
 
         {cargando ? (
-          <p className="text-sm text-zr-text-muted">Cargando…</p>
+          <div className="space-y-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="zr-card flex items-center gap-3 p-4">
+                <Bloque className="h-11 w-11 rounded-xl" />
+                <div className="flex-1 space-y-2">
+                  <Bloque className="h-4 w-2/3" />
+                  <Bloque className="h-3 w-2/5" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : bloqueado ? (
           <div className="zr-card p-8 text-center">
             <p className="text-base font-semibold text-zr-text">Material bloqueado</p>

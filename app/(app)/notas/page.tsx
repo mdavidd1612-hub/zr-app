@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+import { useEsqueletoVisible } from '@/lib/useEsqueletoVisible'
 
 /**
  * T-311 · Vista de notas del estudiante.
@@ -125,7 +126,8 @@ export default function Notas() {
     cargar()
   }, [router])
 
-  if (cargando) return <PantallaEsqueleto variante="lista" />
+  const mostrarEsqueleto = useEsqueletoVisible(cargando)
+  if (mostrarEsqueleto) return <PantallaEsqueleto variante="lista" />
 
   const cifra = (v: number | null) => (v === null ? '—' : v.toFixed(v % 1 === 0 ? 0 : 1))
   // Menos del mínimo en rojo, el mínimo o más en verde.

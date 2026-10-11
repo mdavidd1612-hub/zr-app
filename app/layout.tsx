@@ -41,8 +41,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className="h-full antialiased">
-      <body className="flex min-h-full flex-col bg-zr-bg">
+    <html lang="es" className="h-full antialiased" style={{ backgroundColor: '#0F1419' }}>
+      {/* Fondo oscuro en línea: evita el destello blanco en el teléfono entre
+          la pantalla nativa de la PWA y la primera pintura (antes de cargar el CSS). */}
+      <body className="flex min-h-full flex-col bg-zr-bg" style={{ backgroundColor: '#0F1419' }}>
         <EtiquetaEntorno />
         {children}
         <ServiceWorkerInit />

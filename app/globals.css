@@ -202,6 +202,66 @@ body {
   opacity: 0;
 }
 
+/* ---------------------------------------------------------------------------
+   ESQUELETO DE CARGA · un brillo que recorre (shimmer), más vivo y menos
+   "parpadeo" que un simple pulse. Imita la forma de la sección que viene.
+   --------------------------------------------------------------------------- */
+@keyframes zrShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.zr-skel {
+  background-color: var(--zr-surface);
+  background-image: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.07) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: zrShimmer 1.5s ease-in-out infinite;
+  border-radius: 10px;
+}
+/* El esqueleto aparece con un pelín de retraso: si la carga es casi instantánea
+   no alcanza a verse, y se acaba el parpadeo raro. */
+@keyframes zrSkelIn { from { opacity: 0; } to { opacity: 1; } }
+.zr-skel-in { animation: zrSkelIn 0.3s ease-out 0.12s both; }
+
+/* ---------------------------------------------------------------------------
+   SPLASH DE APERTURA · el logo ZR se agita y luego aparece el nombre
+   (estilo Good Lock de Samsung). Fluido, corto, sin tirones.
+   --------------------------------------------------------------------------- */
+@keyframes zrSplashPop {
+  0%   { opacity: 0; transform: scale(0.6); }
+  60%  { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes zrSplashShake {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(-9deg); }
+  40% { transform: rotate(7deg); }
+  60% { transform: rotate(-5deg); }
+  80% { transform: rotate(3deg); }
+}
+@keyframes zrSplashWord {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes zrSplashOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+.zr-splash-icono {
+  animation:
+    zrSplashPop 0.5s cubic-bezier(0.16, 1, 0.3, 1) both,
+    zrSplashShake 0.6s ease-in-out 0.5s both;
+  will-change: transform;
+}
+.zr-splash-word { animation: zrSplashWord 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.8s both; }
+.zr-splash-out  { animation: zrSplashOut 0.42s ease-out forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .zr-skel { animation: none; }
+  .zr-splash-icono { animation: zrSplashPop 0.4s ease-out both; }
+  .zr-splash-word  { animation: zrSplashWord 0.4s ease-out 0.2s both; }
+}
+
 h1, h2, h3, .titulo {
   font-family: var(--font-titulo);
   font-weight: 700;

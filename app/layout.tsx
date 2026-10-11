@@ -3,6 +3,7 @@ import './globals.css'
 import ServiceWorkerInit from './service-worker-init'
 import InstalarApp from '@/components/ui/InstalarApp'
 import EtiquetaEntorno from '@/components/ui/EtiquetaEntorno'
+import { SplashZR } from '@/components/ui/SplashZR'
 import { ES_ENTORNO_PRUEBA, SUFIJO_ENTORNO } from '@/lib/entorno'
 
 // En el entorno de prueba todos los iconos llevan una etiqueta amarilla STAGING
@@ -46,6 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <ServiceWorkerInit />
         <InstalarApp />
+        <SplashZR />
       </body>
     </html>
   )

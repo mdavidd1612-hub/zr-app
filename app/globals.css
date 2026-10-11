@@ -349,6 +349,37 @@ h1, h2, h3, .titulo {
   box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.55);
 }
 
+/* ---------------------------------------------------------------------------
+   RESPUESTA AL TOCAR · en el teléfono no hay "hover", así que lo que da la
+   sensación de fluidez es que cada toque "responda": lo interactivo se hunde
+   un pelín al presionar y vuelve solo. Solo transform (corre en la GPU), muy
+   corto, sin tirones ni recarga.
+   --------------------------------------------------------------------------- */
+button, [role="button"], a {
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active {
+  transform: scale(0.96);
+}
+.zr-card-interactive:active {
+  transform: scale(0.985);
+  transition-duration: 0.09s;
+}
+
+/* Hojas que suben desde abajo (notificaciones, selectores): entran deslizando,
+   como una app nativa. El fondo oscuro aparece con un fundido suave. */
+@keyframes zrSheetUp {
+  from { opacity: 0; transform: translateY(12%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes zrBackdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.zr-sheet-in { animation: zrSheetUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.zr-backdrop-in { animation: zrBackdropIn 0.2s ease-out both; }
+
 /* Cifra grande de dato duro (competencias, puntos, notas). */
 .zr-metric {
   font-family: var(--font-titulo);

@@ -93,12 +93,12 @@ export function Select({
 
       {abierto && (
         <div
-          className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 sm:items-center sm:p-5"
+          className="zr-backdrop-in fixed inset-0 z-[70] flex items-end justify-center bg-black/60 sm:items-center sm:p-5"
           onClick={() => setAbierto(false)}
         >
           <div
             role="listbox"
-            className="max-h-[70dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-zr-border bg-zr-surface p-2 pb-6 sm:rounded-2xl sm:pb-2"
+            className="zr-sheet-in max-h-[70dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-zr-border bg-zr-surface p-2 pb-6 sm:rounded-2xl sm:pb-2"
             onClick={(e) => e.stopPropagation()}
           >
             {opciones.length === 0 && (

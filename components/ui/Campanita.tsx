@@ -159,10 +159,10 @@ export function Campanita() {
       </button>
 
       {abierta && createPortal(
-        <div className="fixed inset-0 z-50 flex items-end bg-black/60" onClick={() => setAbierta(false)}>
+        <div className="zr-backdrop-in fixed inset-0 z-50 flex items-end bg-black/60" onClick={() => setAbierta(false)}>
           <div
             onClick={(e) => e.stopPropagation()}
-            className="max-h-[75vh] w-full overflow-y-auto rounded-t-2xl border-t border-white/15 bg-zr-surface pb-10 pt-2 shadow-[0_-8px_32px_rgba(0,0,0,0.5)]"
+            className="zr-sheet-in max-h-[75vh] w-full overflow-y-auto rounded-t-2xl border-t border-white/15 bg-zr-surface pb-10 pt-2 shadow-[0_-8px_32px_rgba(0,0,0,0.5)]"
           >
             <div className="mx-auto h-1 w-10 rounded-full bg-zr-border" />
 

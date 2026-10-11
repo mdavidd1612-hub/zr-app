@@ -125,7 +125,7 @@ export default function Notas() {
     cargar()
   }, [router])
 
-  if (cargando) return <PantallaEsqueleto />
+  if (cargando) return <PantallaEsqueleto variante="lista" />
 
   const cifra = (v: number | null) => (v === null ? '—' : v.toFixed(v % 1 === 0 ? 0 : 1))
   // Menos del mínimo en rojo, el mínimo o más en verde.

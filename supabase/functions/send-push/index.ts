@@ -67,6 +67,10 @@ Deno.serve(async (req: Request) => {
             keys: { p256dh: sub.p256dh, auth: sub.auth },
           },
           JSON.stringify({ title: noti.title, body: noti.body, payload: noti.payload }),
+          // Prioridad alta: Android (Doze) retrasa las push de prioridad normal
+          // cuando el teléfono está en reposo. Con 'high' llegan al instante.
+          // TTL 1 día: si el teléfono estuvo apagado, igual la recibe al prender.
+          { urgency: 'high', TTL: 86400 },
         )
         enviadas++
       } catch (err) {

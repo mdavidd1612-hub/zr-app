@@ -131,6 +131,7 @@ export default function Personal() {
   const [programaEnUso, setProgramaEnUso] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [errorModulo, setErrorModulo] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
   const [eliminando, setEliminando] = useState<string | null>(null)
 
@@ -297,8 +298,6 @@ export default function Personal() {
           telefono: p.phone,
           rol: p.role as UserRole,
           cohortes: cohortesMapeadas
-            // Solo la cohorte en uso (con calendario); si aún no hay ninguna, todas.
-            .filter((c) => cohortesConCalendario.size === 0 || cohortesConCalendario.has(c.id))
             .filter((c) => c.profesorId === p.id || [...(mapaAsignaciones.get(p.id) ?? [])].some((k) => k.startsWith(`${c.id}|`)))
             .map((c) => c.nombre),
         })),
@@ -410,17 +409,26 @@ export default function Personal() {
     const supabase = createClient()
     const yaAsignado = asignaciones.get(teacherId)?.has(clave) ?? false
 
+    setErrorModulo(null)
+    let falloGuardar: { message: string } | null = null
     if (yaAsignado) {
       // Quita la asignación de esa cohorte y, si venía de las anteriores (sin
       // cohorte), también esa.
-      await supabase.from('teacher_module_assignments')
+      const r1 = await supabase.from('teacher_module_assignments')
         .delete().eq('teacher_id', teacherId).eq('module_id', moduleId).eq('cohort_id', cohortId)
-      await supabase.from('teacher_module_assignments')
+      const r2 = await supabase.from('teacher_module_assignments')
         .delete().eq('teacher_id', teacherId).eq('module_id', moduleId).is('cohort_id', null)
+      falloGuardar = r1.error ?? r2.error
     } else {
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('teacher_module_assignments')
+      const r = await supabase.from('teacher_module_assignments')
         .insert({ teacher_id: teacherId, module_id: moduleId, cohort_id: cohortId, assigned_by: user?.id ?? null })
+      falloGuardar = r.error
+    }
+    if (falloGuardar) {
+      setErrorModulo(`No se pudo guardar el cambio de módulo: ${falloGuardar.message}`)
+      setGuardandoModulo(null)
+      return
     }
 
     setAsignaciones((prev) => {
@@ -869,10 +877,12 @@ export default function Personal() {
 
                     {expandido === m.id && (
                       <div className="mt-3 space-y-3">
+                        {errorModulo && <p className="text-xs font-medium text-zr-error">{errorModulo}</p>}
                         {(() => {
+                          const conAsignacion = ofertas.find((x) => [...misModulos].some((k) => k.startsWith(`${x.cohorte.id}|`)))
                           const idPanel = panelCohorte && ofertas.some((o) => o.cohorte.id === panelCohorte)
                             ? panelCohorte
-                            : ofertas[0]?.cohorte.id ?? ''
+                            : conAsignacion?.cohorte.id ?? ofertas[0]?.cohorte.id ?? ''
                           const o = ofertas.find((x) => x.cohorte.id === idPanel)
                           return (
                             <>

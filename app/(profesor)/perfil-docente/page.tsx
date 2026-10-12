@@ -66,26 +66,43 @@ export default function PerfilDocente() {
         })
       }
 
+      // Módulos que Dirección le asignó (migración 150): son los que dicta, y
+      // el programa es el de esos módulos. Sin ninguno asignado se muestra lo de
+      // siempre (el módulo vigente de la cohorte que tenga a su cargo).
+      const { data: asig } = await supabase
+        .from('teacher_module_assignments')
+        .select('modules!inner(id, name, order_index, program_id)')
+        .eq('teacher_id', user.id)
+      const mios = ((asig ?? []) as unknown as { modules: { id: string; name: string; order_index: number; program_id: string } }[])
+        .map((a) => a.modules)
+        .sort((x, y) => x.order_index - y.order_index)
+
+      // Sin filtrar por dueño: la base entrega las cohortes de los programas donde
+      // este profesor tiene módulos asignados.
       const { data: cs } = await supabase
         .from('cohorts')
-        .select('id, name, modules(name), students(id)')
-        .eq('teacher_id', user.id)
+        .select('id, name, program_id, modules(name), students(id)')
         .eq('status', 'activa')
 
       const filas = cs as unknown as {
-        id: string; name: string
+        id: string; name: string; program_id: string
         modules: { name: string } | null
         students: { id: string }[] | null
       }[] | null
 
       if (filas) {
         setCohortes(
-          ordenarCohortesPorPrioridad(filas).map((c) => ({
-            id: c.id,
-            nombre: c.name,
-            modulo: c.modules?.name ?? 'Módulo',
-            estudiantes: c.students?.length ?? 0,
-          })),
+          ordenarCohortesPorPrioridad(filas).map((c) => {
+            const dePrograma = mios.filter((m) => m.program_id === c.program_id)
+            return {
+              id: c.id,
+              nombre: c.name,
+              modulo: dePrograma.length > 0
+                ? dePrograma.map((m) => `Módulo ${m.order_index} · ${m.name}`).join(' y ')
+                : c.modules?.name ?? 'Módulo',
+              estudiantes: c.students?.length ?? 0,
+            }
+          }),
         )
       }
 

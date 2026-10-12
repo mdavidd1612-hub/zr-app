@@ -64,15 +64,21 @@ export default function NuevoExamen() {
       // Solo las cohortes que este profesor dicta. Sin este filtro, el
       // selector mostraba TODAS las cohortes de la academia y el profesor
       // podía terminar publicando un examen en la clase de otro profesor.
-      const [{ data: mods }, { data: cohs }] = await Promise.all([
+      const [{ data: mods }, { data: cohs }, { data: asig }] = await Promise.all([
         supabase.from('modules').select('id, name').order('order_index'),
-        supabase.from('cohorts').select('id, name').eq('status', 'activa').eq('teacher_id', user.id),
+        // Sin filtrar por dueño: la base entrega las cohortes de los programas donde
+        // este profesor tiene módulos asignados (migración 150).
+        supabase.from('cohorts').select('id, name').eq('status', 'activa'),
+        supabase.from('teacher_module_assignments').select('module_id').eq('teacher_id', user.id),
       ])
 
       const cohortesOrdenadas = ordenarCohortesPorPrioridad(cohs ?? [])
-      setModulos(mods ?? [])
+      // Solo los módulos que dicta (si tiene asignados); si no, todos como antes.
+      const suyos = new Set((asig ?? []).map((a) => a.module_id))
+      const modsVisibles = suyos.size > 0 ? (mods ?? []).filter((m) => suyos.has(m.id)) : (mods ?? [])
+      setModulos(modsVisibles)
       setCohortes(cohortesOrdenadas)
-      if (mods?.length) setModuloId(mods[0].id)
+      if (modsVisibles.length) setModuloId(modsVisibles[0].id)
       if (cohortesOrdenadas.length) setCohorteId(cohortesOrdenadas[0].id)
     }
 

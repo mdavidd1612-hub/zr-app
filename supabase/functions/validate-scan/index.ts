@@ -115,7 +115,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // 8. Leer sesión
-    const { data: session } = await user.from('class_sessions').select('status, cohort_id').eq('id', sessionId).single()
+    const { data: session } = await user.from('class_sessions').select('status, cohort_id, module_id').eq('id', sessionId).single()
     if (!session) {
       return errorResponse('SESION_NO_ENCONTRADA', 'Sesión no existe')
     }
@@ -123,10 +123,17 @@ Deno.serve(async (req: Request) => {
       return errorResponse('SESION_NO_ABIERTA', 'La sesión no está abierta')
     }
 
-    // 9. Verificar que profesor da clase en esa cohorte
-    const { data: cohort } = await user.from('cohorts').select('teacher_id').eq('id', session.cohort_id).single()
-    if (cohort?.teacher_id !== authUser.id && profile?.role === 'profesor') {
-      return errorResponse('NO_AUTORIZADO', 'No eres profesor de esta cohorte', 403)
+    // 9. Verificar que el profesor dicta el MÓDULO de esta sesión en esa cohorte
+    // (migración 150): ya no basta con ser "el dueño" de la cohorte, porque cada
+    // módulo tiene su profesor y a veces hay dos en el mismo módulo.
+    if (profile?.role === 'profesor') {
+      const { data: puede } = await user.rpc('teaches_cohort_module', {
+        p_cohort: session.cohort_id,
+        p_module: session.module_id,
+      })
+      if (!puede) {
+        return errorResponse('NO_AUTORIZADO', 'No dictas el módulo de esta sesión', 403)
+      }
     }
 
     // 10. Verificar que estudiante está en la cohorte

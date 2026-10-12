@@ -122,6 +122,8 @@ export default function Personal() {
   const [rol, setRol] = useState<UserRole>('profesor')
   const [cohorteId, setCohorteId] = useState('')
   const [modulosNuevo, setModulosNuevo] = useState<Set<string>>(new Set())
+  // Programa en uso (el que tiene calendario de módulos): todo profesor nuevo queda en él.
+  const [programaEnUso, setProgramaEnUso] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
@@ -220,6 +222,9 @@ export default function Personal() {
       const programasEnUso = new Set(
         cohortesMapeadas.filter((c) => cohortesConCalendario.has(c.id)).map((c) => c.programId).filter((x): x is string => !!x),
       )
+      setProgramaEnUso(
+        cohortesMapeadas.filter((c) => cohortesConCalendario.has(c.id)).map((c) => c.nombre).join(' · ') || null,
+      )
       setModulos(
         ((mods ?? []) as unknown as { id: string; name: string; order_index: number; program_id: string | null; programs: { name: string } | null }[])
           .filter((m) => programasEnUso.size === 0 || (m.program_id !== null && programasEnUso.has(m.program_id)))
@@ -261,6 +266,8 @@ export default function Personal() {
           telefono: p.phone,
           rol: p.role as UserRole,
           cohortes: cohortesMapeadas
+            // Solo la cohorte en uso (con calendario); si aún no hay ninguna, todas.
+            .filter((c) => cohortesConCalendario.size === 0 || cohortesConCalendario.has(c.id))
             .filter((c) => c.profesorId === p.id || (mapaAsignaciones.get(p.id) ?? new Set<string>()).size > 0 && [...(mapaAsignaciones.get(p.id) ?? [])].some((mid) => moduloPrograma.get(mid) === c.programId))
             .map((c) => c.nombre),
         })),
@@ -603,6 +610,14 @@ export default function Personal() {
 
           {rol === 'profesor' && (
             <>
+              <div className="rounded-lg border border-zr-blue/30 bg-zr-blue/10 px-4 py-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-zr-text-muted">Programa</p>
+                <p className="mt-0.5 text-base font-bold text-zr-text">{programaEnUso ?? 'Todos los programas'}</p>
+                <p className="mt-1 text-xs text-zr-text-muted">
+                  Todos los profesores quedan en este programa; abajo eliges qué módulo dicta.
+                </p>
+              </div>
+
               <div>
                 <label className="mb-2 block text-sm font-semibold text-zr-text">
                   Módulos que dicta <span className="font-normal text-zr-error">(obligatorio)</span>

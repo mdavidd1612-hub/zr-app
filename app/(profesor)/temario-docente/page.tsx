@@ -8,7 +8,7 @@ import { ContextoDocente, AvisoModuloBloqueado, moduloVigente, type ContextoSel 
 
 /**
  * Temario del profesor: sale tal cual de lo que ven los estudiantes en
- * "Mi módulo" y en la malla curricular (tabla `modules`: resumen,
+ * "Mi módulo" (tabla `modules`: resumen,
  * competencias, duración). Así el profesor enseña exactamente lo que el
  * estudiante ve que va a aprender, sin una segunda fuente que mantener.
  *
@@ -23,16 +23,8 @@ interface DatosModulo {
   competencias: string[]
 }
 
-interface ModuloMalla {
-  id: string
-  orden: number
-  nombre: string
-  descripcion: string | null
-}
-
 function Temario({ ctx }: { ctx: ContextoSel }) {
   const [datos, setDatos] = useState<DatosModulo | null>(null)
-  const [malla, setMalla] = useState<ModuloMalla[]>([])
 
   useEffect(() => {
     let vigente = true
@@ -41,7 +33,7 @@ function Temario({ ctx }: { ctx: ContextoSel }) {
       const [{ data: mod }, { data: sesiones }] = await Promise.all([
         supabase
           .from('modules')
-          .select('program_id, resumen_largo, description, competencias, duration_weeks')
+          .select('resumen_largo, description, competencias, duration_weeks')
           .eq('id', ctx.moduleId)
           .single(),
         supabase
@@ -59,8 +51,6 @@ function Temario({ ctx }: { ctx: ContextoSel }) {
       const filas = sesiones ?? []
       const semana = filas.length === 0 ? null : (filas.find((s) => s.session_date >= hoy) ?? filas[filas.length - 1]).week_number
 
-      const { data: todos } = await supabase
-        .from('modules').select('id, name, order_index, description').eq('program_id', mod.program_id ?? '').order('order_index')
       if (!vigente) return
 
       setDatos({
@@ -69,7 +59,6 @@ function Temario({ ctx }: { ctx: ContextoSel }) {
         resumen: mod.resumen_largo?.split(/\n\s*\n/)[0]?.trim() || mod.description,
         competencias: mod.competencias ?? [],
       })
-      setMalla((todos ?? []).map((m) => ({ id: m.id, orden: m.order_index, nombre: m.name, descripcion: m.description })))
     }
     cargar()
     return () => { vigente = false }
@@ -83,7 +72,7 @@ function Temario({ ctx }: { ctx: ContextoSel }) {
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">Temario</p>
         <h1 className="zr-display mt-3 text-3xl text-zr-text">Qué debo impartir</h1>
         <p className="mt-2 text-sm text-zr-text-muted">
-          Es lo mismo que ven tus estudiantes en «Mi módulo» y en la malla curricular.
+          Es lo mismo que ven tus estudiantes en «Mi módulo».
         </p>
       </header>
       <Regla />
@@ -123,20 +112,6 @@ function Temario({ ctx }: { ctx: ContextoSel }) {
         )}
       </section>
 
-      {malla.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-zr-blue-mid">Malla curricular</h2>
-          {malla.map((m) => (
-            <div key={m.id} className={`zr-card p-4 ${m.id === ctx.moduleId ? 'border-zr-blue/40' : ''}`}>
-              <p className="text-sm font-semibold text-zr-text">
-                {m.orden}. {m.nombre}
-                {m.id === ctx.moduleId && <span className="ml-2 text-[11px] font-bold uppercase text-zr-blue-mid">el tuyo</span>}
-              </p>
-              {m.descripcion && <p className="mt-1 text-sm text-zr-text-muted">{m.descripcion}</p>}
-            </div>
-          ))}
-        </section>
-      )}
     </div>
   )
 }

@@ -100,6 +100,9 @@ export default function Personal() {
   const [modulos, setModulos] = useState<Modulo[]>([])
   // Programas (cohortes) donde se puede dar clase y, en cada uno, sus módulos.
   const [ofertas, setOfertas] = useState<{ cohorte: Cohorte; modulos: Modulo[] }[]>([])
+  // Alta de profesor: programas (cohortes) elegidos, y programa que se está mirando en el panel.
+  const [programasElegidos, setProgramasElegidos] = useState<string[]>([])
+  const [panelCohorte, setPanelCohorte] = useState('')
   const [asignaciones, setAsignaciones] = useState<Map<string, Set<string>>>(new Map())
   const [expandido, setExpandido] = useState<string | null>(null)
   const [guardandoModulo, setGuardandoModulo] = useState<string | null>(null)
@@ -244,8 +247,9 @@ export default function Personal() {
       }
       const todosModulos = ((mods ?? []) as unknown as { id: string; name: string; order_index: number; program_id: string | null; programs: { name: string } | null }[])
         .map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index, programa: m.programs?.name ?? '—', programId: m.program_id }))
-      const baseOfertas = cohortesMapeadas.filter((c) => modulosPorCohorte.has(c.id))
-      const ofertasCalculadas = (baseOfertas.length > 0 ? baseOfertas : cohortesMapeadas).map((c) => ({
+      // Cada programa (cohorte) es distinto aunque compartan el plan de módulos: se
+      // ofrecen TODOS los activos, cada uno con sus módulos.
+      const ofertasCalculadas = cohortesMapeadas.map((c) => ({
         cohorte: c,
         modulos: todosModulos.filter(
           (m) => m.programId === c.programId && (!modulosPorCohorte.has(c.id) || modulosPorCohorte.get(c.id)!.has(m.id)),
@@ -394,6 +398,7 @@ export default function Personal() {
     setRol('profesor')
     setCohorteId('')
     setModulosNuevo(new Set())
+    setProgramasElegidos([])
     setCreando(false)
     setGuardando(false)
     setVersion((v) => v + 1)
@@ -649,44 +654,74 @@ export default function Personal() {
                   Programa y módulos que dicta <span className="font-normal text-zr-error">(obligatorio)</span>
                 </label>
                 <p className="mb-2 text-xs text-zr-text-muted">
-                  Elige el programa donde da clase y, dentro de él, el módulo (o los módulos). Puede
-                  dar clase en más de un programa: marca módulos en cada uno. Verá a los estudiantes
-                  del programa y las notas y la asistencia solo de sus módulos; al cambiar de módulo
-                  entra solo el profesor siguiente, sin reasignar nada.
+                  Primero elige el programa (cada cohorte es un programa distinto, con sus propios
+                  profesores) y luego marca el módulo o los módulos que dicta en él. Si da clase en
+                  más de un programa, agrega otro. Verá a los estudiantes del programa y las notas y
+                  la asistencia solo de sus módulos.
                 </p>
-                <div className="max-h-72 space-y-3 overflow-y-auto rounded-lg border border-zr-border bg-zr-bg p-2">
-                  {ofertas.map((o) => (
-                    <div key={o.cohorte.id}>
-                      <p className="px-3 pb-1 pt-1 text-xs font-bold uppercase tracking-wide text-zr-blue-mid">
-                        Programa {o.cohorte.nombre}
-                      </p>
-                      <div className="space-y-1">
-                        {o.modulos.map((mod) => {
-                          const clave = `${o.cohorte.id}|${mod.id}`
-                          const activo = modulosNuevo.has(clave)
-                          return (
-                            <button
-                              key={clave}
-                              type="button"
-                              onClick={() =>
-                                setModulosNuevo((prev) => {
-                                  const copia = new Set(prev)
-                                  if (activo) copia.delete(clave); else copia.add(clave)
-                                  return copia
-                                })
-                              }
-                              className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
-                                activo ? 'bg-zr-blue/15 text-zr-blue' : 'text-zr-text-muted active:bg-zr-border/40'
-                              }`}
-                            >
-                              <span className="min-w-0 break-words">{mod.orden}. {mod.nombre}</span>
-                              {activo && <span className="shrink-0 text-xs font-bold">✓</span>}
-                            </button>
-                          )
-                        })}
+                <Select
+                  value=""
+                  onChange={(e) => {
+                    const id = e.target.value
+                    if (id) setProgramasElegidos((prev) => (prev.includes(id) ? prev : [...prev, id]))
+                  }}
+                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+                >
+                  <option value="">{programasElegidos.length === 0 ? 'Seleccionar el programa…' : 'Agregar otro programa…'}</option>
+                  {ofertas
+                    .filter((o) => !programasElegidos.includes(o.cohorte.id))
+                    .map((o) => (
+                      <option key={o.cohorte.id} value={o.cohorte.id}>{o.cohorte.nombre}</option>
+                    ))}
+                </Select>
+
+                <div className="mt-3 space-y-3">
+                  {programasElegidos.map((id) => {
+                    const o = ofertas.find((x) => x.cohorte.id === id)
+                    if (!o) return null
+                    return (
+                      <div key={id} className="rounded-lg border border-zr-border bg-zr-bg p-2">
+                        <div className="flex items-center justify-between gap-3 px-3 pb-1 pt-1">
+                          <p className="text-xs font-bold uppercase tracking-wide text-zr-blue-mid">Programa {o.cohorte.nombre}</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProgramasElegidos((prev) => prev.filter((x) => x !== id))
+                              setModulosNuevo((prev) => new Set([...prev].filter((k) => !k.startsWith(`${id}|`))))
+                            }}
+                            className="text-xs font-bold text-zr-error"
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                        <div className="max-h-56 space-y-1 overflow-y-auto">
+                          {o.modulos.map((mod) => {
+                            const clave = `${id}|${mod.id}`
+                            const activo = modulosNuevo.has(clave)
+                            return (
+                              <button
+                                key={clave}
+                                type="button"
+                                onClick={() =>
+                                  setModulosNuevo((prev) => {
+                                    const copia = new Set(prev)
+                                    if (activo) copia.delete(clave); else copia.add(clave)
+                                    return copia
+                                  })
+                                }
+                                className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                                  activo ? 'bg-zr-blue/15 text-zr-blue' : 'text-zr-text-muted active:bg-zr-border/40'
+                                }`}
+                              >
+                                <span className="min-w-0 break-words">{mod.orden}. {mod.nombre}</span>
+                                {activo && <span className="shrink-0 text-xs font-bold">✓</span>}
+                              </button>
+                            )
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             </>
@@ -833,34 +868,51 @@ export default function Personal() {
                     </button>
 
                     {expandido === m.id && (
-                      <div className="mt-3 max-h-72 space-y-3 overflow-y-auto">
-                        {ofertas.map((o) => (
-                          <div key={o.cohorte.id}>
-                            <p className="px-3 pb-1 text-xs font-bold uppercase tracking-wide text-zr-blue-mid">
-                              Programa {o.cohorte.nombre}
-                            </p>
-                            <div className="space-y-1">
-                              {o.modulos.map((mod) => {
-                                const clave = `${o.cohorte.id}|${mod.id}`
-                                const activo = misModulos.has(clave)
-                                const ocupado = guardandoModulo === `${m.id}|${clave}`
-                                return (
-                                  <button
-                                    key={clave}
-                                    onClick={() => alternarModulo(m.id, o.cohorte.id, mod.id)}
-                                    disabled={ocupado}
-                                    className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors disabled:opacity-50 ${
-                                      activo ? 'bg-zr-blue/15 text-zr-blue' : 'text-zr-text-muted active:bg-zr-border/40'
-                                    }`}
-                                  >
-                                    <span className="min-w-0 break-words">{mod.orden}. {mod.nombre}</span>
-                                    {activo && <span className="shrink-0 text-xs font-bold">✓</span>}
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        ))}
+                      <div className="mt-3 space-y-3">
+                        {(() => {
+                          const idPanel = panelCohorte && ofertas.some((o) => o.cohorte.id === panelCohorte)
+                            ? panelCohorte
+                            : ofertas[0]?.cohorte.id ?? ''
+                          const o = ofertas.find((x) => x.cohorte.id === idPanel)
+                          return (
+                            <>
+                              <Select
+                                value={idPanel}
+                                onChange={(e) => setPanelCohorte(e.target.value)}
+                                className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+                              >
+                                {ofertas.map((x) => {
+                                  const cuantos = [...misModulos].filter((k) => k.startsWith(`${x.cohorte.id}|`)).length
+                                  return (
+                                    <option key={x.cohorte.id} value={x.cohorte.id}>
+                                      {x.cohorte.nombre}{cuantos > 0 ? ` · ${cuantos} módulo${cuantos === 1 ? '' : 's'}` : ''}
+                                    </option>
+                                  )
+                                })}
+                              </Select>
+                              <div className="max-h-64 space-y-1 overflow-y-auto">
+                                {(o?.modulos ?? []).map((mod) => {
+                                  const clave = `${idPanel}|${mod.id}`
+                                  const activo = misModulos.has(clave)
+                                  const ocupado = guardandoModulo === `${m.id}|${clave}`
+                                  return (
+                                    <button
+                                      key={clave}
+                                      onClick={() => alternarModulo(m.id, idPanel, mod.id)}
+                                      disabled={ocupado}
+                                      className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors disabled:opacity-50 ${
+                                        activo ? 'bg-zr-blue/15 text-zr-blue' : 'text-zr-text-muted active:bg-zr-border/40'
+                                      }`}
+                                    >
+                                      <span className="min-w-0 break-words">{mod.orden}. {mod.nombre}</span>
+                                      {activo && <span className="shrink-0 text-xs font-bold">✓</span>}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </>
+                          )
+                        })()}
                       </div>
                     )}
                   </div>

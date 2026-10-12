@@ -98,7 +98,10 @@ export default function CoberturaModulos() {
 
     const [{ data: mods }, { data: asigs }] = await Promise.all([
       supabase.from('modules').select('id, name, order_index').eq('program_id', c.programaId).order('order_index'),
-      supabase.from('teacher_module_assignments').select('teacher_id, module_id, modules!inner(program_id)').eq('modules.program_id', c.programaId),
+      // Solo las asignaciones DE ESTA COHORTE: cada cohorte (PTMA-2026-II,
+      // PTMA-2026-I…) es un programa distinto y puede tener otro profesor en
+      // el mismo módulo (migración 154).
+      supabase.from('teacher_module_assignments').select('teacher_id, module_id').eq('cohort_id', c.id),
     ])
 
     setModulos((mods ?? []).map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index })))
@@ -115,12 +118,16 @@ export default function CoberturaModulos() {
     setGuardando(moduloId)
     const supabase = createClient()
 
-    await supabase.from('teacher_module_assignments').delete().eq('module_id', moduloId)
+    if (!cohorteId) {
+      setGuardando(null)
+      return
+    }
+    await supabase.from('teacher_module_assignments').delete().eq('module_id', moduloId).eq('cohort_id', cohorteId)
 
     if (nuevoProfesorId) {
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('teacher_module_assignments')
-        .insert({ teacher_id: nuevoProfesorId, module_id: moduloId, assigned_by: user?.id ?? null })
+        .insert({ teacher_id: nuevoProfesorId, module_id: moduloId, cohort_id: cohorteId, assigned_by: user?.id ?? null })
     }
 
     setAsignaciones((prev) => {

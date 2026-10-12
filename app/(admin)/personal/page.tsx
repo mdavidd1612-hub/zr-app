@@ -54,6 +54,7 @@ interface Cohorte {
   moduloNombre: string | null
   profesorId: string | null
   programId: string | null
+  sede: string | null
 }
 
 interface Modulo {
@@ -103,6 +104,8 @@ export default function Personal() {
   // Alta de profesor: programas (cohortes) elegidos, y programa que se está mirando en el panel.
   const [programasElegidos, setProgramasElegidos] = useState<string[]>([])
   const [panelCohorte, setPanelCohorte] = useState('')
+  // Filtro por sede en el selector de programa del alta ('' = todas).
+  const [sedeFiltro, setSedeFiltro] = useState('')
   const [asignaciones, setAsignaciones] = useState<Map<string, Set<string>>>(new Map())
   const [expandido, setExpandido] = useState<string | null>(null)
   const [guardandoModulo, setGuardandoModulo] = useState<string | null>(null)
@@ -193,7 +196,7 @@ export default function Personal() {
         // sin profesor, para poder tanto asignar como reasignar.
         supabase
           .from('cohorts')
-          .select('id, name, teacher_id, program_id, modules(name)')
+          .select('id, name, teacher_id, program_id, sede, modules(name)')
           .eq('status', 'activa'),
         // C-2 (docs/18_BRECHAS_SPEC_FUNCIONAL_ZRM.md): además de la cohorte,
         // un profesor puede tener módulos propios asignados (spec §7).
@@ -209,7 +212,7 @@ export default function Personal() {
       if (!vigente) return
 
       const filasCohorte = (cohs ?? []) as unknown as {
-        id: string; name: string; teacher_id: string | null; program_id: string | null; modules: { name: string } | null
+        id: string; name: string; teacher_id: string | null; program_id: string | null; sede: string | null; modules: { name: string } | null
       }[]
 
       const cohortesMapeadas = ordenarCohortesPorPrioridad(filasCohorte).map((c) => ({
@@ -218,6 +221,7 @@ export default function Personal() {
         moduloNombre: c.modules?.name ?? null,
         profesorId: c.teacher_id,
         programId: c.program_id,
+        sede: c.sede,
       }))
       setCohortes(cohortesMapeadas)
 
@@ -667,6 +671,18 @@ export default function Personal() {
                   más de un programa, agrega otro. Verá a los estudiantes del programa y las notas y
                   la asistencia solo de sus módulos.
                 </p>
+                {[...new Set(ofertas.map((o) => o.cohorte.sede).filter((x): x is string => !!x))].length > 1 && (
+                  <Select
+                    value={sedeFiltro}
+                    onChange={(e) => setSedeFiltro(e.target.value)}
+                    className="mb-2 w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+                  >
+                    <option value="">Todas las sedes</option>
+                    {[...new Set(ofertas.map((o) => o.cohorte.sede).filter((x): x is string => !!x))].sort().map((sd) => (
+                      <option key={sd} value={sd}>{sd}</option>
+                    ))}
+                  </Select>
+                )}
                 <Select
                   value=""
                   onChange={(e) => {
@@ -677,9 +693,9 @@ export default function Personal() {
                 >
                   <option value="">{programasElegidos.length === 0 ? 'Seleccionar el programa…' : 'Agregar otro programa…'}</option>
                   {ofertas
-                    .filter((o) => !programasElegidos.includes(o.cohorte.id))
+                    .filter((o) => !programasElegidos.includes(o.cohorte.id) && (!sedeFiltro || o.cohorte.sede === sedeFiltro))
                     .map((o) => (
-                      <option key={o.cohorte.id} value={o.cohorte.id}>{o.cohorte.nombre}</option>
+                      <option key={o.cohorte.id} value={o.cohorte.id}>{o.cohorte.nombre}{o.cohorte.sede ? ` · ${o.cohorte.sede}` : ''}</option>
                     ))}
                 </Select>
 
@@ -690,7 +706,7 @@ export default function Personal() {
                     return (
                       <div key={id} className="rounded-lg border border-zr-border bg-zr-bg p-2">
                         <div className="flex items-center justify-between gap-3 px-3 pb-1 pt-1">
-                          <p className="text-xs font-bold uppercase tracking-wide text-zr-blue-mid">Programa {o.cohorte.nombre}</p>
+                          <p className="text-xs font-bold uppercase tracking-wide text-zr-blue-mid">Programa {o.cohorte.nombre}{o.cohorte.sede ? ` · ${o.cohorte.sede}` : ''}</p>
                           <button
                             type="button"
                             onClick={() => {
@@ -895,7 +911,7 @@ export default function Personal() {
                                   const cuantos = [...misModulos].filter((k) => k.startsWith(`${x.cohorte.id}|`)).length
                                   return (
                                     <option key={x.cohorte.id} value={x.cohorte.id}>
-                                      {x.cohorte.nombre}{cuantos > 0 ? ` · ${cuantos} módulo${cuantos === 1 ? '' : 's'}` : ''}
+                                      {x.cohorte.nombre}{x.cohorte.sede ? ` · ${x.cohorte.sede}` : ''}{cuantos > 0 ? ` · ${cuantos} módulo${cuantos === 1 ? '' : 's'}` : ''}
                                     </option>
                                   )
                                 })}

@@ -27,6 +27,7 @@ interface Cohorte {
   nombre: string
   programaId: string
   programaNombre: string
+  sede: string | null
 }
 
 interface Modulo {
@@ -73,16 +74,16 @@ export default function CoberturaModulos() {
       const [{ data: cohs }, { data: profs }] = await Promise.all([
         supabase
           .from('cohorts')
-          .select('id, name, program_id, programs(name)')
+          .select('id, name, program_id, sede, programs(name)')
           .eq('status', 'activa'),
         supabase.from('profiles').select('id, full_name').eq('role', 'profesor').order('full_name'),
       ])
 
       setCohortes(
         ordenarCohortesPorPrioridad(
-          (cohs ?? []) as unknown as { id: string; name: string; program_id: string; programs: { name: string } | null }[],
+          (cohs ?? []) as unknown as { id: string; name: string; program_id: string; sede: string | null; programs: { name: string } | null }[],
         )
-          .map((c) => ({ id: c.id, nombre: c.name, programaId: c.program_id, programaNombre: c.programs?.name ?? '—' })),
+          .map((c) => ({ id: c.id, nombre: c.name, programaId: c.program_id, programaNombre: c.programs?.name ?? '—', sede: c.sede })),
       )
       setProfesores((profs ?? []).map((p) => ({ id: p.id, nombre: p.full_name })))
       setCargando(false)
@@ -174,7 +175,7 @@ export default function CoberturaModulos() {
         titulo="Cobertura de módulos"
         descripcion={
           cohorteActual
-            ? `${cohorteActual.programaNombre} · ${cohorteActual.nombre}`
+            ? `${cohorteActual.programaNombre} · ${cohorteActual.nombre}${cohorteActual.sede ? ` · ${cohorteActual.sede}` : ''}`
             : 'Elige una cohorte para ver y asignar el profesor de cada módulo.'
         }
       />
@@ -194,7 +195,7 @@ export default function CoberturaModulos() {
               >
                 <div className="min-w-0">
                   <p className="truncate text-base font-bold text-zr-text">{c.nombre}</p>
-                  <p className="mt-0.5 truncate text-sm text-zr-text-muted">{c.programaNombre}</p>
+                  <p className="mt-0.5 truncate text-sm text-zr-text-muted">{c.programaNombre}{c.sede ? ` · ${c.sede}` : ''}</p>
                 </div>
                 <span aria-hidden className="shrink-0 text-zr-text-muted">›</span>
               </button>

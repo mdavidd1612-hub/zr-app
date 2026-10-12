@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
@@ -165,7 +166,17 @@ export default function PerfilDocente() {
         )}
       </Seccion>
 
-      <Seccion numero={3} titulo="Cuenta" delay={220}>
+      <Seccion numero={3} titulo="Temario" delay={180}>
+        <Link href="/temario-docente" className="zr-card zr-card-interactive flex items-center justify-between gap-3 p-5">
+          <div className="min-w-0">
+            <p className="text-base font-semibold text-zr-text">Qué debo impartir</p>
+            <p className="mt-0.5 text-sm text-zr-text-muted">Temas de cada semana de tus módulos vigentes</p>
+          </div>
+          <span aria-hidden className="shrink-0 text-zr-text-muted">›</span>
+        </Link>
+      </Seccion>
+
+      <Seccion numero={4} titulo="Cuenta" delay={220}>
         <BloqueCuenta
           nombre={perfil.nombre}
           cedula={perfil.cedula}
@@ -180,7 +191,7 @@ export default function PerfilDocente() {
           recorriendo la app como si fuera profesor (vista de recorrido). Un
           profesor real nunca lo ve. */}
       {perfil.rol === 'super_admin' && (
-        <Seccion numero={4} titulo="Prueba" delay={280}>
+        <Seccion numero={5} titulo="Prueba" delay={280}>
           <button
             onClick={() => {
               const nuevo = !simulado

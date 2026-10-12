@@ -86,10 +86,10 @@ export default function ContenidoProfesor() {
           ? supabase.from('modules').select('id, name, order_index, programs(siglas)').in('id', idsMios).order('order_index')
           : Promise.resolve({ data: [] }),
         idsCohortes.length
-          ? supabase.from('cohorts').select('id, name').in('id', idsCohortes)
+          ? supabase.from('cohorts').select('id, name, sede').in('id', idsCohortes)
           : Promise.resolve({ data: [] }),
       ])
-      const nombreCohorte = new Map(((cohInfo ?? []) as unknown as { id: string; name: string }[]).map((c) => [c.id, c.name]))
+      const nombreCohorte = new Map(((cohInfo ?? []) as unknown as { id: string; name: string; sede: string | null }[]).map((c) => [c.id, c.sede ? `${c.name} · ${c.sede}` : c.name]))
 
       if (!vigente) return
 
@@ -121,8 +121,12 @@ export default function ContenidoProfesor() {
       )
 
       const infoModulo = new Map(((modsInfo ?? []) as unknown as { id: string; name: string; order_index: number }[]).map((m) => [m.id, m]))
+      // Solo se sube a módulos vigentes (en curso o sin calendario); el siguiente
+      // se habilita solo al llegar su fecha.
+      const estados = await Promise.all(pares.map((p) => supabase.rpc('estado_modulo_cohorte', { p_cohort: p.cohort_id, p_module: p.module_id })))
+      const vigentes = new Set(pares.filter((_, i) => ['en_curso', 'sin_calendario'].includes(String(estados[i].data))).map((p) => `${p.cohort_id}|${p.module_id}`))
       const opciones = pares
-        .filter((p) => infoModulo.has(p.module_id) && nombreCohorte.has(p.cohort_id))
+        .filter((p) => vigentes.has(`${p.cohort_id}|${p.module_id}`) && infoModulo.has(p.module_id) && nombreCohorte.has(p.cohort_id))
         .sort((a, b) => (nombreCohorte.get(a.cohort_id)! + String(infoModulo.get(a.module_id)!.order_index).padStart(3, '0')).localeCompare(nombreCohorte.get(b.cohort_id)! + String(infoModulo.get(b.module_id)!.order_index).padStart(3, '0')))
         .map((p) => {
           const m = infoModulo.get(p.module_id)!

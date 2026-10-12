@@ -690,6 +690,7 @@ export type Database = {
       }
       content_folders: {
         Row: {
+          cohort_id: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -698,6 +699,7 @@ export type Database = {
           parent_folder_id: string | null
         }
         Insert: {
+          cohort_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -706,6 +708,7 @@ export type Database = {
           parent_folder_id?: string | null
         }
         Update: {
+          cohort_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -714,6 +717,13 @@ export type Database = {
           parent_folder_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "content_folders_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "content_folders_created_by_fkey"
             columns: ["created_by"]
@@ -740,6 +750,7 @@ export type Database = {
       content_items: {
         Row: {
           approval_status: Database["public"]["Enums"]["content_approval_status"]
+          cohort_id: string | null
           created_at: string
           description: string | null
           external_url: string | null
@@ -764,6 +775,7 @@ export type Database = {
         }
         Insert: {
           approval_status?: Database["public"]["Enums"]["content_approval_status"]
+          cohort_id?: string | null
           created_at?: string
           description?: string | null
           external_url?: string | null
@@ -788,6 +800,7 @@ export type Database = {
         }
         Update: {
           approval_status?: Database["public"]["Enums"]["content_approval_status"]
+          cohort_id?: string | null
           created_at?: string
           description?: string | null
           external_url?: string | null
@@ -811,6 +824,13 @@ export type Database = {
           week_number?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "content_items_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "content_items_folder_id_fkey"
             columns: ["folder_id"]
@@ -3609,6 +3629,14 @@ export type Database = {
         Args: { p_fecha: string; p_turno: string }
         Returns: string
       }
+      mi_cohorte_estudiante: { Args: never; Returns: string }
+      mis_asignaciones_docente: {
+        Args: never
+        Returns: {
+          cohort_id: string
+          module_id: string
+        }[]
+      }
       mis_modulos_cursados: { Args: never; Returns: string[] }
       mis_modulos_docente: { Args: never; Returns: string[] }
       mis_notas_modulos: {
@@ -3630,6 +3658,14 @@ export type Database = {
       my_module_id: { Args: never; Returns: string }
       profesor_de_cohorte_antiguo: {
         Args: { p_cohort: string }
+        Returns: boolean
+      }
+      profesor_dicta: {
+        Args: { p_cohort: string; p_module: string }
+        Returns: boolean
+      }
+      profesor_ve_material: {
+        Args: { p_cohort: string; p_module: string; p_uploaded_by: string }
         Returns: boolean
       }
       programa_tiene_asignaciones: {

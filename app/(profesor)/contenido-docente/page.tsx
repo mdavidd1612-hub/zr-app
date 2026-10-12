@@ -39,6 +39,7 @@ interface Material {
 export default function ContenidoProfesor() {
   const router = useRouter()
   const [materiales, setMateriales] = useState<Material[]>([])
+  // Cada opción es un par programa (cohorte) + módulo; el valor es "cohorte|módulo".
   const [modulos, setModulos] = useState<{ id: string; name: string }[]>([])
   const [cargando, setCargando] = useState(true)
   const [version, setVersion] = useState(0)
@@ -75,12 +76,20 @@ export default function ContenidoProfesor() {
           .order('created_at', { ascending: false }),
         // Solo los módulos que dicta este profesor (migración 123): ahí puede
         // ver y subir material; en cualquier otro la base lo rechaza.
-        supabase.rpc('mis_modulos_docente'),
+        supabase.rpc('mis_asignaciones_docente'),
       ])
-      const idsMios = (mods ?? []) as unknown as string[]
-      const { data: modsInfo } = idsMios.length
-        ? await supabase.from('modules').select('id, name, order_index, programs(siglas)').in('id', idsMios).order('order_index')
-        : { data: [] }
+      const pares = ((mods ?? []) as unknown as { cohort_id: string; module_id: string }[])
+      const idsMios = [...new Set(pares.map((p) => p.module_id))]
+      const idsCohortes = [...new Set(pares.map((p) => p.cohort_id))]
+      const [{ data: modsInfo }, { data: cohInfo }] = await Promise.all([
+        idsMios.length
+          ? supabase.from('modules').select('id, name, order_index, programs(siglas)').in('id', idsMios).order('order_index')
+          : Promise.resolve({ data: [] }),
+        idsCohortes.length
+          ? supabase.from('cohorts').select('id, name').in('id', idsCohortes)
+          : Promise.resolve({ data: [] }),
+      ])
+      const nombreCohorte = new Map(((cohInfo ?? []) as unknown as { id: string; name: string }[]).map((c) => [c.id, c.name]))
 
       if (!vigente) return
 
@@ -111,8 +120,14 @@ export default function ContenidoProfesor() {
         })),
       )
 
-      const opciones = ((modsInfo ?? []) as unknown as { id: string; name: string; order_index: number; programs: { siglas: string | null } | null }[])
-        .map((m) => ({ id: m.id, name: `${m.programs?.siglas ? `${m.programs.siglas} · ` : ''}Módulo ${m.order_index} · ${m.name}` }))
+      const infoModulo = new Map(((modsInfo ?? []) as unknown as { id: string; name: string; order_index: number }[]).map((m) => [m.id, m]))
+      const opciones = pares
+        .filter((p) => infoModulo.has(p.module_id) && nombreCohorte.has(p.cohort_id))
+        .sort((a, b) => (nombreCohorte.get(a.cohort_id)! + String(infoModulo.get(a.module_id)!.order_index).padStart(3, '0')).localeCompare(nombreCohorte.get(b.cohort_id)! + String(infoModulo.get(b.module_id)!.order_index).padStart(3, '0')))
+        .map((p) => {
+          const m = infoModulo.get(p.module_id)!
+          return { id: `${p.cohort_id}|${p.module_id}`, name: `${nombreCohorte.get(p.cohort_id)} · Módulo ${m.order_index} · ${m.name}` }
+        })
       setModulos(opciones)
       if (opciones.length && !moduloId) setModuloId(opciones[0].id)
       setCargando(false)
@@ -146,7 +161,8 @@ export default function ContenidoProfesor() {
       return
     }
 
-    const ruta = rutaDeStorage(moduloId, aSubir.name)
+    const [cohorteSel, moduloSel] = moduloId.split('|')
+    const ruta = rutaDeStorage(moduloSel, aSubir.name)
 
     const { error: falloSubida } = await subirAlBucket(ruta, aSubir)
 
@@ -160,7 +176,8 @@ export default function ContenidoProfesor() {
     // profesor queda pendiente hasta que administración lo revise — nunca
     // se publica solo, aunque el profesor lo marque como listo.
     const { error: falloRegistro } = await supabase.from('content_items').insert({
-      module_id: moduloId,
+      module_id: moduloSel,
+      cohort_id: cohorteSel,
       week_number: semana === '' ? null : semana,
       title: titulo.trim(),
       type: tipo,

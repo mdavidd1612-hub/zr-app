@@ -195,10 +195,13 @@ export default function MaterialAdmin() {
 
       const consultaCarpetas = supabase
         .from('content_folders').select('id, name').eq('module_id', programa.moduloId)
+        .or(`cohort_id.is.null,cohort_id.eq.${programa.id}`)
       const consultaItems = supabase
         .from('content_items')
         .select('id, title, week_number, is_published, size_bytes, storage_path, original_name, type, created_at, uploaded_by, approval_status, profiles!content_items_uploaded_by_fkey(full_name)')
         .eq('module_id', programa.moduloId)
+        // Material de este programa (cohorte) o general (sin programa).
+        .or(`cohort_id.is.null,cohort_id.eq.${programa.id}`)
         .neq('approval_status', 'pendiente')
 
       const [{ data: subs }, { data: items }] = await Promise.all([
@@ -278,7 +281,8 @@ export default function MaterialAdmin() {
     if (!programa?.moduloId) return
     setMoviendo(m)
     const { data } = await createClient()
-      .from('content_folders').select('id, name, parent_folder_id').eq('module_id', programa.moduloId).order('name')
+      .from('content_folders').select('id, name, parent_folder_id').eq('module_id', programa.moduloId)
+      .or(`cohort_id.is.null,cohort_id.eq.${programa.id}`).order('name')
     setArbol((data ?? []).map((f) => ({ id: f.id, nombre: f.name, padre: f.parent_folder_id })))
   }
 
@@ -366,6 +370,7 @@ export default function MaterialAdmin() {
     const { data: { user } } = await supabase.auth.getUser()
     const { error: fallo } = await supabase.from('content_folders').insert({
       module_id: programa.moduloId,
+      cohort_id: programa.id,
       parent_folder_id: carpetaActual,
       name: nombreCarpeta.trim(),
       created_by: user?.id ?? null,
@@ -425,6 +430,7 @@ export default function MaterialAdmin() {
 
     const { error: falloRegistro } = await supabase.from('content_items').insert({
       module_id: programa.moduloId,
+      cohort_id: programa.id,
       folder_id: carpetaActual,
       week_number: semana === '' ? null : semana,
       title: titulo.trim(),

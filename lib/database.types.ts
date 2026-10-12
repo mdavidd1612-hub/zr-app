@@ -3038,6 +3038,7 @@ export type Database = {
         Row: {
           assigned_at: string
           assigned_by: string | null
+          cohort_id: string | null
           id: string
           module_id: string
           teacher_id: string
@@ -3045,6 +3046,7 @@ export type Database = {
         Insert: {
           assigned_at?: string
           assigned_by?: string | null
+          cohort_id?: string | null
           id?: string
           module_id: string
           teacher_id: string
@@ -3052,6 +3054,7 @@ export type Database = {
         Update: {
           assigned_at?: string
           assigned_by?: string | null
+          cohort_id?: string | null
           id?: string
           module_id?: string
           teacher_id?: string
@@ -3062,6 +3065,13 @@ export type Database = {
             columns: ["assigned_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_module_assignments_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
             referencedColumns: ["id"]
           },
           {

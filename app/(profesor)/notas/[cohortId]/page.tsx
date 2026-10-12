@@ -85,6 +85,7 @@ export default function NotasCohorteProfesor() {
         .select('modules!inner(id, name, order_index, program_id)')
         .eq('teacher_id', user.id)
         .eq('modules.program_id', cohorte?.program_id ?? '')
+        .or(`cohort_id.is.null,cohort_id.eq.${cohortId}`)
       const lista = ((asig ?? []) as unknown as { modules: { id: string; name: string; order_index: number } }[])
         .map((a) => ({ id: a.modules.id, orden: a.modules.order_index, nombre: a.modules.name }))
         .sort((x, y) => x.orden - y.orden)

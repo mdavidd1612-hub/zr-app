@@ -71,10 +71,10 @@ export default function PerfilDocente() {
       // siempre (el módulo vigente de la cohorte que tenga a su cargo).
       const { data: asig } = await supabase
         .from('teacher_module_assignments')
-        .select('modules!inner(id, name, order_index, program_id)')
+        .select('cohort_id, modules!inner(id, name, order_index, program_id)')
         .eq('teacher_id', user.id)
-      const mios = ((asig ?? []) as unknown as { modules: { id: string; name: string; order_index: number; program_id: string } }[])
-        .map((a) => a.modules)
+      const mios = ((asig ?? []) as unknown as { cohort_id: string | null; modules: { id: string; name: string; order_index: number; program_id: string } }[])
+        .map((a) => ({ ...a.modules, cohort_id: a.cohort_id }))
         .sort((x, y) => x.order_index - y.order_index)
 
       // Sin filtrar por dueño: la base entrega las cohortes de los programas donde
@@ -93,7 +93,8 @@ export default function PerfilDocente() {
       if (filas) {
         setCohortes(
           ordenarCohortesPorPrioridad(filas).map((c) => {
-            const dePrograma = mios.filter((m) => m.program_id === c.program_id)
+            // Una asignación con cohorte vale solo para esa cohorte; sin cohorte, para todas.
+            const dePrograma = mios.filter((m) => m.program_id === c.program_id && (m.cohort_id === null || m.cohort_id === c.id))
             return {
               id: c.id,
               nombre: c.name,

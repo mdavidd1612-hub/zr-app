@@ -66,6 +66,22 @@ interface Props {
   children: (c: ContextoSel) => React.ReactNode
 }
 
+// Ventana flotante con el fondo borroso: la elección es obligatoria, así que no
+// se cierra tocando afuera (solo con «Volver»).
+function VentanaElegir({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 backdrop-blur-md sm:items-center sm:p-5">
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="max-h-[88dvh] w-full max-w-lg space-y-6 overflow-y-auto rounded-t-2xl border border-white/15 bg-zr-surface/85 p-6 pb-8 shadow-[0_16px_48px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:rounded-2xl sm:pb-6"
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
 const ETIQUETA_ESTADO: Record<EstadoModulo, string | null> = {
   sin_calendario: null,
   en_curso: null,
@@ -185,7 +201,7 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
   // ── Paso 1: programa (solo si hay más de uno) ──
   if (!cohortEfectivo) {
     return (
-      <div className="space-y-6 px-5 pb-10 pt-14">
+      <VentanaElegir>
         <BotonVolver href={volverHref} />
         <header>
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">{sobretitulo}</p>
@@ -215,13 +231,13 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
             )
           })}
         </div>
-      </div>
+      </VentanaElegir>
     )
   }
 
   // ── Paso 2: módulo, solo de ESE programa ──
   return (
-    <div className="space-y-6 px-5 pb-10 pt-14">
+    <VentanaElegir>
       {programas.length > 1 ? (
         <button
           onClick={cambiar}
@@ -258,6 +274,6 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
           </button>
         ))}
       </div>
-    </div>
+    </VentanaElegir>
   )
 }

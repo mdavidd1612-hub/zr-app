@@ -1,17 +1,16 @@
 'use client'
 
-import { Select } from '@/components/ui/Select'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
-import { BotonVolver } from '@/components/ui/BotonVolver'
 import { prepararArchivo, subirAlBucket } from '@/lib/subida'
 import { EtiquetaTipoArchivo } from '@/components/ui/EtiquetaTipoArchivo'
 import {
   ACCEPT_MATERIAL, MENSAJE_FORMATOS, nombreDescarga, rutaDeStorage, tipoDeArchivo,
 } from '@/lib/material'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+import { ContextoDocente, AvisoModuloBloqueado, moduloVigente, type ContextoSel } from '@/components/ui/ContextoDocente'
 
 /**
  * T-401 · Subida de material de estudio por el profesor.
@@ -36,11 +35,9 @@ interface Material {
   mensajeRevision: string | null
 }
 
-export default function ContenidoProfesor() {
+function ContenidoInterno({ ctx }: { ctx: ContextoSel }) {
   const router = useRouter()
   const [materiales, setMateriales] = useState<Material[]>([])
-  // Cada opción es un par programa (cohorte) + módulo; el valor es "cohorte|módulo".
-  const [modulos, setModulos] = useState<{ id: string; name: string }[]>([])
   const [cargando, setCargando] = useState(true)
   const [version, setVersion] = useState(0)
 
@@ -68,29 +65,16 @@ export default function ContenidoProfesor() {
       // Ve el material publicado (de administración) y todo lo suyo propio,
       // sea cual sea su estado de aprobación — Fase 0
       // (docs/16_FASE0_PLAN_PROFESOR.md, Sprint E).
-      const [{ data: items }, { data: mods }] = await Promise.all([
+      const [{ data: items }] = await Promise.all([
         supabase
           .from('content_items')
           .select('id, title, week_number, is_published, visible_from, size_bytes, storage_path, original_name, type, uploaded_by, approval_status, review_message, modules(name, order_index, programs(siglas))')
           .or(`is_published.eq.true,uploaded_by.eq.${user.id}`)
+          // Solo el material del programa y módulo elegidos.
+          .eq('cohort_id', ctx.cohortId)
+          .eq('module_id', ctx.moduleId)
           .order('created_at', { ascending: false }),
-        // Solo los módulos que dicta este profesor (migración 123): ahí puede
-        // ver y subir material; en cualquier otro la base lo rechaza.
-        supabase.rpc('mis_asignaciones_docente'),
       ])
-      const pares = ((mods ?? []) as unknown as { cohort_id: string; module_id: string }[])
-      const idsMios = [...new Set(pares.map((p) => p.module_id))]
-      const idsCohortes = [...new Set(pares.map((p) => p.cohort_id))]
-      const [{ data: modsInfo }, { data: cohInfo }] = await Promise.all([
-        idsMios.length
-          ? supabase.from('modules').select('id, name, order_index, programs(siglas)').in('id', idsMios).order('order_index')
-          : Promise.resolve({ data: [] }),
-        idsCohortes.length
-          ? supabase.from('cohorts').select('id, name, sede').in('id', idsCohortes)
-          : Promise.resolve({ data: [] }),
-      ])
-      const nombreCohorte = new Map(((cohInfo ?? []) as unknown as { id: string; name: string; sede: string | null }[]).map((c) => [c.id, c.sede ? `${c.name} · ${c.sede}` : c.name]))
-
       if (!vigente) return
 
       const filas = (items ?? []) as unknown as {
@@ -120,27 +104,14 @@ export default function ContenidoProfesor() {
         })),
       )
 
-      const infoModulo = new Map(((modsInfo ?? []) as unknown as { id: string; name: string; order_index: number }[]).map((m) => [m.id, m]))
-      // Solo se sube a módulos vigentes (en curso o sin calendario); el siguiente
-      // se habilita solo al llegar su fecha.
-      const estados = await Promise.all(pares.map((p) => supabase.rpc('estado_modulo_cohorte', { p_cohort: p.cohort_id, p_module: p.module_id })))
-      const vigentes = new Set(pares.filter((_, i) => ['en_curso', 'sin_calendario'].includes(String(estados[i].data))).map((p) => `${p.cohort_id}|${p.module_id}`))
-      const opciones = pares
-        .filter((p) => vigentes.has(`${p.cohort_id}|${p.module_id}`) && infoModulo.has(p.module_id) && nombreCohorte.has(p.cohort_id))
-        .sort((a, b) => (nombreCohorte.get(a.cohort_id)! + String(infoModulo.get(a.module_id)!.order_index).padStart(3, '0')).localeCompare(nombreCohorte.get(b.cohort_id)! + String(infoModulo.get(b.module_id)!.order_index).padStart(3, '0')))
-        .map((p) => {
-          const m = infoModulo.get(p.module_id)!
-          return { id: `${p.cohort_id}|${p.module_id}`, name: `${nombreCohorte.get(p.cohort_id)} · Módulo ${m.order_index} · ${m.name}` }
-        })
-      setModulos(opciones)
-      if (opciones.length && !moduloId) setModuloId(opciones[0].id)
+      // El destino de la subida es siempre el programa + módulo elegidos.
+      setModuloId(`${ctx.cohortId}|${ctx.moduleId}`)
       setCargando(false)
     }
 
     cargar()
     return () => { vigente = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, version])
+  }, [router, version, ctx.cohortId, ctx.moduleId])
 
   async function subir() {
     if (!archivo || !titulo.trim() || !moduloId) return
@@ -240,22 +211,22 @@ export default function ContenidoProfesor() {
   }
 
   return (
-    <div className="space-y-11 px-5 pb-28 pt-14">
-      <BotonVolver href="/hoy" />
-
+    <div className="space-y-11 px-5 pb-28 pt-8">
       <Encabezado
-        sobretitulo="Docencia"
+        sobretitulo={`${ctx.cohorteNombre}${ctx.sede ? ` · ${ctx.sede}` : ''} · Módulo ${ctx.moduloOrden}`}
         titulo="Material de estudio"
         descripcion={`${materiales.length} archivo${materiales.length === 1 ? '' : 's'} subido${materiales.length === 1 ? '' : 's'}`}
-        accion={
+        accion={!moduloVigente(ctx.estado) ? undefined : (
           <button
             onClick={() => setFormAbierto((f) => !f)}
             className="rounded-lg bg-zr-blue px-5 py-3.5 text-sm font-bold text-white"
           >
             {formAbierto ? 'Cancelar' : '+ Subir archivo'}
           </button>
-        }
+        )}
       />
+
+      <AvisoModuloBloqueado estado={ctx.estado} />
 
       <Regla delay={60} />
 
@@ -312,15 +283,9 @@ export default function ContenidoProfesor() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-2 block text-sm font-semibold text-zr-text">Módulo</label>
-              <Select
-                value={moduloId}
-                onChange={(e) => setModuloId(e.target.value)}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
-              >
-                {modulos.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </Select>
+              <p className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text">
+                {ctx.cohorteNombre}{ctx.sede ? ` · ${ctx.sede}` : ''} · Módulo {ctx.moduloOrden} · {ctx.moduloNombre}
+              </p>
             </div>
             <div>
               <label className="mb-2 block text-sm font-semibold text-zr-text">
@@ -410,5 +375,13 @@ export default function ContenidoProfesor() {
         </Seccion>
       )}
     </div>
+  )
+}
+
+export default function ContenidoProfesor() {
+  return (
+    <ContextoDocente sobretitulo="Docencia" titulo="Material de estudio">
+      {(ctx) => <ContenidoInterno ctx={ctx} />}
+    </ContextoDocente>
   )
 }

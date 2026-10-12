@@ -47,7 +47,9 @@ export default function NotasCohorteProfesor() {
   // Módulos que este profesor puede ver en la cohorte (los que tiene asignados)
   // y el que está mirando. Migración 150: acceso y notas por módulo.
   const [opciones, setOpciones] = useState<{ id: string; orden: number; nombre: string }[]>([])
-  const [moduloElegido, setModuloElegido] = useState<string | null>(null)
+  // Viene preelegido desde el selector de programa y módulo (?modulo=).
+  const [moduloElegido, setModuloElegido] = useState<string | null>(() =>
+    typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('modulo'))
   const [estadoModulo, setEstadoModulo] = useState<'sin_calendario' | 'no_empezo' | 'en_curso' | 'terminado'>('sin_calendario')
   const [umbral, setUmbral] = useState(12)
   const [sumaPct, setSumaPct] = useState(0)

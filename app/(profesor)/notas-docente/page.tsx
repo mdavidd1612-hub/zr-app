@@ -34,7 +34,8 @@ export default function NotasIndice() {
       const { data } = await supabase
         .from('cohorts')
         .select('id, name, modules(name)')
-        .eq('teacher_id', user.id)
+        // Sin filtrar por dueño de la cohorte: la base entrega las cohortes de
+        // los programas donde el profesor tiene módulos asignados (migración 150).
         .eq('status', 'activa')
 
       if (!vigente) return

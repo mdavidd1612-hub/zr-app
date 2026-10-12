@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -3525,6 +3525,10 @@ export type Database = {
         Returns: undefined
       }
       es_gestor_zr_coffee: { Args: never; Returns: boolean }
+      estado_modulo_cohorte: {
+        Args: { p_cohort: string; p_module: string }
+        Returns: string
+      }
       estudiante_solvente: { Args: never; Returns: boolean }
       fn_aplicar_calendario_cohorte: {
         Args: { p_cohort: string }
@@ -3535,6 +3539,7 @@ export type Database = {
         Returns: undefined
       }
       fn_avanzar_modulos_por_calendario: { Args: never; Returns: undefined }
+      fn_avisos_de_clase: { Args: never; Returns: undefined }
       fn_cambiar_mi_rol: {
         Args: { nuevo_rol: Database["public"]["Enums"]["user_role"] }
         Returns: undefined
@@ -3613,6 +3618,14 @@ export type Database = {
       modulos_que_imparto: { Args: never; Returns: string[] }
       my_cohort_id: { Args: never; Returns: string }
       my_module_id: { Args: never; Returns: string }
+      profesor_de_cohorte_antiguo: {
+        Args: { p_cohort: string }
+        Returns: boolean
+      }
+      programa_tiene_asignaciones: {
+        Args: { p_cohort: string }
+        Returns: boolean
+      }
       publicar_cambios: {
         Args: { p_cohort: string; p_module: string }
         Returns: undefined
@@ -3633,6 +3646,14 @@ export type Database = {
         Returns: string
       }
       teaches_cohort: { Args: { p_cohort: string }; Returns: boolean }
+      teaches_cohort_module: {
+        Args: { p_cohort: string; p_module: string }
+        Returns: boolean
+      }
+      tengo_modulo_asignado: {
+        Args: { p_cohort: string; p_module: string }
+        Returns: boolean
+      }
       validar_notas: {
         Args: { p_cohort: string; p_module: string }
         Returns: undefined

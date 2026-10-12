@@ -44,6 +44,11 @@ export default function NotasCohorteProfesor() {
   const cohortId = params.cohortId as string
 
   const [moduleId, setModuleId] = useState<string | null>(null)
+  // Módulos que este profesor puede ver en la cohorte (los que tiene asignados)
+  // y el que está mirando. Migración 150: acceso y notas por módulo.
+  const [opciones, setOpciones] = useState<{ id: string; orden: number; nombre: string }[]>([])
+  const [moduloElegido, setModuloElegido] = useState<string | null>(null)
+  const [estadoModulo, setEstadoModulo] = useState<'sin_calendario' | 'no_empezo' | 'en_curso' | 'terminado'>('sin_calendario')
   const [umbral, setUmbral] = useState(12)
   const [sumaPct, setSumaPct] = useState(0)
   const [filas, setFilas] = useState<FilaEstudiante[]>([])
@@ -71,11 +76,32 @@ export default function NotasCohorteProfesor() {
       }
 
       const { data: cohorte } = await supabase
-        .from('cohorts').select('current_module_id').eq('id', cohortId).single()
+        .from('cohorts').select('current_module_id, program_id').eq('id', cohortId).single()
       if (!vigente) return
-      setModuleId(cohorte?.current_module_id ?? null)
-      if (!cohorte?.current_module_id) { setCargando(false); return }
-      const modulo = cohorte.current_module_id
+
+      // Módulos asignados a este profesor dentro del programa de la cohorte.
+      const { data: asig } = await supabase
+        .from('teacher_module_assignments')
+        .select('modules!inner(id, name, order_index, program_id)')
+        .eq('teacher_id', user.id)
+        .eq('modules.program_id', cohorte?.program_id ?? '')
+      const lista = ((asig ?? []) as unknown as { modules: { id: string; name: string; order_index: number } }[])
+        .map((a) => ({ id: a.modules.id, orden: a.modules.order_index, nombre: a.modules.name }))
+        .sort((x, y) => x.orden - y.orden)
+      if (!vigente) return
+      setOpciones(lista)
+
+      // Por defecto: el módulo vigente si es suyo; si no, el último que tiene asignado.
+      const porDefecto = lista.some((m) => m.id === cohorte?.current_module_id)
+        ? cohorte?.current_module_id ?? null
+        : lista[lista.length - 1]?.id ?? cohorte?.current_module_id ?? null
+      const modulo = moduloElegido && (lista.length === 0 || lista.some((m) => m.id === moduloElegido)) ? moduloElegido : porDefecto
+      setModuleId(modulo)
+      if (!modulo) { setCargando(false); return }
+
+      const { data: estado } = await supabase.rpc('estado_modulo_cohorte', { p_cohort: cohortId, p_module: modulo })
+      if (!vigente) return
+      setEstadoModulo((estado as typeof estadoModulo | null) ?? 'sin_calendario')
 
       const [{ data: estudiantes }, { data: matriculas }, { data: exs }, { data: sub }] = await Promise.all([
         supabase.from('students').select('id, profiles!students_id_fkey(full_name, cedula)').eq('cohort_id', cohortId),
@@ -144,7 +170,7 @@ export default function NotasCohorteProfesor() {
 
     cargar()
     return () => { vigente = false }
-  }, [router, cohortId, version])
+  }, [router, cohortId, version, moduloElegido])
 
   useEffect(() => {
     const alVolver = () => { if (document.visibilityState === 'visible') setVersion((v) => v + 1) }
@@ -159,7 +185,10 @@ export default function NotasCohorteProfesor() {
   // Solo está bloqueado mientras espera la validación. Si Dirección registra
   // una evaluación nueva, el servidor reabre el envío solo (migración 136); y
   // si cambias algo ya validado, también se reabre y hay que volver a enviar.
-  const bloqueado = envio?.status === 'enviado'
+  // Módulo terminado o que aún no empieza: el profesor solo mira (migración
+  // 150); corregir lo hace Dirección Académica.
+  const soloLectura = estadoModulo === 'terminado' || estadoModulo === 'no_empezo'
+  const bloqueado = envio?.status === 'enviado' || soloLectura
 
   // Después de guardar una nota, el servidor ya recalculó la nota final:
   // se vuelve a leer de la base, nunca se suma aquí.
@@ -248,6 +277,30 @@ export default function NotasCohorteProfesor() {
           Llena la tabla a tu ritmo. Cada evaluación vale un porcentaje de la nota del módulo y la nota se calcula sola, con lo que ya cargaste. La participación es una evaluación más.
         </p>
       </header>
+
+      {opciones.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {opciones.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => { setCargando(true); setModuloElegido(m.id) }}
+              className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${
+                m.id === moduleId ? 'border-zr-blue bg-zr-blue/15 text-zr-blue' : 'border-zr-border text-zr-text-muted'
+              }`}
+            >
+              Módulo {m.orden} · {m.nombre}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {soloLectura && (
+        <p className="rounded-lg border border-zr-border bg-zr-surface px-4 py-3 text-sm font-medium text-zr-text">
+          {estadoModulo === 'terminado'
+            ? 'Este módulo ya terminó: puedes ver las notas, pero solo Dirección Académica las corrige.'
+            : 'Este módulo todavía no empieza: aún no se cargan notas.'}
+        </p>
+      )}
 
       <button
         onClick={() => router.push('/evaluaciones')}

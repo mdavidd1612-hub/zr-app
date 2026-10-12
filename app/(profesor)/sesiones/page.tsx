@@ -47,7 +47,8 @@ export default function Sesiones() {
       const { data } = await supabase
         .from('class_sessions')
         .select('id, cohort_id, session_date, week_number, status, cohorts(name), modules(name), attendance_events(id)')
-        .eq('teacher_id', user.id)
+        // Sin filtrar por profesor: la base ya entrega solo las sesiones de los
+        // módulos que este profesor tiene asignados (migración 150).
         .order('session_date', { ascending: false })
 
       if (!vigente) return

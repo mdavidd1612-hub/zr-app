@@ -53,6 +53,7 @@ interface Cohorte {
   nombre: string
   moduloNombre: string | null
   profesorId: string | null
+  programId: string | null
 }
 
 interface Modulo {
@@ -60,6 +61,7 @@ interface Modulo {
   nombre: string
   orden: number
   programa: string
+  programId: string | null
 }
 
 // Cómo se llama cada rol en pantalla. La base y el código siguen en inglés
@@ -170,7 +172,7 @@ export default function Personal() {
         // sus roles.
         : ['profesor', 'admin', 'super_admin', 'direccion_academica', 'vendedor', 'zr_coffee']
 
-      const [{ data }, { data: cohs }, { data: mods }, { data: asigs }, { data: rolesExtraData }, { data: sedesData }, { data: adminSedesData }] = await Promise.all([
+      const [{ data }, { data: cohs }, { data: mods }, { data: calendarios }, { data: asigs }, { data: rolesExtraData }, { data: sedesData }, { data: adminSedesData }] = await Promise.all([
         supabase
           .from('profiles')
           .select('id, cedula, full_name, contact_email, phone, role')
@@ -183,11 +185,13 @@ export default function Personal() {
         // sin profesor, para poder tanto asignar como reasignar.
         supabase
           .from('cohorts')
-          .select('id, name, teacher_id, modules(name)')
+          .select('id, name, teacher_id, program_id, modules(name)')
           .eq('status', 'activa'),
         // C-2 (docs/18_BRECHAS_SPEC_FUNCIONAL_ZRM.md): además de la cohorte,
         // un profesor puede tener módulos propios asignados (spec §7).
-        supabase.from('modules').select('id, name, order_index, programs(name)').order('order_index'),
+        supabase.from('modules').select('id, name, order_index, program_id, programs(name)').order('order_index'),
+        // Programas que ya usan calendario de módulos = los programas en uso.
+        supabase.from('cohort_module_calendar').select('cohort_id'),
         supabase.from('teacher_module_assignments').select('teacher_id, module_id'),
         supabase.from('profile_roles').select('profile_id, role'),
         supabase.from('sedes').select('id, nombre').eq('activa', true).order('nombre'),
@@ -197,7 +201,7 @@ export default function Personal() {
       if (!vigente) return
 
       const filasCohorte = (cohs ?? []) as unknown as {
-        id: string; name: string; teacher_id: string | null; modules: { name: string } | null
+        id: string; name: string; teacher_id: string | null; program_id: string | null; modules: { name: string } | null
       }[]
 
       const cohortesMapeadas = ordenarCohortesPorPrioridad(filasCohorte).map((c) => ({
@@ -205,14 +209,24 @@ export default function Personal() {
         nombre: c.name,
         moduloNombre: c.modules?.name ?? null,
         profesorId: c.teacher_id,
+        programId: c.program_id,
       }))
       setCohortes(cohortesMapeadas)
 
+      // Metodología (oct. 2026): se usa un solo programa -- el que tiene
+      // calendario de módulos -- y todo profesor queda en él. Si todavía no hay
+      // ninguno con calendario, se ofrecen todos los módulos como antes.
+      const cohortesConCalendario = new Set((calendarios ?? []).map((k) => k.cohort_id))
+      const programasEnUso = new Set(
+        cohortesMapeadas.filter((c) => cohortesConCalendario.has(c.id)).map((c) => c.programId).filter((x): x is string => !!x),
+      )
       setModulos(
-        ((mods ?? []) as unknown as { id: string; name: string; order_index: number; programs: { name: string } | null }[])
-          .map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index, programa: m.programs?.name ?? '—' })),
+        ((mods ?? []) as unknown as { id: string; name: string; order_index: number; program_id: string | null; programs: { name: string } | null }[])
+          .filter((m) => programasEnUso.size === 0 || (m.program_id !== null && programasEnUso.has(m.program_id)))
+          .map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index, programa: m.programs?.name ?? '—', programId: m.program_id })),
       )
 
+      const moduloPrograma = new Map(((mods ?? []) as unknown as { id: string; program_id: string | null }[]).map((m) => [m.id, m.program_id]))
       const mapaAsignaciones = new Map<string, Set<string>>()
       for (const a of asigs ?? []) {
         const set = mapaAsignaciones.get(a.teacher_id) ?? new Set<string>()
@@ -246,7 +260,9 @@ export default function Personal() {
           correo: p.contact_email,
           telefono: p.phone,
           rol: p.role as UserRole,
-          cohortes: cohortesMapeadas.filter((c) => c.profesorId === p.id).map((c) => c.nombre),
+          cohortes: cohortesMapeadas
+            .filter((c) => c.profesorId === p.id || (mapaAsignaciones.get(p.id) ?? new Set<string>()).size > 0 && [...(mapaAsignaciones.get(p.id) ?? [])].some((mid) => moduloPrograma.get(mid) === c.programId))
+            .map((c) => c.nombre),
         })),
       )
       setCargando(false)
@@ -264,6 +280,10 @@ export default function Personal() {
   }
 
   async function crear() {
+    if (rol === 'profesor' && modulosNuevo.size === 0) {
+      setError('Elige al menos un módulo: así queda dentro del programa y sabe qué dicta.')
+      return
+    }
     setGuardando(true)
     setError(null)
     setExito(null)
@@ -315,7 +335,9 @@ export default function Personal() {
           : ` Ya tiene ${modulosNuevo.size} módulo${modulosNuevo.size === 1 ? '' : 's'} asignado${modulosNuevo.size === 1 ? '' : 's'}.`
       }
 
-      if (cohorteId) {
+      // Con módulos asignados NO se toca cohorts.teacher_id: el profesor del
+      // módulo vigente lo pone solo el calendario (migración 150).
+      if (cohorteId && modulosNuevo.size === 0) {
         const { error: falloCohorte } = await supabase
           .from('cohorts')
           .update({ teacher_id: nuevoId })
@@ -583,11 +605,13 @@ export default function Personal() {
             <>
               <div>
                 <label className="mb-2 block text-sm font-semibold text-zr-text">
-                  Módulos que dicta <span className="font-normal text-zr-text-muted">(opcional)</span>
+                  Módulos que dicta <span className="font-normal text-zr-error">(obligatorio)</span>
                 </label>
                 <p className="mb-2 text-xs text-zr-text-muted">
-                  Lo normal: un profesor dicta módulos concretos, no un programa completo — puede
-                  repetir el mismo módulo en varios programas.
+                  Todos los profesores quedan en el mismo programa. Elige el módulo que dicta
+                  (o los dos, si da dos). Verá a los estudiantes del programa y las notas y la
+                  asistencia solo de sus módulos; al cambiar de módulo entra solo el profesor
+                  siguiente, sin reasignar nada.
                 </p>
                 <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-zr-border bg-zr-bg p-2">
                   {modulos.map((mod) => {
@@ -618,27 +642,6 @@ export default function Personal() {
                 </div>
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-zr-text">
-                  Cohorte que atiende esta semana <span className="font-normal text-zr-text-muted">(opcional)</span>
-                </label>
-                <Select
-                  value={cohorteId}
-                  onChange={(e) => setCohorteId(e.target.value)}
-                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
-                >
-                  <option value="">Sin asignar por ahora</option>
-                  {cohortes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}{c.moduloNombre ? ` · ${c.moduloNombre}` : ''}
-                    </option>
-                  ))}
-                </Select>
-                <p className="mt-1.5 text-xs text-zr-text-muted">
-                  Aparte de los módulos: es lo que de verdad abre la sesión y controla la asistencia
-                  de ese programa.
-                </p>
-              </div>
             </>
           )}
 

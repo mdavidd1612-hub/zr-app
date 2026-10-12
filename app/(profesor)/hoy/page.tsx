@@ -51,7 +51,8 @@ export default function Hoy() {
       const { data: sesiones } = await supabase
         .from('class_sessions')
         .select('id, session_date, cohort_id, cohorts(name, location), modules(name)')
-        .eq('teacher_id', user.id)
+        // Sin filtrar por profesor: la base ya entrega solo las sesiones de los
+        // módulos que este profesor tiene asignados (migración 150).
         .gte('session_date', hoy)
         .order('session_date', { ascending: true })
         .limit(1)

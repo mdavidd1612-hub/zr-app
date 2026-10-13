@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BotonVolver } from '@/components/ui/BotonVolver'
@@ -66,7 +67,8 @@ interface Props {
 // Ventana flotante con el fondo borroso: la elección es obligatoria, así que no
 // se cierra tocando afuera (solo con «Volver»).
 function VentanaElegir({ children }: { children: React.ReactNode }) {
-  return (
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 backdrop-blur-md sm:items-center sm:p-5">
       <div
         role="dialog"
@@ -75,7 +77,8 @@ function VentanaElegir({ children }: { children: React.ReactNode }) {
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

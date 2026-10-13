@@ -1,6 +1,7 @@
 'use client'
 
 import { Children, isValidElement, useEffect, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 /**
  * Selector propio de la app, reemplazo de <select> (pedido de Dirección
@@ -12,6 +13,10 @@ import { Children, isValidElement, useEffect, useState, type ReactNode } from 'r
  * el fondo oscurecido: no se mueve al desplazar la página y no depende de dónde
  * esté el botón. (Se probó anclarla al campo y se descartó: salía larga,
  * descuadrada y se movía al bajar.)
+ *
+ * Se dibuja en un portal sobre <body>: un `position: fixed` dentro de una tarjeta
+ * con animación (transform) se ancla a esa tarjeta y no a la pantalla, y la
+ * ventana salía abajo en vez de en el centro.
  *
  * Es un reemplazo directo: se usa igual que <select> (value, onChange,
  * disabled, className y hijos <option>). onChange recibe un objeto con
@@ -95,7 +100,7 @@ export function Select({
         </svg>
       </button>
 
-      {abierto && (
+      {abierto && typeof document !== 'undefined' && createPortal(
         <div
           className="zr-backdrop-in fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-5"
           onClick={() => setAbierto(false)}
@@ -131,7 +136,8 @@ export function Select({
               )
             })}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   )

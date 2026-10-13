@@ -15,9 +15,8 @@ import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
  * programa nunca aparecen mezclados: la lista de módulos depende del programa
  * elegido. La elección se recuerda para las demás secciones.
  *
- * Los módulos que no están vigentes (ya cursados o que aún no empiezan) se
- * pueden elegir, pero la sección debe mostrarlos bloqueados con
- * <AvisoModuloBloqueado />.
+ * Un módulo que aún no empieza se puede elegir, pero la sección lo muestra
+ * bloqueado con <AvisoModuloBloqueado />. Uno ya cursado sigue siendo de trabajo.
  */
 
 export type EstadoModulo = 'sin_calendario' | 'no_empezo' | 'en_curso' | 'terminado'
@@ -33,8 +32,10 @@ export interface ContextoSel {
   estado: EstadoModulo
 }
 
+// Un módulo ya terminado sigue siendo de trabajo (notas, evaluaciones, material,
+// tanto para el profesor como para Dirección). Solo uno que AÚN NO EMPIEZA se cierra.
 export function moduloVigente(estado: EstadoModulo): boolean {
-  return estado === 'en_curso' || estado === 'sin_calendario'
+  return estado !== 'no_empezo'
 }
 
 export function AvisoModuloBloqueado({ estado }: { estado: EstadoModulo }) {
@@ -43,13 +44,9 @@ export function AvisoModuloBloqueado({ estado }: { estado: EstadoModulo }) {
     <div className="zr-card flex items-start gap-3 border-zr-border p-5">
       <span aria-hidden className="text-lg">🔒</span>
       <div>
-        <p className="text-base font-semibold text-zr-text">
-          {estado === 'terminado' ? 'Este módulo ya se cursó' : 'Este módulo aún no empieza'}
-        </p>
+        <p className="text-base font-semibold text-zr-text">Este módulo aún no empieza</p>
         <p className="mt-1 text-sm text-zr-text-muted">
-          {estado === 'terminado'
-            ? 'Ya terminó: queda disponible solo para consulta.'
-            : 'Se habilita solo cuando llegue su fecha en el calendario.'}
+          Se habilita solo cuando llegue su fecha en el calendario.
         </p>
       </div>
     </div>
@@ -267,7 +264,9 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
             <div className="min-w-0">
               <p className="text-base font-semibold text-zr-text">Módulo {o.moduloOrden} · {o.moduloNombre}</p>
               {ETIQUETA_ESTADO[o.estado] && (
-                <p className="mt-0.5 text-sm text-zr-text-muted">🔒 {ETIQUETA_ESTADO[o.estado]}</p>
+                <p className="mt-0.5 text-sm text-zr-text-muted">
+                  {o.estado === 'no_empezo' ? '🔒 ' : ''}{ETIQUETA_ESTADO[o.estado]}
+                </p>
               )}
             </div>
             <span className="shrink-0 text-zr-text-muted">›</span>

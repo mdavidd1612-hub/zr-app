@@ -97,3 +97,39 @@ que ya tiene producción (guardadas en la sección 3 y en las migraciones 090–
 4. Un profesor de otro programa **no** ve ese material ni esas dudas.
 5. Un módulo ya cursado o que no empieza sale con candado.
 6. Cobertura de módulos: cambiar el profesor de un módulo en una cohorte no cambia las demás.
+
+---
+
+## 7. Paso a producción (12 oct. 2026) — hecho
+
+- Migraciones **150–159 y 160** aplicadas en `zr-prod` (160 cierra a `anon` las funciones nuevas; se
+  encontró con el asesor de seguridad después de subir). `validate-scan` (con el cambio de módulo
+  sobre la versión de producción, que ya traía la regla de solvencia) y `resumir-dudas` desplegadas.
+- Código en `main` (`f7ecfc2`): solo los archivos de profesores, tipos regenerados desde producción,
+  `npm run build` correcto, despliegue de Vercel correcto. No se subió nada de lo que sigue solo en
+  staging (`configuracion`, `moodle-test`).
+
+### Chequeo en producción (solo lectura, con rollback; no se pudo entrar a la app con una cuenta real)
+
+| Prueba | Resultado |
+|---|---|
+| Isaac (módulo 1) y Carlos (módulo 2) siguen asignados a PTMA-2026-II tras la migración 154 | Sí |
+| Isaac: ve 20 estudiantes, 3 sesiones, 2 notas, 2 materiales, 2 dudas, 1 feedback | Correcto |
+| Carlos: ve 20 estudiantes, 3 sesiones, 20 notas, 3 materiales, 2 dudas, 1 feedback | Correcto |
+| Carlos puede subir material al módulo 2 (en curso) | Sí |
+| Isaac no puede subir al módulo 1 (terminado) | Esperado: módulo terminado = solo lectura |
+| Estudiante ve 5 materiales, 2 carpetas, 6 sesiones, 1 notificación | Igual que antes |
+| Admin, super_admin, Dirección: 24 tablas sin errores de permisos | Correcto |
+| Calendario nocturno (`fn_aplicar_calendario_cohorte`) | Sin error; no cambia al profesor de la cohorte |
+| Dirección asigna y quita un módulo (con disparador y bitácora) | Correcto, queda en `audit_log` |
+| Página de ingreso de producción carga | Sí (un 404 de un recurso estático, ya existente) |
+| `anon` ejecutando las funciones nuevas | Bloqueado tras la 160 |
+
+### Pendiente o para vigilar
+
+- **Isaac, módulo 1 ya cursado:** desde ahora solo puede leer. Antes de la migración podía subir material y
+  cargar notas de ese módulo. Es la regla confirmada por la academia (módulo cursado = solo lectura);
+  si Dirección quiere que corrija algo, lo hace Dirección Académica.
+- El recorrido completo en pantalla (sección 6) con una cuenta real de profesor sigue pendiente: Marco
+  o Dirección Académica deben hacerlo con Isaac o Carlos.
+- Vendedor y ZR Coffee no usan nada de lo que cambió; no se probaron con cuenta real.

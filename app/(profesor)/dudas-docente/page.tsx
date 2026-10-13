@@ -38,7 +38,7 @@ function DudasInterno({ ctx }: { ctx: ContextoSel }) {
         return
       }
 
-      // Solo las dudas de los estudiantes del programa elegido.
+      // Solo las dudas del programa y módulo elegidos (migración 164).
       const { data: alumnos } = await supabase.from('students').select('id').eq('cohort_id', ctx.cohortId)
       const ids = (alumnos ?? []).map((a) => a.id)
       const { data } = ids.length
@@ -46,6 +46,7 @@ function DudasInterno({ ctx }: { ctx: ContextoSel }) {
             .from('doubts')
             .select('id, body, created_at')
             .in('student_id', ids)
+            .eq('module_id', ctx.moduleId)
             .order('created_at', { ascending: false })
         : { data: [] }
 
@@ -53,13 +54,13 @@ function DudasInterno({ ctx }: { ctx: ContextoSel }) {
       setCargando(false)
     }
     cargar()
-  }, [router, ctx.cohortId])
+  }, [router, ctx.cohortId, ctx.moduleId])
 
   async function pedirResumen() {
     setCargandoDigest(true)
     setErrorDigest(null)
     const supabase = createClient()
-    const { data, error } = await supabase.functions.invoke('resumir-dudas', { body: { cohort_id: ctx.cohortId } })
+    const { data, error } = await supabase.functions.invoke('resumir-dudas', { body: { cohort_id: ctx.cohortId, module_id: ctx.moduleId } })
 
     if (error) {
       const contexto = (error as { context?: Response }).context
@@ -89,7 +90,7 @@ function DudasInterno({ ctx }: { ctx: ContextoSel }) {
 
   return (
     <div className="space-y-11 px-5 pt-8">
-      <Encabezado sobretitulo="Panel del profesor" titulo="Dudas" descripcion={`${ctx.cohorteNombre}${ctx.sede ? ` · ${ctx.sede}` : ''} — insumo para la clínica del sábado.`} />
+      <Encabezado sobretitulo="Panel del profesor" titulo="Dudas" descripcion={`${ctx.cohorteNombre}${ctx.sede ? ` · ${ctx.sede}` : ''} · Módulo ${ctx.moduloOrden} — insumo para la clínica del sábado.`} />
 
       <Regla delay={60} />
 
@@ -144,7 +145,7 @@ function DudasInterno({ ctx }: { ctx: ContextoSel }) {
 
 export default function DudasDocente() {
   return (
-    <ContextoDocente sobretitulo="Panel del profesor" titulo="Dudas" nivel="programa">
+    <ContextoDocente sobretitulo="Panel del profesor" titulo="Dudas">
       {(ctx) => <DudasInterno ctx={ctx} />}
     </ContextoDocente>
   )

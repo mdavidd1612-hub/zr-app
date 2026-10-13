@@ -158,3 +158,25 @@ Aplicadas en producción y staging; probado con rollback como Isaac.
   desplegó `main` (`3f804d8`) y `develop`. **No se probó el selector ni la subida en pantalla** (hace falta
   una cuenta real): comprobar subiendo un archivo de menos y de más de 10 MB y abriendo el selector del
   panel de Personal en el computador.
+
+---
+
+## 9. Bug en producción: dudas de otro módulo (13 oct.) y auditoría de lectura del personal
+
+- **Bug:** Isaac (módulo 1) veía las dudas de Carlos (módulo 2). La migración 159 separaba las dudas por
+  programa (cohorte) pero no por módulo, y las dudas no guardaban el módulo.
+- **Arreglo (migración 164):** `doubts.module_id`; las existentes se etiquetan con el módulo del
+  calendario de ese día; las nuevas se marcan solas (disparador) con el módulo vigente de la cohorte;
+  el profesor ve solo las de su programa **y módulo**. La pantalla de Dudas y `resumir-dudas` filtran por
+  módulo. Aplicado en producción y staging. Comprobado en producción: Isaac ve 0 dudas, Carlos 2,
+  Dirección 2; una duda nueva de un estudiante queda en el módulo 2.
+- **Auditoría (migración 165):** otras políticas dejaban leer a cualquier profesor de cualquier programa
+  (con `is_staff()`): evaluaciones (`manual_exam_definitions`), exámenes con sus preguntas, intentos y
+  respuestas, vistas de material (`content_views`) y la lista de asignaciones. Ahora el profesor ve solo lo de
+  su programa+módulo (o lo suyo). En producción esas tablas están vacías, así que no se filtró nada real.
+  Pendiente por decidir: `ai_cases`/`case_completions` (casos con IA, función apagada).
+- **Selector (`Select.tsx`):** la versión «anclada al campo» salió larga, descuadrada y se movía al bajar. Se
+  vuelve a una ventana flotante **fija, centrada** y con el fondo oscurecido, encima de todo.
+- **Nota de pruebas:** al probar con rollback hay que usar el id real del usuario; una prueba con un id
+  inexistente devuelve todo en 0 y parece un bloqueo (le pasó a la primera prueba de Isaac tras la 165; con
+  su id real ve sus 20 estudiantes, 3 sesiones, 2 notas y 2 materiales).

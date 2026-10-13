@@ -188,10 +188,9 @@ export default function NotasCohorteProfesor() {
   // Solo está bloqueado mientras espera la validación. Si Dirección registra
   // una evaluación nueva, el servidor reabre el envío solo (migración 136); y
   // si cambias algo ya validado, también se reabre y hay que volver a enviar.
-  // Módulo que aún no empieza: no se cargan notas. Módulo terminado: el profesor
-  // sigue pudiendo cargar y enviar hasta que Dirección valida (migración 161);
-  // ya validado, corregir lo hace Dirección Académica.
-  const soloLectura = estadoModulo === 'no_empezo' || (estadoModulo === 'terminado' && envio?.status === 'validado')
+  // Solo un módulo que aún no empieza bloquea las notas. Uno ya terminado sigue
+  // abierto para el profesor igual que para Dirección Académica (migración 162).
+  const soloLectura = estadoModulo === 'no_empezo'
   const bloqueado = envio?.status === 'enviado' || soloLectura
 
   // Después de guardar una nota, el servidor ya recalculó la nota final:
@@ -300,9 +299,7 @@ export default function NotasCohorteProfesor() {
 
       {soloLectura && (
         <p className="rounded-lg border border-zr-border bg-zr-surface px-4 py-3 text-sm font-medium text-zr-text">
-          {estadoModulo === 'terminado'
-            ? 'Este módulo ya terminó y sus notas están validadas: puedes verlas, pero solo Dirección Académica las corrige.'
-            : 'Este módulo todavía no empieza: aún no se cargan notas.'}
+          Este módulo todavía no empieza: aún no se cargan notas.
         </p>
       )}
 

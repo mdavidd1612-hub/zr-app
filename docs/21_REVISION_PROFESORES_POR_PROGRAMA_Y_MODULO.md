@@ -14,8 +14,10 @@ Migraciones 150–159. Rama `develop`, último commit revisado: `70985f3`.
   feedback, dudas y temario. Si está en más de un programa o módulo, al entrar a cada sección sale una
   ventana flotante (fondo borroso) para elegir primero el programa y luego solo los módulos de ese
   programa. Con uno solo, entra directo.
-- Módulo en curso: edita. Módulo ya cursado: solo lectura, con candado. Módulo que aún no empieza:
-  bloqueado (no ve ni sube material, no carga notas). Se habilita solo con el calendario.
+- Módulo en curso **y módulo ya cursado**: el profesor (igual que Dirección Académica) puede registrar y
+  calificar evaluaciones, cargar notas y subir material (aclarado el 12 oct., migraciones 161 y 162).
+  Módulo que aún no empieza: bloqueado (no ve ni sube material, no carga notas); se habilita solo con
+  el calendario.
 - Material: cada archivo y carpeta lleva programa y módulo. El profesor ve lo que subió él y lo que
   subió Dirección/administración en su programa+módulo; nunca lo de otro profesor.
 - El Temario («Qué debo impartir») sale de lo mismo que ve el estudiante en «Mi módulo» (tabla
@@ -117,7 +119,7 @@ que ya tiene producción (guardadas en la sección 3 y en las migraciones 090–
 | Isaac: ve 20 estudiantes, 3 sesiones, 2 notas, 2 materiales, 2 dudas, 1 feedback | Correcto |
 | Carlos: ve 20 estudiantes, 3 sesiones, 20 notas, 3 materiales, 2 dudas, 1 feedback | Correcto |
 | Carlos puede subir material al módulo 2 (en curso) | Sí |
-| Isaac no puede subir al módulo 1 (terminado) | Esperado: módulo terminado = solo lectura |
+| Isaac sube material y edita notas del módulo 1 (terminado) | Permitido tras la 162 (antes de ella estaba bloqueado por error) |
 | Estudiante ve 5 materiales, 2 carpetas, 6 sesiones, 1 notificación | Igual que antes |
 | Admin, super_admin, Dirección: 24 tablas sin errores de permisos | Correcto |
 | Calendario nocturno (`fn_aplicar_calendario_cohorte`) | Sin error; no cambia al profesor de la cohorte |
@@ -127,9 +129,14 @@ que ya tiene producción (guardadas en la sección 3 y en las migraciones 090–
 
 ### Pendiente o para vigilar
 
-- **Isaac, módulo 1 ya cursado:** desde ahora solo puede leer. Antes de la migración podía subir material y
-  cargar notas de ese módulo. Es la regla confirmada por la academia (módulo cursado = solo lectura);
-  si Dirección quiere que corrija algo, lo hace Dirección Académica.
 - El recorrido completo en pantalla (sección 6) con una cuenta real de profesor sigue pendiente: Marco
   o Dirección Académica deben hacerlo con Isaac o Carlos.
 - Vendedor y ZR Coffee no usan nada de lo que cambió; no se probaron con cuenta real.
+
+### Corrección posterior (12 oct.): módulo terminado
+
+La migración 150 dejaba en solo lectura al profesor de un módulo terminado; Isaac (módulo 1, terminó el
+19-sep, notas sin enviar) quedaba sin poder cargarlas. La 161 lo abrió hasta la validación y la 162 lo
+aclaró del todo: **tras terminar un módulo, el profesor y Dirección siguen registrando evaluaciones,
+calificando, cargando notas y subiendo material**. Solo se cierra un módulo que aún no empieza.
+Aplicadas en producción y staging; probado con rollback como Isaac.

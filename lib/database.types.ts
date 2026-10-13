@@ -1002,6 +1002,7 @@ export type Database = {
           body: string
           created_at: string
           id: string
+          module_id: string | null
           student_id: string
           updated_at: string
         }
@@ -1009,6 +1010,7 @@ export type Database = {
           body: string
           created_at?: string
           id?: string
+          module_id?: string | null
           student_id: string
           updated_at?: string
         }
@@ -1016,10 +1018,18 @@ export type Database = {
           body?: string
           created_at?: string
           id?: string
+          module_id?: string | null
           student_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "doubts_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "doubts_student_id_fkey"
             columns: ["student_id"]

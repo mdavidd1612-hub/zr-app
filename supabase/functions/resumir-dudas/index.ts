@@ -64,7 +64,7 @@ Deno.serve(async (req: Request) => {
     // Con el cliente del usuario (no el de servicio): la RLS deja a un profesor ver
     // solo las dudas de los programas donde dicta. Si manda `cohort_id`, se limita
     // a los estudiantes de ese programa.
-    const peticion = await req.json().catch(() => ({})) as { cohort_id?: string }
+    const peticion = await req.json().catch(() => ({})) as { cohort_id?: string; module_id?: string }
     let consulta = user
       .from('doubts')
       .select('body')
@@ -74,6 +74,8 @@ Deno.serve(async (req: Request) => {
       const { data: alumnos } = await user.from('students').select('id').eq('cohort_id', peticion.cohort_id)
       consulta = consulta.in('student_id', (alumnos ?? []).map((x) => x.id))
     }
+    // Solo las del módulo elegido (migración 164).
+    if (peticion.module_id) consulta = consulta.eq('module_id', peticion.module_id)
     const { data: dudas } = await consulta
 
     const textos = (dudas ?? []).map((d) => d.body)

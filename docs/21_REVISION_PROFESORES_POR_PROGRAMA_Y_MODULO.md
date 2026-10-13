@@ -140,3 +140,21 @@ La migración 150 dejaba en solo lectura al profesor de un módulo terminado; Is
 aclaró del todo: **tras terminar un módulo, el profesor y Dirección siguen registrando evaluaciones,
 calificando, cargando notas y subiendo material**. Solo se cierra un módulo que aún no empieza.
 Aplicadas en producción y staging; probado con rollback como Isaac.
+
+---
+
+## 8. Ajustes del 13 oct. (directo a producción y staging)
+
+- **Compresión de material (migración 163):** el límite `content.aviso_pesado_mb` baja de 20 a **10 MB**.
+  Hasta 10 MB el archivo se sube directo. Antes, aunque el archivo fuera chico, el botón decía
+  «Comprimiendo y subiendo…» y esperaba una consulta del límite en cada archivo. Ahora: (1) el límite se
+  lee una vez por sesión, (2) el botón dice «Subiendo…» y solo dice «Comprimiendo y subiendo…» si el
+  archivo pasa del límite.
+- **Selectores (`components/ui/Select.tsx`):** en pantallas anchas (≥ 640 px) la lista se abre pegada al
+  campo (debajo, o encima si abajo no cabe) en vez de salir en el fondo o en el centro de la pantalla.
+  En teléfono se mantiene la hoja desde abajo. Bug reportado al abrir «Programas y módulos asignados»
+  en Personal.
+- Verificado: el límite vale 10 en ambas bases y lo leen profesor y Dirección; `tsc` limpio; Vercel
+  desplegó `main` (`3f804d8`) y `develop`. **No se probó el selector ni la subida en pantalla** (hace falta
+  una cuenta real): comprobar subiendo un archivo de menos y de más de 10 MB y abriendo el selector del
+  panel de Personal en el computador.

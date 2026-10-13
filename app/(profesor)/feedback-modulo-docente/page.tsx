@@ -1,13 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
-import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
+import { ContextoDocente, AvisoModuloBloqueado, type ContextoSel } from '@/components/ui/ContextoDocente'
 import { ResultadosFeedback, type FilaResumenFeedback } from '@/components/ui/ResultadosFeedback'
-import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
  * Feedback de módulo, del lado del profesor — pedido explícito del
@@ -23,120 +21,70 @@ import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
  * /sesiones.
  */
 
-interface Par {
-  cohorteId: string
-  cohorteNombre: string
-  moduloId: string
-  moduloNombre: string
-}
-
-export default function FeedbackModuloDocente() {
-  const router = useRouter()
+function FeedbackInterno({ ctx }: { ctx: ContextoSel }) {
   const [cargando, setCargando] = useState(true)
-  const [pares, setPares] = useState<Par[]>([])
-  const [seleccion, setSeleccion] = useState<Par | null>(null)
-  const [cargandoDetalle, setCargandoDetalle] = useState(false)
+  const [abierto, setAbierto] = useState(false)
   const [filas, setFilas] = useState<FilaResumenFeedback[]>([])
 
   useEffect(() => {
+    let vigente = true
     async function cargar() {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.replace('/login')
-        return
-      }
-
-      // RPC y no `from('cohorts')`: la RLS de cohorts no deja al profesor
-      // ver la cohorte por estar asignado a un módulo (migración 102).
+      setCargando(true)
+      // El formulario lo abre Dirección Académica; si no lo ha abierto para este
+      // programa y módulo, no aparece en la lista del profesor.
       const { data: lista } = await supabase.rpc('fn_feedback_modulos_docente')
-
-      setPares(
-        (lista ?? []).map((c) => ({
-          cohorteId: c.cohort_id, cohorteNombre: c.cohort_name,
-          moduloId: c.module_id, moduloNombre: c.module_name,
-        })),
-      )
+      const hay = (lista ?? []).some((c) => c.cohort_id === ctx.cohortId && c.module_id === ctx.moduleId)
+      if (!vigente) return
+      setAbierto(hay)
+      if (hay) {
+        const { data: resumen } = await supabase
+          .from('v_feedback_macro_summary')
+          .select('question, avg_score, response_count')
+          .eq('cohort_id', ctx.cohortId).eq('module_id', ctx.moduleId)
+        if (!vigente) return
+        setFilas((resumen ?? []).map((r) => ({
+          pregunta: r.question ?? '', promedio: Number(r.avg_score), respuestas: Number(r.response_count),
+        })))
+      }
       setCargando(false)
     }
-
     cargar()
-  }, [router])
-
-  async function elegir(p: Par) {
-    setSeleccion(p)
-    setCargandoDetalle(true)
-
-    const { data: resumen } = await createClient()
-      .from('v_feedback_macro_summary')
-      .select('question, avg_score, response_count')
-      .eq('cohort_id', p.cohorteId).eq('module_id', p.moduloId)
-
-    setFilas((resumen ?? []).map((r) => ({
-      pregunta: r.question ?? '', promedio: Number(r.avg_score), respuestas: Number(r.response_count),
-    })))
-    setCargandoDetalle(false)
-  }
-
-  if (cargando) {
-    return (
-      <PantallaEsqueleto />
-    )
-  }
+    return () => { vigente = false }
+  }, [ctx.cohortId, ctx.moduleId])
 
   return (
-    <div className="space-y-9 px-5 pb-16 pt-14">
-      {seleccion ? (
-        <button
-          onClick={() => setSeleccion(null)}
-          className="-ml-1 flex min-h-11 items-center gap-1.5 rounded-lg px-1 text-sm font-semibold text-zr-text-muted transition-colors active:text-zr-text"
-        >
-          ‹ Elegir otra cohorte
-        </button>
-      ) : (
-        <BotonVolver href="/hoy" />
-      )}
-
+    <div className="space-y-9 px-5 pb-16 pt-8">
       <Encabezado
         sobretitulo="Docencia"
         titulo="Feedback de módulo"
-        descripcion={seleccion ? `${seleccion.moduloNombre} · ${seleccion.cohorteNombre}` : 'Solo de los módulos que dictas tú.'}
+        descripcion={`${ctx.cohorteNombre}${ctx.sede ? ` · ${ctx.sede}` : ''} · Módulo ${ctx.moduloOrden} · ${ctx.moduloNombre}`}
       />
 
       <Regla delay={60} />
 
-      {!seleccion ? (
-        pares.length === 0 ? (
-          <EstadoVacio
-            titulo="Nada por aquí todavía"
-            explicacion="Cuando Dirección Académica abra el formulario de un módulo que dictas, aparece en esta lista."
-          />
-        ) : (
-          <div className="space-y-3">
-            {pares.map((p) => (
-              <button
-                key={`${p.cohorteId}-${p.moduloId}`}
-                onClick={() => elegir(p)}
-                className="zr-card zr-card-interactive flex w-full items-center justify-between gap-3 p-5 text-left"
-              >
-                <div className="min-w-0">
-                  <p className="text-base font-semibold text-zr-text">{p.moduloNombre}</p>
-                  <p className="mt-0.5 text-sm text-zr-text-muted">{p.cohorteNombre}</p>
-                </div>
-                <span className="shrink-0 text-zr-text-muted">›</span>
-              </button>
-            ))}
-          </div>
-        )
-      ) : cargandoDetalle ? (
+      {ctx.estado === 'no_empezo' && <AvisoModuloBloqueado estado={ctx.estado} />}
+
+      {cargando ? (
         <p className="text-sm text-zr-text-muted">Cargando…</p>
+      ) : !abierto ? (
+        <EstadoVacio
+          titulo="Nada por aquí todavía"
+          explicacion="Cuando Dirección Académica abra el formulario de este módulo, el promedio del grupo aparece aquí."
+        />
       ) : (
-        <>
-          <Seccion numero={1} titulo="Promedio del grupo" delay={120}>
-            <ResultadosFeedback filas={filas} />
-          </Seccion>
-        </>
+        <Seccion numero={1} titulo="Promedio del grupo" delay={120}>
+          <ResultadosFeedback filas={filas} />
+        </Seccion>
       )}
     </div>
+  )
+}
+
+export default function FeedbackModuloDocente() {
+  return (
+    <ContextoDocente sobretitulo="Docencia" titulo="Feedback de módulo">
+      {(ctx) => <FeedbackInterno ctx={ctx} />}
+    </ContextoDocente>
   )
 }

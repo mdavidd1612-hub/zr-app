@@ -27,6 +27,7 @@ interface Cohorte {
   nombre: string
   programaId: string
   programaNombre: string
+  sede: string | null
 }
 
 interface Modulo {
@@ -73,16 +74,16 @@ export default function CoberturaModulos() {
       const [{ data: cohs }, { data: profs }] = await Promise.all([
         supabase
           .from('cohorts')
-          .select('id, name, program_id, programs(name)')
+          .select('id, name, program_id, sede, programs(name)')
           .eq('status', 'activa'),
         supabase.from('profiles').select('id, full_name').eq('role', 'profesor').order('full_name'),
       ])
 
       setCohortes(
         ordenarCohortesPorPrioridad(
-          (cohs ?? []) as unknown as { id: string; name: string; program_id: string; programs: { name: string } | null }[],
+          (cohs ?? []) as unknown as { id: string; name: string; program_id: string; sede: string | null; programs: { name: string } | null }[],
         )
-          .map((c) => ({ id: c.id, nombre: c.name, programaId: c.program_id, programaNombre: c.programs?.name ?? '—' })),
+          .map((c) => ({ id: c.id, nombre: c.name, programaId: c.program_id, programaNombre: c.programs?.name ?? '—', sede: c.sede })),
       )
       setProfesores((profs ?? []).map((p) => ({ id: p.id, nombre: p.full_name })))
       setCargando(false)
@@ -98,7 +99,10 @@ export default function CoberturaModulos() {
 
     const [{ data: mods }, { data: asigs }] = await Promise.all([
       supabase.from('modules').select('id, name, order_index').eq('program_id', c.programaId).order('order_index'),
-      supabase.from('teacher_module_assignments').select('teacher_id, module_id, modules!inner(program_id)').eq('modules.program_id', c.programaId),
+      // Solo las asignaciones DE ESTA COHORTE: cada cohorte (PTMA-2026-II,
+      // PTMA-2026-I…) es un programa distinto y puede tener otro profesor en
+      // el mismo módulo (migración 154).
+      supabase.from('teacher_module_assignments').select('teacher_id, module_id').eq('cohort_id', c.id),
     ])
 
     setModulos((mods ?? []).map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index })))
@@ -115,12 +119,16 @@ export default function CoberturaModulos() {
     setGuardando(moduloId)
     const supabase = createClient()
 
-    await supabase.from('teacher_module_assignments').delete().eq('module_id', moduloId)
+    if (!cohorteId) {
+      setGuardando(null)
+      return
+    }
+    await supabase.from('teacher_module_assignments').delete().eq('module_id', moduloId).eq('cohort_id', cohorteId)
 
     if (nuevoProfesorId) {
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('teacher_module_assignments')
-        .insert({ teacher_id: nuevoProfesorId, module_id: moduloId, assigned_by: user?.id ?? null })
+        .insert({ teacher_id: nuevoProfesorId, module_id: moduloId, cohort_id: cohorteId, assigned_by: user?.id ?? null })
     }
 
     setAsignaciones((prev) => {
@@ -167,7 +175,7 @@ export default function CoberturaModulos() {
         titulo="Cobertura de módulos"
         descripcion={
           cohorteActual
-            ? `${cohorteActual.programaNombre} · ${cohorteActual.nombre}`
+            ? `${cohorteActual.programaNombre} · ${cohorteActual.nombre}${cohorteActual.sede ? ` · ${cohorteActual.sede}` : ''}`
             : 'Elige una cohorte para ver y asignar el profesor de cada módulo.'
         }
       />
@@ -187,7 +195,7 @@ export default function CoberturaModulos() {
               >
                 <div className="min-w-0">
                   <p className="truncate text-base font-bold text-zr-text">{c.nombre}</p>
-                  <p className="mt-0.5 truncate text-sm text-zr-text-muted">{c.programaNombre}</p>
+                  <p className="mt-0.5 truncate text-sm text-zr-text-muted">{c.programaNombre}{c.sede ? ` · ${c.sede}` : ''}</p>
                 </div>
                 <span aria-hidden className="shrink-0 text-zr-text-muted">›</span>
               </button>

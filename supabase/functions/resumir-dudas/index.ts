@@ -61,12 +61,20 @@ Deno.serve(async (req: Request) => {
       return errorResponse('NO_AUTORIZADO', 'Solo personal puede pedir este resumen', 403)
     }
 
-    const admin = adminClient()
-    const { data: dudas } = await admin
+    // Con el cliente del usuario (no el de servicio): la RLS deja a un profesor ver
+    // solo las dudas de los programas donde dicta. Si manda `cohort_id`, se limita
+    // a los estudiantes de ese programa.
+    const peticion = await req.json().catch(() => ({})) as { cohort_id?: string }
+    let consulta = user
       .from('doubts')
       .select('body')
       .order('created_at', { ascending: false })
       .limit(60)
+    if (peticion.cohort_id) {
+      const { data: alumnos } = await user.from('students').select('id').eq('cohort_id', peticion.cohort_id)
+      consulta = consulta.in('student_id', (alumnos ?? []).map((x) => x.id))
+    }
+    const { data: dudas } = await consulta
 
     const textos = (dudas ?? []).map((d) => d.body)
 

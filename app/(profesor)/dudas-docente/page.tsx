@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+import { ContextoDocente, type ContextoSel } from '@/components/ui/ContextoDocente'
 
 /**
  * Fase 0 (docs/16_FASE0_PLAN_PROFESOR.md, Sprint C): dudas de los
@@ -20,7 +21,7 @@ interface Duda {
   createdAt: string
 }
 
-export default function DudasDocente() {
+function DudasInterno({ ctx }: { ctx: ContextoSel }) {
   const router = useRouter()
   const [dudas, setDudas] = useState<Duda[]>([])
   const [digest, setDigest] = useState<string[]>([])
@@ -37,22 +38,28 @@ export default function DudasDocente() {
         return
       }
 
-      const { data } = await supabase
-        .from('doubts')
-        .select('id, body, created_at')
-        .order('created_at', { ascending: false })
+      // Solo las dudas de los estudiantes del programa elegido.
+      const { data: alumnos } = await supabase.from('students').select('id').eq('cohort_id', ctx.cohortId)
+      const ids = (alumnos ?? []).map((a) => a.id)
+      const { data } = ids.length
+        ? await supabase
+            .from('doubts')
+            .select('id, body, created_at')
+            .in('student_id', ids)
+            .order('created_at', { ascending: false })
+        : { data: [] }
 
       setDudas((data ?? []).map((d) => ({ id: d.id, body: d.body, createdAt: d.created_at })))
       setCargando(false)
     }
     cargar()
-  }, [router])
+  }, [router, ctx.cohortId])
 
   async function pedirResumen() {
     setCargandoDigest(true)
     setErrorDigest(null)
     const supabase = createClient()
-    const { data, error } = await supabase.functions.invoke('resumir-dudas')
+    const { data, error } = await supabase.functions.invoke('resumir-dudas', { body: { cohort_id: ctx.cohortId } })
 
     if (error) {
       const contexto = (error as { context?: Response }).context
@@ -81,8 +88,8 @@ export default function DudasDocente() {
   }
 
   return (
-    <div className="space-y-11 px-5 pt-14">
-      <Encabezado sobretitulo="Panel del profesor" titulo="Dudas" descripcion="Insumo para la clínica del sábado." />
+    <div className="space-y-11 px-5 pt-8">
+      <Encabezado sobretitulo="Panel del profesor" titulo="Dudas" descripcion={`${ctx.cohorteNombre}${ctx.sede ? ` · ${ctx.sede}` : ''} — insumo para la clínica del sábado.`} />
 
       <Regla delay={60} />
 
@@ -132,5 +139,13 @@ export default function DudasDocente() {
         )}
       </Seccion>
     </div>
+  )
+}
+
+export default function DudasDocente() {
+  return (
+    <ContextoDocente sobretitulo="Panel del profesor" titulo="Dudas" nivel="programa">
+      {(ctx) => <DudasInterno ctx={ctx} />}
+    </ContextoDocente>
   )
 }

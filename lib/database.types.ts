@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
@@ -690,6 +690,7 @@ export type Database = {
       }
       content_folders: {
         Row: {
+          cohort_id: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -698,6 +699,7 @@ export type Database = {
           parent_folder_id: string | null
         }
         Insert: {
+          cohort_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -706,6 +708,7 @@ export type Database = {
           parent_folder_id?: string | null
         }
         Update: {
+          cohort_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -714,6 +717,13 @@ export type Database = {
           parent_folder_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "content_folders_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "content_folders_created_by_fkey"
             columns: ["created_by"]
@@ -740,6 +750,7 @@ export type Database = {
       content_items: {
         Row: {
           approval_status: Database["public"]["Enums"]["content_approval_status"]
+          cohort_id: string | null
           created_at: string
           description: string | null
           external_url: string | null
@@ -764,6 +775,7 @@ export type Database = {
         }
         Insert: {
           approval_status?: Database["public"]["Enums"]["content_approval_status"]
+          cohort_id?: string | null
           created_at?: string
           description?: string | null
           external_url?: string | null
@@ -788,6 +800,7 @@ export type Database = {
         }
         Update: {
           approval_status?: Database["public"]["Enums"]["content_approval_status"]
+          cohort_id?: string | null
           created_at?: string
           description?: string | null
           external_url?: string | null
@@ -811,6 +824,13 @@ export type Database = {
           week_number?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "content_items_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "content_items_folder_id_fkey"
             columns: ["folder_id"]
@@ -3038,6 +3058,7 @@ export type Database = {
         Row: {
           assigned_at: string
           assigned_by: string | null
+          cohort_id: string | null
           id: string
           module_id: string
           teacher_id: string
@@ -3045,6 +3066,7 @@ export type Database = {
         Insert: {
           assigned_at?: string
           assigned_by?: string | null
+          cohort_id?: string | null
           id?: string
           module_id: string
           teacher_id: string
@@ -3052,6 +3074,7 @@ export type Database = {
         Update: {
           assigned_at?: string
           assigned_by?: string | null
+          cohort_id?: string | null
           id?: string
           module_id?: string
           teacher_id?: string
@@ -3062,6 +3085,13 @@ export type Database = {
             columns: ["assigned_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_module_assignments_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
             referencedColumns: ["id"]
           },
           {
@@ -3525,6 +3555,10 @@ export type Database = {
         Returns: undefined
       }
       es_gestor_zr_coffee: { Args: never; Returns: boolean }
+      estado_modulo_cohorte: {
+        Args: { p_cohort: string; p_module: string }
+        Returns: string
+      }
       estudiante_solvente: { Args: never; Returns: boolean }
       fn_aplicar_calendario_cohorte: {
         Args: { p_cohort: string }
@@ -3535,6 +3569,7 @@ export type Database = {
         Returns: undefined
       }
       fn_avanzar_modulos_por_calendario: { Args: never; Returns: undefined }
+      fn_avisos_de_clase: { Args: never; Returns: undefined }
       fn_cambiar_mi_rol: {
         Args: { nuevo_rol: Database["public"]["Enums"]["user_role"] }
         Returns: undefined
@@ -3594,6 +3629,14 @@ export type Database = {
         Args: { p_fecha: string; p_turno: string }
         Returns: string
       }
+      mi_cohorte_estudiante: { Args: never; Returns: string }
+      mis_asignaciones_docente: {
+        Args: never
+        Returns: {
+          cohort_id: string
+          module_id: string
+        }[]
+      }
       mis_modulos_cursados: { Args: never; Returns: string[] }
       mis_modulos_docente: { Args: never; Returns: string[] }
       mis_notas_modulos: {
@@ -3613,6 +3656,22 @@ export type Database = {
       modulos_que_imparto: { Args: never; Returns: string[] }
       my_cohort_id: { Args: never; Returns: string }
       my_module_id: { Args: never; Returns: string }
+      profesor_de_cohorte_antiguo: {
+        Args: { p_cohort: string }
+        Returns: boolean
+      }
+      profesor_dicta: {
+        Args: { p_cohort: string; p_module: string }
+        Returns: boolean
+      }
+      profesor_ve_material: {
+        Args: { p_cohort: string; p_module: string; p_uploaded_by: string }
+        Returns: boolean
+      }
+      programa_tiene_asignaciones: {
+        Args: { p_cohort: string }
+        Returns: boolean
+      }
       publicar_cambios: {
         Args: { p_cohort: string; p_module: string }
         Returns: undefined
@@ -3628,11 +3687,29 @@ export type Database = {
           turno: string
         }[]
       }
+      seed_user: {
+        Args: {
+          p_cedula: string
+          p_email: string
+          p_full_name: string
+          p_id: string
+          p_role: Database["public"]["Enums"]["user_role"]
+        }
+        Returns: string
+      }
       set_student_code_calc: {
         Args: { p_cohort_id: string; p_enrollment_date: string; p_id: string }
         Returns: string
       }
       teaches_cohort: { Args: { p_cohort: string }; Returns: boolean }
+      teaches_cohort_module: {
+        Args: { p_cohort: string; p_module: string }
+        Returns: boolean
+      }
+      tengo_modulo_asignado: {
+        Args: { p_cohort: string; p_module: string }
+        Returns: boolean
+      }
       validar_notas: {
         Args: { p_cohort: string; p_module: string }
         Returns: undefined

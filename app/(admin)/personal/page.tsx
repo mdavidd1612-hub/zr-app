@@ -53,6 +53,8 @@ interface Cohorte {
   nombre: string
   moduloNombre: string | null
   profesorId: string | null
+  programId: string | null
+  sede: string | null
 }
 
 interface Modulo {
@@ -60,6 +62,7 @@ interface Modulo {
   nombre: string
   orden: number
   programa: string
+  programId: string | null
 }
 
 // Cómo se llama cada rol en pantalla. La base y el código siguen en inglés
@@ -96,6 +99,13 @@ export default function Personal() {
 
   const [cohortes, setCohortes] = useState<Cohorte[]>([])
   const [modulos, setModulos] = useState<Modulo[]>([])
+  // Programas (cohortes) donde se puede dar clase y, en cada uno, sus módulos.
+  const [ofertas, setOfertas] = useState<{ cohorte: Cohorte; modulos: Modulo[] }[]>([])
+  // Alta de profesor: programas (cohortes) elegidos, y programa que se está mirando en el panel.
+  const [programasElegidos, setProgramasElegidos] = useState<string[]>([])
+  const [panelCohorte, setPanelCohorte] = useState('')
+  // Filtro por sede en el selector de programa del alta ('' = todas).
+  const [sedeFiltro, setSedeFiltro] = useState('')
   const [asignaciones, setAsignaciones] = useState<Map<string, Set<string>>>(new Map())
   const [expandido, setExpandido] = useState<string | null>(null)
   const [guardandoModulo, setGuardandoModulo] = useState<string | null>(null)
@@ -120,8 +130,11 @@ export default function Personal() {
   const [rol, setRol] = useState<UserRole>('profesor')
   const [cohorteId, setCohorteId] = useState('')
   const [modulosNuevo, setModulosNuevo] = useState<Set<string>>(new Set())
+  // Programa en uso (el que tiene calendario de módulos): todo profesor nuevo queda en él.
+  const [programaEnUso, setProgramaEnUso] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [errorModulo, setErrorModulo] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
   const [eliminando, setEliminando] = useState<string | null>(null)
 
@@ -170,7 +183,7 @@ export default function Personal() {
         // sus roles.
         : ['profesor', 'admin', 'super_admin', 'direccion_academica', 'vendedor', 'zr_coffee']
 
-      const [{ data }, { data: cohs }, { data: mods }, { data: asigs }, { data: rolesExtraData }, { data: sedesData }, { data: adminSedesData }] = await Promise.all([
+      const [{ data }, { data: cohs }, { data: mods }, { data: calendarios }, { data: asigs }, { data: rolesExtraData }, { data: sedesData }, { data: adminSedesData }] = await Promise.all([
         supabase
           .from('profiles')
           .select('id, cedula, full_name, contact_email, phone, role')
@@ -183,12 +196,14 @@ export default function Personal() {
         // sin profesor, para poder tanto asignar como reasignar.
         supabase
           .from('cohorts')
-          .select('id, name, teacher_id, modules(name)')
+          .select('id, name, teacher_id, program_id, sede, modules(name)')
           .eq('status', 'activa'),
         // C-2 (docs/18_BRECHAS_SPEC_FUNCIONAL_ZRM.md): además de la cohorte,
         // un profesor puede tener módulos propios asignados (spec §7).
-        supabase.from('modules').select('id, name, order_index, programs(name)').order('order_index'),
-        supabase.from('teacher_module_assignments').select('teacher_id, module_id'),
+        supabase.from('modules').select('id, name, order_index, program_id, programs(name)').order('order_index'),
+        // Programas que ya usan calendario de módulos = los programas en uso.
+        supabase.from('cohort_module_calendar').select('cohort_id, module_id'),
+        supabase.from('teacher_module_assignments').select('teacher_id, module_id, cohort_id'),
         supabase.from('profile_roles').select('profile_id, role'),
         supabase.from('sedes').select('id, nombre').eq('activa', true).order('nombre'),
         supabase.from('admin_sedes').select('profile_id, sede_id'),
@@ -197,7 +212,7 @@ export default function Personal() {
       if (!vigente) return
 
       const filasCohorte = (cohs ?? []) as unknown as {
-        id: string; name: string; teacher_id: string | null; modules: { name: string } | null
+        id: string; name: string; teacher_id: string | null; program_id: string | null; sede: string | null; modules: { name: string } | null
       }[]
 
       const cohortesMapeadas = ordenarCohortesPorPrioridad(filasCohorte).map((c) => ({
@@ -205,18 +220,58 @@ export default function Personal() {
         nombre: c.name,
         moduloNombre: c.modules?.name ?? null,
         profesorId: c.teacher_id,
+        programId: c.program_id,
+        sede: c.sede,
       }))
       setCohortes(cohortesMapeadas)
 
+      // Metodología (oct. 2026): se usa un solo programa -- el que tiene
+      // calendario de módulos -- y todo profesor queda en él. Si todavía no hay
+      // ninguno con calendario, se ofrecen todos los módulos como antes.
+      const cohortesConCalendario = new Set((calendarios ?? []).map((k) => k.cohort_id))
+      const programasEnUso = new Set(
+        cohortesMapeadas.filter((c) => cohortesConCalendario.has(c.id)).map((c) => c.programId).filter((x): x is string => !!x),
+      )
+      setProgramaEnUso(
+        cohortesMapeadas.filter((c) => cohortesConCalendario.has(c.id)).map((c) => c.nombre).join(' · ') || null,
+      )
       setModulos(
-        ((mods ?? []) as unknown as { id: string; name: string; order_index: number; programs: { name: string } | null }[])
-          .map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index, programa: m.programs?.name ?? '—' })),
+        ((mods ?? []) as unknown as { id: string; name: string; order_index: number; program_id: string | null; programs: { name: string } | null }[])
+          .filter((m) => programasEnUso.size === 0 || (m.program_id !== null && programasEnUso.has(m.program_id)))
+          .map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index, programa: m.programs?.name ?? '—', programId: m.program_id })),
       )
 
+      // Cada programa (cohorte) en uso con SUS módulos (los de su calendario). Si
+      // todavía ninguna cohorte tiene calendario, se ofrecen todas con los
+      // módulos de su programa.
+      const modulosPorCohorte = new Map<string, Set<string>>()
+      for (const k of calendarios ?? []) {
+        const set = modulosPorCohorte.get(k.cohort_id) ?? new Set<string>()
+        set.add(k.module_id)
+        modulosPorCohorte.set(k.cohort_id, set)
+      }
+      const todosModulos = ((mods ?? []) as unknown as { id: string; name: string; order_index: number; program_id: string | null; programs: { name: string } | null }[])
+        .map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index, programa: m.programs?.name ?? '—', programId: m.program_id }))
+      // Cada programa (cohorte) es distinto aunque compartan el plan de módulos: se
+      // ofrecen TODOS los activos, cada uno con sus módulos.
+      const ofertasCalculadas = cohortesMapeadas.map((c) => ({
+        cohorte: c,
+        modulos: todosModulos.filter(
+          (m) => m.programId === c.programId && (!modulosPorCohorte.has(c.id) || modulosPorCohorte.get(c.id)!.has(m.id)),
+        ),
+      }))
+      setOfertas(ofertasCalculadas)
+
+      // Asignaciones como "cohorte|módulo". Una asignación sin cohorte (anterior
+      // a la migración 153) vale para todas las cohortes que tengan ese módulo.
       const mapaAsignaciones = new Map<string, Set<string>>()
       for (const a of asigs ?? []) {
         const set = mapaAsignaciones.get(a.teacher_id) ?? new Set<string>()
-        set.add(a.module_id)
+        if (a.cohort_id) {
+          set.add(`${a.cohort_id}|${a.module_id}`)
+        } else {
+          for (const o of ofertasCalculadas) if (o.modulos.some((m) => m.id === a.module_id)) set.add(`${o.cohorte.id}|${a.module_id}`)
+        }
         mapaAsignaciones.set(a.teacher_id, set)
       }
       setAsignaciones(mapaAsignaciones)
@@ -246,7 +301,9 @@ export default function Personal() {
           correo: p.contact_email,
           telefono: p.phone,
           rol: p.role as UserRole,
-          cohortes: cohortesMapeadas.filter((c) => c.profesorId === p.id).map((c) => c.nombre),
+          cohortes: cohortesMapeadas
+            .filter((c) => c.profesorId === p.id || [...(mapaAsignaciones.get(p.id) ?? [])].some((k) => k.startsWith(`${c.id}|`)))
+            .map((c) => c.nombre),
         })),
       )
       setCargando(false)
@@ -264,6 +321,10 @@ export default function Personal() {
   }
 
   async function crear() {
+    if (rol === 'profesor' && modulosNuevo.size === 0) {
+      setError('Elige al menos un programa y un módulo: así sabe dónde da clase y qué dicta.')
+      return
+    }
     setGuardando(true)
     setError(null)
     setExito(null)
@@ -308,14 +369,19 @@ export default function Personal() {
       if (modulosNuevo.size > 0) {
         const { error: falloModulos } = await supabase
           .from('teacher_module_assignments')
-          .insert([...modulosNuevo].map((moduleId) => ({ teacher_id: nuevoId, module_id: moduleId })))
+          .insert([...modulosNuevo].map((clave) => {
+            const [cohortId, moduleId] = clave.split('|')
+            return { teacher_id: nuevoId, module_id: moduleId, cohort_id: cohortId }
+          }))
 
         avisoAsignacion += falloModulos
           ? ' No se pudieron guardar los módulos — hazlo desde aquí abajo.'
           : ` Ya tiene ${modulosNuevo.size} módulo${modulosNuevo.size === 1 ? '' : 's'} asignado${modulosNuevo.size === 1 ? '' : 's'}.`
       }
 
-      if (cohorteId) {
+      // Con módulos asignados NO se toca cohorts.teacher_id: el profesor del
+      // módulo vigente lo pone solo el calendario (migración 150).
+      if (cohorteId && modulosNuevo.size === 0) {
         const { error: falloCohorte } = await supabase
           .from('cohorts')
           .update({ teacher_id: nuevoId })
@@ -335,30 +401,44 @@ export default function Personal() {
     setRol('profesor')
     setCohorteId('')
     setModulosNuevo(new Set())
+    setProgramasElegidos([])
     setCreando(false)
     setGuardando(false)
     setVersion((v) => v + 1)
   }
 
-  async function alternarModulo(teacherId: string, moduleId: string) {
-    const claveOcupado = `${teacherId}|${moduleId}`
-    setGuardandoModulo(claveOcupado)
+  async function alternarModulo(teacherId: string, cohortId: string, moduleId: string) {
+    const clave = `${cohortId}|${moduleId}`
+    setGuardandoModulo(`${teacherId}|${clave}`)
     const supabase = createClient()
-    const yaAsignado = asignaciones.get(teacherId)?.has(moduleId) ?? false
+    const yaAsignado = asignaciones.get(teacherId)?.has(clave) ?? false
 
+    setErrorModulo(null)
+    let falloGuardar: { message: string } | null = null
     if (yaAsignado) {
-      await supabase.from('teacher_module_assignments')
-        .delete().eq('teacher_id', teacherId).eq('module_id', moduleId)
+      // Quita la asignación de esa cohorte y, si venía de las anteriores (sin
+      // cohorte), también esa.
+      const r1 = await supabase.from('teacher_module_assignments')
+        .delete().eq('teacher_id', teacherId).eq('module_id', moduleId).eq('cohort_id', cohortId)
+      const r2 = await supabase.from('teacher_module_assignments')
+        .delete().eq('teacher_id', teacherId).eq('module_id', moduleId).is('cohort_id', null)
+      falloGuardar = r1.error ?? r2.error
     } else {
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('teacher_module_assignments')
-        .insert({ teacher_id: teacherId, module_id: moduleId, assigned_by: user?.id ?? null })
+      const r = await supabase.from('teacher_module_assignments')
+        .insert({ teacher_id: teacherId, module_id: moduleId, cohort_id: cohortId, assigned_by: user?.id ?? null })
+      falloGuardar = r.error
+    }
+    if (falloGuardar) {
+      setErrorModulo(`No se pudo guardar el cambio de módulo: ${falloGuardar.message}`)
+      setGuardandoModulo(null)
+      return
     }
 
     setAsignaciones((prev) => {
       const copia = new Map(prev)
       const set = new Set(copia.get(teacherId) ?? [])
-      if (yaAsignado) set.delete(moduleId); else set.add(moduleId)
+      if (yaAsignado) set.delete(clave); else set.add(clave)
       copia.set(teacherId, set)
       return copia
     })
@@ -583,61 +663,90 @@ export default function Personal() {
             <>
               <div>
                 <label className="mb-2 block text-sm font-semibold text-zr-text">
-                  Módulos que dicta <span className="font-normal text-zr-text-muted">(opcional)</span>
+                  Programa y módulos que dicta <span className="font-normal text-zr-error">(obligatorio)</span>
                 </label>
                 <p className="mb-2 text-xs text-zr-text-muted">
-                  Lo normal: un profesor dicta módulos concretos, no un programa completo — puede
-                  repetir el mismo módulo en varios programas.
+                  Primero elige el programa (cada cohorte es un programa distinto, con sus propios
+                  profesores) y luego marca el módulo o los módulos que dicta en él. Si da clase en
+                  más de un programa, agrega otro. Verá a los estudiantes del programa y las notas y
+                  la asistencia solo de sus módulos.
                 </p>
-                <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-zr-border bg-zr-bg p-2">
-                  {modulos.map((mod) => {
-                    const activo = modulosNuevo.has(mod.id)
+                {[...new Set(ofertas.map((o) => o.cohorte.sede).filter((x): x is string => !!x))].length > 1 && (
+                  <Select
+                    value={sedeFiltro}
+                    onChange={(e) => setSedeFiltro(e.target.value)}
+                    className="mb-2 w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+                  >
+                    <option value="">Todas las sedes</option>
+                    {[...new Set(ofertas.map((o) => o.cohorte.sede).filter((x): x is string => !!x))].sort().map((sd) => (
+                      <option key={sd} value={sd}>{sd}</option>
+                    ))}
+                  </Select>
+                )}
+                <Select
+                  value=""
+                  onChange={(e) => {
+                    const id = e.target.value
+                    if (id) setProgramasElegidos((prev) => (prev.includes(id) ? prev : [...prev, id]))
+                  }}
+                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+                >
+                  <option value="">{programasElegidos.length === 0 ? 'Seleccionar el programa…' : 'Agregar otro programa…'}</option>
+                  {ofertas
+                    .filter((o) => !programasElegidos.includes(o.cohorte.id) && (!sedeFiltro || o.cohorte.sede === sedeFiltro))
+                    .map((o) => (
+                      <option key={o.cohorte.id} value={o.cohorte.id}>{o.cohorte.nombre}{o.cohorte.sede ? ` · ${o.cohorte.sede}` : ''}</option>
+                    ))}
+                </Select>
+
+                <div className="mt-3 space-y-3">
+                  {programasElegidos.map((id) => {
+                    const o = ofertas.find((x) => x.cohorte.id === id)
+                    if (!o) return null
                     return (
-                      <button
-                        key={mod.id}
-                        type="button"
-                        onClick={() =>
-                          setModulosNuevo((prev) => {
-                            const copia = new Set(prev)
-                            if (activo) copia.delete(mod.id); else copia.add(mod.id)
-                            return copia
-                          })
-                        }
-                        className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
-                          activo ? 'bg-zr-blue/15 text-zr-blue' : 'text-zr-text-muted active:bg-zr-border/40'
-                        }`}
-                      >
-                        <span className="min-w-0 truncate">
-                          {mod.orden}. {mod.nombre}
-                          <span className="ml-1.5 text-xs text-zr-text-muted">· {mod.programa}</span>
-                        </span>
-                        {activo && <span className="shrink-0 text-xs font-bold">✓</span>}
-                      </button>
+                      <div key={id} className="rounded-lg border border-zr-border bg-zr-bg p-2">
+                        <div className="flex items-center justify-between gap-3 px-3 pb-1 pt-1">
+                          <p className="text-xs font-bold uppercase tracking-wide text-zr-blue-mid">Programa {o.cohorte.nombre}{o.cohorte.sede ? ` · ${o.cohorte.sede}` : ''}</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProgramasElegidos((prev) => prev.filter((x) => x !== id))
+                              setModulosNuevo((prev) => new Set([...prev].filter((k) => !k.startsWith(`${id}|`))))
+                            }}
+                            className="text-xs font-bold text-zr-error"
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                        <div className="max-h-56 space-y-1 overflow-y-auto">
+                          {o.modulos.map((mod) => {
+                            const clave = `${id}|${mod.id}`
+                            const activo = modulosNuevo.has(clave)
+                            return (
+                              <button
+                                key={clave}
+                                type="button"
+                                onClick={() =>
+                                  setModulosNuevo((prev) => {
+                                    const copia = new Set(prev)
+                                    if (activo) copia.delete(clave); else copia.add(clave)
+                                    return copia
+                                  })
+                                }
+                                className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                                  activo ? 'bg-zr-blue/15 text-zr-blue' : 'text-zr-text-muted active:bg-zr-border/40'
+                                }`}
+                              >
+                                <span className="min-w-0 break-words">{mod.orden}. {mod.nombre}</span>
+                                {activo && <span className="shrink-0 text-xs font-bold">✓</span>}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
                     )
                   })}
                 </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-zr-text">
-                  Cohorte que atiende esta semana <span className="font-normal text-zr-text-muted">(opcional)</span>
-                </label>
-                <Select
-                  value={cohorteId}
-                  onChange={(e) => setCohorteId(e.target.value)}
-                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
-                >
-                  <option value="">Sin asignar por ahora</option>
-                  {cohortes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}{c.moduloNombre ? ` · ${c.moduloNombre}` : ''}
-                    </option>
-                  ))}
-                </Select>
-                <p className="mt-1.5 text-xs text-zr-text-muted">
-                  Aparte de los módulos: es lo que de verdad abre la sesión y controla la asistencia
-                  de ese programa.
-                </p>
               </div>
             </>
           )}
@@ -779,31 +888,57 @@ export default function Personal() {
                       onClick={() => setExpandido((e) => (e === m.id ? null : m.id))}
                       className="text-xs font-bold uppercase tracking-wide text-zr-blue-mid"
                     >
-                      {expandido === m.id ? 'Ocultar módulos' : `Módulos asignados (${misModulos.size})`}
+                      {expandido === m.id ? 'Ocultar módulos' : `Programas y módulos asignados (${misModulos.size})`}
                     </button>
 
                     {expandido === m.id && (
-                      <div className="mt-3 max-h-64 space-y-1 overflow-y-auto">
-                        {modulos.map((mod) => {
-                          const activo = misModulos.has(mod.id)
-                          const ocupado = guardandoModulo === `${m.id}|${mod.id}`
+                      <div className="mt-3 space-y-3">
+                        {errorModulo && <p className="text-xs font-medium text-zr-error">{errorModulo}</p>}
+                        {(() => {
+                          const conAsignacion = ofertas.find((x) => [...misModulos].some((k) => k.startsWith(`${x.cohorte.id}|`)))
+                          const idPanel = panelCohorte && ofertas.some((o) => o.cohorte.id === panelCohorte)
+                            ? panelCohorte
+                            : conAsignacion?.cohorte.id ?? ofertas[0]?.cohorte.id ?? ''
+                          const o = ofertas.find((x) => x.cohorte.id === idPanel)
                           return (
-                            <button
-                              key={mod.id}
-                              onClick={() => alternarModulo(m.id, mod.id)}
-                              disabled={ocupado}
-                              className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors disabled:opacity-50 ${
-                                activo ? 'bg-zr-blue/15 text-zr-blue' : 'text-zr-text-muted active:bg-zr-border/40'
-                              }`}
-                            >
-                              <span className="min-w-0 truncate">
-                                {mod.orden}. {mod.nombre}
-                                <span className="ml-1.5 text-xs text-zr-text-muted">· {mod.programa}</span>
-                              </span>
-                              {activo && <span className="shrink-0 text-xs font-bold">✓</span>}
-                            </button>
+                            <>
+                              <Select
+                                value={idPanel}
+                                onChange={(e) => setPanelCohorte(e.target.value)}
+                                className="w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+                              >
+                                {ofertas.map((x) => {
+                                  const cuantos = [...misModulos].filter((k) => k.startsWith(`${x.cohorte.id}|`)).length
+                                  return (
+                                    <option key={x.cohorte.id} value={x.cohorte.id}>
+                                      {x.cohorte.nombre}{x.cohorte.sede ? ` · ${x.cohorte.sede}` : ''}{cuantos > 0 ? ` · ${cuantos} módulo${cuantos === 1 ? '' : 's'}` : ''}
+                                    </option>
+                                  )
+                                })}
+                              </Select>
+                              <div className="max-h-64 space-y-1 overflow-y-auto">
+                                {(o?.modulos ?? []).map((mod) => {
+                                  const clave = `${idPanel}|${mod.id}`
+                                  const activo = misModulos.has(clave)
+                                  const ocupado = guardandoModulo === `${m.id}|${clave}`
+                                  return (
+                                    <button
+                                      key={clave}
+                                      onClick={() => alternarModulo(m.id, idPanel, mod.id)}
+                                      disabled={ocupado}
+                                      className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors disabled:opacity-50 ${
+                                        activo ? 'bg-zr-blue/15 text-zr-blue' : 'text-zr-text-muted active:bg-zr-border/40'
+                                      }`}
+                                    >
+                                      <span className="min-w-0 break-words">{mod.orden}. {mod.nombre}</span>
+                                      {activo && <span className="shrink-0 text-xs font-bold">✓</span>}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </>
                           )
-                        })}
+                        })()}
                       </div>
                     )}
                   </div>

@@ -66,10 +66,13 @@ export default function EditarExamen() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/login'); return }
 
-      const [{ data: examen }, { data: mods }, { data: cohs }, { data: pregs }] = await Promise.all([
+      const [{ data: examen }, { data: mods }, { data: cohs }, { data: asig }, { data: pregs }] = await Promise.all([
         supabase.from('exams').select('*').eq('id', examId).eq('teacher_id', user.id).single(),
         supabase.from('modules').select('id, name').order('order_index'),
-        supabase.from('cohorts').select('id, name').eq('status', 'activa').eq('teacher_id', user.id),
+        // Sin filtrar por dueño: la base entrega las cohortes de los programas donde
+        // este profesor tiene módulos asignados (migración 150).
+        supabase.from('cohorts').select('id, name').eq('status', 'activa'),
+        supabase.from('teacher_module_assignments').select('module_id').eq('teacher_id', user.id),
         supabase.from('exam_questions').select('*').eq('exam_id', examId).order('order_index'),
       ])
 
@@ -82,7 +85,9 @@ export default function EditarExamen() {
       setCohorteId(examen.cohort_id ?? '')
       setPuntajeMaximo(Number(examen.max_score) || 20)
       setDuracion(examen.duration_minutes ?? '')
-      setModulos(mods ?? [])
+      // Solo los módulos que dicta (más el del propio examen); si no tiene asignados, todos.
+      const suyos = new Set((asig ?? []).map((x) => x.module_id))
+      setModulos(suyos.size > 0 ? (mods ?? []).filter((m) => suyos.has(m.id) || m.id === examen.module_id) : (mods ?? []))
       setCohortes(ordenarCohortesPorPrioridad(cohs ?? []))
       setPreguntas(
         (pregs ?? []).map((q) => ({

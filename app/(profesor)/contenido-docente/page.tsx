@@ -42,6 +42,8 @@ function ContenidoInterno({ ctx }: { ctx: ContextoSel }) {
   const [version, setVersion] = useState(0)
 
   const [subiendo, setSubiendo] = useState(false)
+  // Solo se dice «Comprimiendo» si el archivo pasa del límite de peso (config).
+  const [comprimiendo, setComprimiendo] = useState(false)
   const [archivo, setArchivo] = useState<File | null>(null)
   const [titulo, setTitulo] = useState('')
   const [moduloId, setModuloId] = useState('')
@@ -122,11 +124,13 @@ function ContenidoInterno({ ctx }: { ctx: ContextoSel }) {
     }
 
     setSubiendo(true)
+
+    setComprimiendo(false)
     setError(null)
     setAvisoSubida(null)
 
     // Si pesa mucho, se comprime solo (lib/comprimir.ts) antes de subir.
-    const prep = await prepararArchivo(archivo)
+    const prep = await prepararArchivo(archivo, () => setComprimiendo(true))
     const aSubir = prep.archivo
 
     const supabase = createClient()
@@ -314,7 +318,7 @@ function ContenidoInterno({ ctx }: { ctx: ContextoSel }) {
             disabled={!archivo || !titulo.trim() || !moduloId || subiendo}
             className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-40"
           >
-            {subiendo ? 'Comprimiendo y subiendo…' : 'Subir material'}
+            {subiendo ? (comprimiendo ? 'Comprimiendo y subiendo…' : 'Subiendo…') : 'Subir material'}
           </button>
         </div>
         </div>

@@ -76,6 +76,8 @@ export default function MaterialAdmin() {
   const [nombreCarpeta, setNombreCarpeta] = useState('')
 
   const [subiendo, setSubiendo] = useState(false)
+  // Solo se dice «Comprimiendo» si el archivo pasa del límite de peso (config).
+  const [comprimiendo, setComprimiendo] = useState(false)
   const [archivo, setArchivo] = useState<File | null>(null)
   const [avisoPeso, setAvisoPeso] = useState<string | null>(null)
   // Resultado de la compresión automática del último archivo subido.
@@ -392,13 +394,15 @@ export default function MaterialAdmin() {
     }
 
     setSubiendo(true)
+
+    setComprimiendo(false)
     setError(null)
     setAvisoSubida(null)
 
     const supabase = createClient()
 
     // Si pesa mucho, se comprime solo (lib/comprimir.ts) antes de subir.
-    const prep = await prepararArchivo(archivo)
+    const prep = await prepararArchivo(archivo, () => setComprimiendo(true))
     const aSubir = prep.archivo
 
     // El tope de tamaño es de negocio (regla 5 de CLAUDE.md): vive en
@@ -637,7 +641,7 @@ export default function MaterialAdmin() {
     const supabase = createClient()
 
     // Si pesa mucho, se comprime solo antes de subir (lib/comprimir.ts).
-    const prep = await prepararArchivo(nuevo)
+    const prep = await prepararArchivo(nuevo, () => setComprimiendo(true))
     const aSubir = prep.archivo
 
     const { data: configTamano } = await supabase
@@ -1256,7 +1260,7 @@ export default function MaterialAdmin() {
             disabled={!archivo || !titulo.trim() || !programa?.moduloId || subiendo}
             className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-40"
           >
-            {subiendo ? 'Comprimiendo y subiendo…' : 'Subir material'}
+            {subiendo ? (comprimiendo ? 'Comprimiendo y subiendo…' : 'Subiendo…') : 'Subir material'}
           </button>
         </div>
         </div>

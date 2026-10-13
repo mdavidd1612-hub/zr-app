@@ -9,11 +9,25 @@ import { comprimirSiPesa, type ResultadoCompresion } from '@/lib/comprimir'
  * carpeta sincronizada (OneDrive, Google Drive) y se lee "a pedido" mientras
  * el navegador lo sube puede cortar la subida a mitad.
  */
-export async function prepararArchivo(archivo: File): Promise<ResultadoCompresion> {
+// El límite se lee una vez por sesión (no en cada archivo): un archivo chico no
+// debe esperar una consulta antes de subirse.
+let limiteEnCache: number | null = null
+
+async function leerLimiteBytes(): Promise<number> {
+  if (limiteEnCache !== null) return limiteEnCache
   const { data } = await createClient()
     .from('system_config').select('value').eq('key', 'content.aviso_pesado_mb').maybeSingle()
   const limiteMB = Number(data?.value)
-  const r = await comprimirSiPesa(archivo, Number.isFinite(limiteMB) && limiteMB > 0 ? limiteMB * 1024 * 1024 : 0)
+  limiteEnCache = Number.isFinite(limiteMB) && limiteMB > 0 ? limiteMB * 1024 * 1024 : 0
+  return limiteEnCache
+}
+
+export async function prepararArchivo(archivo: File, alComprimir?: () => void): Promise<ResultadoCompresion> {
+  const limiteBytes = await leerLimiteBytes()
+  // Solo un archivo por encima del límite pasa por la compresión; los demás se
+  // suben directo y la pantalla no dice «Comprimiendo».
+  if (limiteBytes && archivo.size > limiteBytes) alComprimir?.()
+  const r = await comprimirSiPesa(archivo, limiteBytes)
 
   const MAX_EN_MEMORIA = 150 * 1024 * 1024
   if (r.archivo.size <= MAX_EN_MEMORIA) {

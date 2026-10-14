@@ -133,7 +133,7 @@ export default function MaterialAdmin() {
           .select('id, title, week_number, is_published, size_bytes, storage_path, original_name, type, created_at, uploaded_by, approval_status, profiles!content_items_uploaded_by_fkey(full_name), modules(name)')
           .eq('approval_status', 'pendiente')
           .order('created_at', { ascending: false }),
-        supabase.from('cohorts').select('id, name, current_module_id, program_id, modules(name)'),
+        supabase.from('cohorts').select('id, name, current_module_id, program_id, modules(name)').eq('status', 'activa'),
       ])
 
       if (!vigente) return

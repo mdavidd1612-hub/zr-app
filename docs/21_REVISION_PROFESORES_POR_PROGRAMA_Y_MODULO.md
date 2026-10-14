@@ -230,3 +230,46 @@ permisos) y una simulación completa del flujo de publicar notas (con rollback, 
 ### Para producción
 Mismo plan de siempre: migraciones 166–168 en `zr-prod`, simular con Isaac/Carlos y un estudiante
 (con rollback), y solo los archivos de este cambio a `main`.
+
+---
+
+## 11. Paso a producción (14 oct.) y chequeo total — hecho
+
+Migraciones 166–170 aplicadas en `zr-prod`. Código (commit `722f9fe`) en `main`, desplegado por Vercel.
+
+### Bugs encontrados y corregidos en este paso
+
+1. **Programas suspendidos seguían apareciendo en Asistencias, Notas (Dirección Académica) y
+   Material.** Esas tres pantallas no filtraban por `status = 'activa'` (las otras 25 consultas a
+   `cohorts` de la app sí lo hacían). Reportado por el usuario con una captura de la pantalla de
+   Notas. Corregido antes de pasar a producción; las 28 consultas a `cohorts` de toda la app quedan
+   revisadas una por una.
+2. **Las 3 funciones nuevas de las migraciones 167–168 quedaban ejecutables por `anon`** (el permiso
+   por defecto de Postgres). No exponían datos reales (dependen de `auth.uid()`), pero se cerraron
+   igual, mismo criterio que las migraciones 133 y 160 (migración 169).
+3. **El recordatorio del sábado fallaba al insertar** (`column "channel" is of type
+   notification_channel but expression is of type text`): el `select distinct` con el literal
+   `'push'` no se convertía solo al tipo de la columna, a diferencia de `publicar_notas_profesor`
+   (que no usa `distinct`). Se encontró probando la función a mano en producción, justo después de
+   subirla — nunca llegó a correr en el cron real (corre los sábados a las 12:00, y se subió un
+   martes). Arreglado con un cast explícito (migración 170).
+
+### Verificación
+
+- **6 perfiles de producción** (estudiante, Carlos, Isaac, admin, super_admin, Dirección) × 26
+  tablas + 5 funciones: sin errores.
+- **8 perfiles de staging** (los 6 anteriores + vendedor + ZR Coffee) × lo mismo: sin errores.
+- Isaac (módulo 1, terminado hace más de una semana): `profesor_puede_editar_notas` da `false`.
+  Carlos (módulo 2, en curso): da `true`. Los dos conservan sus 20 estudiantes.
+- `fn_recordar_cargar_notas()` ejecutada a mano (con rollback) en las dos bases: genera la
+  notificación correcta sin error. Ningún rol de la app puede llamarla directo (permiso denegado),
+  solo el cron.
+- Asesor de seguridad de Supabase en las dos bases: mismos avisos de siempre, ya conocidos y
+  aceptados (una vista con `security_definer` que no es de este trabajo); nada nuevo.
+- `tsc`, `next build` y el despliegue de Vercel de `main`, sin errores.
+
+### Pendiente / no verificable desde aquí
+
+- El cron del sábado no se ha visto correr de verdad (el próximo sábado, 12:00 hora Caracas).
+- Las pantallas no se recorrieron con una cuenta real de producción (sí se probaron a fondo en
+  staging, con un profesor y un estudiante de prueba, en el navegador).

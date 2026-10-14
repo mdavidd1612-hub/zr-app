@@ -263,8 +263,8 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
       module_id: moduloId,
       exam_date: fecha,
       title: titulo.trim(),
-      scale_max: Number(escala) || 20,
-      passing_min: Number(minimo) || 12,
+      scale_max: Number(escala.replace(',', '.')) || 20,
+      passing_min: Number(minimo.replace(',', '.')) || 12,
       weight_pct: pesoNuevo,
       kind,
       kind_detail: kind === 'otro' ? kindDetail.trim() : null,
@@ -410,7 +410,7 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
           <div>
             <label className="mb-1.5 block truncate text-[11px] font-semibold uppercase text-zr-text-muted">Escala</label>
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
               value={escala}
               onChange={(e) => setEscala(e.target.value)}
@@ -420,7 +420,7 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
           <div>
             <label className="mb-1.5 block truncate text-[11px] font-semibold uppercase text-zr-text-muted">Mínimo</label>
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
               value={minimo}
               onChange={(e) => setMinimo(e.target.value)}
@@ -430,7 +430,7 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
           <div>
             <label className="mb-1.5 block truncate text-[11px] font-semibold uppercase text-zr-text-muted">Vale (%)</label>
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
               value={peso}
               onChange={(e) => setPeso(e.target.value)}

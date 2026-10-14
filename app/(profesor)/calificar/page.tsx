@@ -108,7 +108,7 @@ export default function Calificar() {
   async function guardar() {
     if (!actual) return
 
-    const valor = Number(puntos)
+    const valor = Number(puntos.replace(',', '.'))
     if (puntos === '' || Number.isNaN(valor) || valor < 0 || valor > actual.puntosMaximos) {
       setError(`El puntaje tiene que estar entre 0 y ${actual.puntosMaximos}.`)
       return
@@ -238,11 +238,8 @@ export default function Calificar() {
             </label>
             <input
               id="puntos"
-              type="number"
+              type="text"
               inputMode="decimal"
-              min={0}
-              max={actual.puntosMaximos}
-              step={0.5}
               value={puntos}
               onChange={(e) => setPuntos(e.target.value)}
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-5 py-4 text-2xl font-bold tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"

@@ -180,3 +180,53 @@ Aplicadas en producción y staging; probado con rollback como Isaac.
 - **Nota de pruebas:** al probar con rollback hay que usar el id real del usuario; una prueba con un id
   inexistente devuelve todo en 0 y parece un bloqueo (le pasó a la primera prueba de Isaac tras la 165; con
   su id real ve sus 20 estudiantes, 3 sesiones, 2 notas y 2 materiales).
+
+---
+
+## 10. Reunión del coordinador con Dirección Académica (13 oct.) — pendiente de pasar a producción
+
+Migraciones 166–168, commit `b05de79`. Probado en staging con los 8 roles (sin errores de
+permisos) y una simulación completa del flujo de publicar notas (con rollback, sin guardar nada).
+
+1. **Programas sin estudiantes, suspendidos.** Solo PTMA-2026-II queda `activa` en las dos bases;
+   los demás pasan a `suspendida` (reversible). Ya no aparecen en ningún selector.
+2. **Notas con 2 decimales, sin redondear a entero.** La base ya calculaba con 2 decimales exactos
+   (`round(x,2)`); el error estaba en la pantalla, que mostraba "20" o "15,4". Corregido en las 4
+   pantallas donde se ve una nota.
+3. **Orden al registrar evaluación:** Programa → Módulo → Nombre → Tipo → resto. Cada evaluación
+   registrada muestra también el programa, no solo el módulo.
+4. **El profesor publica directo (migración 167).** Nueva función `publicar_notas_profesor`: hace lo
+   mismo que antes hacía `validar_notas` de Dirección Académica, pero la llama el profesor del
+   módulo. "Revisar y publicar" reemplaza a "Confirmar y enviar a Dirección Académica". El
+   estudiante ve la nota en cuanto se publica. La pantalla de Dirección Académica no se tocó: sigue
+   pudiendo corregir cualquier nota cuando quiera.
+5. **Una semana de gracia tras terminar el módulo.** Nueva función `profesor_puede_editar_notas`:
+   en curso, sin límite; terminado, hasta 7 días después de la fecha de fin del calendario; pasada
+   esa semana, solo Dirección Académica corrige esa nota. Reemplaza el "sin límite" de la
+   migración 162 (decisión explícita del coordinador, confirmada en este chat).
+6. **Recordatorio los sábados.** Cron a las 12:00 (hora Caracas) a los profesores con un módulo en
+   curso.
+7. **Encabezado fijo en la tabla de notas.** La fila con los nombres de evaluación queda fija al
+   bajar por los estudiantes (como ya pasaba con la columna de estudiante al moverse de lado a
+   lado).
+
+### Verificado en staging
+- Publiqué una nota de prueba como profesor (con rollback): quedó visible para el estudiante de
+  inmediato vía `grade_validated_evals`, con 2 decimales exactos (12.59).
+- Edité esa nota después de publicada: se reabrió sola, exigiendo volver a publicar — igual que el
+  comportamiento anterior.
+- Un profesor con el módulo terminado hace tiempo (fuera de la semana de gracia): `publicar_notas_profesor`
+  lo rechaza con el mensaje correcto.
+- 8 roles (estudiante, 2 profesores, admin, super_admin, Dirección, vendedor, ZR Coffee): sin
+  errores de permisos en 9 tablas, y todos ven solo 1 programa activo.
+- `tsc` y `next build` (Vercel) de `develop` sin errores.
+
+### No probado
+- Las pantallas no se abrieron en el navegador con una cuenta real (el encabezado fijo, el resumen
+  de "Revisar y publicar", el orden del formulario).
+- El cron del sábado no se esperó a que corriera (próximo sábado).
+- `npm run test`/`test:rls` no se corrieron (necesitan una base real).
+
+### Para producción
+Mismo plan de siempre: migraciones 166–168 en `zr-prod`, simular con Isaac/Carlos y un estudiante
+(con rollback), y solo los archivos de este cambio a `main`.

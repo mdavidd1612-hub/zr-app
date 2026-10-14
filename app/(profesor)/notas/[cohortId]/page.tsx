@@ -391,7 +391,7 @@ export default function NotasCohorteProfesor() {
                       <td key={ev.id} className="px-2 py-2 text-center">
                         <input
                           key={`${f.studentId}-${ev.id}-${notas[f.studentId]?.[ev.id] ?? ''}`}
-                          type="number" inputMode="decimal" min={0} max={ev.scaleMax} step={0.5}
+                          type="text" inputMode="decimal"
                           defaultValue={notas[f.studentId]?.[ev.id] ?? ''}
                           onBlur={(e) => guardarNota(f.studentId, ev, e.target.value)}
                           disabled={bloqueado || guardando === `${f.studentId}:${ev.id}`}

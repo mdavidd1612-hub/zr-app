@@ -87,7 +87,7 @@ export function ResultadoModulo() {
   const actual = cola[0]
   if (!actual) return null
 
-  const cifra = actual.nota.toFixed(actual.nota % 1 === 0 ? 0 : 1)
+  const cifra = actual.nota.toFixed(2)
 
   function cerrar() {
     marcarVisto(actual.clave)

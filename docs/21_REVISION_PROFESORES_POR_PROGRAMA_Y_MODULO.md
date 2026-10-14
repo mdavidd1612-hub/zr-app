@@ -273,3 +273,30 @@ Migraciones 166–170 aplicadas en `zr-prod`. Código (commit `722f9fe`) en `mai
 - El cron del sábado no se ha visto correr de verdad (el próximo sábado, 12:00 hora Caracas).
 - Las pantallas no se recorrieron con una cuenta real de producción (sí se probaron a fondo en
   staging, con un profesor y un estudiante de prueba, en el navegador).
+
+---
+
+## 12. Encabezado fijo — faltaba en 3 pantallas más (14 oct.)
+
+El usuario reportó (con una captura) que en Notas de Dirección Académica, al bajar por una lista
+larga de estudiantes, el encabezado de la tabla (Examen 1, Práctica 2…) se perdía arriba. La
+migración del 13 oct. (sección 11) solo lo había arreglado en la tabla de Notas del profesor.
+
+Revisé las 4 pantallas de toda la app con el mismo patrón de tabla (columna de estudiante fija al
+lado, `sticky left-0`) y faltaban 3:
+
+- **Notas (Dirección Académica)** `app/(admin)/notas-academicas/[cohortId]/page.tsx` — la de la captura.
+- **Asistencias** (vista de computadora) `app/(admin)/asistencias/page.tsx`.
+- **Finanzas** (vista de computadora) `app/(admin)/finanzas/page.tsx`.
+
+Mismo arreglo que ya tenía Notas del profesor: la tabla queda dentro de un contenedor con
+`max-h-[65dvh] overflow-auto`, y cada celda del encabezado con `sticky top-0`. Subido a staging y
+producción (commits `300747a` y `2015608`).
+
+**Verificado en el navegador real**, no solo con CSS inspeccionado a mano: entré a staging como
+Dirección Académica (Notas) y como administración (Asistencias, Finanzas) y confirmé con
+`getComputedStyle` que cada celda del encabezado tiene `position: sticky; top: 0px`. Dirección
+Académica no tiene acceso a Finanzas (solo Administración) — es la regla esperada, no un bug.
+
+La cantina (ZR Coffee) tiene su propia tabla, pero es una lista corta de productos, no una lista
+larga de estudiantes — se dejó igual, fuera de lo que pidió el usuario.

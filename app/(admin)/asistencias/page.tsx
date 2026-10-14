@@ -453,17 +453,17 @@ export default function Asistencias() {
             <>
               {/* Computadora (≥1024px): tabla completa, columna de nombre
                   fija, fechas deslizables. */}
-              <TiraDeFechas className="hidden overflow-x-auto rounded-lg border border-zr-border lg:block" cantidad={sesiones.length}>
+              <TiraDeFechas className="hidden max-h-[65dvh] overflow-auto rounded-lg border border-zr-border lg:block" cantidad={sesiones.length}>
                 <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="bg-zr-surface">
-                      <th className="sticky left-0 z-10 min-w-[220px] border-b border-r border-zr-border bg-zr-surface px-4 py-3 text-left font-bold text-zr-text">
+                      <th className="sticky left-0 top-0 z-20 min-w-[220px] border-b border-r border-zr-border bg-zr-surface px-4 py-3 text-left font-bold text-zr-text">
                         Estudiante
                       </th>
                       {sesiones.map((s) => (
                         <th
                           key={s.id}
-                          className={`min-w-[92px] border-b border-zr-border px-3 py-3 text-center font-bold text-zr-text-muted ${
+                          className={`sticky top-0 z-10 min-w-[92px] border-b border-zr-border bg-zr-surface px-3 py-3 text-center font-bold text-zr-text-muted ${
                             s.fecha === hoyISO ? 'bg-zr-blue/10 text-zr-blue' : ''
                           }`}
                         >

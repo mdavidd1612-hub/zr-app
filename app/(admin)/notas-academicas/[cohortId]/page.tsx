@@ -465,15 +465,15 @@ export default function VerCalificacionesCohorte() {
       ) : filas.length === 0 ? (
         <EstadoVacio titulo="Sin estudiantes" explicacion="Esta cohorte todavía no tiene estudiantes." />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-zr-border">
+        <div className="max-h-[65dvh] overflow-auto rounded-lg border border-zr-border">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="bg-zr-surface">
-                <th className="sticky left-0 z-10 min-w-[170px] border-b border-r border-zr-border bg-zr-surface px-3 py-2.5 text-left font-bold text-zr-text">
+                <th className="sticky left-0 top-0 z-20 min-w-[170px] border-b border-r border-zr-border bg-zr-surface px-3 py-2.5 text-left font-bold text-zr-text">
                   Estudiante
                 </th>
                 {visibles.map((ev) => (
-                  <th key={ev.id} className="min-w-[88px] border-b border-zr-border px-2 py-2 text-center align-bottom">
+                  <th key={ev.id} className="sticky top-0 z-10 min-w-[88px] border-b border-zr-border bg-zr-surface px-2 py-2 text-center align-bottom">
                     <span className="block text-xs font-bold text-zr-text">{ev.titulo}</span>
                     <span className="block text-[10px] font-normal text-zr-text-muted">
                       {ev.kind === 'otro' && ev.detalle ? ev.detalle : ABREV[ev.kind]} · /{ev.scaleMax} · {ev.pesoPct} %
@@ -482,8 +482,8 @@ export default function VerCalificacionesCohorte() {
                 ))}
                 {mostrarResto && (
                   <>
-                    <th className="min-w-[84px] border-b border-l border-zr-border px-2 py-2.5 text-center align-bottom text-xs font-bold text-zr-text-muted">Nota</th>
-                    <th className="min-w-[84px] border-b border-zr-border px-2 py-2.5 text-center text-xs font-bold text-zr-text-muted">Estado</th>
+                    <th className="sticky top-0 z-10 min-w-[84px] border-b border-l border-zr-border bg-zr-surface px-2 py-2.5 text-center align-bottom text-xs font-bold text-zr-text-muted">Nota</th>
+                    <th className="sticky top-0 z-10 min-w-[84px] border-b border-zr-border bg-zr-surface px-2 py-2.5 text-center text-xs font-bold text-zr-text-muted">Estado</th>
                   </>
                 )}
               </tr>

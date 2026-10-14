@@ -8,8 +8,16 @@ import { IconoEstudiantes, IconoNotas, IconoPanel, IconoPersonal, IconoExamen, I
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { leerSimulacionSabado } from '@/lib/demo-sabado'
 import { activarVistaRecorrido, type VistaRecorrido } from '@/lib/vista-recorrido'
+import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+
+interface CohorteParaRecorrido {
+  id: string
+  name: string
+  moduloNombre: string | null
+  moduloOrden: number | null
+}
 
 interface SesionHoy {
   sessionId: string
@@ -78,6 +86,12 @@ export default function Panel() {
   // Perfil (docs/15_FASE0_PLAN_ADMIN.md). Ojo: la fecha que se usa para
   // BUSCAR las sesiones de hoy sigue siendo la real.
   const [simulado, setSimulado] = useState(false)
+  // Selector de programa/módulo antes de entrar a Vista de Estudiante o de
+  // Profesor (pedido explícito del coordinador, oct. 2026): sin esto, cada
+  // pantalla de esa vista improvisaba su propia cohorte de prueba y se veía
+  // "general" en vez de un programa concreto elegido a propósito.
+  const [eligiendo, setEligiendo] = useState<{ vista: VistaRecorrido; destino: string } | null>(null)
+  const [cohortesRecorrido, setCohortesRecorrido] = useState<CohorteParaRecorrido[] | null>(null)
 
   const hoy = new Date()
   const esSabado = simulado || hoy.getDay() === 6
@@ -227,11 +241,98 @@ export default function Panel() {
                 ]}
                 delay={320}
                 colegable
+                alElegirVista={(vista, destino) => {
+                  setEligiendo({ vista, destino })
+                  setCohortesRecorrido(null)
+                  const supabase = createClient()
+                  supabase
+                    .from('cohorts')
+                    .select('id, name, current_module_id, modules(name, order_index)')
+                    .eq('status', 'activa')
+                    .not('current_module_id', 'is', null)
+                    .then(({ data }) => {
+                      const filas = (data ?? []) as unknown as {
+                        id: string; name: string; modules: { name: string; order_index: number } | null
+                      }[]
+                      setCohortesRecorrido(
+                        ordenarCohortesPorPrioridad(filas).map((c) => ({
+                          id: c.id,
+                          name: c.name,
+                          moduloNombre: c.modules?.name ?? null,
+                          moduloOrden: c.modules?.order_index ?? null,
+                        })),
+                      )
+                    })
+                }}
               />
             )}
           </>
         )
       })()}
+
+      {/* Selector de programa y módulo antes de entrar a Vista de Estudiante
+          o de Profesor -- pedido explícito del coordinador, oct. 2026: ver
+          nota en lib/vista-recorrido.ts. Obligatorio: no se cierra tocando
+          afuera, solo eligiendo o cancelando. */}
+      {eligiendo && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 backdrop-blur-md sm:items-center sm:p-5">
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="max-h-[88dvh] w-full max-w-lg space-y-5 overflow-y-auto rounded-t-2xl border border-white/15 bg-zr-surface/95 p-6 pb-8 shadow-[0_16px_48px_rgba(0,0,0,0.55)] sm:rounded-2xl sm:pb-6"
+          >
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
+                {eligiendo.vista === 'estudiante' ? 'Vista de Estudiante' : 'Vista de Profesor'}
+              </p>
+              <h2 className="zr-display mt-2 text-xl text-zr-text">¿Qué programa quieres ver?</h2>
+              <p className="mt-1.5 text-sm text-zr-text-muted">
+                Elige el programa y módulo que quieres recorrer — todas las pantallas de esta
+                vista van a mostrar justo eso.
+              </p>
+            </div>
+
+            {cohortesRecorrido === null ? (
+              <p className="py-6 text-center text-sm text-zr-text-muted">Cargando programas…</p>
+            ) : cohortesRecorrido.length === 0 ? (
+              <p className="py-6 text-center text-sm text-zr-text-muted">
+                No hay ningún programa activo con módulo asignado todavía.
+              </p>
+            ) : (
+              <div className="space-y-2.5">
+                {cohortesRecorrido.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => {
+                      activarVistaRecorrido(eligiendo.vista, c.id)
+                      router.push(eligiendo.destino)
+                      setEligiendo(null)
+                    }}
+                    className="zr-card zr-card-interactive flex w-full items-center justify-between gap-3 p-4 text-left"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-base font-semibold text-zr-text">{c.name}</p>
+                      {c.moduloNombre && (
+                        <p className="mt-0.5 text-sm text-zr-text-muted">
+                          Módulo {c.moduloOrden} · {c.moduloNombre}
+                        </p>
+                      )}
+                    </div>
+                    <span className="shrink-0 text-zr-text-muted">›</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => setEligiendo(null)}
+              className="flex min-h-12 w-full items-center justify-center rounded-lg border border-zr-border text-sm font-bold text-zr-text"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -245,9 +346,12 @@ interface Acceso {
 }
 
 function GrupoAccesos({
-  numero, titulo, descripcion, accesos, delay, colegable = false,
+  numero, titulo, descripcion, accesos, delay, colegable = false, alElegirVista,
 }: {
   numero: number; titulo: string; descripcion?: string; accesos: Acceso[]; delay: number; colegable?: boolean
+  /** Solo para el grupo "Vista de recorrido": estudiante y profesor necesitan elegir
+   *  programa/módulo antes de entrar (pedido del coordinador), ventas no. */
+  alElegirVista?: (vista: VistaRecorrido, destino: string) => void
 }) {
   const router = useRouter()
   const ContenedorSeccion = colegable ? SeccionColegable : Seccion
@@ -259,6 +363,10 @@ function GrupoAccesos({
           <button
             key={a.href}
             onClick={() => {
+              if (a.vista && a.vista !== 'vendedor' && alElegirVista) {
+                alElegirVista(a.vista, a.href)
+                return
+              }
               if (a.vista) activarVistaRecorrido(a.vista)
               router.push(a.href)
             }}

@@ -10,6 +10,9 @@ import { EtiquetaTipoArchivo } from '@/components/ui/EtiquetaTipoArchivo'
 import {
   nombreDescarga, registrarEvento, urlDelVisor, visorDe,
 } from '@/lib/material'
+import { esAdmin } from '@/lib/auth-helpers'
+import { leerCohorteVistaRecorridoCookie } from '@/lib/vista-recorrido'
+import type { UserRole } from '@/lib/types'
 
 /**
  * T-402 · Repositorio de contenido del estudiante.
@@ -98,6 +101,37 @@ export default function Contenido() {
           return
         }
       }
+      // Vista de recorrido (admin, dirección académica y super_admin): las
+      // RPC de abajo están pensadas para un estudiante real (auth.uid()), así
+      // que para estas cuentas siempre devolvían vacío ("Todavía no hay
+      // material"). Se usa en su lugar la cohorte que eligió en el panel
+      // antes de entrar (pedido explícito del coordinador, oct. 2026 — ver
+      // lib/vista-recorrido.ts), y se muestra solo el módulo actual de esa
+      // cohorte -- igual que ve un estudiante con un solo módulo visible.
+      const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user?.id ?? '').maybeSingle()
+      const cohorteElegida = user && esAdmin(perfil?.role as UserRole | undefined)
+        ? leerCohorteVistaRecorridoCookie()
+        : null
+
+      if (cohorteElegida) {
+        const { data: coh } = await supabase
+          .from('cohorts').select('current_module_id').eq('id', cohorteElegida).maybeSingle()
+        const moduloId = coh?.current_module_id ?? null
+        if (!moduloId) {
+          setModulos([])
+          setModulosListos(true)
+          setCargando(false)
+          return
+        }
+        const { data: mod } = await supabase.from('modules').select('id, name, order_index').eq('id', moduloId).single()
+        const lista = mod ? [{ id: mod.id, nombre: mod.name, orden: mod.order_index, esActual: true }] : []
+        setModulos(lista)
+        if (lista.length === 1) setModuloActual(lista[0])
+        setModulosListos(true)
+        if (lista.length !== 1) setCargando(false)
+        return
+      }
+
       const [{ data: ids }, { data: items }, { data: carpetas }, { data: actual }] = await Promise.all([
         supabase.rpc('mis_modulos_cursados'),
         supabase.from('content_items').select('module_id'),

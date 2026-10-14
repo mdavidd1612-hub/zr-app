@@ -129,7 +129,7 @@ export default function Notas() {
   const mostrarEsqueleto = useEsqueletoVisible(cargando)
   if (mostrarEsqueleto) return <PantallaEsqueleto variante="lista" />
 
-  const cifra = (v: number | null) => (v === null ? '—' : v.toFixed(v % 1 === 0 ? 0 : 1))
+  const cifra = (v: number | null) => (v === null ? '—' : v.toFixed(2))
   // Menos del mínimo en rojo, el mínimo o más en verde.
   const tono = (v: number, min: number) => (v < min ? 'text-zr-error' : 'text-zr-success')
 

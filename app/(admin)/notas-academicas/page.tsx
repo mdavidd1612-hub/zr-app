@@ -54,6 +54,7 @@ export default function NotasAcademicas() {
       const { data } = await supabase
         .from('cohorts')
         .select('id, name, modules(name, programs(name)), teachers(profiles(full_name)), students(count)')
+        .eq('status', 'activa')
 
       if (!vigente) return
 

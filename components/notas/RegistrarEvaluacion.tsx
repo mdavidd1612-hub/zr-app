@@ -336,16 +336,6 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
           {editandoId ? 'Editando evaluación' : 'Nueva evaluación'}
         </p>
 
-        <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Nombre de la evaluación</label>
-          <input
-            value={titulo}
-            onChange={(e) => setTitulo(e.target.value)}
-            placeholder='Ej. "Examen 2 Instrumentación"'
-            className={CAMPO}
-          />
-        </div>
-
         {!unSoloPrograma && (
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Programa</label>
@@ -375,6 +365,16 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
               <option key={m.id} value={m.id}>Módulo {m.orden} · {m.nombre}</option>
             ))}
           </Select>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Nombre de la evaluación</label>
+          <input
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+            placeholder='Ej. "Examen 2 Instrumentación"'
+            className={CAMPO}
+          />
         </div>
 
         <div>
@@ -513,6 +513,7 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
                 </span>
               </p>
               <p className="text-xs text-zr-text-muted">
+                {cohortes.find((c) => c.programId === modulos.find((m) => m.id === e.moduleId)?.programId)?.nombre ?? '—'} ·{' '}
                 {e.moduloNombre} · {e.examDate} · Vale {e.pesoPct} % · Escala {e.scaleMax} · Mínimo {e.passingMin}
               </p>
             </div>

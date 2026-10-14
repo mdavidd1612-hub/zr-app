@@ -85,7 +85,7 @@ export default function Asistencias() {
         return
       }
 
-      const { data: cohs } = await supabase.from('cohorts').select('id, name, days')
+      const { data: cohs } = await supabase.from('cohorts').select('id, name, days').eq('status', 'activa')
       const lista = ordenarCohortesPorPrioridad(cohs ?? []).map((c) => ({ id: c.id, nombre: c.name, dias: c.days }))
       setCohortes(lista)
       if (lista.length) setCohorteId(lista[0].id)

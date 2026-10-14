@@ -13,9 +13,13 @@ import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
  * que registró Dirección Académica + Participación y Nota), en vez de entrar
  * y salir de una pantalla por evaluación. Reunión de oct. 2026: cada
  * evaluación lleva un porcentaje; ya no hay Teoría / Práctica / Puntualidad
- * como notas (migración 143). Al terminar, el profesor "Confirma y envía": desde ahí queda
- * bloqueado para él y el estudiante NO ve nada hasta que Dirección Académica
- * lo valide (migración 126).
+ * como notas (migración 143).
+ *
+ * Reunión del 13 oct. 2026: el profesor publica directo, sin esperar a
+ * Dirección Académica — "Revisar" (confirmación) y "Publicar" (migración
+ * 167). El estudiante la ve de inmediato. Mientras el módulo está en curso
+ * corrige sin límite; al terminar, tiene una semana más antes de que se
+ * cierre para él (solo Dirección Académica corrige de ahí en adelante).
  *
  * La nota se calcula sola en el servidor -- de solo lectura aquí (regla 2 de
  * CLAUDE.md). Lo que el profesor escribe: la nota de cada evaluación y la
@@ -32,11 +36,12 @@ interface FilaEstudiante {
   evaluadoPct: number
 }
 
-interface Envio { status: 'enviado' | 'validado' | 'devuelto'; submittedAt: string; motivo: string | null }
+// Lo que ya está publicado para este módulo, si lo está.
+interface Publicacion { publishedAt: string | null }
 
 const ABREV_KIND: Record<string, string> = { examen: 'Examen', practica: 'Práctica', prepractica: 'Pre-práctica', exposicion: 'Exposición', participacion: 'Participación', otro: 'Otro' }
 
-const fmt = (v: number | null) => (v === null ? '—' : Number(v).toFixed(v % 1 === 0 ? 0 : 1))
+const fmt = (v: number | null) => (v === null ? '—' : Number(v).toFixed(2))
 
 export default function NotasCohorteProfesor() {
   const router = useRouter()
@@ -51,19 +56,22 @@ export default function NotasCohorteProfesor() {
   const [moduloElegido, setModuloElegido] = useState<string | null>(() =>
     typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('modulo'))
   const [estadoModulo, setEstadoModulo] = useState<'sin_calendario' | 'no_empezo' | 'en_curso' | 'terminado'>('sin_calendario')
+  // Si puede cargar/publicar AHORA (migración 167): en curso siempre, terminado
+  // solo dentro de la semana de gracia, no_empezo nunca.
+  const [puedeEditar, setPuedeEditar] = useState(true)
   const [umbral, setUmbral] = useState(12)
   const [sumaPct, setSumaPct] = useState(0)
   const [filas, setFilas] = useState<FilaEstudiante[]>([])
   const [evaluaciones, setEvaluaciones] = useState<Evaluacion[]>([])
   // notas[studentId][evalId]
   const [notas, setNotas] = useState<Record<string, Record<string, number | null>>>({})
-  const [envio, setEnvio] = useState<Envio | null>(null)
-  // Se vuelve a leer todo cuando Dirección registra algo nuevo mientras esta
-  // pantalla está abierta (al volver a la pestaña).
+  const [publicado, setPublicado] = useState<Publicacion | null>(null)
+  // Se vuelve a leer todo cuando algo cambia mientras esta pantalla está
+  // abierta (al volver a la pestaña).
   const [version, setVersion] = useState(0)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState<string | null>(null)
-  const [enviando, setEnviando] = useState(false)
+  const [publicando, setPublicando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -102,9 +110,13 @@ export default function NotasCohorteProfesor() {
       setModuleId(modulo)
       if (!modulo) { setCargando(false); return }
 
-      const { data: estado } = await supabase.rpc('estado_modulo_cohorte', { p_cohort: cohortId, p_module: modulo })
+      const [{ data: estado }, { data: editable }] = await Promise.all([
+        supabase.rpc('estado_modulo_cohorte', { p_cohort: cohortId, p_module: modulo }),
+        supabase.rpc('profesor_puede_editar_notas', { p_cohort: cohortId, p_module: modulo }),
+      ])
       if (!vigente) return
       setEstadoModulo((estado as typeof estadoModulo | null) ?? 'sin_calendario')
+      setPuedeEditar(editable ?? false)
 
       const [{ data: estudiantes }, { data: matriculas }, { data: exs }, { data: sub }] = await Promise.all([
         supabase.from('students').select('id, profiles!students_id_fkey(full_name, cedula)').eq('cohort_id', cohortId),
@@ -120,7 +132,7 @@ export default function NotasCohorteProfesor() {
           .order('exam_date'),
         supabase
           .from('grade_submissions')
-          .select('status, submitted_at, return_reason')
+          .select('status, validated_at')
           .eq('cohort_id', cohortId)
           .eq('module_id', modulo)
           .maybeSingle(),
@@ -154,7 +166,7 @@ export default function NotasCohorteProfesor() {
       }
       setNotas(mapa)
 
-      setEnvio(sub ? { status: sub.status as Envio['status'], submittedAt: sub.submitted_at, motivo: sub.return_reason } : null)
+      setPublicado(sub?.status === 'validado' ? { publishedAt: sub.validated_at } : null)
 
       setFilas(
         ((estudiantes ?? []) as unknown as EstudianteCrudo[]).map((e) => {
@@ -185,13 +197,9 @@ export default function NotasCohorteProfesor() {
     }
   }, [])
 
-  // Solo está bloqueado mientras espera la validación. Si Dirección registra
-  // una evaluación nueva, el servidor reabre el envío solo (migración 136); y
-  // si cambias algo ya validado, también se reabre y hay que volver a enviar.
-  // Solo un módulo que aún no empieza bloquea las notas. Uno ya terminado sigue
-  // abierto para el profesor igual que para Dirección Académica (migración 162).
-  const soloLectura = estadoModulo === 'no_empezo'
-  const bloqueado = envio?.status === 'enviado' || soloLectura
+  // Solo se bloquea cuando ya no se puede editar: un módulo que no empieza, o
+  // uno terminado hace más de una semana (migración 167).
+  const bloqueado = !puedeEditar
 
   // Después de guardar una nota, el servidor ya recalculó la nota final:
   // se vuelve a leer de la base, nunca se suma aquí.
@@ -233,12 +241,16 @@ export default function NotasCohorteProfesor() {
       return
     }
     setNotas((n) => ({ ...n, [studentId]: { ...n[studentId], [ev.id]: valor } }))
-    setEnvio((e) => (e?.status === 'validado' ? null : e))
+    // Al cambiar algo ya publicado, el servidor reabre esa evaluación: hay que
+    // volver a revisar y publicar.
+    setPublicado(null)
     await releerEstudiante(studentId)
     setGuardando(null)
   }
 
-  async function confirmarEnvio() {
+  // Dos pasos, como se pidió: "Revisar" muestra un resumen y pide confirmar;
+  // "Publicar" (este, al confirmar) deja la nota visible al estudiante ya mismo.
+  async function revisarYPublicar() {
     if (!moduleId) return
     const faltan = filas.reduce(
       (total, f) => total + evaluaciones.filter((e) => notas[f.studentId]?.[e.id] == null).length,
@@ -247,14 +259,14 @@ export default function NotasCohorteProfesor() {
     const aviso = faltan > 0
       ? `Todavía hay ${faltan} nota${faltan === 1 ? '' : 's'} vacía${faltan === 1 ? '' : 's'}. `
       : ''
-    if (!confirm(`${aviso}Al confirmar, las notas se envían a Dirección Académica y ya no podrás cambiarlas. Los estudiantes las verán cuando se validen. ¿Enviar?`)) return
+    if (!confirm(`${aviso}Vas a publicar las notas de ${filas.length} estudiante${filas.length === 1 ? '' : 's'}. Las van a ver de inmediato. ¿Publicar?`)) return
 
-    setEnviando(true)
+    setPublicando(true)
     setError(null)
-    const { error: fallo } = await createClient().rpc('enviar_notas', { p_cohort: cohortId, p_module: moduleId })
-    setEnviando(false)
+    const { error: fallo } = await createClient().rpc('publicar_notas_profesor', { p_cohort: cohortId, p_module: moduleId })
+    setPublicando(false)
     if (fallo) { setError(fallo.message); return }
-    setEnvio({ status: 'enviado', submittedAt: new Date().toISOString(), motivo: null })
+    setPublicado({ publishedAt: new Date().toISOString() })
   }
 
   if (cargando) {
@@ -297,9 +309,11 @@ export default function NotasCohorteProfesor() {
         </div>
       )}
 
-      {soloLectura && (
+      {bloqueado && (
         <p className="rounded-lg border border-zr-border bg-zr-surface px-4 py-3 text-sm font-medium text-zr-text">
-          Este módulo todavía no empieza: aún no se cargan notas.
+          {estadoModulo === 'no_empezo'
+            ? 'Este módulo todavía no empieza: aún no se cargan notas.'
+            : 'Ya pasó la semana para corregir este módulo: pídele a Dirección Académica que la corrija.'}
         </p>
       )}
 
@@ -310,33 +324,22 @@ export default function NotasCohorteProfesor() {
         Registrar o editar evaluaciones
       </button>
 
-      {envio?.status === 'devuelto' && (
-        <div className="rounded-lg border border-zr-error/30 bg-zr-error/10 px-4 py-3 text-sm text-zr-text">
-          <p className="font-bold text-zr-error">Dirección Académica te devolvió las notas</p>
-          {envio.motivo && <p className="mt-1 font-medium">{envio.motivo}</p>}
-          <p className="mt-1 text-xs text-zr-text-muted">Corrige lo que pide y vuelve a enviarlas.</p>
-        </div>
-      )}
       {faltaPorcentaje && evaluaciones.length > 0 && (
         <p className="rounded-lg border border-zr-warning/40 bg-zr-warning/10 px-4 py-3 text-sm font-medium text-zr-text">
-          Los porcentajes del módulo suman {sumaPct} % y deben sumar 100 %. Mientras tanto no podrás enviar las notas:
+          Los porcentajes del módulo suman {sumaPct} % y deben sumar 100 %. Mientras tanto no podrás publicar las notas:
           ajusta las evaluaciones en «Registrar o editar evaluaciones».
         </p>
       )}
 
-      {envio?.status === 'enviado' && (
-        <p className="rounded-lg border border-zr-blue/30 bg-zr-blue/10 px-4 py-3 text-sm font-medium text-zr-text">
-          Enviadas a Dirección Académica el {new Date(envio.submittedAt).toLocaleDateString('es-VE')}.
-          Los estudiantes las verán cuando se validen. Si Dirección registra una evaluación nueva, esto
-          se reabre solo para que cargues su nota y vuelvas a enviar. Para corregir algo ya enviado,
-          pídele a Dirección Académica que las devuelva.
+      {publicado && (
+        <p className="rounded-lg border border-zr-success/30 bg-zr-success/10 px-4 py-3 text-sm font-medium text-zr-success">
+          Publicadas: los estudiantes ya las ven. Si cambias una nota o registras una evaluación nueva,
+          solo esa evaluación deja de verse hasta que vuelvas a revisar y publicar.
         </p>
       )}
-      {envio?.status === 'validado' && (
-        <p className="rounded-lg border border-zr-success/30 bg-zr-success/10 px-4 py-3 text-sm font-medium text-zr-success">
-          Notas validadas: los estudiantes ya las ven. Si cambias una nota o Dirección registra una
-          evaluación nueva, solo esa evaluación queda por validar (tendrás que volver a enviar); lo
-          que ya estaba validado se sigue viendo.
+      {!publicado && !bloqueado && evaluaciones.length > 0 && (
+        <p className="rounded-lg border border-zr-blue/30 bg-zr-blue/10 px-4 py-3 text-sm font-medium text-zr-text">
+          Todavía no publicadas: los estudiantes no ven nada de este módulo hasta que le des a «Revisar y publicar».
         </p>
       )}
 
@@ -353,25 +356,28 @@ export default function NotasCohorteProfesor() {
       ) : (
         <>
           {evaluaciones.length === 0 && (
-            <EstadoVacio titulo="Sin evaluaciones registradas" explicacion="Dirección Académica todavía no registró una evaluación para este módulo." />
+            <EstadoVacio titulo="Sin evaluaciones registradas" explicacion="Todavía no registraste una evaluación para este módulo." />
           )}
 
-          <div className="overflow-x-auto rounded-lg border border-zr-border">
+          {/* max-h + overflow-y propio: así la fila de encabezado (sticky top-0)
+              queda fija al bajar por los estudiantes, y la columna de estudiante
+              (sticky left-0) sigue fija al moverse de lado a lado. */}
+          <div className="max-h-[65dvh] overflow-auto rounded-lg border border-zr-border">
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="bg-zr-surface">
-                  <th className="sticky left-0 z-10 min-w-[170px] border-b border-r border-zr-border bg-zr-surface px-3 py-2.5 text-left font-bold text-zr-text">
+                  <th className="sticky left-0 top-0 z-20 min-w-[170px] border-b border-r border-zr-border bg-zr-surface px-3 py-2.5 text-left font-bold text-zr-text">
                     Estudiante
                   </th>
                   {evaluaciones.map((ev) => (
-                    <th key={ev.id} className="min-w-[88px] border-b border-zr-border px-2 py-2 text-center align-bottom">
+                    <th key={ev.id} className="sticky top-0 z-10 min-w-[88px] border-b border-zr-border bg-zr-surface px-2 py-2 text-center align-bottom">
                       <span className="block text-xs font-bold text-zr-text">{ev.title}</span>
                       <span className="block text-[10px] font-normal text-zr-text-muted">
                         {ABREV_KIND[ev.kind] ?? ev.kind} · /{ev.scaleMax} · {ev.pesoPct} %
                       </span>
                     </th>
                   ))}
-                  <th className="min-w-[84px] border-b border-l border-zr-border px-2 py-2.5 text-center align-bottom text-xs font-bold text-zr-text-muted">Nota</th>
+                  <th className="sticky top-0 z-10 min-w-[84px] border-b border-l border-zr-border bg-zr-surface px-2 py-2.5 text-center align-bottom text-xs font-bold text-zr-text-muted">Nota</th>
                 </tr>
               </thead>
               <tbody>
@@ -417,11 +423,11 @@ export default function NotasCohorteProfesor() {
 
           {!bloqueado && (
             <button
-              onClick={confirmarEnvio}
-              disabled={enviando}
+              onClick={revisarYPublicar}
+              disabled={publicando}
               className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-50"
             >
-              {enviando ? 'Enviando…' : 'Confirmar y enviar a Dirección Académica'}
+              {publicando ? 'Publicando…' : 'Revisar y publicar'}
             </button>
           )}
         </>

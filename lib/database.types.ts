@@ -3606,6 +3606,7 @@ export type Database = {
         Returns: undefined
       }
       fn_recalc_puntualidad_todos: { Args: never; Returns: undefined }
+      fn_recordar_cargar_notas: { Args: never; Returns: undefined }
       fn_recordar_solvencia_pendiente: { Args: never; Returns: undefined }
       fn_vencer_solvencia_pendiente: { Args: never; Returns: undefined }
       fn_zr_coffee_eliminar_venta: {
@@ -3674,6 +3675,10 @@ export type Database = {
         Args: { p_cohort: string; p_module: string }
         Returns: boolean
       }
+      profesor_puede_editar_notas: {
+        Args: { p_cohort: string; p_module: string }
+        Returns: boolean
+      }
       profesor_ve_material: {
         Args: { p_cohort: string; p_module: string; p_uploaded_by: string }
         Returns: boolean
@@ -3683,6 +3688,10 @@ export type Database = {
         Returns: boolean
       }
       publicar_cambios: {
+        Args: { p_cohort: string; p_module: string }
+        Returns: undefined
+      }
+      publicar_notas_profesor: {
         Args: { p_cohort: string; p_module: string }
         Returns: undefined
       }

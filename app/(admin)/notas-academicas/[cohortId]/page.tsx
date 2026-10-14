@@ -43,7 +43,7 @@ interface Modulo { id: string; nombre: string; orden: number }
 interface Envio { status: 'enviado' | 'validado' | 'devuelto'; submittedAt: string; validatedAt: string | null; motivo: string | null }
 type Tipo = 'todos' | 'examen' | 'practica' | 'prepractica' | 'exposicion' | 'participacion' | 'otro'
 
-const fmt = (v: number | null) => (v === null ? '—' : Number(v).toFixed(v % 1 === 0 ? 0 : 1))
+const fmt = (v: number | null) => (v === null ? '—' : Number(v).toFixed(2))
 const ABREV: Record<string, string> = { examen: 'Examen', practica: 'Práctica', prepractica: 'Pre-práctica', exposicion: 'Exposición', participacion: 'Participación', otro: 'Otro' }
 
 const CAMPO =

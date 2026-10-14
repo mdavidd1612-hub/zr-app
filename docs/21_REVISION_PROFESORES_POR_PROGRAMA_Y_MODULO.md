@@ -300,3 +300,32 @@ Académica no tiene acceso a Finanzas (solo Administración) — es la regla esp
 
 La cantina (ZR Coffee) tiene su propia tabla, pero es una lista corta de productos, no una lista
 larga de estudiantes — se dejó igual, fuera de lo que pidió el usuario.
+
+---
+
+## 13. Bug reportado por el coordinador: la coma del teléfono (14 oct.)
+
+**Lo que pasaba:** el campo de nota era un `<input type="number">`. En computador, da igual —
+se puede escribir el punto. Pero en el teléfono, ese tipo de campo usa el teclado numérico
+**del sistema operativo**, y según el idioma del teléfono ese teclado trae *solo* coma o *solo*
+punto como separador decimal — nunca los dos — y el campo rechaza el que no sea el suyo, aunque
+el código ya sabía convertir la coma (`replace(',', '.')`): nunca llegaba a usarlo, porque el
+navegador descartaba el carácter antes.
+
+**Arreglo:** los campos de nota pasan de `type="number"` a `type="text"` (con
+`inputMode="decimal"`, que sigue mostrando el teclado numérico): un campo de texto no filtra
+ningún carácter, así que coma y punto funcionan los dos, en cualquier teléfono. Igual en:
+
+- Notas del profesor y Notas de Dirección Académica (el campo de cada nota).
+- Calificar (puntaje de una pregunta abierta) — además le faltaba el `replace(',', '.')` antes
+  de calcular, aunque el campo ya fuera de texto.
+- Registrar evaluación: Escala, Mínimo y Vale (%) — Vale ya convertía la coma pero seguía siendo
+  `type="number"`; Escala y Mínimo no hacían ninguna de las dos cosas.
+
+**Probado de verdad en el navegador**, en staging, con el teléfono emulado: puse `16,5` en una
+nota (con coma) y quedó guardada como `16.50` exacto. Confirmé con JavaScript que los 5 campos
+(nota del profesor, nota de Dirección, puntaje de Calificar, Escala, Mínimo, Vale %) quedaron como
+`type="text"` con teclado decimal. Repuse el dato de prueba a como estaba.
+
+Subido a staging y producción (`dc346ac` y `7315a97`). Es un cambio solo de pantalla — no hizo
+falta ninguna migración.

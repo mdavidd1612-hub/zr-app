@@ -6,6 +6,9 @@ import { createClient } from '@/lib/supabase/client'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { useEsqueletoVisible } from '@/lib/useEsqueletoVisible'
 import { Encabezado, Seccion, Regla, Dato } from '@/components/ui/Editorial'
+import { esAdmin } from '@/lib/auth-helpers'
+import { leerCohorteVistaRecorridoCookie } from '@/lib/vista-recorrido'
+import type { UserRole } from '@/lib/types'
 
 /**
  * Fase 0 (docs/16_FASE0_PLAN_PROFESOR.md, Sprint B): "Tu clase de hoy" con
@@ -43,19 +46,34 @@ export default function Hoy() {
       if (!user) return
 
       const { data: perfil } = await supabase
-        .from('profiles').select('full_name').eq('id', user.id).single()
+        .from('profiles').select('full_name, role').eq('id', user.id).single()
       if (perfil) setNombre(perfil.full_name)
 
       const hoy = new Date().toISOString().split('T')[0]
 
-      const { data: sesiones } = await supabase
+      // Vista de recorrido (dirección académica y super_admin): no son
+      // profesores de ningún módulo real, así que RLS no les entrega ninguna
+      // sesión y antes se quedaban siempre en "No tienes clases programadas"
+      // sin poder elegir nada (pedido explícito del coordinador, oct. 2026).
+      // Se usa la cohorte elegida en el panel antes de entrar (ver
+      // lib/vista-recorrido.ts) para mostrar la próxima sesión de ESE
+      // programa en concreto, no una sesión de cualquier otro.
+      const cohorteElegida = esAdmin(perfil?.role as UserRole | undefined)
+        ? leerCohorteVistaRecorridoCookie()
+        : null
+
+      const consultaSesiones = supabase
         .from('class_sessions')
         .select('id, session_date, cohort_id, cohorts(name, location), modules(name)')
-        // Sin filtrar por profesor: la base ya entrega solo las sesiones de los
-        // módulos que este profesor tiene asignados (migración 150).
         .gte('session_date', hoy)
         .order('session_date', { ascending: true })
         .limit(1)
+
+      const { data: sesiones } = cohorteElegida
+        ? await consultaSesiones.eq('cohort_id', cohorteElegida)
+        // Sin filtrar por profesor: la base ya entrega solo las sesiones de
+        // los módulos que este profesor tiene asignados (migración 150).
+        : await consultaSesiones
 
       const s = sesiones?.[0] as unknown as {
         id: string; session_date: string; cohort_id: string

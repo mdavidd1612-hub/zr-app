@@ -8,6 +8,7 @@ import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { IconoCheck } from '@/components/ui/Iconos'
 import { esAdmin } from '@/lib/auth-helpers'
+import { leerCohorteVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import type { UserRole } from '@/lib/types'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { useEsqueletoVisible } from '@/lib/useEsqueletoVisible'
@@ -66,27 +67,40 @@ export default function MiModulo() {
         ?.cohorts?.current_module_id ?? null
 
       // Vista de recorrido (admin, dirección académica y super_admin): no
-      // tienen fila en `students`, así que no hay nada que mostrarles. En
-      // vez de inventar una inscripción falsa, se les muestra en SOLO
-      // LECTURA un programa real que ya exista y tenga módulo asignado — el
-      // más poblado, para que se vea con contenido.
+      // tienen fila en `students`, así que no hay nada que mostrarles. Se usa
+      // la cohorte que eligió en el panel antes de entrar (pedido explícito
+      // del coordinador, oct. 2026 — ver lib/vista-recorrido.ts); si entró
+      // directo sin elegir, se cae al respaldo de siempre: la cohorte real
+      // más poblada que ya tenga módulo asignado.
       if (!moduloId) {
         const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
         if (esAdmin(perfil?.role as UserRole | undefined)) {
-          const { data: cohortesConModulo } = await supabase
-            .from('cohorts')
-            .select('id, current_module_id, students(id)')
-            .not('current_module_id', 'is', null)
-            .eq('status', 'activa')
+          const cohorteElegida = leerCohorteVistaRecorridoCookie()
+          if (cohorteElegida) {
+            const { data: coh } = await supabase
+              .from('cohorts').select('id, current_module_id').eq('id', cohorteElegida).maybeSingle()
+            if (coh) {
+              cohortId = coh.id
+              moduloId = coh.current_module_id
+            }
+          }
 
-          const filas = (cohortesConModulo ?? []) as unknown as {
-            id: string; current_module_id: string; students: { id: string }[] | null
-          }[]
-          const mejor = [...filas].sort((a, b) => (b.students?.length ?? 0) - (a.students?.length ?? 0))[0]
+          if (!moduloId) {
+            const { data: cohortesConModulo } = await supabase
+              .from('cohorts')
+              .select('id, current_module_id, students(id)')
+              .not('current_module_id', 'is', null)
+              .eq('status', 'activa')
 
-          if (mejor) {
-            cohortId = mejor.id
-            moduloId = mejor.current_module_id
+            const filas = (cohortesConModulo ?? []) as unknown as {
+              id: string; current_module_id: string; students: { id: string }[] | null
+            }[]
+            const mejor = [...filas].sort((a, b) => (b.students?.length ?? 0) - (a.students?.length ?? 0))[0]
+
+            if (mejor) {
+              cohortId = mejor.id
+              moduloId = mejor.current_module_id
+            }
           }
         }
       }

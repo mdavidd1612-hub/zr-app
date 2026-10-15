@@ -261,7 +261,7 @@ export default function Examenes() {
                     <div className="min-w-0">
                       <p className="text-base font-semibold text-zr-text">{e.titulo}</p>
                       <p className="mt-1.5 text-sm text-zr-text-muted">
-                        {e.modulo} · {e.puntajeMaximo} puntos
+                        {e.modulo} · {Number(e.puntajeMaximo).toFixed(2)} puntos
                       </p>
                     </div>
                     <Etiqueta tono={ESTADO[e.estadoIntento].tono}>
@@ -291,9 +291,9 @@ export default function Examenes() {
                         <div className="mt-3 flex items-center gap-4">
                           {e.puntaje !== null && (
                             <p>
-                              <span className="zr-metric text-2xl text-zr-blue">{e.puntaje}</span>
+                              <span className="zr-metric text-2xl text-zr-blue">{Number(e.puntaje).toFixed(2)}</span>
                               <span className="ml-1 text-sm text-zr-text-muted">
-                                / {e.puntajeMaximo} pts
+                                / {Number(e.puntajeMaximo).toFixed(2)} pts
                               </span>
                             </p>
                           )}

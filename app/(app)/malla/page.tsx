@@ -7,6 +7,9 @@ import { Encabezado, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { IconoCheck } from '@/components/ui/Iconos'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+import { esAdmin } from '@/lib/auth-helpers'
+import { leerCohorteVistaRecorridoCookie } from '@/lib/vista-recorrido'
+import type { UserRole } from '@/lib/types'
 
 /**
  * Malla curricular (especificacion-funcional-zrm-academy.md §9, Módulo 7):
@@ -61,19 +64,42 @@ export default function MallaCurricular() {
         .eq('id', user.id)
         .single()
 
-      const cohorteId = (est as unknown as { cohort_id: string | null } | null)?.cohort_id ?? null
-      const cohorte = (est as unknown as {
+      let cohorteId = (est as unknown as { cohort_id: string | null } | null)?.cohort_id ?? null
+      let cohorte = (est as unknown as {
         cohorts: { current_module_id: string | null; programs: { id: string; name: string } | null } | null
-      } | null)?.cohorts
+      } | null)?.cohorts ?? null
+
+      // Vista de recorrido (admin, dirección académica y super_admin): sin
+      // fila en `students`, se usa la cohorte que eligió en el panel antes
+      // de entrar (pedido explícito del coordinador, oct. 2026 — ver
+      // lib/vista-recorrido.ts) para mostrar LA malla real de ese programa,
+      // con sus estados de cursado/actual/pendiente -- no la malla genérica.
+      if (!cohorte?.programs) {
+        const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+        if (esAdmin(perfil?.role as UserRole | undefined)) {
+          const cohorteElegida = leerCohorteVistaRecorridoCookie()
+          if (cohorteElegida) {
+            const { data: coh } = await supabase
+              .from('cohorts')
+              .select('id, current_module_id, programs(id, name)')
+              .eq('id', cohorteElegida)
+              .maybeSingle()
+            if (coh) {
+              cohorteId = coh.id
+              cohorte = coh as unknown as { current_module_id: string | null; programs: { id: string; name: string } | null }
+            }
+          }
+        }
+      }
 
       const columnas = 'id, order_index, name, description, competencias, duration_weeks, inces_homologado'
 
       if (!cohorte?.programs) {
-        // Sin programa asignado todavía (o vista de recorrido de super_admin,
-        // sin fila en students): el contenido de los módulos es el mismo
-        // en PTMA y PFTA — se muestra la malla completa estática, sin
-        // estados de cursado/actual (no hay una cohorte real de la que
-        // derivarlos), en vez de un mensaje vacío.
+        // Sin programa asignado todavía (y sin elegir ninguno en la vista de
+        // recorrido): el contenido de los módulos es el mismo en PTMA y PFTA
+        // — se muestra la malla completa estática, sin estados de
+        // cursado/actual (no hay una cohorte real de la que derivarlos), en
+        // vez de un mensaje vacío.
         const { data: todos } = await supabase
           .from('modules').select(columnas).order('order_index', { ascending: true })
 

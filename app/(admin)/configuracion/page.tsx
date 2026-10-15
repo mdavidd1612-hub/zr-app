@@ -26,6 +26,33 @@ interface Config {
   actualizadoPor: string | null
 }
 
+// Bug reportado por el coordinador (oct. 2026): esta pantalla mostraba el
+// `key` crudo de la base ("attendance.tarde_umbral_minutos") como título de
+// cada tarjeta -- "se ve en código, uno no entiende nada". La descripción ya
+// está escrita en español claro (columna `description`); el arreglo es
+// mostrar ESA como título y dejar el `key` como referencia pequeña debajo,
+// agrupado por el prefijo (todo lo que empieza por "attendance.", etc.) con
+// un encabezado legible, en vez de una lista plana de 20 filas.
+const GRUPO_POR_PREFIJO: Record<string, string> = {
+  academia: 'Academia',
+  app: 'Aplicación',
+  attendance: 'Asistencia',
+  content: 'Material',
+  evento: 'Evento',
+  exam: 'Exámenes',
+  feedback: 'Feedback',
+  finanzas: 'Finanzas',
+  grading: 'Calificación',
+  module: 'Módulos y notas',
+  terms: 'Términos y condiciones',
+  zr_coffee: 'ZR Coffee',
+}
+
+function grupoDeConfig(key: string): string {
+  const prefijo = key.split('.')[0]
+  return GRUPO_POR_PREFIJO[prefijo] ?? 'Otros'
+}
+
 interface Cambio {
   id: number
   key: string
@@ -221,16 +248,24 @@ export default function Configuracion() {
       </Seccion>
 
       <Seccion numero={2} titulo="Valores" delay={120}>
-        <div className="space-y-3">
-          {config.map((c) => {
+        <div className="space-y-5">
+          {config.map((c, i) => {
             const enEdicion = borradores[c.key] !== undefined
             const valorMostrado = enEdicion ? borradores[c.key] : textoValor(c.value)
             const cambio = enEdicion && borradores[c.key] !== textoValor(c.value)
+            const grupo = grupoDeConfig(c.key)
+            const grupoNuevo = i === 0 || grupo !== grupoDeConfig(config[i - 1].key)
 
             return (
-              <div key={c.key} className="zr-card p-5">
-                <p className="text-xs font-bold tabular-nums text-zr-blue-mid">{c.key}</p>
-                <p className="mt-1.5 text-sm text-zr-text-muted">{c.description}</p>
+              <div key={c.key}>
+                {grupoNuevo && (
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-zr-text-muted">
+                    {grupo}
+                  </p>
+                )}
+                <div className="zr-card p-5">
+                <p className="text-sm font-semibold text-zr-text">{c.description}</p>
+                <p className="mt-1 text-[11px] tabular-nums text-zr-text-muted/70">{c.key}</p>
 
                 {/* Un valor largo (ej. terms.text) es texto para leer, no un
                     número — se edita en un textarea, no en un input de una
@@ -272,6 +307,7 @@ export default function Configuracion() {
                   {c.actualizadoPor ? `Último cambio: ${c.actualizadoPor}, ` : ''}
                   {new Date(c.updatedAt).toLocaleString('es-VE')}
                 </p>
+                </div>
               </div>
             )
           })}
@@ -333,7 +369,10 @@ export default function Configuracion() {
           <div className="zr-card divide-y divide-zr-border">
             {historial.map((h) => (
               <div key={h.id} className="p-4">
-                <p className="text-xs font-bold tabular-nums text-zr-blue-mid">{h.key}</p>
+                <p className="text-sm font-semibold text-zr-text">
+                  {config.find((c) => c.key === h.key)?.description ?? h.key}
+                </p>
+                <p className="text-[11px] tabular-nums text-zr-text-muted/70">{h.key}</p>
                 <p className="mt-1 text-sm text-zr-text">
                   {textoValor(h.oldValue) || '(vacío)'} → {textoValor(h.newValue)}
                 </p>

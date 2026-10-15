@@ -96,9 +96,9 @@ export default function RevisionExamen() {
       <div className="zr-card p-6 text-center">
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-text-muted">Tu nota</p>
         <p className="zr-metric mt-2 text-5xl text-zr-blue">
-          {data.totalScore ?? '—'}
+          {data.totalScore === null ? '—' : Number(data.totalScore).toFixed(2)}
         </p>
-        <p className="mt-1 text-sm text-zr-text-muted">de {maxPuntos} puntos</p>
+        <p className="mt-1 text-sm text-zr-text-muted">de {Number(maxPuntos).toFixed(2)} puntos</p>
       </div>
 
       <Regla delay={60} />
@@ -130,10 +130,10 @@ export default function RevisionExamen() {
                 <div className="min-w-0 flex-1">
                   <p className="text-base font-medium text-zr-text leading-snug">{q.statement}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <Etiqueta tono="neutro">{q.points} pts</Etiqueta>
+                    <Etiqueta tono="neutro">{Number(q.points).toFixed(2)} pts</Etiqueta>
                     {awardedPoints !== null ? (
                       <Etiqueta tono={correcta ? 'exito' : parcial ? 'aviso' : 'error'}>
-                        {awardedPoints} / {q.points} obtenidos
+                        {Number(awardedPoints).toFixed(2)} / {Number(q.points).toFixed(2)} obtenidos
                       </Etiqueta>
                     ) : (
                       <Etiqueta tono="info">Sin calificar</Etiqueta>

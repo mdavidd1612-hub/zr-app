@@ -160,11 +160,18 @@ export function BarraFlotante({ items, todasLasSecciones, deslizable = true, alT
           descolgada del contenido y sobra ancho para una columna de secciones. */}
       <nav
         id="tour-nav"
-        className="fixed left-1/2 z-50 -translate-x-1/2 lg:hidden"
+        className="fixed left-1/2 z-50 w-[calc(100vw-1.5rem)] max-w-[26rem] -translate-x-1/2 lg:hidden"
         style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
       >
-        <div className="rounded-[28px] border border-white/15 bg-white/10 px-2 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
-          <div className="flex gap-0.5">
+        {/* Bug reportado por el coordinador (oct. 2026): con 6 secciones
+            (estudiante) el ancho fijo por botón (52px) no cabía en un
+            teléfono angosto (320px) y la píldora se desbordaba — "se
+            aglomeran". Cada botón reparte el ancho disponible a partes
+            iguales (`flex-1 min-w-0`) en vez de un ancho fijo, así nunca se
+            desborda sin importar cuántas secciones tenga cada rol ni qué tan
+            angosto sea el teléfono. */}
+        <div className="mx-auto w-fit max-w-full rounded-[28px] border border-white/15 bg-white/10 px-2 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+          <div className="flex w-full gap-0.5">
             {items.map((item) => {
               const on = activo(item.href)
               return (
@@ -173,7 +180,7 @@ export function BarraFlotante({ items, todasLasSecciones, deslizable = true, alT
                   onClick={() => (item.bloqueado ? alTocarBloqueado?.() : router.push(item.href))}
                   aria-current={on ? 'page' : undefined}
                   aria-disabled={item.bloqueado || undefined}
-                  className={`flex ${items.length > 5 ? 'w-[52px]' : 'w-14'} flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 transition-all duration-300 ${
+                  className={`flex min-w-0 flex-1 basis-14 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 transition-all duration-300 ${
                     item.bloqueado
                       ? 'text-zr-text-muted/40 grayscale'
                       : on

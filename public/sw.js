@@ -3,7 +3,13 @@
 // - El carnet se genera del IndexedDB local
 // - La cola de escaneos se sincroniza cuando vuelve la conexión
 
-const CACHE_NAME = 'zr-app-v1'
+// Subir este número (oct. 2026, bug real de producción -- ver
+// lib/use-service-worker.ts) es lo que hace que el navegador detecte una
+// versión nueva del Service Worker y disparen los eventos de actualización:
+// el archivo tiene que cambiar de bytes para que lo note. Sin esto, alguien
+// que ya tenía la app instalada podía quedarse corriendo el código viejo
+// indefinidamente después de un despliegue.
+const CACHE_NAME = 'zr-app-v2'
 const URLS_TO_CACHE = [
   '/',
   '/offline',

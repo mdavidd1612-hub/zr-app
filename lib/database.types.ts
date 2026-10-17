@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
@@ -3712,6 +3712,16 @@ export type Database = {
           programa: string
           turno: string
         }[]
+      }
+      seed_user: {
+        Args: {
+          p_cedula: string
+          p_email: string
+          p_full_name: string
+          p_id: string
+          p_role: Database["public"]["Enums"]["user_role"]
+        }
+        Returns: string
       }
       set_student_code_calc: {
         Args: { p_cohort_id: string; p_enrollment_date: string; p_id: string }

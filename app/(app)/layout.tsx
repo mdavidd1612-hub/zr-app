@@ -69,11 +69,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Tour guiado (migración 173, pedido explícito del coordinador): vive
   // aquí, no en una page.tsx suelta, para que su progreso sobreviva la
   // navegación entre Inicio, Mi módulo, Material, Dudas y Perfil — un
-  // layout no se remonta al cambiar de ruta dentro del mismo grupo. Nunca
-  // en la vista de recorrido de administración/Dirección/super_admin (no
-  // tienen fila en `students`, no hay nada suyo que marcar).
+  // layout no se remonta al cambiar de ruta dentro del mismo grupo. TAMBIÉN
+  // en la vista de recorrido -- administración, Dirección Académica y
+  // super_admin tienen que poder verlo sin entrar a una cuenta de
+  // estudiante de verdad, que es justo para lo que existe esa vista (se
+  // guarda en el propio profiles.tour_pasos_vistos de quien está
+  // recorriendo; los IDs llevan el prefijo del rol, nunca chocan).
   const { pasos: pasosTour, incremental: tourIncremental, terminar: terminarTour } =
-    useTour(PASOS_POR_ROL.estudiante, rol === 'estudiante' && validado && !simulando && !enOnboarding)
+    useTour(PASOS_POR_ROL.estudiante, rol !== undefined && rol !== null && validado && !enOnboarding)
 
   useEffect(() => {
     const supabase = createClient()

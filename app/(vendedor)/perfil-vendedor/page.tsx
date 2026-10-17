@@ -7,6 +7,7 @@ import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
 import { BotonComoUsarApp } from '@/components/ui/BotonComoUsarApp'
 import { CambiarRol } from '@/components/ui/CambiarRol'
+import { leerVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import type { UserRole } from '@/lib/types'
 
 interface Perfil {
@@ -76,9 +77,10 @@ export default function PerfilVendedor() {
 
       <CambiarRol rolActual={perfil.rol} numero={2} />
 
-      {/* Ayuda (pedido explícito del coordinador, oct. 2026): solo un
-          vendedor de verdad -- en vista de recorrido el tour está apagado. */}
-      {perfil.rol === 'vendedor' && (
+      {/* Ayuda (pedido explícito del coordinador, oct. 2026): para un
+          vendedor de verdad, o para quien está recorriendo esa vista -- el
+          tour tiene que poder verse desde ahí también. */}
+      {(perfil.rol === 'vendedor' || leerVistaRecorridoCookie() === 'vendedor') && (
         <Seccion numero={3} titulo="Ayuda" delay={200}>
           <BotonComoUsarApp inicioDelRol="/carga-ventas" />
         </Seccion>

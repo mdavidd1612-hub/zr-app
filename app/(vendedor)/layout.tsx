@@ -70,11 +70,11 @@ export default function VendedorLayout({ children }: { children: React.ReactNode
     verificarRol()
   }, [router])
 
-  // Tour guiado (migración 173, pedido explícito del coordinador): nunca en
-  // la vista de recorrido de administración/super_admin -- `simulando` ya
-  // distingue "vendedor de verdad" de "viendo como vendedor".
+  // Tour guiado (migración 173, pedido explícito del coordinador): TAMBIÉN
+  // en la vista de recorrido -- administración y super_admin tienen que
+  // poder verlo sin entrar a una cuenta de ventas de verdad.
   const { pasos: pasosTour, incremental: tourIncremental, terminar: terminarTour } =
-    useTour(PASOS_POR_ROL.vendedor, !verificando && !simulando)
+    useTour(PASOS_POR_ROL.vendedor, !verificando)
 
   if (verificando) {
     return (

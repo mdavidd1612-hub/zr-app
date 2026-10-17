@@ -82,11 +82,14 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
     verificarRol()
   }, [router])
 
-  // Tour guiado (migración 173, pedido explícito del coordinador): nunca en
-  // la vista de recorrido de Dirección Académica/super_admin -- `simulando`
-  // ya distingue "profesor de verdad" de "viendo como profesor".
+  // Tour guiado (migración 173, pedido explícito del coordinador): TAMBIÉN
+  // en la vista de recorrido -- Dirección Académica y super_admin tienen que
+  // poder verlo sin entrar a una cuenta de profesor de verdad, que es
+  // justo para lo que existe esa vista. Se guarda en el propio
+  // profiles.tour_pasos_vistos de quien está recorriendo (los IDs ya llevan
+  // el prefijo del rol -- "profesor-...", nunca chocan con los suyos).
   const { pasos: pasosTour, incremental: tourIncremental, terminar: terminarTour } =
-    useTour(PASOS_POR_ROL.profesor, !verificando && !simulando)
+    useTour(PASOS_POR_ROL.profesor, !verificando)
 
   if (verificando) {
     return (

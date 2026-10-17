@@ -11,6 +11,7 @@ import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
 import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
 import { BotonComoUsarApp } from '@/components/ui/BotonComoUsarApp'
 import { leerSimulacionSabado, guardarSimulacionSabado } from '@/lib/demo-sabado'
+import { leerVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
 
@@ -188,11 +189,11 @@ export default function PerfilDocente() {
         <BotonActivarPush />
       </Seccion>
 
-      {/* Ayuda (pedido explícito del coordinador, oct. 2026): solo para un
-          profesor de verdad -- en vista de recorrido (Dirección
-          Académica/super_admin) el tour está apagado, el botón no haría
-          nada. */}
-      {perfil.rol === 'profesor' && (
+      {/* Ayuda (pedido explícito del coordinador, oct. 2026): para un
+          profesor de verdad, o para Dirección Académica/super_admin
+          recorriendo la vista de profesor -- el tour tiene que poder verse
+          desde ahí, sin entrar a una cuenta de profesor de verdad. */}
+      {(perfil.rol === 'profesor' || leerVistaRecorridoCookie() === 'profesor') && (
         <Seccion numero={5} titulo="Ayuda" delay={260}>
           <BotonComoUsarApp inicioDelRol="/hoy" />
         </Seccion>

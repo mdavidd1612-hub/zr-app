@@ -11,7 +11,7 @@ import {
   nombreDescarga, registrarEvento, urlDelVisor, visorDe,
 } from '@/lib/material'
 import { esAdmin } from '@/lib/auth-helpers'
-import { leerCohorteVistaRecorridoCookie } from '@/lib/vista-recorrido'
+import { leerCohorteVistaRecorridoCookie, leerModuloVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import type { UserRole } from '@/lib/types'
 
 /**
@@ -104,27 +104,42 @@ export default function Contenido() {
       // Vista de recorrido (admin, dirección académica y super_admin): las
       // RPC de abajo están pensadas para un estudiante real (auth.uid()), así
       // que para estas cuentas siempre devolvían vacío ("Todavía no hay
-      // material"). Se usa en su lugar la cohorte que eligió en el panel
-      // antes de entrar (pedido explícito del coordinador, oct. 2026 — ver
-      // lib/vista-recorrido.ts), y se muestra solo el módulo actual de esa
-      // cohorte -- igual que ve un estudiante con un solo módulo visible.
+      // material"). Se usa en su lugar el programa/módulo que eligió en el
+      // panel antes de entrar (lib/vista-recorrido.ts). Pedido explícito del
+      // coordinador, oct. 2026: esta lista tiene que verse IGUAL que la de un
+      // estudiante real con varios módulos -- antes entraba directo al
+      // módulo elegido, sin el selector que un estudiante sí ve cuando tiene
+      // más de uno con material.
       const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user?.id ?? '').maybeSingle()
       const cohorteElegida = user && esAdmin(perfil?.role as UserRole | undefined)
         ? leerCohorteVistaRecorridoCookie()
         : null
 
       if (cohorteElegida) {
+        const moduloElegido = leerModuloVistaRecorridoCookie()
         const { data: coh } = await supabase
-          .from('cohorts').select('current_module_id').eq('id', cohorteElegida).maybeSingle()
-        const moduloId = coh?.current_module_id ?? null
-        if (!moduloId) {
+          .from('cohorts').select('program_id, current_module_id').eq('id', cohorteElegida).maybeSingle()
+        const moduloActualId = moduloElegido ?? coh?.current_module_id ?? null
+        if (!coh?.program_id) {
           setModulos([])
           setModulosListos(true)
           setCargando(false)
           return
         }
-        const { data: mod } = await supabase.from('modules').select('id, name, order_index').eq('id', moduloId).single()
-        const lista = mod ? [{ id: mod.id, nombre: mod.name, orden: mod.order_index, esActual: true }] : []
+
+        const [{ data: mods }, { data: items }, { data: carpetas }] = await Promise.all([
+          supabase.from('modules').select('id, name, order_index').eq('program_id', coh.program_id).order('order_index'),
+          supabase.from('content_items').select('module_id'),
+          supabase.from('content_folders').select('module_id'),
+        ])
+        const conMaterial = new Set([
+          ...(items ?? []).map((i) => i.module_id),
+          ...(carpetas ?? []).map((c) => c.module_id),
+        ])
+        const lista = (mods ?? [])
+          .map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index, esActual: m.id === moduloActualId }))
+          .filter((m) => conMaterial.has(m.id) || m.esActual)
+
         setModulos(lista)
         if (lista.length === 1) setModuloActual(lista[0])
         setModulosListos(true)
@@ -176,7 +191,7 @@ export default function Contenido() {
       const consultaCarpetas = supabase.from('content_folders').select('id, name').eq('module_id', moduloActual.id)
       const consultaItems = supabase
         .from('content_items')
-        .select('id, title, week_number, size_bytes, type, original_name, storage_path')
+        .select('id, title, week_number, size_bytes, type, original_name, storage_path, created_at')
         .eq('module_id', moduloActual.id)
 
       const [{ data: subs }, { data: items }] = await Promise.all([
@@ -184,10 +199,14 @@ export default function Contenido() {
           ? consultaCarpetas.eq('parent_folder_id', carpetaActual)
           : consultaCarpetas.is('parent_folder_id', null)
         ).order('name'),
+        // Pedido explícito del coordinador (oct. 2026): ordenar por fecha en
+        // que se subió (lo más reciente primero), no por semana -- varios
+        // materiales comparten semana o no la tienen, y así no se encontraba
+        // fácil lo que el profesor acababa de agregar.
         (carpetaActual
           ? consultaItems.eq('folder_id', carpetaActual)
           : consultaItems.is('folder_id', null)
-        ).order('week_number', { ascending: true, nullsFirst: false }),
+        ).order('created_at', { ascending: false }),
       ])
 
       setSubcarpetas((subs ?? []).map((c) => ({ id: c.id, nombre: c.name })))

@@ -392,7 +392,7 @@ export default function NotasCohorteProfesor() {
                         <input
                           key={`${f.studentId}-${ev.id}-${notas[f.studentId]?.[ev.id] ?? ''}`}
                           type="text" inputMode="decimal"
-                          defaultValue={notas[f.studentId]?.[ev.id] ?? ''}
+                          defaultValue={notas[f.studentId]?.[ev.id] != null ? fmt(notas[f.studentId][ev.id]) : ''}
                           onBlur={(e) => guardarNota(f.studentId, ev, e.target.value)}
                           disabled={bloqueado || guardando === `${f.studentId}:${ev.id}`}
                           className={`${celda} ${tonoNota(notas[f.studentId]?.[ev.id] ?? undefined, ev.passingMin)}`}

@@ -19,10 +19,16 @@ const COOKIE = 'zr_vista'
 // viendo como que es general". Ahora se elige UNA vez, en el panel, antes de
 // entrar, y todas las pantallas de esa vista respetan la misma elección.
 const COOKIE_COHORTE = 'zr_vista_cohorte'
+// Módulo elegido dentro del programa (pedido explícito del coordinador, oct.
+// 2026): antes solo se podía elegir el PROGRAMA y todo caía al módulo
+// vigente de esa cohorte -- Dirección Académica y super_admin no podían
+// revisar Material o Notas de un módulo ya cursado o futuro. Ahora el panel
+// pide programa y, aparte, módulo (ver app/(admin)/panel/page.tsx).
+const COOKIE_MODULO = 'zr_vista_modulo'
 
 export type VistaRecorrido = 'estudiante' | 'profesor' | 'vendedor'
 
-export function activarVistaRecorrido(vista: VistaRecorrido, cohortId?: string) {
+export function activarVistaRecorrido(vista: VistaRecorrido, cohortId?: string, moduleId?: string) {
   if (typeof document === 'undefined') return
   // 4 horas: alcanza de sobra para una sesión de trabajo, pero no se queda
   // pegada para siempre si alguien se olvida de salir.
@@ -32,12 +38,18 @@ export function activarVistaRecorrido(vista: VistaRecorrido, cohortId?: string) 
   } else {
     document.cookie = `${COOKIE_COHORTE}=; path=/; max-age=0; samesite=lax`
   }
+  if (moduleId) {
+    document.cookie = `${COOKIE_MODULO}=${moduleId}; path=/; max-age=14400; samesite=lax`
+  } else {
+    document.cookie = `${COOKIE_MODULO}=; path=/; max-age=0; samesite=lax`
+  }
 }
 
 export function salirDeVistaRecorrido() {
   if (typeof document === 'undefined') return
   document.cookie = `${COOKIE}=; path=/; max-age=0; samesite=lax`
   document.cookie = `${COOKIE_COHORTE}=; path=/; max-age=0; samesite=lax`
+  document.cookie = `${COOKIE_MODULO}=; path=/; max-age=0; samesite=lax`
 }
 
 // Para las pantallas de estudiante que, en vista de recorrido, necesitan
@@ -46,6 +58,16 @@ export function salirDeVistaRecorrido() {
 export function leerCohorteVistaRecorridoCookie(): string | null {
   if (typeof document === 'undefined') return null
   const match = document.cookie.match(new RegExp(`(?:^|; )${COOKIE_COHORTE}=([^;]*)`))
+  const valor = match ? decodeURIComponent(match[1]) : ''
+  return valor || null
+}
+
+// El módulo elegido dentro de ese programa -- ver nota de COOKIE_MODULO
+// arriba. Puede no estar presente (sesiones viejas, antes de este cambio);
+// las pantallas caen al módulo vigente de la cohorte en ese caso.
+export function leerModuloVistaRecorridoCookie(): string | null {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.match(new RegExp(`(?:^|; )${COOKIE_MODULO}=([^;]*)`))
   const valor = match ? decodeURIComponent(match[1]) : ''
   return valor || null
 }

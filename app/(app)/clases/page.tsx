@@ -8,7 +8,7 @@ import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { IconoCheck } from '@/components/ui/Iconos'
 import { esAdmin } from '@/lib/auth-helpers'
-import { leerCohorteVistaRecorridoCookie } from '@/lib/vista-recorrido'
+import { leerCohorteVistaRecorridoCookie, leerModuloVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import type { UserRole } from '@/lib/types'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { useEsqueletoVisible } from '@/lib/useEsqueletoVisible'
@@ -76,12 +76,18 @@ export default function MiModulo() {
         const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
         if (esAdmin(perfil?.role as UserRole | undefined)) {
           const cohorteElegida = leerCohorteVistaRecorridoCookie()
+          const moduloElegido = leerModuloVistaRecorridoCookie()
           if (cohorteElegida) {
-            const { data: coh } = await supabase
-              .from('cohorts').select('id, current_module_id').eq('id', cohorteElegida).maybeSingle()
-            if (coh) {
-              cohortId = coh.id
-              moduloId = coh.current_module_id
+            cohortId = cohorteElegida
+            // El módulo elegido explícitamente en el panel (pedido explícito
+            // del coordinador, oct. 2026: "también por módulo") gana sobre
+            // el módulo vigente de la cohorte.
+            if (moduloElegido) {
+              moduloId = moduloElegido
+            } else {
+              const { data: coh } = await supabase
+                .from('cohorts').select('current_module_id').eq('id', cohorteElegida).maybeSingle()
+              moduloId = coh?.current_module_id ?? null
             }
           }
 

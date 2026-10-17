@@ -7,7 +7,7 @@ import { CASOS_HABILITADO } from '@/lib/flags'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { esAdmin } from '@/lib/auth-helpers'
-import { leerCohorteVistaRecorridoCookie } from '@/lib/vista-recorrido'
+import { leerCohorteVistaRecorridoCookie, leerModuloVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import type { UserRole } from '@/lib/types'
 
 /**
@@ -87,10 +87,16 @@ export default function CasosDocente() {
         const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
         if (esAdmin(perfil?.role as UserRole | undefined)) {
           const cohorteElegida = leerCohorteVistaRecorridoCookie()
+          const moduloElegido = leerModuloVistaRecorridoCookie()
           if (cohorteElegida) {
-            const { data: coh } = await supabase
-              .from('cohorts').select('id, current_module_id, modules(name)').eq('id', cohorteElegida).maybeSingle()
-            if (coh) cohorteData = coh as unknown as { id: string; current_module_id: string | null; modules: { name: string } | null }
+            if (moduloElegido) {
+              const { data: mod } = await supabase.from('modules').select('name').eq('id', moduloElegido).maybeSingle()
+              cohorteData = { id: cohorteElegida, current_module_id: moduloElegido, modules: mod ?? null }
+            } else {
+              const { data: coh } = await supabase
+                .from('cohorts').select('id, current_module_id, modules(name)').eq('id', cohorteElegida).maybeSingle()
+              if (coh) cohorteData = coh as unknown as { id: string; current_module_id: string | null; modules: { name: string } | null }
+            }
           }
 
           if (!cohorteData?.current_module_id) {

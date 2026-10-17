@@ -8,7 +8,7 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 import { IconoCheck } from '@/components/ui/Iconos'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { esAdmin } from '@/lib/auth-helpers'
-import { leerCohorteVistaRecorridoCookie } from '@/lib/vista-recorrido'
+import { leerCohorteVistaRecorridoCookie, leerModuloVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import type { UserRole } from '@/lib/types'
 
 /**
@@ -78,6 +78,7 @@ export default function MallaCurricular() {
         const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
         if (esAdmin(perfil?.role as UserRole | undefined)) {
           const cohorteElegida = leerCohorteVistaRecorridoCookie()
+          const moduloElegido = leerModuloVistaRecorridoCookie()
           if (cohorteElegida) {
             const { data: coh } = await supabase
               .from('cohorts')
@@ -87,6 +88,10 @@ export default function MallaCurricular() {
             if (coh) {
               cohorteId = coh.id
               cohorte = coh as unknown as { current_module_id: string | null; programs: { id: string; name: string } | null }
+              // El módulo elegido explícitamente en el panel (pedido
+              // explícito del coordinador, oct. 2026: "también por módulo")
+              // es el que se marca "Cursando ahora", no el vigente real.
+              if (moduloElegido) cohorte = { ...cohorte, current_module_id: moduloElegido }
             }
           }
         }

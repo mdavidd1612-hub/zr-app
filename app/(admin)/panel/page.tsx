@@ -15,8 +15,17 @@ import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 interface CohorteParaRecorrido {
   id: string
   name: string
+  programId: string
+  moduloActualId: string | null
   moduloNombre: string | null
   moduloOrden: number | null
+}
+
+interface ModuloParaRecorrido {
+  id: string
+  nombre: string
+  orden: number
+  esActual: boolean
 }
 
 interface SesionHoy {
@@ -92,6 +101,10 @@ export default function Panel() {
   // "general" en vez de un programa concreto elegido a propósito.
   const [eligiendo, setEligiendo] = useState<{ vista: VistaRecorrido; destino: string } | null>(null)
   const [cohortesRecorrido, setCohortesRecorrido] = useState<CohorteParaRecorrido[] | null>(null)
+  // Paso 2 (pedido explícito del coordinador, oct. 2026): con el programa ya
+  // elegido, también se elige el módulo -- antes caía siempre al vigente.
+  const [programaElegido, setProgramaElegido] = useState<CohorteParaRecorrido | null>(null)
+  const [modulosRecorrido, setModulosRecorrido] = useState<ModuloParaRecorrido[] | null>(null)
 
   const hoy = new Date()
   const esSabado = simulado || hoy.getDay() === 6
@@ -244,20 +257,25 @@ export default function Panel() {
                 alElegirVista={(vista, destino) => {
                   setEligiendo({ vista, destino })
                   setCohortesRecorrido(null)
+                  setProgramaElegido(null)
+                  setModulosRecorrido(null)
                   const supabase = createClient()
                   supabase
                     .from('cohorts')
-                    .select('id, name, current_module_id, modules(name, order_index)')
+                    .select('id, name, program_id, current_module_id, modules(name, order_index)')
                     .eq('status', 'activa')
                     .not('current_module_id', 'is', null)
                     .then(({ data }) => {
                       const filas = (data ?? []) as unknown as {
-                        id: string; name: string; modules: { name: string; order_index: number } | null
+                        id: string; name: string; program_id: string; current_module_id: string
+                        modules: { name: string; order_index: number } | null
                       }[]
                       setCohortesRecorrido(
                         ordenarCohortesPorPrioridad(filas).map((c) => ({
                           id: c.id,
                           name: c.name,
+                          programId: c.program_id,
+                          moduloActualId: c.current_module_id,
                           moduloNombre: c.modules?.name ?? null,
                           moduloOrden: c.modules?.order_index ?? null,
                         })),
@@ -281,55 +299,125 @@ export default function Panel() {
             aria-modal="true"
             className="max-h-[88dvh] w-full max-w-lg space-y-5 overflow-y-auto rounded-t-2xl border border-white/15 bg-zr-surface/95 p-6 pb-8 shadow-[0_16px_48px_rgba(0,0,0,0.55)] sm:rounded-2xl sm:pb-6"
           >
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
-                {eligiendo.vista === 'estudiante' ? 'Vista de Estudiante' : 'Vista de Profesor'}
-              </p>
-              <h2 className="zr-display mt-2 text-xl text-zr-text">¿Qué programa quieres ver?</h2>
-              <p className="mt-1.5 text-sm text-zr-text-muted">
-                Elige el programa y módulo que quieres recorrer — todas las pantallas de esta
-                vista van a mostrar justo eso.
-              </p>
-            </div>
+            {!programaElegido ? (
+              <>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
+                    {eligiendo.vista === 'estudiante' ? 'Vista de Estudiante' : 'Vista de Profesor'}
+                  </p>
+                  <h2 className="zr-display mt-2 text-xl text-zr-text">¿Qué programa quieres ver?</h2>
+                  <p className="mt-1.5 text-sm text-zr-text-muted">
+                    Después eliges el módulo — todas las pantallas de esta vista van a mostrar
+                    justo eso.
+                  </p>
+                </div>
 
-            {cohortesRecorrido === null ? (
-              <p className="py-6 text-center text-sm text-zr-text-muted">Cargando programas…</p>
-            ) : cohortesRecorrido.length === 0 ? (
-              <p className="py-6 text-center text-sm text-zr-text-muted">
-                No hay ningún programa activo con módulo asignado todavía.
-              </p>
+                {cohortesRecorrido === null ? (
+                  <p className="py-6 text-center text-sm text-zr-text-muted">Cargando programas…</p>
+                ) : cohortesRecorrido.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-zr-text-muted">
+                    No hay ningún programa activo con módulo asignado todavía.
+                  </p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {cohortesRecorrido.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => {
+                          setProgramaElegido(c)
+                          setModulosRecorrido(null)
+                          createClient()
+                            .from('modules')
+                            .select('id, name, order_index')
+                            .eq('program_id', c.programId)
+                            .order('order_index')
+                            .then(({ data }) => {
+                              setModulosRecorrido(
+                                (data ?? []).map((m) => ({
+                                  id: m.id,
+                                  nombre: m.name,
+                                  orden: m.order_index,
+                                  esActual: m.id === c.moduloActualId,
+                                })),
+                              )
+                            })
+                        }}
+                        className="zr-card zr-card-interactive flex w-full items-center justify-between gap-3 p-4 text-left"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-base font-semibold text-zr-text">{c.name}</p>
+                          {c.moduloNombre && (
+                            <p className="mt-0.5 text-sm text-zr-text-muted">
+                              Cursando ahora: módulo {c.moduloOrden} · {c.moduloNombre}
+                            </p>
+                          )}
+                        </div>
+                        <span className="shrink-0 text-zr-text-muted">›</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  onClick={() => setEligiendo(null)}
+                  className="flex min-h-12 w-full items-center justify-center rounded-lg border border-zr-border text-sm font-bold text-zr-text"
+                >
+                  Cancelar
+                </button>
+              </>
             ) : (
-              <div className="space-y-2.5">
-                {cohortesRecorrido.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => {
-                      activarVistaRecorrido(eligiendo.vista, c.id)
-                      router.push(eligiendo.destino)
-                      setEligiendo(null)
-                    }}
-                    className="zr-card zr-card-interactive flex w-full items-center justify-between gap-3 p-4 text-left"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-base font-semibold text-zr-text">{c.name}</p>
-                      {c.moduloNombre && (
-                        <p className="mt-0.5 text-sm text-zr-text-muted">
-                          Módulo {c.moduloOrden} · {c.moduloNombre}
-                        </p>
-                      )}
-                    </div>
-                    <span className="shrink-0 text-zr-text-muted">›</span>
-                  </button>
-                ))}
-              </div>
-            )}
+              <>
+                <button
+                  onClick={() => { setProgramaElegido(null); setModulosRecorrido(null) }}
+                  className="-ml-1 flex min-h-11 items-center gap-1.5 rounded-lg px-1 text-sm font-semibold text-zr-text-muted active:text-zr-text"
+                >
+                  ‹ Elegir otro programa
+                </button>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
+                    {eligiendo.vista === 'estudiante' ? 'Vista de Estudiante' : 'Vista de Profesor'}
+                  </p>
+                  <h2 className="zr-display mt-2 text-xl text-zr-text">¿Qué módulo quieres ver?</h2>
+                  <p className="mt-1.5 text-sm text-zr-text-muted">{programaElegido.name}</p>
+                </div>
 
-            <button
-              onClick={() => setEligiendo(null)}
-              className="flex min-h-12 w-full items-center justify-center rounded-lg border border-zr-border text-sm font-bold text-zr-text"
-            >
-              Cancelar
-            </button>
+                {modulosRecorrido === null ? (
+                  <p className="py-6 text-center text-sm text-zr-text-muted">Cargando módulos…</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {modulosRecorrido.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => {
+                          activarVistaRecorrido(eligiendo.vista, programaElegido.id, m.id)
+                          router.push(eligiendo.destino)
+                          setEligiendo(null)
+                          setProgramaElegido(null)
+                        }}
+                        className="zr-card zr-card-interactive flex w-full items-center justify-between gap-3 p-4 text-left"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-base font-semibold text-zr-text">
+                            Módulo {m.orden} · {m.nombre}
+                          </p>
+                          {m.esActual && (
+                            <p className="mt-0.5 text-sm text-zr-blue-mid">Cursando ahora</p>
+                          )}
+                        </div>
+                        <span className="shrink-0 text-zr-text-muted">›</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  onClick={() => setEligiendo(null)}
+                  className="flex min-h-12 w-full items-center justify-center rounded-lg border border-zr-border text-sm font-bold text-zr-text"
+                >
+                  Cancelar
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

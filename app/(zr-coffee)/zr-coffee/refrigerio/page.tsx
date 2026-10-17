@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import QRCode from 'qrcode'
@@ -11,12 +11,16 @@ import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
  * `/zr-coffee/refrigerio` -- corrección explícita del coordinador (sept.
  * 2026): esta pantalla NO escanea, MUESTRA el QR. El estudiante lo escanea
  * con su propio teléfono desde `/refrigerio` -- mismo patrón que `/qr`
- * (asistencia) y `daily_checkin_codes` (migración 037), aplicado aquí con
- * `daily_snack_codes` (migración 112).
+ * (asistencia).
  *
- * El código rota solo cuando alguien lo usa con éxito (lo hace el servidor,
- * en `claim-snack-checkin`) -- aquí solo se detecta la rotación y se vuelve
- * a dibujar. Nada se valida en el cliente (regla 2 de AGENTS.md).
+ * El QR es ESTÁTICO (pedido explícito del coordinador, oct. 2026): antes
+ * rotaba cada vez que alguien lo usaba (`daily_snack_codes`), así que había
+ * que tener una pantalla prendida mostrándolo todo el turno. Ahora es
+ * siempre el mismo código -- se puede imprimir una vez y pegar en la pared
+ * de la cantina. La seguridad real nunca dependió de que el código fuera
+ * secreto o cambiara: `claim-snack-checkin` (servidor) exige que quien
+ * escanea sea un estudiante autenticado CON asistencia ya registrada hoy, y
+ * eso no cambia -- regla 2 de CLAUDE.md, nada se valida en el cliente.
  *
  * Reunión de sept. 2026 (migraciones 129 y 130): el contador se desglosa por
  * programa y ZR Coffee puede abrir/cerrar el refrigerio de cada turno a mano
@@ -36,9 +40,9 @@ type Estado = 'abierto' | 'cerrado' | null
 
 const TURNOS = ['mañana', 'tarde'] as const
 
-function nuevoCodigo() {
-  return crypto.randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase()
-}
+// Código fijo del QR de la cantina -- tiene que ser EXACTAMENTE el mismo que
+// valida la Edge Function claim-snack-checkin (supabase/functions).
+const CODIGO_CANTINA = 'CANTINA-ZR'
 
 export default function RefrigerioCantina() {
   const router = useRouter()
@@ -48,17 +52,8 @@ export default function RefrigerioCantina() {
   const [guardandoTurno, setGuardandoTurno] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
-  const codigoActual = useRef<string | null>(null)
 
   const hoyISO = new Date().toISOString().slice(0, 10)
-
-  async function dibujarQR(code: string) {
-    codigoActual.current = code
-    const url = await QRCode.toDataURL(`ZRSNACK|${code}`, {
-      width: 320, margin: 3, color: { dark: '#0F1419', light: '#FFFFFF' },
-    })
-    setQrUrl(url)
-  }
 
   // La cuenta de ZR Coffee no puede leer asistencia directamente: los totales
   // por programa salen de una función del servidor (migración 130).
@@ -96,14 +91,10 @@ export default function RefrigerioCantina() {
         return
       }
 
-      const { data: existente } = await supabase
-        .from('daily_snack_codes').select('code').eq('checkin_date', hoyISO).maybeSingle()
-
-      const code = existente?.code ?? nuevoCodigo()
-      if (!existente) {
-        await supabase.from('daily_snack_codes').insert({ checkin_date: hoyISO, code })
-      }
-      await dibujarQR(code)
+      const url = await QRCode.toDataURL(`ZRSNACK|${CODIGO_CANTINA}`, {
+        width: 320, margin: 3, color: { dark: '#0F1419', light: '#FFFFFF' },
+      })
+      setQrUrl(url)
       await cargarEntregados()
       setCargando(false)
     }
@@ -111,18 +102,10 @@ export default function RefrigerioCantina() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
+  // El QR ya no rota -- solo el contador de "entregados hoy" necesita
+  // refrescarse solo mientras esta pantalla queda abierta.
   useEffect(() => {
-    const intervalo = setInterval(async () => {
-      const supabase = createClient()
-      const [, { data: actual }] = await Promise.all([
-        cargarEntregados(),
-        supabase.from('daily_snack_codes').select('code').eq('checkin_date', hoyISO).maybeSingle(),
-      ])
-      if (actual?.code && actual.code !== codigoActual.current) {
-        await dibujarQR(actual.code)
-      }
-    }, 2000)
-
+    const intervalo = setInterval(() => { cargarEntregados() }, 5000)
     return () => clearInterval(intervalo)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -135,9 +118,9 @@ export default function RefrigerioCantina() {
 
   return (
     <div className="space-y-8 px-5 pt-14">
-      <BotonVolver href="/zr-coffee" />
+      <div className="print:hidden"><BotonVolver href="/zr-coffee" /></div>
 
-      <header>
+      <header className="print:hidden">
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">ZR Coffee</p>
         <h1 className="zr-display mt-3 text-4xl text-zr-text">QR de refrigerio</h1>
         <p className="mt-3 text-sm text-zr-text-muted">
@@ -146,11 +129,22 @@ export default function RefrigerioCantina() {
         </p>
       </header>
 
-      <div className="flex flex-col items-center gap-6 rounded-2xl bg-zr-navy p-8 text-center">
+      <div className="flex flex-col items-center gap-6 rounded-2xl bg-zr-navy p-8 text-center print:rounded-none print:bg-white print:p-4">
+        <p className="hidden text-lg font-bold text-zr-navy print:block">ZR Mecademy · Refrigerio</p>
         <div className="rounded-xl bg-white p-4">
           <img src={qrUrl} alt="Código QR de refrigerio" className="h-64 w-64" />
         </div>
-        <div className="w-full space-y-2">
+        <p className="hidden max-w-xs text-sm text-zr-navy print:block">
+          Escanéalo con tu teléfono desde &ldquo;Escanear refrigerio&rdquo; después de marcar tu
+          asistencia.
+        </p>
+        <button
+          onClick={() => window.print()}
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-white/25 text-sm font-bold text-white print:hidden"
+        >
+          🖨️ Imprimir este QR
+        </button>
+        <div className="w-full space-y-2 print:hidden">
           <p className="text-xs uppercase tracking-wide text-white/60">entregados hoy</p>
           {resumen.length === 0 ? (
             <p className="text-sm text-white/70">Hoy no hay clases programadas.</p>
@@ -166,13 +160,15 @@ export default function RefrigerioCantina() {
             ))
           )}
         </div>
-        <p className="max-w-xs text-xs leading-relaxed text-white/50">
-          Cada código muere al usarse y aparece otro. Fotografiarlo no sirve.
+        <p className="max-w-xs text-xs leading-relaxed text-white/50 print:hidden">
+          Es el mismo código siempre — se puede imprimir y pegar en la cantina. Solo deja
+          reclamar refrigerio a quien ya tiene asistencia marcada hoy; eso lo valida el
+          servidor, no el código.
         </p>
       </div>
 
       {/* Apertura/cierre manual por turno: manda sobre el horario configurado. */}
-      <section className="space-y-3 pb-10">
+      <section className="space-y-3 pb-10 print:hidden">
         <h2 className="text-sm font-bold uppercase tracking-wide text-zr-text-muted">Abrir o cerrar a mano</h2>
         <p className="text-xs text-zr-text-muted">
           Por defecto el refrigerio se abre y cierra solo según el horario de cada turno. Si lo

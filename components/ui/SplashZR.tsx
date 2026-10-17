@@ -41,8 +41,8 @@ export function SplashZR() {
       />
       <div className="zr-splash-word text-center">
         <p className="zr-display text-3xl tracking-tight text-zr-text">ZR Mecademy</p>
-        <p className="mt-1.5 text-[11px] font-bold uppercase tracking-[0.3em] text-zr-blue-mid">
-          Academia técnica
+        <p className="mt-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-zr-blue-mid">
+          Invierte en conocimiento, impulsa tu crecimiento
         </p>
       </div>
     </div>

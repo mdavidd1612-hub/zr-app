@@ -903,7 +903,11 @@ export default function MaterialAdmin() {
                 {subcarpetas.map((c) => (
                   <div
                     key={c.id}
-                    className="zr-card flex items-center gap-3 p-4"
+                    className={`zr-card flex gap-3 p-4 ${
+                      editandoCarpetaId === c.id
+                        ? 'items-center'
+                        : 'flex-col items-stretch sm:flex-row sm:items-center sm:justify-between sm:gap-4'
+                    }`}
                     draggable={puedeCrearCarpetas && editandoCarpetaId !== c.id}
                     onDragStart={(e) => iniciarArrastre(e, { tipo: 'carpeta', id: c.id, nombre: c.nombre })}
                     onDragOver={permitirSoltar}
@@ -942,7 +946,7 @@ export default function MaterialAdmin() {
                           <span className="break-words text-sm font-semibold text-zr-text">{c.nombre}</span>
                         </button>
                         {puedeCrearCarpetas && (
-                          <>
+                          <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
                             <button
                               onClick={() => abrirMover({ tipo: 'carpeta', id: c.id, nombre: c.nombre })}
                               className="shrink-0 rounded-full border border-zr-border px-3 py-1.5 text-xs font-bold text-zr-text"
@@ -962,7 +966,7 @@ export default function MaterialAdmin() {
                             >
                               {eliminando === c.id ? '…' : 'Borrar'}
                             </button>
-                          </>
+                          </div>
                         )}
                       </>
                     )}

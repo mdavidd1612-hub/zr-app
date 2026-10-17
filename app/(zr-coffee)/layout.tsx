@@ -57,7 +57,10 @@ export default function ZRCoffeeLayout({ children }: { children: React.ReactNode
   }
 
   return (
-    <Marco items={NAV} deslizable={false} campanita={false}>
+    // `imprimible`: el QR de refrigerio ahora se puede imprimir (pedido
+    // explícito del coordinador, oct. 2026) -- sin esto, la barra de
+    // navegación y la campanita salían en la hoja impresa.
+    <Marco items={NAV} deslizable={false} campanita={false} imprimible>
       {children}
     </Marco>
   )

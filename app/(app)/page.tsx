@@ -9,7 +9,7 @@ import { leerSimulacionSabado } from '@/lib/demo-sabado'
 import { CASOS_HABILITADO } from '@/lib/flags'
 import { IconoCarnet, IconoCheck, IconoTaza } from '@/components/ui/Iconos'
 import { esAdmin } from '@/lib/auth-helpers'
-import { leerCohorteVistaRecorridoCookie } from '@/lib/vista-recorrido'
+import { leerCohorteVistaRecorridoCookie, leerModuloVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import type { UserRole } from '@/lib/types'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { useEsqueletoVisible } from '@/lib/useEsqueletoVisible'
@@ -182,8 +182,14 @@ export default function Inicio() {
       // se cae al respaldo de siempre: la cohorte real más poblada que ya
       // tenga módulo asignado.
       if (!moduloId && esAdmin(perfil?.role as UserRole | undefined)) {
+        // El módulo elegido explícitamente en el panel (pedido explícito del
+        // coordinador, oct. 2026: "también por módulo", no solo por
+        // programa) gana sobre el módulo vigente de la cohorte.
+        const moduloElegido = leerModuloVistaRecorridoCookie()
         const cohorteElegida = leerCohorteVistaRecorridoCookie()
-        if (cohorteElegida) {
+        if (moduloElegido) {
+          moduloId = moduloElegido
+        } else if (cohorteElegida) {
           const { data: coh } = await supabase
             .from('cohorts').select('current_module_id').eq('id', cohorteElegida).maybeSingle()
           moduloId = coh?.current_module_id ?? undefined

@@ -174,8 +174,12 @@ export default function Notas() {
                             {d.tipo} · vale {cifra(d.peso)} % · {new Date(d.fecha + 'T00:00:00').toLocaleDateString('es-VE')}
                           </p>
                         </div>
-                        <p className={`shrink-0 text-lg font-bold ${d.nota === null ? 'text-zr-text-muted' : tono(d.nota, d.minimo)}`}>
-                          {d.nota === null ? '—' : cifra(d.nota)}
+                        {/* Pedido explícito del coordinador (oct. 2026): una evaluación
+                            sin calificar todavía se veía con un guion -- se ve el
+                            mínimo (0.00) de referencia, igual que ya ven profesor y
+                            Dirección Académica. */}
+                        <p className={`shrink-0 text-lg font-bold ${tono(d.nota ?? 0, d.minimo)}`}>
+                          {cifra(d.nota ?? 0)}
                           <span className="text-xs font-normal text-zr-text-muted"> / {d.escala}</span>
                         </p>
                       </div>

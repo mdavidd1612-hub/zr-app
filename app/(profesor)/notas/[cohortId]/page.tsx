@@ -392,6 +392,12 @@ export default function NotasCohorteProfesor() {
                         <input
                           key={`${f.studentId}-${ev.id}-${notas[f.studentId]?.[ev.id] ?? ''}`}
                           type="text" inputMode="decimal"
+                          // Pedido explícito del coordinador (oct. 2026): una celda sin
+                          // calificar se veía en blanco -- se ve el mínimo (0.00) de
+                          // referencia. Es un `placeholder`, no un valor real: no se
+                          // guarda nada si no se toca la celda (si fuera `defaultValue`,
+                          // con solo entrar y salir quedaría guardada una nota de 0).
+                          placeholder={notas[f.studentId]?.[ev.id] == null ? '0.00' : undefined}
                           defaultValue={notas[f.studentId]?.[ev.id] != null ? fmt(notas[f.studentId][ev.id]) : ''}
                           onBlur={(e) => guardarNota(f.studentId, ev, e.target.value)}
                           disabled={bloqueado || guardando === `${f.studentId}:${ev.id}`}
@@ -401,7 +407,9 @@ export default function NotasCohorteProfesor() {
                     ))}
                     <td className="border-l border-zr-border px-2 py-2 text-center">
                       {f.finalScore === null ? (
-                        <span className="text-zr-text-muted">—</span>
+                        // Pedido explícito del coordinador (oct. 2026): sin ninguna
+                        // evaluación cargada, se ve el mínimo (0.00), no un guion.
+                        <span className={`font-bold ${tonoNota(0, umbral)}`}>{fmt(0)}</span>
                       ) : (
                         <>
                           {/* En progreso: puntos ganados de los que ya se evaluaron.

@@ -27,14 +27,19 @@ export const metadata: Metadata = {
 
 // Instalada como PWA en un iPhone con notch, la app dibuja de borde a borde
 // (`viewport-fit: cover`); las franjas seguras se respetan con env(safe-area-*)
-// en el marco, no dejando bandas negras. `maximumScale: 5` porque bloquear el
-// zoom es una barrera de accesibilidad (WCAG 1.4.4) y en un taller alguien va
-// a querer agrandar una cifra.
+// en el marco, no dejando bandas negras.
+//
+// `userScalable: false` -- pedido explícito del coordinador (oct. 2026): se
+// sentía como una página web normal porque se podía hacer zoom con los dedos.
+// Antes se permitía a propósito por accesibilidad (WCAG 1.4.4, alguien con
+// baja visión agrandando una cifra en el taller); el coordinador decidió,
+// consciente de ese costo, que pese más que se sienta como app. Si hace
+// falta volver a permitirlo, es revertir este bloque solo.
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 5,
-  userScalable: true,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: 'cover',
   themeColor: '#0F1419',
 }

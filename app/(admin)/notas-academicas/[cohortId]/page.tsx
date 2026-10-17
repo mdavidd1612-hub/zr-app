@@ -500,6 +500,13 @@ export default function VerCalificacionesCohorte() {
                       <input
                         key={`${f.studentId}-${ev.id}-${notas[f.studentId]?.[ev.id] ?? ''}`}
                         type="text" inputMode="decimal"
+                        // Pedido explícito del coordinador (oct. 2026): una celda sin
+                        // calificar se veía en blanco, "como que no tiene nada" -- se
+                        // ve el mínimo (0.00) de referencia. Es un `placeholder`, no un
+                        // valor real: no se guarda nada si el profesor no toca la celda
+                        // (si fuera `defaultValue`, con solo entrar y salir de la celda
+                        // quedaría guardada una nota de 0 para alguien sin evaluar).
+                        placeholder={notas[f.studentId]?.[ev.id] == null ? '0.00' : undefined}
                         defaultValue={notas[f.studentId]?.[ev.id] != null ? fmt(notas[f.studentId][ev.id]) : ''}
                         onBlur={(e) => guardarNota(f.studentId, ev, e.target.value)}
                         disabled={guardando === `${f.studentId}:${ev.id}`}
@@ -511,7 +518,9 @@ export default function VerCalificacionesCohorte() {
                     <>
                       <td className="border-l border-zr-border px-2 py-2 text-center">
                         {f.finalScore === null ? (
-                          <span className="text-zr-text-muted">—</span>
+                          // Pedido explícito del coordinador (oct. 2026): sin ninguna
+                          // evaluación cargada, se ve el mínimo (0.00), no un guion.
+                          <span className={`font-bold ${tonoNota(0, f.umbral)}`}>{fmt(0)}</span>
                         ) : (
                           <>
                             {/* En progreso: puntos ganados de los ya evaluados. Con 100 % evaluado: nota final. */}

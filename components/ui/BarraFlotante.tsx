@@ -159,7 +159,7 @@ export function BarraFlotante({ items, todasLasSecciones, deslizable = true, alT
       {/* Desde 1024 px manda `BarraLateral`: en un monitor esta píldora queda
           descolgada del contenido y sobra ancho para una columna de secciones. */}
       <nav
-        id="tour-nav"
+        data-tour-target="tour-nav"
         className="fixed left-1/2 z-50 w-[calc(100vw-1.5rem)] max-w-[26rem] -translate-x-1/2 lg:hidden"
         style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
       >

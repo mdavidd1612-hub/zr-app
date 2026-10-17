@@ -88,6 +88,28 @@ export function Tour({ pasos, incremental, onTerminado }: Props) {
     let cancelado = false
     let intentos = 0
 
+    // Bug real de producción (oct. 2026, "Muévete por la app" en
+    // computadora): algunos targets existen dos veces en el DOM -- una
+    // versión para teléfono y otra para escritorio, mostrando siempre solo
+    // una según el ancho de pantalla (`lg:hidden`/`lg:flex`), nunca
+    // desmontada (ver BarraFlotante.tsx y BarraLateral.tsx). Buscar por
+    // `id` encuentra cualquiera de las dos sin importar cuál se ve de
+    // verdad -- si toca la oculta, su rectángulo mide 0x0 en la esquina
+    // superior izquierda y el tour lo resaltaba ahí, "sin seleccionar
+    // nada". `buscarVisible` revisa TODOS los elementos que comparten ese
+    // id o ese `data-tour-target` y se queda con el primero que de verdad
+    // ocupa espacio en pantalla.
+    function buscarVisible(targetId: string): HTMLElement | null {
+      const candidatos = document.querySelectorAll<HTMLElement>(
+        `#${CSS.escape(targetId)}, [data-tour-target="${CSS.escape(targetId)}"]`
+      )
+      for (const candidato of candidatos) {
+        const r = candidato.getBoundingClientRect()
+        if (r.width > 0 && r.height > 0) return candidato
+      }
+      return null
+    }
+
     function medir(el: HTMLElement) {
       const r = el.getBoundingClientRect()
       // Bug real de producción (TourEstudiante, "La malla curricular"): un
@@ -112,7 +134,7 @@ export function Tour({ pasos, incremental, onTerminado }: Props) {
     // existe — se reintenta unos segundos antes de rendirse.
     function intentar() {
       if (cancelado) return
-      const el = document.getElementById(actual.targetId as string)
+      const el = buscarVisible(actual.targetId as string)
       if (el) {
         el.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior })
         requestAnimationFrame(() => { if (!cancelado) medir(el) })
@@ -128,7 +150,10 @@ export function Tour({ pasos, incremental, onTerminado }: Props) {
     intentar()
 
     function medirDeNuevo() {
-      const el = actual.targetId ? document.getElementById(actual.targetId) : null
+      // Al rotar o redimensionar la ventana puede cambiar CUÁL de las dos
+      // versiones (teléfono/escritorio) es la visible -- se vuelve a
+      // elegir, no solo a remedir la misma.
+      const el = actual.targetId ? buscarVisible(actual.targetId) : null
       if (el) medir(el)
     }
     window.addEventListener('resize', medirDeNuevo)

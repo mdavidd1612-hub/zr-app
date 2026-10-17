@@ -23,7 +23,20 @@ export function BarraLateral({ items, alTocarBloqueado }: { items: ItemBarra[]; 
     href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/')
 
   return (
-    <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col gap-1 overflow-y-auto border-r border-zr-border bg-zr-surface/40 px-3 py-6 lg:flex xl:w-64 print:hidden">
+    // `data-tour-target="tour-nav"` (bug real de producción, reportado por
+    // el coordinador): el tour apunta a esta misma clave para resaltar
+    // "cómo moverte por la app" -- antes solo la tenía el `<nav>` de
+    // BarraFlotante (la píldora del teléfono), que en escritorio sigue
+    // existiendo en el DOM con `lg:hidden` (oculto, no desmontado). Tour.tsx
+    // encontraba ESE elemento oculto, medía un rectángulo de 0x0 en la
+    // esquina superior izquierda y lo mostraba como si fuera el resaltado
+    // real -- "aparece en una esquina y no selecciona nada". No se repite el
+    // mismo `id` en los dos (un id duplicado en el HTML es inválido y
+    // `getElementById` devolvería siempre el primero en el DOM sin
+    // importar cuál es el visible -- habría roto el teléfono en vez de
+    // arreglar la computadora). Con el mismo `data-tour-target` en ambos,
+    // Tour.tsx elige el que de verdad se ve en cada tamaño de pantalla.
+    <aside data-tour-target="tour-nav" className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col gap-1 overflow-y-auto border-r border-zr-border bg-zr-surface/40 px-3 py-6 lg:flex xl:w-64 print:hidden">
       <p className="zr-display px-3 pb-4 text-xl text-zr-text">ZR App</p>
 
       <nav className="flex flex-col gap-1">

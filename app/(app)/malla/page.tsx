@@ -258,10 +258,19 @@ export default function MallaCurricular() {
           asigne, aquí verás la malla completa.
         </p>
       ) : (
-        <ol id="tour-malla" className="space-y-3">
-          {modulos.map((m) => (
+        <ol className="space-y-3">
+          {modulos.map((m, i) => (
             <li
               key={m.id}
+              // Bug real de producción (reportado por el coordinador, oct.
+              // 2026): el tour resaltaba la lista ENTERA (los 14 módulos),
+              // mucho más alta que cualquier pantalla de teléfono --
+              // scrollIntoView la centraba, el rectángulo visible quedaba del
+              // tamaño de la pantalla completa, y el tour se rendía sin
+              // dibujar ningún cuadro (solo el fondo oscuro con el texto).
+              // Se resalta solo la primera tarjeta -- representa a las demás
+              // sin salirse nunca de la pantalla.
+              id={i === 0 ? 'tour-malla' : undefined}
               className={`zr-card p-5 ${m.estado === 'actual' ? 'border-zr-blue' : ''}`}
             >
               <div className="flex items-start gap-4">

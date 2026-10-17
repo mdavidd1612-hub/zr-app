@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -2552,6 +2552,7 @@ export type Database = {
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
           status: Database["public"]["Enums"]["profile_status"]
+          tour_pasos_vistos: string[]
           updated_at: string
         }
         Insert: {
@@ -2564,6 +2565,7 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           status?: Database["public"]["Enums"]["profile_status"]
+          tour_pasos_vistos?: string[]
           updated_at?: string
         }
         Update: {
@@ -2576,6 +2578,7 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           status?: Database["public"]["Enums"]["profile_status"]
+          tour_pasos_vistos?: string[]
           updated_at?: string
         }
         Relationships: []
@@ -3595,6 +3598,10 @@ export type Database = {
       }
       fn_generar_caso_del_dia: { Args: never; Returns: undefined }
       fn_generar_sesion_semanal: { Args: never; Returns: undefined }
+      fn_marcar_pasos_tour_vistos: {
+        Args: { p_pasos: string[] }
+        Returns: undefined
+      }
       fn_marcar_tour_visto: { Args: never; Returns: undefined }
       fn_notify_hora_refrigerio: { Args: never; Returns: undefined }
       fn_recalc_evaluacion_general: {
@@ -3705,16 +3712,6 @@ export type Database = {
           programa: string
           turno: string
         }[]
-      }
-      seed_user: {
-        Args: {
-          p_cedula: string
-          p_email: string
-          p_full_name: string
-          p_id: string
-          p_role: Database["public"]["Enums"]["user_role"]
-        }
-        Returns: string
       }
       set_student_code_calc: {
         Args: { p_cohort_id: string; p_enrollment_date: string; p_id: string }

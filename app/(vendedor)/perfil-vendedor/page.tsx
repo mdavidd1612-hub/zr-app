@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
+import { BotonComoUsarApp } from '@/components/ui/BotonComoUsarApp'
 import { CambiarRol } from '@/components/ui/CambiarRol'
 import type { UserRole } from '@/lib/types'
 
@@ -74,6 +75,14 @@ export default function PerfilVendedor() {
       </Seccion>
 
       <CambiarRol rolActual={perfil.rol} numero={2} />
+
+      {/* Ayuda (pedido explícito del coordinador, oct. 2026): solo un
+          vendedor de verdad -- en vista de recorrido el tour está apagado. */}
+      {perfil.rol === 'vendedor' && (
+        <Seccion numero={3} titulo="Ayuda" delay={200}>
+          <BotonComoUsarApp inicioDelRol="/carga-ventas" />
+        </Seccion>
+      )}
     </div>
   )
 }

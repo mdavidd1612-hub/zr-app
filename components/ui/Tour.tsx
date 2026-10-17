@@ -2,113 +2,73 @@
 
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import type { PasoTour } from '@/lib/tour-pasos'
 
 /**
- * Tour guiado del primer ingreso — solo estudiante, a pedido explícito del
- * coordinador (migración 084). Se muestra una sola vez, después de que
- * complete su perfil y acepte términos. Recorre las cinco secciones de la
- * barra de navegación, no solo Inicio: cada paso trae su propia ruta, y
- * "Siguiente" navega solo cuando el paso que sigue vive en otra pantalla.
- * Vive montado en app/(app)/layout.tsx (no en una sola página) para que su
- * estado (en qué paso va) sobreviva la navegación entre rutas — un layout no
- * se vuelve a montar al cambiar de página dentro del mismo grupo de rutas,
- * a diferencia de cada page.tsx.
+ * Tour guiado genérico, para todos los roles menos super_admin (pedido
+ * explícito del coordinador, oct. 2026 — ver lib/tour-pasos.ts y
+ * lib/useTour.ts). Generalizado de TourEstudiante.tsx, que era solo de
+ * estudiante; la lógica de resaltar un elemento de la pantalla y acomodar
+ * la tarjeta sin salirse de ningún tamaño de pantalla es la misma, ya
+ * probada en producción.
  *
- * "Omitir" lo cierra del todo en cualquier paso — ninguno de los dos se le
- * vuelve a mostrar, queda guardado en el servidor (no en el teléfono, para
- * que no reaparezca si cambia de dispositivo).
+ * `pasos` son solo los que FALTAN (los ya vistos no llegan aquí, los filtró
+ * useTour) — este componente agrega al principio una tarjeta de bienvenida
+ * sintética: "¡Bienvenido!" la primera vez, o "Aprende a usar las nuevas
+ * funciones de ZR App" si ya había visto el tour antes y esto es solo lo
+ * nuevo (`incremental`). Esa tarjeta de bienvenida no se guarda como paso
+ * propio -- el primer paso real es a donde "Siguiente" te lleva directo.
  *
  * Cada paso apunta a un id real de esa pantalla. Si el elemento tarda en
  * aparecer (la página todavía está cargando sus datos) se reintenta unos
  * segundos antes de rendirse y mostrar la tarjeta sin resaltar nada.
  */
 
-interface Paso {
-  ruta: string
-  titulo: string
-  texto: string
-  targetId: string | null
+interface Props {
+  pasos: PasoTour[]
+  incremental: boolean
+  onTerminado: () => void | Promise<void>
 }
-
-const PASOS: Paso[] = [
-  {
-    ruta: '/',
-    titulo: '¡Bienvenido a ZR App!',
-    texto: 'Te mostramos rapidito cómo se usa. Puedes tocar "Siguiente" para seguir, o "Omitir" si ya la conoces.',
-    targetId: null,
-  },
-  {
-    ruta: '/',
-    titulo: 'Tu semana',
-    texto: 'Aquí ves los días de la semana. El sábado marcas tu asistencia; los demás días, tu módulo y tu material.',
-    targetId: 'tour-semana',
-  },
-  {
-    ruta: '/',
-    titulo: 'Tu carnet, material y dudas',
-    texto: 'Desde aquí muestras tu carnet para la asistencia, revisas el material de tu módulo y le preguntas al profesor.',
-    targetId: 'tour-accesos',
-  },
-  {
-    ruta: '/',
-    titulo: 'Muévete por la app',
-    texto: 'Desde estos botones vas a Inicio, tu módulo, el material, tus dudas y tu perfil. Dale "Siguiente" y te los mostramos uno por uno.',
-    targetId: 'tour-nav',
-  },
-  {
-    ruta: '/clases',
-    titulo: 'Mi módulo',
-    texto: 'Aquí ves todo lo que vas a aprender en el módulo que estás cursando ahora: el resumen completo y tus competencias.',
-    targetId: 'tour-modulo',
-  },
-  {
-    ruta: '/malla',
-    titulo: 'La malla curricular',
-    texto: 'Y desde ahí puedes entrar aquí — los catorce módulos del programa completo, en el orden en que se cursan.',
-    targetId: 'tour-malla',
-  },
-  {
-    ruta: '/contenido',
-    titulo: 'Material',
-    texto: 'Aquí está el material de tu módulo: guías, PDFs y presentaciones, organizados en carpetas.',
-    targetId: 'tour-material',
-  },
-  {
-    ruta: '/dudas',
-    titulo: 'Dudas',
-    texto: 'Si algo no te quedó claro, escríbelo aquí como pregunta. Tu profesor las responde el sábado.',
-    targetId: 'tour-dudas',
-  },
-  {
-    ruta: '/perfil',
-    titulo: 'Tu carnet',
-    texto: 'Y aquí tu carnet digital con tu código QR — el profesor lo escanea para marcar tu asistencia.',
-    targetId: 'tour-carnet',
-  },
-]
 
 interface Rect { top: number; left: number; width: number; height: number }
 
-export function TourEstudiante({ onTerminado }: { onTerminado: () => void }) {
+export function Tour({ pasos, incremental, onTerminado }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const [paso, setPaso] = useState(0)
   const [rect, setRect] = useState<Rect | null>(null)
   const [guardando, setGuardando] = useState(false)
 
+  // La bienvenida (o "funciones nuevas") es un paso sintético, sin id propio
+  // -- "Siguiente" desde ahí navega directo al primer paso real.
+  const PASOS: PasoTour[] = [
+    {
+      id: '__intro__',
+      ruta: pasos[0]?.ruta ?? '/',
+      targetId: null,
+      titulo: incremental ? 'Aprende a usar las nuevas funciones de ZR App' : '¡Bienvenido a ZR App!',
+      texto: incremental
+        ? 'Te mostramos rapidito las funciones nuevas que agregamos. Toca "Siguiente" para verlas, u "Omitir" si ya las conoces.'
+        : 'Te mostramos rapidito cómo se usa. Puedes tocar "Siguiente" para seguir, o "Omitir" si ya la conoces.',
+    },
+    ...pasos,
+  ]
+
   const actual = PASOS[paso]
   const esUltimo = paso === PASOS.length - 1
-  const enRutaCorrecta = pathname === actual.ruta
+  // La bienvenida/"funciones nuevas" (paso 0) se muestra donde sea que la
+  // persona esté cuando se activa el tour -- nunca sabemos de antemano en
+  // qué pantalla va a estar (sobre todo en el caso incremental: "tienes
+  // funciones nuevas" puede avisar en cualquier pantalla, no solo en el
+  // inicio del rol). Del paso 1 en adelante sí hace falta estar en la ruta
+  // de ESE paso -- si no, "Siguiente" todavía está navegando para allá.
+  const enRutaCorrecta = paso === 0 || pathname === actual.ruta
 
-  // Bug real de producción (sept. 2026): esto corría sin condición alguna
-  // mientras el componente estuviera montado, sin importar la ruta. Como el
-  // tour se activa apenas el estudiante queda validado y todavía no lo vio
-  // -- que es EXACTAMENTE el caso de quien está llenando /completar-perfil
-  // por primera vez -- esa pantalla quedaba con el scroll bloqueado del
-  // todo, en iOS y Android por igual (es un bug de CSS, no de plataforma).
-  // Ahora solo se bloquea el scroll cuando el tour de verdad se está
-  // mostrando en la ruta actual.
+  // Bug real de producción (sept. 2026, TourEstudiante): bloquear el scroll
+  // sin condición alguna dejaba /completar-perfil con el scroll trabado,
+  // porque el tour se monta apenas la persona queda validada, que es
+  // exactamente cuando podría estar completando su perfil todavía. Solo se
+  // bloquea cuando el tour de verdad se está mostrando en la ruta actual.
   useEffect(() => {
     if (!enRutaCorrecta) return
     document.body.style.overflow = 'hidden'
@@ -130,18 +90,12 @@ export function TourEstudiante({ onTerminado }: { onTerminado: () => void }) {
 
     function medir(el: HTMLElement) {
       const r = el.getBoundingClientRect()
-      // Bug real de producción (sept. 2026): "La malla curricular" resalta
-      // el <ol> completo de los 14 módulos -- mucho más alto que la
-      // pantalla. scrollIntoView lo centra, así que su top queda muy
-      // negativo y su bottom muy por debajo del viewport; la cuenta de
-      // "arriba o abajo" de más adelante entonces no le deja casi nada de
-      // alto a la tarjeta, y esta terminaba cortada contra el borde de
-      // la pantalla con los botones de "Siguiente"/"Omitir" invisibles --
-      // el estudiante se quedaba sin forma de avanzar el tour.
-      // Se acota el rectángulo a lo que de verdad es visible, y si eso deja
-      // menos de ~170 px libres arriba o abajo (el elemento ocupa casi toda
-      // la pantalla), se renuncia al recuadro: la tarjeta cae al mismo
-      // respaldo centrado que ya usan la bienvenida y el cierre.
+      // Bug real de producción (TourEstudiante, "La malla curricular"): un
+      // elemento mucho más alto que la pantalla deja casi nada de alto
+      // libre para la tarjeta -- se acota el rectángulo a lo visible, y si
+      // eso deja menos de ~170 px libres arriba o abajo, se renuncia al
+      // recuadro: la tarjeta cae al mismo respaldo centrado que ya usan la
+      // bienvenida y el cierre.
       const top = Math.max(r.top, 0)
       const bottom = Math.min(r.bottom, window.innerHeight)
       const height = Math.max(bottom - top, 0)
@@ -182,13 +136,12 @@ export function TourEstudiante({ onTerminado }: { onTerminado: () => void }) {
       cancelado = true
       window.removeEventListener('resize', medirDeNuevo)
     }
-  }, [actual.targetId, paso, enRutaCorrecta])
+  }, [actual.targetId, actual.ruta, paso, enRutaCorrecta])
 
   async function terminar() {
     setGuardando(true)
-    await createClient().rpc('fn_marcar_tour_visto')
+    await onTerminado()
     setGuardando(false)
-    onTerminado()
   }
 
   function siguiente() {
@@ -267,12 +220,10 @@ export function TourEstudiante({ onTerminado }: { onTerminado: () => void }) {
               // que el navegador acomode la altura de la tarjeta él solo,
               // creciendo desde ese borde — a diferencia de un
               // top+translate(-100%), que necesita saber de antemano cuánto
-              // mide la tarjeta para no salirse por arriba. Con textos más
-              // largos (los pasos de Mi módulo, Material, etc. — antes solo
-              // había 4 pasos, todos en Inicio, con textos parecidos) esa
-              // cuenta fallaba y la tarjeta se cortaba contra el borde de la
-              // pantalla. maxHeight + overflow-y-auto es el respaldo final:
-              // si de verdad no cabe, la tarjeta scrollea en vez de salirse.
+              // mide la tarjeta para no salirse por arriba. maxHeight +
+              // overflow-y-auto es el respaldo final: si de verdad no cabe
+              // (teléfono muy bajo), la tarjeta scrollea en vez de salirse
+              // de ningún tamaño de pantalla.
               arriba
                 ? (() => {
                     const top = Math.min(rect.top + rect.height + pad * 2 + 12, window.innerHeight - 120)
@@ -288,10 +239,11 @@ export function TourEstudiante({ onTerminado }: { onTerminado: () => void }) {
           </div>
         </>
       ) : (
-        // Sin elemento que resaltar (bienvenida, cierre, o el elemento no
-        // apareció a tiempo): la tarjeta se centra con flexbox, no con
-        // top:50%+transform — así nunca se sale del viewport ni se
-        // desfigura contra los bordes, sea cual sea el tamaño de pantalla.
+        // Sin elemento que resaltar (bienvenida, pasos sin targetId, cierre,
+        // o el elemento no apareció a tiempo): la tarjeta se centra con
+        // flexbox, no con top:50%+transform — así nunca se sale del
+        // viewport ni se desfigura contra los bordes, sea cual sea el
+        // tamaño de pantalla.
         <div className="absolute inset-0 flex items-center justify-center bg-[rgba(6,10,20,0.86)] p-5">
           <div className="max-h-full w-full max-w-sm space-y-4 overflow-y-auto rounded-xl border border-zr-border bg-zr-surface p-6 shadow-2xl">
             {tarjeta}

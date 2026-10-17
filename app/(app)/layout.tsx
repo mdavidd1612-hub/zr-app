@@ -6,7 +6,9 @@ import { createClient } from '@/lib/supabase/client'
 import { type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Marco } from '@/components/ui/Marco'
 import { BannerSimulacion } from '@/components/ui/BannerSimulacion'
-import { TourEstudiante } from '@/components/ui/TourEstudiante'
+import { Tour } from '@/components/ui/Tour'
+import { useTour } from '@/lib/useTour'
+import { PASOS_POR_ROL } from '@/lib/tour-pasos'
 import { BannerNoSolvente, ModalNoSolvente } from '@/components/ui/AvisoSolvencia'
 import { ResultadoModulo } from '@/components/ui/ResultadoModulo'
 import {
@@ -48,12 +50,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // coordinador: los tres pueden recorrer la vista de estudiante).
   const [rol, setRol] = useState<UserRole | null | undefined>(undefined)
   const simulando = rol === 'super_admin' || rol === 'admin' || rol === 'direccion_academica'
-  // Tour del primer ingreso (migración 084): vive aquí, no en una page.tsx
-  // suelta, para que su progreso sobreviva la navegación entre Inicio, Mi
-  // módulo, Material, Dudas y Perfil — un layout no se remonta al cambiar de
-  // ruta dentro del mismo grupo. Nunca en la vista de recorrido de
-  // super_admin (no tiene fila en `students`, no hay nada que marcar).
-  const [mostrarTour, setMostrarTour] = useState(false)
 
   // Solvencia (finanzas, migraciones 115/128/140): un estudiante 'no_solvente'
   // queda bloqueado en TODA la app salvo Perfil. La base ya no le entrega
@@ -63,6 +59,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [whatsapp, setWhatsapp] = useState<string | null>(null)
   const [avisoAbierto, setAvisoAbierto] = useState(false)
   const [avisoVisto, setAvisoVisto] = useState(false)
+
+  // Bug real de producción (sept. 2026): durante el formulario de primer
+  // ingreso o aceptar términos no se puede mostrar el tour -- ver el bug
+  // documentado en components/ui/Tour.tsx (si llega a montarse ahí, deja el
+  // scroll de esa pantalla bloqueado aunque no dibuje nada visible).
+  const enOnboarding = pathname === '/completar-perfil' || pathname === '/aceptar-terminos'
+
+  // Tour guiado (migración 173, pedido explícito del coordinador): vive
+  // aquí, no en una page.tsx suelta, para que su progreso sobreviva la
+  // navegación entre Inicio, Mi módulo, Material, Dudas y Perfil — un
+  // layout no se remonta al cambiar de ruta dentro del mismo grupo. Nunca
+  // en la vista de recorrido de administración/Dirección/super_admin (no
+  // tienen fila en `students`, no hay nada suyo que marcar).
+  const { pasos: pasosTour, incremental: tourIncremental, terminar: terminarTour } =
+    useTour(PASOS_POR_ROL.estudiante, rol === 'estudiante' && validado && !simulando && !enOnboarding)
 
   useEffect(() => {
     const supabase = createClient()
@@ -144,15 +155,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const { data: est } = await supabase
-        .from('students').select('validated_at, tour_completed_at').eq('id', user.id).maybeSingle()
+        .from('students').select('validated_at').eq('id', user.id).maybeSingle()
       const yaValidado = Boolean(est?.validated_at)
       setValidado(yaValidado)
-      // Nunca mientras todavía está en el formulario de primer ingreso o en
-      // aceptar términos -- ver el bug real de producción documentado en
-      // TourEstudiante.tsx: si el tour llega a montarse ahí, deja el scroll
-      // de esa pantalla bloqueado aunque no dibuje nada visible.
-      const enOnboarding = pathname === '/completar-perfil' || pathname === '/aceptar-terminos'
-      if (yaValidado && !est?.tour_completed_at && !enOnboarding) setMostrarTour(true)
       const rutasPermitidasPendiente = ['/', '/perfil', '/completar-perfil', '/aceptar-terminos']
       if (!yaValidado && !rutasPermitidasPendiente.includes(pathname)) {
         router.replace('/')
@@ -221,13 +226,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // con el de pasar de pregunta y el estudiante saldría del examen a medias.
   const enExamen = /^\/examenes\/[^/]+$/.test(pathname)
 
-  // Bug real de producción (sept. 2026), reportado por el coordinador: con
-  // la barra de navegación visible durante el formulario de primer ingreso,
-  // el estudiante tocaba "Perfil" o "Dudas" a mitad de llenarlo y la app lo
-  // rebotaba de vuelta de forma confusa. Mientras completa su perfil o
-  // acepta términos, no tiene sentido ir a ningún otro lado todavía.
-  const enOnboarding = pathname === '/completar-perfil' || pathname === '/aceptar-terminos'
-
+  // `enOnboarding` (definido arriba, junto al tour) también oculta la barra
+  // de navegación: bug real de producción (sept. 2026) -- con la barra
+  // visible durante el formulario de primer ingreso, el estudiante tocaba
+  // "Perfil" o "Dudas" a mitad de llenarlo y la app lo rebotaba de vuelta
+  // de forma confusa.
+  //
   // Sin la barra de navegación durante el onboarding (arreglo de arriba),
   // no queda ninguna forma de cerrar sesión si hace falta salir a mitad de
   // camino -- a pedido explícito del coordinador, después de quedarse sin
@@ -258,7 +262,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       )}
       {simulando && <BannerSimulacion etiqueta="Estudiante" />}
       {children}
-      {mostrarTour && <TourEstudiante onTerminado={() => setMostrarTour(false)} />}
+      {pasosTour && <Tour pasos={pasosTour} incremental={tourIncremental} onTerminado={terminarTour} />}
     </Marco>
   )
 }

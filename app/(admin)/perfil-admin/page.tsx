@@ -8,9 +8,11 @@ import { useEsqueletoVisible } from '@/lib/useEsqueletoVisible'
 import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
 import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
+import { BotonComoUsarApp } from '@/components/ui/BotonComoUsarApp'
 import { CambiarRol } from '@/components/ui/CambiarRol'
 import { leerSimulacionSabado, guardarSimulacionSabado } from '@/lib/demo-sabado'
 import { esDiaDeClase, hoyLocalISO } from '@/lib/dias-clase'
+import { rolDeTour } from '@/lib/tour-pasos'
 import type { UserRole } from '@/lib/types'
 
 /** Ruta /perfil-admin: (app), (profesor) y (admin) son grupos del mismo
@@ -165,8 +167,16 @@ export default function PerfilAdmin() {
 
       <CambiarRol rolActual={perfil.rol} numero={2} />
 
+      {/* Ayuda (pedido explícito del coordinador, oct. 2026): admin y
+          Dirección Académica tienen tour -- super_admin nunca. */}
+      {rolDeTour(perfil.rol) === 'admin' && (
+        <Seccion numero={3} titulo="Ayuda" delay={180}>
+          <BotonComoUsarApp inicioDelRol="/panel" />
+        </Seccion>
+      )}
+
       {/* PRUEBA TEMPORAL — se quita del todo cuando la academia lo pida. */}
-      <Seccion numero={3} titulo="Prueba" delay={200}>
+      <Seccion numero={4} titulo="Prueba" delay={200}>
         <button
           onClick={alternarSimulacion}
           disabled={preparando}

@@ -6,6 +6,9 @@ import { createClient } from '@/lib/supabase/client'
 import { esZRCoffee, INICIO_POR_ROL } from '@/lib/auth-helpers'
 import { type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Marco } from '@/components/ui/Marco'
+import { Tour } from '@/components/ui/Tour'
+import { useTour } from '@/lib/useTour'
+import { PASOS_POR_ROL } from '@/lib/tour-pasos'
 import { IconoTaza, IconoPerfil } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -48,6 +51,13 @@ export default function ZRCoffeeLayout({ children }: { children: React.ReactNode
     verificarRol()
   }, [router])
 
+  // Tour guiado (migración 173, pedido explícito del coordinador): este
+  // layout solo se entra como zr_coffee de verdad (esZRCoffee() arriba
+  // manda a cualquier otro rol a lo suyo), así que no hace falta distinguir
+  // vista de recorrido aquí.
+  const { pasos: pasosTour, incremental: tourIncremental, terminar: terminarTour } =
+    useTour(PASOS_POR_ROL.zr_coffee, !verificando)
+
   if (verificando) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
@@ -62,6 +72,7 @@ export default function ZRCoffeeLayout({ children }: { children: React.ReactNode
     // navegación y la campanita salían en la hoja impresa.
     <Marco items={NAV} deslizable={false} campanita={false} imprimible>
       {children}
+      {pasosTour && <Tour pasos={pasosTour} incremental={tourIncremental} onTerminado={terminarTour} />}
     </Marco>
   )
 }

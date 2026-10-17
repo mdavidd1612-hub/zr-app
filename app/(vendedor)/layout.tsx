@@ -8,6 +8,9 @@ import { leerVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import { type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Marco } from '@/components/ui/Marco'
 import { BannerSimulacion } from '@/components/ui/BannerSimulacion'
+import { Tour } from '@/components/ui/Tour'
+import { useTour } from '@/lib/useTour'
+import { PASOS_POR_ROL } from '@/lib/tour-pasos'
 import { IconoEstudiantes, IconoNotas, IconoPanel, IconoPerfil } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -67,6 +70,12 @@ export default function VendedorLayout({ children }: { children: React.ReactNode
     verificarRol()
   }, [router])
 
+  // Tour guiado (migración 173, pedido explícito del coordinador): nunca en
+  // la vista de recorrido de administración/super_admin -- `simulando` ya
+  // distingue "vendedor de verdad" de "viendo como vendedor".
+  const { pasos: pasosTour, incremental: tourIncremental, terminar: terminarTour } =
+    useTour(PASOS_POR_ROL.vendedor, !verificando && !simulando)
+
   if (verificando) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
@@ -79,6 +88,7 @@ export default function VendedorLayout({ children }: { children: React.ReactNode
     <Marco items={NAV} deslizable={false} campanita={false}>
       {simulando && <BannerSimulacion etiqueta="Ventas" />}
       {children}
+      {pasosTour && <Tour pasos={pasosTour} incremental={tourIncremental} onTerminado={terminarTour} />}
     </Marco>
   )
 }

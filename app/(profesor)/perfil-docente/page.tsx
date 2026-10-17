@@ -9,6 +9,7 @@ import { useEsqueletoVisible } from '@/lib/useEsqueletoVisible'
 import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
 import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
+import { BotonComoUsarApp } from '@/components/ui/BotonComoUsarApp'
 import { leerSimulacionSabado, guardarSimulacionSabado } from '@/lib/demo-sabado'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import type { UserRole } from '@/lib/types'
@@ -186,6 +187,16 @@ export default function PerfilDocente() {
         />
         <BotonActivarPush />
       </Seccion>
+
+      {/* Ayuda (pedido explícito del coordinador, oct. 2026): solo para un
+          profesor de verdad -- en vista de recorrido (Dirección
+          Académica/super_admin) el tour está apagado, el botón no haría
+          nada. */}
+      {perfil.rol === 'profesor' && (
+        <Seccion numero={5} titulo="Ayuda" delay={260}>
+          <BotonComoUsarApp inicioDelRol="/hoy" />
+        </Seccion>
+      )}
 
       {/* Interruptor de simulación de sábado: solo para super_admin
           recorriendo la app como si fuera profesor (vista de recorrido). Un

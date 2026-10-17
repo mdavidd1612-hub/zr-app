@@ -221,7 +221,9 @@ export default function Panel() {
             {/* Agrupado por qué resuelve cada cosa, no una sola lista de once
                 botones seguidos — a pedido explícito del coordinador ("no se
                 explica para qué"). */}
-            <GrupoAccesos numero={nEstudiantes} titulo="Estudiantes" accesos={ACCESOS} delay={200} />
+            <div id="tour-panel-accesos">
+              <GrupoAccesos numero={nEstudiantes} titulo="Estudiantes" accesos={ACCESOS} delay={200} />
+            </div>
 
             {(rol === 'admin' || rol === 'super_admin') && (
               <GrupoAccesos numero={nFinanzas} titulo="Finanzas" accesos={ACCESOS_FINANZAS} delay={220} />

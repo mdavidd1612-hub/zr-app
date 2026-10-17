@@ -7,6 +7,9 @@ import { esAdmin, esDireccionAcademica } from '@/lib/auth-helpers'
 import { salirDeVistaRecorrido } from '@/lib/vista-recorrido'
 import { type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Marco } from '@/components/ui/Marco'
+import { Tour } from '@/components/ui/Tour'
+import { useTour } from '@/lib/useTour'
+import { rolDeTour, PASOS_POR_ROL } from '@/lib/tour-pasos'
 import {
   IconoPanel, IconoEstudiantes, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoProgreso, IconoDuda, IconoCalificar,
 } from '@/components/ui/Iconos'
@@ -161,20 +164,40 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const secciones = rol === 'super_admin' ? TODAS_SUPER : esDireccionAcademica(rol) ? TODAS_DIRECCION : TODAS
 
   return (
-    <Marco
-      items={esDireccionAcademica(rol) ? NAV_DIRECCION : NAV}
-      todasLasSecciones={secciones}
-      // Bug real de producción (sept. 2026): `deslizable` viene en `true`
-      // por defecto (pensado para la barra del estudiante, donde deslizar
-      // cambia de sección). Nadie lo apagó aquí, así que cualquier gesto
-      // horizontal en una pantalla de administración -- por ejemplo deslizar
-      // la fila de programas (PTMA/PFTA) en Asistencia -- se interpretaba
-      // como "cambiar de sección" y mandaba a otra pantalla sin que nadie lo
-      // pidiera. El personal nunca pidió deslizar para navegar; se apaga.
-      deslizable={false}
-      imprimible
-    >
-      {children}
-    </Marco>
+    <AdminLayoutConTour rol={rol}>
+      <Marco
+        items={esDireccionAcademica(rol) ? NAV_DIRECCION : NAV}
+        todasLasSecciones={secciones}
+        // Bug real de producción (sept. 2026): `deslizable` viene en `true`
+        // por defecto (pensado para la barra del estudiante, donde deslizar
+        // cambia de sección). Nadie lo apagó aquí, así que cualquier gesto
+        // horizontal en una pantalla de administración -- por ejemplo
+        // deslizar la fila de programas (PTMA/PFTA) en Asistencia -- se
+        // interpretaba como "cambiar de sección" y mandaba a otra pantalla
+        // sin que nadie lo pidiera. El personal nunca pidió deslizar para
+        // navegar; se apaga.
+        deslizable={false}
+        imprimible
+      >
+        {children}
+      </Marco>
+    </AdminLayoutConTour>
   )
 }
+
+// Tour guiado (migración 173, pedido explícito del coordinador): admin y
+// Dirección Académica comparten el mismo tour (mismo panel) -- super_admin
+// nunca tiene tour (rolDeTour() devuelve null para ese rol).
+function AdminLayoutConTour({ rol, children }: { rol: UserRole | null; children: React.ReactNode }) {
+  const grupo = rolDeTour(rol)
+  const { pasos: pasosTour, incremental: tourIncremental, terminar: terminarTour } =
+    useTour(grupo ? PASOS_POR_ROL[grupo] : [], grupo !== null)
+
+  return (
+    <>
+      {children}
+      {pasosTour && <Tour pasos={pasosTour} incremental={tourIncremental} onTerminado={terminarTour} />}
+    </>
+  )
+}
+

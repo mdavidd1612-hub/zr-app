@@ -132,28 +132,30 @@ export default function Hoy() {
       <Regla delay={80} />
 
       <Seccion numero={1} titulo={sesion?.esHoy ? 'Tu clase de hoy' : 'Próxima clase'} delay={140}>
-        {!sesion ? (
-          <div className="zr-card p-10 text-center">
-            <p className="text-lg font-semibold text-zr-text">No tienes clases programadas</p>
-            <p className="mx-auto mt-2 max-w-sm text-sm text-zr-text-muted">
-              Cuando administración programe la próxima sesión de tu programa, aparecerá aquí.
-            </p>
-          </div>
-        ) : (
-          <div className="zr-card overflow-hidden">
-            <div className="border-b border-zr-border bg-gradient-to-br from-zr-blue-deep to-zr-blue px-7 py-8">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">
-                {fechaLarga}
-              </p>
-              <h2 className="zr-display mt-2 text-2xl text-white">{sesion.modulo}</h2>
-              <p className="mt-1 text-sm text-white/75">
-                {[sesion.taller, sesion.horario, `${resumen.inscritos} inscritos`]
-                  .filter(Boolean)
-                  .join(' · ')}
+        <div id="tour-hoy-clase">
+          {!sesion ? (
+            <div className="zr-card p-10 text-center">
+              <p className="text-lg font-semibold text-zr-text">No tienes clases programadas</p>
+              <p className="mx-auto mt-2 max-w-sm text-sm text-zr-text-muted">
+                Cuando administración programe la próxima sesión de tu programa, aparecerá aquí.
               </p>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="zr-card overflow-hidden">
+              <div className="border-b border-zr-border bg-gradient-to-br from-zr-blue-deep to-zr-blue px-7 py-8">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">
+                  {fechaLarga}
+                </p>
+                <h2 className="zr-display mt-2 text-2xl text-white">{sesion.modulo}</h2>
+                <p className="mt-1 text-sm text-white/75">
+                  {[sesion.taller, sesion.horario, `${resumen.inscritos} inscritos`]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
       </Seccion>
 
       {sesion && (

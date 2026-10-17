@@ -6,6 +6,9 @@ import { createClient } from '@/lib/supabase/client'
 import { CASOS_HABILITADO } from '@/lib/flags'
 import { Marco } from '@/components/ui/Marco'
 import { BannerSimulacion } from '@/components/ui/BannerSimulacion'
+import { Tour } from '@/components/ui/Tour'
+import { useTour } from '@/lib/useTour'
+import { PASOS_POR_ROL } from '@/lib/tour-pasos'
 import {
   IconoPanel, IconoDuda, IconoProgreso, IconoDocumento, IconoNotas, IconoPerfil,
 } from '@/components/ui/Iconos'
@@ -79,6 +82,12 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
     verificarRol()
   }, [router])
 
+  // Tour guiado (migración 173, pedido explícito del coordinador): nunca en
+  // la vista de recorrido de Dirección Académica/super_admin -- `simulando`
+  // ya distingue "profesor de verdad" de "viendo como profesor".
+  const { pasos: pasosTour, incremental: tourIncremental, terminar: terminarTour } =
+    useTour(PASOS_POR_ROL.profesor, !verificando && !simulando)
+
   if (verificando) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-zr-bg">
@@ -91,6 +100,7 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
     <Marco items={NAV} sinNavegacion={escaneando}>
       {simulando && <BannerSimulacion etiqueta="Profesor" />}
       {children}
+      {pasosTour && <Tour pasos={pasosTour} incremental={tourIncremental} onTerminado={terminarTour} />}
     </Marco>
   )
 }

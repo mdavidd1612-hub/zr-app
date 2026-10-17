@@ -9,6 +9,7 @@ import { getQRSecret } from '@/lib/qr-secret'
 import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
 import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
+import { BotonComoUsarApp } from '@/components/ui/BotonComoUsarApp'
 import { FotoPerfil } from '@/components/ui/FotoPerfil'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { useEsqueletoVisible } from '@/lib/useEsqueletoVisible'
@@ -174,6 +175,13 @@ export default function PerfilEstudiante() {
         />
         <p className="text-xs text-zr-text-muted">{perfil.cohorte}</p>
         <BotonActivarPush />
+      </Seccion>
+
+      {/* 03 — AYUDA (pedido explícito del coordinador, oct. 2026): vuelve a
+          mostrar el recorrido guiado completo, por si alguien quiere
+          repasarlo o se lo perdió. */}
+      <Seccion numero={3} titulo="Ayuda" delay={240}>
+        <BotonComoUsarApp inicioDelRol="/" />
       </Seccion>
     </div>
   )

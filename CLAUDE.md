@@ -263,3 +263,49 @@ sobre `main` contra la base de producción — eso se terminó.
    columnas que exige el currículo real de PTMA/PFTA) y no se puede correr tal cual contra el
    esquema actual. No usarlo como referencia de qué datos de prueba crear — antes de tocarlo, hay
    que reescribirlo para que coincida con las migraciones vigentes.
+
+---
+
+## 12. TUTORIAL GUIADO (TOUR)
+
+Desde octubre de 2026 hay un tutorial guiado — pedido explícito del coordinador — para **todos
+los roles menos `super_admin`**: estudiante, profesor, admin, Dirección Académica (comparte el de
+admin, mismo panel) y ZR Coffee lo tienen; `super_admin` nunca.
+
+Vive en `lib/tour-pasos.ts` (los pasos, por rol), `lib/useTour.ts` (el hook que decide qué
+mostrar) y `components/ui/Tour.tsx` (el componente que dibuja la tarjeta y resalta la pantalla).
+Cada persona guarda en `profiles.tour_pasos_vistos` la lista de IDs de los pasos que ya vio —
+no es un booleano "ya vio el tour sí/no" (migración 173).
+
+**Regla obligatoria: toda función, sección o pantalla nueva que un rol pueda no descubrir solo
+tiene que agregar su propio paso al tour de ese rol**, en `lib/tour-pasos.ts`. No es opcional ni
+"si hay tiempo" — es parte de terminar la tarea, igual que el `npm run typecheck` antes de dar
+algo por hecho (§8). Cómo hacerlo está documentado con detalle en los comentarios de ese mismo
+archivo; en resumen:
+
+1. Si la función vive en una pantalla nueva, su contenedor principal lleva un `id="tour-algo"`
+   único en esa pantalla (si no hay un elemento puntual que resaltar, el paso usa `targetId: null`
+   y se muestra centrado — sigue siendo válido, no hace falta inventar un recuadro).
+2. Se agrega un objeto al arreglo de ese rol en `PASOS_POR_ROL` con un `id` **único y estable
+   para siempre** (nunca se cambia ni se reusa — es lo que queda guardado en la base de cada
+   persona que ya lo vio), la `ruta`, el `targetId`, y `titulo`/`texto` cortos, en español de
+   Venezuela, sin tecnicismos.
+
+**Por qué no hace falta tocar nada más:** `useTour.ts` ya calcula solo qué pasos le faltan a cada
+quien. A quien nunca vio el tour de su rol, se lo muestra completo, con la bienvenida genérica. A
+quien ya lo había visto y ahora hay pasos nuevos, **no se le repite nada de lo que ya vio** — ve
+únicamente "Aprende a usar las nuevas funciones de ZR App" y entra directo a lo nuevo. Si no le
+falta ningún paso, no ve nada automáticamente (pero puede repasarlo entero desde "Cómo usar la
+app" en su perfil — `components/ui/BotonComoUsarApp.tsx`).
+
+**Vista de recorrido:** el tour nunca se dispara para alguien que está viendo la app como otro
+rol (p. ej. Dirección Académica recorriendo la vista de profesor) — cada layout distingue el rol
+real del rol que se está recorriendo antes de activar el hook. Si agregas un paso para un rol que
+también se puede recorrer (profesor, estudiante, ventas), no hace falta nada especial: esa
+distinción ya está resuelta en el layout de cada rol.
+
+**Responsivo:** `Tour.tsx` ya acomoda la tarjeta sola para que nunca se salga de la pantalla, sea
+cual sea su tamaño (recorta el recuadro resaltado a lo visible, y si un elemento ocupa casi toda
+la pantalla, renuncia al recuadro y centra la tarjeta en vez de cortarla contra el borde). No hace
+falta tocar esa lógica al agregar un paso — solo probar en un teléfono angosto (320–375 px) que el
+texto no quede demasiado largo.

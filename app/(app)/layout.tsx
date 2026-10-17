@@ -76,7 +76,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // guarda en el propio profiles.tour_pasos_vistos de quien está
   // recorriendo; los IDs llevan el prefijo del rol, nunca chocan).
   const { pasos: pasosTour, incremental: tourIncremental, terminar: terminarTour } =
-    useTour(PASOS_POR_ROL.estudiante, rol !== undefined && rol !== null && validado && !enOnboarding)
+    useTour(PASOS_POR_ROL.estudiante, rol !== undefined && rol !== null && validado && !enOnboarding, simulando)
 
   useEffect(() => {
     const supabase = createClient()

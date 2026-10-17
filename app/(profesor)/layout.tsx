@@ -89,7 +89,7 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
   // profiles.tour_pasos_vistos de quien está recorriendo (los IDs ya llevan
   // el prefijo del rol -- "profesor-...", nunca chocan con los suyos).
   const { pasos: pasosTour, incremental: tourIncremental, terminar: terminarTour } =
-    useTour(PASOS_POR_ROL.profesor, !verificando)
+    useTour(PASOS_POR_ROL.profesor, !verificando, simulando)
 
   if (verificando) {
     return (

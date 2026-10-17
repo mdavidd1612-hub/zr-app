@@ -74,7 +74,7 @@ export default function VendedorLayout({ children }: { children: React.ReactNode
   // en la vista de recorrido -- administración y super_admin tienen que
   // poder verlo sin entrar a una cuenta de ventas de verdad.
   const { pasos: pasosTour, incremental: tourIncremental, terminar: terminarTour } =
-    useTour(PASOS_POR_ROL.vendedor, !verificando)
+    useTour(PASOS_POR_ROL.vendedor, !verificando, simulando)
 
   if (verificando) {
     return (

@@ -9,7 +9,7 @@ import { type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Marco } from '@/components/ui/Marco'
 import { Tour } from '@/components/ui/Tour'
 import { useTour } from '@/lib/useTour'
-import { rolDeTour, PASOS_POR_ROL } from '@/lib/tour-pasos'
+import { rolDeTour, PASOS_POR_ROL, SIN_PASOS_DE_TOUR } from '@/lib/tour-pasos'
 import {
   IconoPanel, IconoEstudiantes, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoProgreso, IconoDuda, IconoCalificar,
 } from '@/components/ui/Iconos'
@@ -191,7 +191,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 function AdminLayoutConTour({ rol, children }: { rol: UserRole | null; children: React.ReactNode }) {
   const grupo = rolDeTour(rol)
   const { pasos: pasosTour, incremental: tourIncremental, terminar: terminarTour } =
-    useTour(grupo ? PASOS_POR_ROL[grupo] : [], grupo !== null)
+    useTour(grupo ? PASOS_POR_ROL[grupo] : SIN_PASOS_DE_TOUR, grupo !== null)
 
   return (
     <>

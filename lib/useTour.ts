@@ -48,14 +48,34 @@ interface EstadoTour {
  * Resuelve qué pasos del tutorial de este rol le faltan a la persona, o si
  * pidió verlo completo de nuevo ("Cómo usar la app"). `activo` apaga todo
  * el hook de una vez -- para cuando quien está mirando la pantalla no es en
- * realidad ese rol (p. ej. Dirección Académica recorriendo la vista de
- * profesor: no es un profesor de verdad, no le hace falta su tutorial).
+ * realidad ese rol.
+ *
+ * `soloManual` (bug real de producción, oct. 2026, reportado por el
+ * coordinador): en vista de recorrido, el tour SÍ tiene que poder abrirse
+ * ("Cómo usar la app"), pero NO debe aparecer solo cada vez que Dirección
+ * Académica/super_admin eligen un programa y módulo para inspeccionar --
+ * eso tapaba la pantalla que justo estaban tratando de ver ("le doy al
+ * botón y no pasa nada": sí pasaba, pero el tour se montaba encima tapando
+ * el contenido). Con `soloManual` en true se salta la revisión automática
+ * de pasos pendientes al entrar, pero el evento de "Cómo usar la app"
+ * sigue funcionando igual.
  */
-export function useTour(pasosDelRol: PasoTour[], activo: boolean) {
+export function useTour(pasosDelRol: PasoTour[], activo: boolean, soloManual = false) {
   const [estado, setEstado] = useState<EstadoTour>({ cargando: true, pasos: null, incremental: false })
   // Mientras el tour ya está abierto, una revisión disparada por otra causa
   // (p. ej. `activo` cambiando de valor) no debe pisarlo a mitad de camino.
   const abiertoRef = useRef(false)
+
+  // Bug real de producción (oct. 2026, reportado por el coordinador): si
+  // quien llama pasa un arreglo nuevo en cada render (p. ej. `grupo ?
+  // PASOS_POR_ROL[x] : []` -- ese `[]` suelto es una referencia distinta
+  // cada vez), los efectos de abajo, que dependían de `pasosDelRol`
+  // directo, se disparaban sin fin ("Maximum update depth exceeded"),
+  // dejando la pantalla congelada -- un botón se podía tocar, pero no
+  // pasaba nada. Se depende de esta CLAVE (el contenido, no la referencia)
+  // en vez del arreglo -- así el hook no se rompe aunque quien lo llama se
+  // equivoque y pase un arreglo nuevo cada vez.
+  const clavePasos = pasosDelRol.map((p) => p.id).join('|')
 
   const revisarPendientes = useCallback(async () => {
     if (!activo || pasosDelRol.length === 0) {
@@ -85,7 +105,10 @@ export function useTour(pasosDelRol: PasoTour[], activo: boolean) {
     // la bienvenida completa.
     abiertoRef.current = true
     setEstado({ cargando: false, pasos: pendientes, incremental: pendientes.length < pasosDelRol.length })
-  }, [pasosDelRol, activo])
+    // El lint de "falta pasosDelRol como dependencia" es a propósito: se
+    // depende del CONTENIDO (clavePasos), no de la referencia -- ver nota
+    // de clavePasos arriba sobre por qué.
+  }, [clavePasos, activo]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (abiertoRef.current) return // ver nota de abiertoRef arriba
@@ -101,8 +124,15 @@ export function useTour(pasosDelRol: PasoTour[], activo: boolean) {
       setEstado({ cargando: false, pasos: pasosDelRol, incremental: false })
       return
     }
+    // `soloManual`: ver nota de la función arriba -- en vista de recorrido
+    // no se revisan pendientes solos, solo se atiende la bandera/evento
+    // manual de "Cómo usar la app" (ya resuelto arriba).
+    if (soloManual) {
+      setEstado({ cargando: false, pasos: null, incremental: false })
+      return
+    }
     revisarPendientes()
-  }, [revisarPendientes, activo, pasosDelRol])
+  }, [revisarPendientes, activo, clavePasos, soloManual]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     function alPedirCompleto() {
@@ -112,7 +142,7 @@ export function useTour(pasosDelRol: PasoTour[], activo: boolean) {
     }
     window.addEventListener(EVENTO_MANUAL, alPedirCompleto)
     return () => window.removeEventListener(EVENTO_MANUAL, alPedirCompleto)
-  }, [activo, pasosDelRol])
+  }, [activo, clavePasos]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function terminar() {
     const pasosVistos = estado.pasos

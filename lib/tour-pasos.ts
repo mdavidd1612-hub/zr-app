@@ -136,3 +136,13 @@ export const PASOS_POR_ROL: Record<RolConTour, PasoTour[]> = {
   vendedor: VENDEDOR,
   zr_coffee: ZR_COFFEE,
 }
+
+// Para cuando no hay rol de tour (super_admin): bug real de producción
+// (oct. 2026, reportado por el coordinador) -- un `[]` escrito directo en
+// el JSX (`grupo ? PASOS_POR_ROL[grupo] : []`) crea un arreglo NUEVO en
+// cada render; como useTour() depende de la identidad de ese arreglo,
+// React entraba en un bucle de renders sin fin ("Maximum update depth
+// exceeded") que dejaba el panel de administración congelado -- un botón
+// se podía tocar, pero no pasaba nada. Esta constante es la misma
+// referencia siempre, así nunca dispara el efecto de nuevo sin motivo.
+export const SIN_PASOS_DE_TOUR: PasoTour[] = []

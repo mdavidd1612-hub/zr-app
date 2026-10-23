@@ -70,6 +70,7 @@ create or replace function public.unit_effective_status(
 ) returns text
 language sql
 stable
+set search_path = public
 as $$
   select case
     when p_manual = 'cerrada' then 'cerrada'
@@ -169,6 +170,7 @@ create or replace function public.unit_item_is_visible(
 ) returns boolean
 language sql
 stable
+set search_path = public
 as $$
   select
     public.unit_effective_status(p_unit_open_at, p_unit_close_at, p_unit_manual) in ('abierta','cerrada')

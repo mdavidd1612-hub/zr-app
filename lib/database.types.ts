@@ -749,10 +749,13 @@ export type Database = {
       }
       content_items: {
         Row: {
+          allow_download: boolean
           approval_status: Database["public"]["Enums"]["content_approval_status"]
+          check_quiz_id: string | null
           cohort_id: string | null
           created_at: string
           description: string | null
+          duration_seconds: number | null
           external_url: string | null
           folder_id: string | null
           id: string
@@ -764,20 +767,25 @@ export type Database = {
           review_message: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          show_progress: boolean
           size_bytes: number | null
           storage_path: string | null
           title: string
           type: Database["public"]["Enums"]["content_type"]
+          unit_id: string | null
           updated_at: string
           uploaded_by: string | null
           visible_from: string | null
           week_number: number | null
         }
         Insert: {
+          allow_download?: boolean
           approval_status?: Database["public"]["Enums"]["content_approval_status"]
+          check_quiz_id?: string | null
           cohort_id?: string | null
           created_at?: string
           description?: string | null
+          duration_seconds?: number | null
           external_url?: string | null
           folder_id?: string | null
           id?: string
@@ -789,20 +797,25 @@ export type Database = {
           review_message?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          show_progress?: boolean
           size_bytes?: number | null
           storage_path?: string | null
           title: string
           type: Database["public"]["Enums"]["content_type"]
+          unit_id?: string | null
           updated_at?: string
           uploaded_by?: string | null
           visible_from?: string | null
           week_number?: number | null
         }
         Update: {
+          allow_download?: boolean
           approval_status?: Database["public"]["Enums"]["content_approval_status"]
+          check_quiz_id?: string | null
           cohort_id?: string | null
           created_at?: string
           description?: string | null
+          duration_seconds?: number | null
           external_url?: string | null
           folder_id?: string | null
           id?: string
@@ -814,16 +827,25 @@ export type Database = {
           review_message?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          show_progress?: boolean
           size_bytes?: number | null
           storage_path?: string | null
           title?: string
           type?: Database["public"]["Enums"]["content_type"]
+          unit_id?: string | null
           updated_at?: string
           uploaded_by?: string | null
           visible_from?: string | null
           week_number?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "content_items_check_quiz_id_fkey"
+            columns: ["check_quiz_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "content_items_cohort_id_fkey"
             columns: ["cohort_id"]
@@ -871,6 +893,20 @@ export type Database = {
             columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "v_units_status"
             referencedColumns: ["id"]
           },
           {
@@ -2122,6 +2158,85 @@ export type Database = {
           },
           {
             foreignKeyName: "mastery_map_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students_blocked"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      material_progress: {
+        Row: {
+          completed_at: string | null
+          content_item_id: string
+          first_viewed_at: string
+          id: string
+          last_viewed_at: string
+          percent: number
+          segments: Json
+          student_id: string
+          validated: boolean
+        }
+        Insert: {
+          completed_at?: string | null
+          content_item_id: string
+          first_viewed_at?: string
+          id?: string
+          last_viewed_at?: string
+          percent?: number
+          segments?: Json
+          student_id: string
+          validated?: boolean
+        }
+        Update: {
+          completed_at?: string | null
+          content_item_id?: string
+          first_viewed_at?: string
+          id?: string
+          last_viewed_at?: string
+          percent?: number
+          segments?: Json
+          student_id?: string
+          validated?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_progress_content_item_id_fkey"
+            columns: ["content_item_id"]
+            isOneToOne: false
+            referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_mi_dominio"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "material_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_proximo_sabado"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "material_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_progress_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "v_students_blocked"

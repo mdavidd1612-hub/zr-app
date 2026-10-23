@@ -1212,10 +1212,14 @@ export type Database = {
       }
       exam_attempts: {
         Row: {
+          attempt_number: number
           created_at: string
           exam_id: string
+          expires_at: string | null
           graded_at: string | null
           id: string
+          score_cap_applied: number | null
+          seed: number
           started_at: string
           status: Database["public"]["Enums"]["attempt_status"]
           student_id: string
@@ -1223,10 +1227,14 @@ export type Database = {
           total_score: number | null
         }
         Insert: {
+          attempt_number?: number
           created_at?: string
           exam_id: string
+          expires_at?: string | null
           graded_at?: string | null
           id?: string
+          score_cap_applied?: number | null
+          seed?: number
           started_at?: string
           status?: Database["public"]["Enums"]["attempt_status"]
           student_id: string
@@ -1234,10 +1242,14 @@ export type Database = {
           total_score?: number | null
         }
         Update: {
+          attempt_number?: number
           created_at?: string
           exam_id?: string
+          expires_at?: string | null
           graded_at?: string | null
           id?: string
+          score_cap_applied?: number | null
+          seed?: number
           started_at?: string
           status?: Database["public"]["Enums"]["attempt_status"]
           student_id?: string
@@ -1466,56 +1478,77 @@ export type Database = {
         Row: {
           closes_at: string | null
           cohort_id: string | null
+          cooldown_hours: number
           created_at: string
           duration_minutes: number | null
           id: string
           instructions: string | null
+          kind: string
+          max_attempts: number
           max_score: number
           module_id: string
           opens_at: string | null
           passing_score: number
           published_at: string | null
           published_by: string | null
+          questions_per_attempt: number | null
+          show_answers_after_close: boolean
           status: Database["public"]["Enums"]["exam_status"]
           teacher_id: string | null
           title: string
+          unit_id: string | null
           updated_at: string
+          weight: number | null
         }
         Insert: {
           closes_at?: string | null
           cohort_id?: string | null
+          cooldown_hours?: number
           created_at?: string
           duration_minutes?: number | null
           id?: string
           instructions?: string | null
+          kind?: string
+          max_attempts?: number
           max_score?: number
           module_id: string
           opens_at?: string | null
           passing_score?: number
           published_at?: string | null
           published_by?: string | null
+          questions_per_attempt?: number | null
+          show_answers_after_close?: boolean
           status?: Database["public"]["Enums"]["exam_status"]
           teacher_id?: string | null
           title: string
+          unit_id?: string | null
           updated_at?: string
+          weight?: number | null
         }
         Update: {
           closes_at?: string | null
           cohort_id?: string | null
+          cooldown_hours?: number
           created_at?: string
           duration_minutes?: number | null
           id?: string
           instructions?: string | null
+          kind?: string
+          max_attempts?: number
           max_score?: number
           module_id?: string
           opens_at?: string | null
           passing_score?: number
           published_at?: string | null
           published_by?: string | null
+          questions_per_attempt?: number | null
+          show_answers_after_close?: boolean
           status?: Database["public"]["Enums"]["exam_status"]
           teacher_id?: string | null
           title?: string
+          unit_id?: string | null
           updated_at?: string
+          weight?: number | null
         }
         Relationships: [
           {
@@ -1544,6 +1577,20 @@ export type Database = {
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exams_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exams_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "v_units_status"
             referencedColumns: ["id"]
           },
         ]
@@ -1877,6 +1924,83 @@ export type Database = {
             columns: ["validated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      intervention_grants: {
+        Row: {
+          created_at: string
+          exam_id: string
+          granted_by: string
+          id: string
+          reason: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          exam_id: string
+          granted_by: string
+          id?: string
+          reason: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          exam_id?: string
+          granted_by?: string
+          id?: string
+          reason?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intervention_grants_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intervention_grants_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intervention_grants_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intervention_grants_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_mi_dominio"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "intervention_grants_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_proximo_sabado"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "intervention_grants_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intervention_grants_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students_blocked"
             referencedColumns: ["id"]
           },
         ]
@@ -3571,6 +3695,57 @@ export type Database = {
       }
     }
     Views: {
+      v_exam_best_score: {
+        Row: {
+          best_score: number | null
+          exam_id: string | null
+          student_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_attempts_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_mi_dominio"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "exam_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_proximo_sabado"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "exam_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "v_students_blocked"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_exam_questions_student: {
         Row: {
           exam_id: string | null
@@ -3927,6 +4102,24 @@ export type Database = {
         Args: { p_cohort_id: string; p_module_id: string; p_student_id: string }
         Returns: undefined
       }
+      fn_attempt_questions: {
+        Args: { p_attempt_id: string }
+        Returns: {
+          exam_id: string | null
+          id: string | null
+          options: Json | null
+          order_index: number | null
+          points: number | null
+          statement: string | null
+          type: Database["public"]["Enums"]["question_type"] | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_exam_questions_student"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       fn_avanzar_modulos_por_calendario: { Args: never; Returns: undefined }
       fn_avisos_de_clase: { Args: never; Returns: undefined }
       fn_cambiar_mi_rol: {
@@ -3961,6 +4154,7 @@ export type Database = {
       fn_recalc_puntualidad_todos: { Args: never; Returns: undefined }
       fn_recordar_cargar_notas: { Args: never; Returns: undefined }
       fn_recordar_solvencia_pendiente: { Args: never; Returns: undefined }
+      fn_submit_expired_attempts: { Args: never; Returns: undefined }
       fn_vencer_solvencia_pendiente: { Args: never; Returns: undefined }
       fn_zr_coffee_eliminar_venta: {
         Args: { p_venta_id: string }

@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -3187,6 +3187,157 @@ export type Database = {
           },
         ]
       }
+      unit_items: {
+        Row: {
+          assignment_id: string | null
+          content_item_id: string | null
+          created_at: string
+          exam_id: string | null
+          id: string
+          order_index: number
+          required: boolean
+          type: Database["public"]["Enums"]["unit_item_type"]
+          unit_id: string
+          visible: boolean
+          visible_from: string | null
+          visible_until: string | null
+        }
+        Insert: {
+          assignment_id?: string | null
+          content_item_id?: string | null
+          created_at?: string
+          exam_id?: string | null
+          id?: string
+          order_index: number
+          required?: boolean
+          type: Database["public"]["Enums"]["unit_item_type"]
+          unit_id: string
+          visible?: boolean
+          visible_from?: string | null
+          visible_until?: string | null
+        }
+        Update: {
+          assignment_id?: string | null
+          content_item_id?: string | null
+          created_at?: string
+          exam_id?: string | null
+          id?: string
+          order_index?: number
+          required?: boolean
+          type?: Database["public"]["Enums"]["unit_item_type"]
+          unit_id?: string
+          visible?: boolean
+          visible_from?: string | null
+          visible_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unit_items_content_item_id_fkey"
+            columns: ["content_item_id"]
+            isOneToOne: false
+            referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_items_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_items_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "v_units_status"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      units: {
+        Row: {
+          close_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          manual_status:
+            | Database["public"]["Enums"]["unit_manual_status"]
+            | null
+          module_id: string
+          open_at: string | null
+          order_index: number
+          prerequisite_unit_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          close_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          manual_status?:
+            | Database["public"]["Enums"]["unit_manual_status"]
+            | null
+          module_id: string
+          open_at?: string | null
+          order_index: number
+          prerequisite_unit_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          close_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          manual_status?:
+            | Database["public"]["Enums"]["unit_manual_status"]
+            | null
+          module_id?: string
+          open_at?: string | null
+          order_index?: number
+          prerequisite_unit_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "units_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_prerequisite_unit_id_fkey"
+            columns: ["prerequisite_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_prerequisite_unit_id_fkey"
+            columns: ["prerequisite_unit_id"]
+            isOneToOne: false
+            referencedRelation: "v_units_status"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       zr_coffee_products: {
         Row: {
           active: boolean
@@ -3525,6 +3676,86 @@ export type Database = {
           },
         ]
       }
+      v_units_status: {
+        Row: {
+          close_at: string | null
+          created_at: string | null
+          created_by: string | null
+          effective_status: string | null
+          id: string | null
+          manual_status:
+            | Database["public"]["Enums"]["unit_manual_status"]
+            | null
+          module_id: string | null
+          open_at: string | null
+          order_index: number | null
+          prerequisite_unit_id: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          close_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          effective_status?: never
+          id?: string | null
+          manual_status?:
+            | Database["public"]["Enums"]["unit_manual_status"]
+            | null
+          module_id?: string | null
+          open_at?: string | null
+          order_index?: number | null
+          prerequisite_unit_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          close_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          effective_status?: never
+          id?: string | null
+          manual_status?:
+            | Database["public"]["Enums"]["unit_manual_status"]
+            | null
+          module_id?: string | null
+          open_at?: string | null
+          order_index?: number | null
+          prerequisite_unit_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "units_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_prerequisite_unit_id_fkey"
+            columns: ["prerequisite_unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_prerequisite_unit_id_fkey"
+            columns: ["prerequisite_unit_id"]
+            isOneToOne: false
+            referencedRelation: "v_units_status"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       a_romano: { Args: { n: number }; Returns: string }
@@ -3713,16 +3944,6 @@ export type Database = {
           turno: string
         }[]
       }
-      seed_user: {
-        Args: {
-          p_cedula: string
-          p_email: string
-          p_full_name: string
-          p_id: string
-          p_role: Database["public"]["Enums"]["user_role"]
-        }
-        Returns: string
-      }
       set_student_code_calc: {
         Args: { p_cohort_id: string; p_enrollment_date: string; p_id: string }
         Returns: string
@@ -3734,6 +3955,29 @@ export type Database = {
       }
       tengo_modulo_asignado: {
         Args: { p_cohort: string; p_module: string }
+        Returns: boolean
+      }
+      unit_effective_status: {
+        Args: {
+          p_close_at: string
+          p_manual: Database["public"]["Enums"]["unit_manual_status"]
+          p_open_at: string
+        }
+        Returns: string
+      }
+      unit_item_is_visible: {
+        Args: {
+          p_item_visible: boolean
+          p_unit_close_at: string
+          p_unit_manual: Database["public"]["Enums"]["unit_manual_status"]
+          p_unit_open_at: string
+          p_visible_from: string
+          p_visible_until: string
+        }
+        Returns: boolean
+      }
+      unit_prerequisite_met: {
+        Args: { p_student_id: string; p_unit_id: string }
         Returns: boolean
       }
       validar_notas: {
@@ -3774,6 +4018,8 @@ export type Database = {
         | "cerrada"
         | "reprogramada"
         | "cancelada"
+      unit_item_type: "material" | "quiz" | "tarea" | "dudas"
+      unit_manual_status: "abierta" | "cerrada"
       user_role:
         | "estudiante"
         | "profesor"
@@ -3948,6 +4194,8 @@ export const Constants = {
         "reprogramada",
         "cancelada",
       ],
+      unit_item_type: ["material", "quiz", "tarea", "dudas"],
+      unit_manual_status: ["abierta", "cerrada"],
       user_role: [
         "estudiante",
         "profesor",

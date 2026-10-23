@@ -434,6 +434,47 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_events: {
+        Row: {
+          created_at: string
+          event_at: string
+          id: string
+          module_id: string
+          source_id: string
+          source_type: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_at: string
+          id?: string
+          module_id: string
+          source_id: string
+          source_type: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_at?: string
+          id?: string
+          module_id?: string
+          source_id?: string
+          source_type?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       case_completions: {
         Row: {
           case_date: string
@@ -4456,6 +4497,7 @@ export type Database = {
       }
       fn_avanzar_modulos_por_calendario: { Args: never; Returns: undefined }
       fn_avisos_de_clase: { Args: never; Returns: undefined }
+      fn_calendar_ical: { Args: { p_student_id: string }; Returns: string }
       fn_cambiar_mi_rol: {
         Args: { nuevo_rol: Database["public"]["Enums"]["user_role"] }
         Returns: undefined

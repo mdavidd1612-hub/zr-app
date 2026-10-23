@@ -4155,6 +4155,10 @@ export type Database = {
       fn_recordar_cargar_notas: { Args: never; Returns: undefined }
       fn_recordar_solvencia_pendiente: { Args: never; Returns: undefined }
       fn_submit_expired_attempts: { Args: never; Returns: undefined }
+      fn_unit_required_complete: {
+        Args: { p_student_id: string; p_unit_id: string }
+        Returns: boolean
+      }
       fn_vencer_solvencia_pendiente: { Args: never; Returns: undefined }
       fn_zr_coffee_eliminar_venta: {
         Args: { p_venta_id: string }

@@ -58,6 +58,12 @@ export default function ExamenPage() {
   const [confirmandoSalir, setConfirmandoSalir] = useState(false)
   const [abandonando, setAbandonando] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  // Aula Virtual (migración 176): ya no hay un solo intento por examen.
+  // fn_exam_attempt_prepare (disparador, servidor) decide si se puede crear
+  // uno nuevo -- tope de intentos, espera entre intentos, materiales
+  // obligatorios sin completar (177) -- y si no, devuelve un mensaje de
+  // error real que se muestra tal cual, no un genérico de "revisa tu conexión".
+  const [bloqueado, setBloqueado] = useState<string | null>(null)
 
   useEffect(() => {
     async function initExam() {
@@ -81,14 +87,47 @@ export default function ExamenPage() {
 
       setExam(examData)
 
-      // Las preguntas SIEMPRE salen de v_exam_questions_student. Esa vista no
-      // tiene correct_answer ni rubric: si se consultara exam_questions, la
-      // respuesta correcta viajaría al navegador y se vería en la pestaña Red.
-      const { data: questionsData } = await supabase
-        .from('v_exam_questions_student')
-        .select('*')
+      // Último intento (puede haber varios -- 176). Si el más reciente ya
+      // no está en progreso, se intenta crear uno nuevo; el disparador del
+      // servidor decide si se puede (tope, espera entre intentos, etc.).
+      let { data: attempt } = await supabase
+        .from('exam_attempts')
+        .select('id, status, started_at, expires_at')
         .eq('exam_id', examId)
-        .order('order_index', { ascending: true })
+        .eq('student_id', user.id)
+        .order('attempt_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (attempt && attempt.status !== 'en_progreso') {
+        attempt = null
+      }
+
+      if (!attempt) {
+        const { data: newAttempt, error: attemptErr } = await supabase
+          .from('exam_attempts')
+          .insert({ exam_id: examId, student_id: user.id })
+          .select('id, status, started_at, expires_at')
+          .single()
+
+        if (attemptErr || !newAttempt) {
+          setBloqueado(attemptErr?.message ?? 'No se pudo iniciar el examen.')
+          setLoading(false)
+          return
+        }
+        attempt = newAttempt
+      }
+
+      setAttemptId(attempt.id)
+
+      // Las preguntas salen de fn_attempt_questions, no de
+      // v_exam_questions_student directo: esa función ya resuelve el banco
+      // al azar (si el examen tiene questions_per_attempt) con un orden
+      // determinístico por la semilla del intento -- recargar la página no
+      // le cambia el orden al mismo estudiante, pero sí es distinto entre
+      // estudiantes (spec/07_AULA_VIRTUAL.md §7.3).
+      const { data: questionsData } = await supabase
+        .rpc('fn_attempt_questions', { p_attempt_id: attempt.id })
 
       if (questionsData) {
         setQuestions(
@@ -97,71 +136,33 @@ export default function ExamenPage() {
             type: q.type as Question['type'],
             enunciado: q.statement!,
             points: Number(q.points),
-            // options es jsonb: llega ya como objeto, no como texto.
             options: (q.options as Question['options']) ?? undefined,
           })),
         )
       }
 
-      // Get or create attempt
-      let { data: attempt } = await supabase
-        .from('exam_attempts')
-        .select('id, status, started_at')
-        .eq('exam_id', examId)
-        .eq('student_id', user.id)
-        .maybeSingle()
+      // Load existing answers
+      const { data: existingAnswers } = await supabase
+        .from('exam_answers')
+        .select('question_id, answer')
+        .eq('attempt_id', attempt.id)
 
-      // Si el intento ya fue entregado, calificado o abandonado,
-      // el estudiante no puede volver a entrar.
-      if (attempt && attempt.status !== 'en_progreso') {
-        router.replace('/examenes')
-        return
+      if (existingAnswers) {
+        setAnswers(
+          existingAnswers
+            .filter((a) => a.answer !== null)
+            .map((a) => ({
+              questionId: a.question_id,
+              value: a.answer as RespuestaValor,
+            })),
+        )
       }
 
-      if (!attempt) {
-        const { data: newAttempt } = await supabase
-          .from('exam_attempts')
-          .insert({
-            exam_id: examId,
-            student_id: user.id,
-            status: 'en_progreso',
-            started_at: new Date().toISOString(),
-          })
-          .select()
-          .single()
-
-        attempt = newAttempt
-      }
-
-      if (attempt) {
-        setAttemptId(attempt.id)
-
-        // Load existing answers
-        const { data: existingAnswers } = await supabase
-          .from('exam_answers')
-          .select('question_id, answer')
-          .eq('attempt_id', attempt.id)
-
-        if (existingAnswers) {
-          setAnswers(
-            existingAnswers
-              .filter((a) => a.answer !== null)
-              .map((a) => ({
-                questionId: a.question_id,
-                value: a.answer as RespuestaValor,
-              })),
-          )
-        }
-      }
-
-      // El tiempo restante se calcula contra started_at, NUNCA se reinicia a
-      // la duración completa. Antes se ponía siempre `duration_minutes * 60`
-      // sin importar cuánto tiempo ya había pasado: salir del examen y
-      // volver a entrar (por ejemplo desde el enlace de una notificación)
-      // le regalaba al estudiante un cronómetro nuevo cada vez.
-      if (examData.duration_minutes && attempt?.started_at) {
-        const finLimite = new Date(attempt.started_at).getTime() + examData.duration_minutes * 60_000
-        const restante = Math.max(0, Math.round((finLimite - Date.now()) / 1000))
+      // expires_at ya lo calculó el servidor al crear el intento (176) --
+      // no se recalcula aquí contra duration_minutes, para no desviarse si
+      // algún día el cálculo del servidor cambia.
+      if (attempt.expires_at) {
+        const restante = Math.max(0, Math.round((new Date(attempt.expires_at).getTime() - Date.now()) / 1000))
         setTimeLeft(restante)
       }
 
@@ -301,6 +302,21 @@ export default function ExamenPage() {
     setConfirmando(false)
     submittingRef.current = false
     setSubmitting(false)
+  }
+
+  if (bloqueado) {
+    return (
+      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-zr-background px-6 text-center">
+        <p className="zr-display text-xl text-zr-text">No puedes presentar este examen ahora</p>
+        <p className="max-w-sm text-sm leading-relaxed text-zr-text-muted">{bloqueado}</p>
+        <button
+          onClick={() => router.push('/examenes')}
+          className="mt-2 min-h-12 rounded-lg bg-zr-blue px-6 text-sm font-bold text-white"
+        >
+          Volver
+        </button>
+      </div>
+    )
   }
 
   if (loading || !currentQuestion) {

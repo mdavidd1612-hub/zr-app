@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
@@ -42,6 +42,14 @@ const ETIQUETA_ESTADO: Record<string, { texto: string; tono: 'neutro' | 'info' |
 }
 
 export default function Dudas() {
+  return (
+    <Suspense fallback={<PantallaEsqueleto />}>
+      <DudasInterno />
+    </Suspense>
+  )
+}
+
+function DudasInterno() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const unidadPreseleccionada = searchParams.get('unidad')

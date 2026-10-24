@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
@@ -231,6 +232,17 @@ function ContenidoInterno({ ctx }: { ctx: ContextoSel }) {
       />
 
       <AvisoModuloBloqueado estado={ctx.estado} />
+
+      {/* Aula Virtual: organizar este material (y exámenes y tareas) en
+          unidades. Enlace desde aquí en vez de un botón nuevo en la barra
+          -- ya tenía 6 secciones. */}
+      <Link
+        href="/unidades-docente"
+        className="flex min-h-14 items-center justify-between rounded-lg border border-zr-border bg-zr-surface px-5 text-base font-bold text-zr-text"
+      >
+        Organizar en unidades (Aula Virtual)
+        <span aria-hidden className="text-zr-text-muted">›</span>
+      </Link>
 
       <Regla delay={60} />
 

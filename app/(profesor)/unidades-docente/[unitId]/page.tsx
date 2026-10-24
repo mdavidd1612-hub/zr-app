@@ -21,6 +21,7 @@ interface Item {
   type: 'material' | 'quiz' | 'tarea' | 'dudas'
   required: boolean
   titulo: string
+  assignmentId: string | null
 }
 
 interface Opcion { id: string; title: string }
@@ -31,7 +32,6 @@ export default function UnidadDocenteDetalle() {
   const unitId = params.unitId as string
 
   const [titulo, setTitulo] = useState('')
-  const [moduleId, setModuleId] = useState('')
   const [openAt, setOpenAt] = useState('')
   const [closeAt, setCloseAt] = useState('')
   const [items, setItems] = useState<Item[]>([])
@@ -52,13 +52,12 @@ export default function UnidadDocenteDetalle() {
       .from('units').select('title, module_id, open_at, close_at').eq('id', unitId).maybeSingle()
     if (!unidad) { router.replace('/unidades-docente'); return }
     setTitulo(unidad.title)
-    setModuleId(unidad.module_id)
     setOpenAt(unidad.open_at ? unidad.open_at.slice(0, 16) : '')
     setCloseAt(unidad.close_at ? unidad.close_at.slice(0, 16) : '')
 
     const { data: filas } = await supabase
       .from('unit_items')
-      .select('id, type, required, content_items(title), exams(title), assignments(title)')
+      .select('id, type, required, assignment_id, content_items(title), exams(title), assignments(title)')
       .eq('unit_id', unitId)
       .order('order_index', { ascending: true })
 
@@ -70,6 +69,7 @@ export default function UnidadDocenteDetalle() {
         return {
           id: f.id, type: f.type, required: f.required,
           titulo: ci?.title ?? ex?.title ?? ta?.title ?? (f.type === 'dudas' ? 'Dudas de esta unidad' : ''),
+          assignmentId: f.assignment_id,
         }
       }),
     )
@@ -85,7 +85,7 @@ export default function UnidadDocenteDetalle() {
     setCargando(false)
   }
 
-  useEffect(() => { cargar() }, [unitId])
+  useEffect(() => { cargar() }, [unitId]) // eslint-disable-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
 
   async function guardarFechas() {
     setGuardando(true)
@@ -228,6 +228,14 @@ export default function UnidadDocenteDetalle() {
                       </Etiqueta>
                     </button>
                   )}
+                  {item.type === 'tarea' && item.assignmentId && (
+                    <button
+                      onClick={() => router.push(`/unidades-docente/tarea/${item.assignmentId}`)}
+                      className="mt-1 text-xs font-bold text-zr-blue-mid"
+                    >
+                      Ver entregas y calificar ›
+                    </button>
+                  )}
                 </div>
                 <button onClick={() => quitarItem(item.id)} className="shrink-0 text-xs font-bold text-zr-error">
                   Quitar
@@ -259,7 +267,7 @@ export default function UnidadDocenteDetalle() {
                 Agregar
               </button>
             </div>
-            <p className="mt-1 text-xs text-zr-text-muted">Súbelo primero en "Material" si todavía no existe.</p>
+            <p className="mt-1 text-xs text-zr-text-muted">Súbelo primero en &quot;Material&quot; si todavía no existe.</p>
           </div>
 
           <div>
@@ -284,7 +292,7 @@ export default function UnidadDocenteDetalle() {
               </button>
             </div>
             <p className="mt-1 text-xs text-zr-text-muted">
-              Créalo primero en "Crear examen" — ahí eliges si es certificación (bloqueante) y cuántos intentos.
+              Créalo primero en &quot;Crear examen&quot; — ahí eliges si es certificación (bloqueante) y cuántos intentos.
             </p>
           </div>
 

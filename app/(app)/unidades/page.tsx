@@ -58,7 +58,19 @@ export default function Unidades() {
       <div className="space-y-11">
         <BotonVolver href="/" />
 
-        <Encabezado sobretitulo="Aula Virtual" titulo="Unidades" descripcion="El material, los exámenes y las tareas de tu módulo, organizados por tema." />
+        <Encabezado
+          sobretitulo="Aula Virtual"
+          titulo="Unidades"
+          descripcion="El material, los exámenes y las tareas de tu módulo, organizados por tema."
+          accion={
+            <Link
+              href="/calendario"
+              className="rounded-lg border border-zr-border px-4 py-2.5 text-xs font-bold text-zr-text"
+            >
+              Ver calendario
+            </Link>
+          }
+        />
 
         <Regla delay={60} />
 

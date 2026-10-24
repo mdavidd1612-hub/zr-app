@@ -49,7 +49,7 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
     setCargando(false)
   }
 
-  useEffect(() => { cargar() }, [ctx.moduleId])
+  useEffect(() => { cargar() }, [ctx.moduleId]) // eslint-disable-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
 
   async function crearUnidad() {
     if (!titulo.trim()) return

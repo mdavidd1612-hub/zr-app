@@ -1,9 +1,9 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Seccion, Regla } from '@/components/ui/Editorial'
+import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { IconoAviso } from '@/components/ui/Iconos'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
@@ -13,16 +13,39 @@ import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
  * duda corta, y puede editar o borrar solo las suyas mientras no la haya
  * respondido el profesor (esa parte del profesor no se construye en esta
  * fase). No es anónima — RLS en supabase/migrations/034_doubts.sql.
+ *
+ * Aula Virtual (migración 180): la duda se puede ligar a una unidad
+ * concreta (si se llega desde /unidades/[id] vía ?unidad=), y se ve el
+ * hilo de respuestas -- la oficial, marcada, es la del profesor.
  */
+
+interface Respuesta {
+  id: string
+  body: string
+  isOfficial: boolean
+  createdAt: string
+}
 
 interface Duda {
   id: string
   body: string
   createdAt: string
+  status: string
+  unitId: string | null
+  respuestas: Respuesta[]
+}
+
+const ETIQUETA_ESTADO: Record<string, { texto: string; tono: 'neutro' | 'info' | 'exito' }> = {
+  abierta: { texto: 'Abierta', tono: 'neutro' },
+  respondida: { texto: 'Respondida', tono: 'info' },
+  resuelta: { texto: 'Resuelta', tono: 'exito' },
 }
 
 export default function Dudas() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const unidadPreseleccionada = searchParams.get('unidad')
+
   const [userId, setUserId] = useState<string | null>(null)
   const [texto, setTexto] = useState('')
   const [dudas, setDudas] = useState<Duda[]>([])
@@ -35,11 +58,17 @@ export default function Dudas() {
     const supabase = createClient()
     const { data } = await supabase
       .from('doubts')
-      .select('id, body, created_at')
+      .select('id, body, created_at, status, unit_id, doubt_responses(id, body, is_official, created_at)')
       .eq('student_id', uid)
       .order('created_at', { ascending: false })
 
-    setDudas((data ?? []).map((d) => ({ id: d.id, body: d.body, createdAt: d.created_at })))
+    setDudas(
+      (data ?? []).map((d) => ({
+        id: d.id, body: d.body, createdAt: d.created_at, status: d.status, unitId: d.unit_id,
+        respuestas: ((d.doubt_responses ?? []) as unknown as Array<{ id: string; body: string; is_official: boolean; created_at: string }>)
+          .map((r) => ({ id: r.id, body: r.body, isOfficial: r.is_official, createdAt: r.created_at })),
+      })),
+    )
   }
 
   useEffect(() => {
@@ -61,7 +90,11 @@ export default function Dudas() {
     if (!userId || !texto.trim()) return
     setEnviando(true)
     const supabase = createClient()
-    const { error } = await supabase.from('doubts').insert({ student_id: userId, body: texto.trim() })
+    const { error } = await supabase.from('doubts').insert({
+      student_id: userId,
+      body: texto.trim(),
+      unit_id: unidadPreseleccionada || null,
+    })
     if (!error) {
       setTexto('')
       await cargarDudas(userId)
@@ -94,6 +127,13 @@ export default function Dudas() {
     if (!error) await cargarDudas(userId)
   }
 
+  async function marcarResuelta(id: string) {
+    if (!userId) return
+    const supabase = createClient()
+    await supabase.from('doubts').update({ status: 'resuelta' }).eq('id', id)
+    await cargarDudas(userId)
+  }
+
   if (cargando) {
     return (
       <PantallaEsqueleto />
@@ -107,6 +147,11 @@ export default function Dudas() {
 
         <Seccion numero={1} titulo="Mandar una duda" delay={60}>
           <div id="tour-dudas" className="zr-card space-y-4 p-5">
+            {unidadPreseleccionada && (
+              <p className="rounded-lg border border-zr-blue/25 bg-zr-blue/10 px-4 py-2.5 text-xs font-semibold text-zr-blue-mid">
+                Se va a ligar a la unidad desde la que entraste.
+              </p>
+            )}
             <div>
               <label htmlFor="d-txt" className="mb-2 block text-sm font-semibold text-zr-text">
                 ¿Qué es lo que no te quedó claro? Escríbelo como pregunta.
@@ -144,59 +189,82 @@ export default function Dudas() {
             <p className="text-sm text-zr-text-muted">Todavía no has mandado ninguna duda.</p>
           ) : (
             <div className="space-y-3">
-              {dudas.map((d) => (
-                <div key={d.id} className="zr-card p-4">
-                  {editandoId === d.id ? (
-                    <div className="space-y-3">
-                      <textarea
-                        value={textoEdicion}
-                        onChange={(e) => setTextoEdicion(e.target.value)}
-                        className="min-h-[80px] w-full rounded-lg border border-zr-border bg-zr-bg p-3 text-sm text-zr-text outline-none focus:border-zr-blue"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={guardarEdicion}
-                          disabled={!textoEdicion.trim()}
-                          className="flex-1 rounded-lg bg-zr-blue py-2.5 text-sm font-bold text-white disabled:opacity-40"
-                        >
-                          Guardar
-                        </button>
-                        <button
-                          onClick={() => setEditandoId(null)}
-                          className="flex-1 rounded-lg border border-zr-border py-2.5 text-sm font-semibold text-zr-text"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-sm leading-relaxed text-zr-text">{d.body}</p>
-                      <div className="mt-3 flex items-center justify-between">
-                        <p className="text-xs text-zr-text-muted">
-                          {new Date(d.createdAt).toLocaleDateString('es-VE', {
-                            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-                          })}
-                        </p>
-                        <div className="flex gap-4">
+              {dudas.map((d) => {
+                const estado = ETIQUETA_ESTADO[d.status] ?? ETIQUETA_ESTADO.abierta
+                return (
+                  <div key={d.id} className="zr-card space-y-3 p-4">
+                    {editandoId === d.id ? (
+                      <div className="space-y-3">
+                        <textarea
+                          value={textoEdicion}
+                          onChange={(e) => setTextoEdicion(e.target.value)}
+                          className="min-h-[80px] w-full rounded-lg border border-zr-border bg-zr-bg p-3 text-sm text-zr-text outline-none focus:border-zr-blue"
+                        />
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => empezarEdicion(d)}
-                            className="text-xs font-bold text-zr-blue-mid"
+                            onClick={guardarEdicion}
+                            disabled={!textoEdicion.trim()}
+                            className="flex-1 rounded-lg bg-zr-blue py-2.5 text-sm font-bold text-white disabled:opacity-40"
                           >
-                            Editar
+                            Guardar
                           </button>
                           <button
-                            onClick={() => eliminarDuda(d.id)}
-                            className="text-xs font-bold text-zr-error"
+                            onClick={() => setEditandoId(null)}
+                            className="flex-1 rounded-lg border border-zr-border py-2.5 text-sm font-semibold text-zr-text"
                           >
-                            Eliminar
+                            Cancelar
                           </button>
                         </div>
                       </div>
-                    </>
-                  )}
-                </div>
-              ))}
+                    ) : (
+                      <>
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-sm leading-relaxed text-zr-text">{d.body}</p>
+                          <Etiqueta tono={estado.tono}>{estado.texto}</Etiqueta>
+                        </div>
+
+                        {d.respuestas.length > 0 && (
+                          <div className="space-y-2 border-l-2 border-zr-blue/30 pl-3">
+                            {d.respuestas.map((r) => (
+                              <div key={r.id}>
+                                {r.isOfficial && <Etiqueta tono="exito">Respuesta del profesor</Etiqueta>}
+                                <p className="mt-1 text-sm leading-relaxed text-zr-text-muted">{r.body}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-zr-text-muted">
+                            {new Date(d.createdAt).toLocaleDateString('es-VE', {
+                              day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+                            })}
+                          </p>
+                          <div className="flex gap-4">
+                            {d.status !== 'resuelta' && (
+                              <button onClick={() => marcarResuelta(d.id)} className="text-xs font-bold text-zr-success">
+                                Marcar resuelta
+                              </button>
+                            )}
+                            <button
+                              onClick={() => empezarEdicion(d)}
+                              className="text-xs font-bold text-zr-blue-mid"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => eliminarDuda(d.id)}
+                              className="text-xs font-bold text-zr-error"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </Seccion>

@@ -23,6 +23,8 @@ interface Item {
   required: boolean
   titulo: string
   assignmentId: string | null
+  contentItemId: string | null
+  examId: string | null
 }
 
 interface Opcion { id: string; title: string }
@@ -58,7 +60,7 @@ export default function UnidadDocenteDetalle() {
 
     const { data: filas } = await supabase
       .from('unit_items')
-      .select('id, type, required, assignment_id, content_items(title), exams(title), assignments(title)')
+      .select('id, type, required, assignment_id, content_item_id, exam_id, content_items(title), exams(title), assignments(title)')
       .eq('unit_id', unitId)
       .order('order_index', { ascending: true })
 
@@ -71,6 +73,8 @@ export default function UnidadDocenteDetalle() {
           id: f.id, type: f.type, required: f.required,
           titulo: ci?.title ?? ex?.title ?? ta?.title ?? (f.type === 'dudas' ? 'Dudas de esta unidad' : ''),
           assignmentId: f.assignment_id,
+          contentItemId: f.content_item_id,
+          examId: f.exam_id,
         }
       }),
     )
@@ -103,9 +107,26 @@ export default function UnidadDocenteDetalle() {
     setGuardando(false)
   }
 
+  const [agregando, setAgregando] = useState(false)
+
   async function agregarItem(tipo: 'material' | 'quiz' | 'dudas', refId?: string) {
     if ((tipo === 'material' || tipo === 'quiz') && !refId) return
     setError(null)
+
+    // Bug real reportado por el coordinador (reunión 31-oct-2026): agregar
+    // dos veces el mismo material o examen a la unidad no debe duplicarlo --
+    // se avisa en vez de insertar de nuevo. `agregando` evita además el
+    // doble clic mientras la primera inserción todavía no vuelve.
+    if (tipo === 'material' && items.some((i) => i.contentItemId === refId)) {
+      setError('Este material ya está en esta unidad.')
+      return
+    }
+    if (tipo === 'quiz' && items.some((i) => i.examId === refId)) {
+      setError('Este examen ya está en esta unidad.')
+      return
+    }
+
+    setAgregando(true)
     const supabase = createClient()
     const siguienteOrden = items.length > 0 ? items.length + 1 : 1
     const { error: err } = await supabase.from('unit_items').insert({
@@ -117,6 +138,7 @@ export default function UnidadDocenteDetalle() {
     })
     if (err) setError(err.message)
     else await cargar()
+    setAgregando(false)
   }
 
   async function crearTarea() {
@@ -247,6 +269,7 @@ export default function UnidadDocenteDetalle() {
         </div>
 
         <div className="zr-card space-y-5 p-5">
+          {error && <p className="text-sm font-medium text-zr-error">{error}</p>}
           <div>
             <label className="mb-2 block text-sm font-semibold text-zr-text">Agregar material ya subido</label>
             <div className="flex gap-2">
@@ -263,7 +286,8 @@ export default function UnidadDocenteDetalle() {
                   const sel = document.getElementById('sel-material') as HTMLSelectElement
                   if (sel.value) agregarItem('material', sel.value)
                 }}
-                className="shrink-0 rounded-lg bg-zr-blue px-4 text-sm font-bold text-white"
+                disabled={agregando}
+                className="shrink-0 rounded-lg bg-zr-blue px-4 text-sm font-bold text-white disabled:opacity-50"
               >
                 Agregar
               </button>
@@ -292,7 +316,8 @@ export default function UnidadDocenteDetalle() {
                   const sel = document.getElementById('sel-examen') as HTMLSelectElement
                   if (sel.value) agregarItem('quiz', sel.value)
                 }}
-                className="shrink-0 rounded-lg bg-zr-blue px-4 text-sm font-bold text-white"
+                disabled={agregando}
+                className="shrink-0 rounded-lg bg-zr-blue px-4 text-sm font-bold text-white disabled:opacity-50"
               >
                 Agregar
               </button>

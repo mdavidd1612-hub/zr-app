@@ -127,6 +127,25 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
       return
     }
 
+    const supabasePrevio = createClient()
+
+    // Bug real reportado por el coordinador (reunión 31-oct-2026): subir el
+    // mismo archivo dos veces a la misma unidad no debe duplicarlo -- se
+    // avisa antes de gastar tiempo subiendo (ni se toca el bucket).
+    if (unitId) {
+      const { data: yaEstan } = await supabasePrevio
+        .from('unit_items')
+        .select('content_items(original_name)')
+        .eq('unit_id', unitId)
+        .eq('type', 'material')
+      const nombres = (yaEstan ?? [])
+        .map((f) => (f.content_items as unknown as { original_name: string | null } | null)?.original_name)
+      if (nombres.includes(archivo.name)) {
+        setError('Este archivo ya se subió a esta unidad.')
+        return
+      }
+    }
+
     setSubiendo(true)
 
     setComprimiendo(false)

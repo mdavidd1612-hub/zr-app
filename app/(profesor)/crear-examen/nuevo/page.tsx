@@ -135,10 +135,28 @@ function NuevoExamenInterno() {
 
   async function guardar() {
     if (!sePuedeGuardar) return
-    setGuardando(true)
     setError(null)
 
     const supabase = createClient()
+
+    // Mismo caso que el material (reunión 31-oct-2026): crear dos veces un
+    // examen con el mismo nombre en la misma unidad no debe duplicarlo.
+    if (unitId) {
+      const { data: yaEstan } = await supabase
+        .from('unit_items')
+        .select('exams(title)')
+        .eq('unit_id', unitId)
+        .eq('type', 'quiz')
+      const titulos = (yaEstan ?? [])
+        .map((f) => (f.exams as unknown as { title: string } | null)?.title?.trim().toLowerCase())
+      if (titulos.includes(titulo.trim().toLowerCase())) {
+        setError('Ya existe un examen con este nombre en esta unidad.')
+        return
+      }
+    }
+
+    setGuardando(true)
+
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       setGuardando(false)

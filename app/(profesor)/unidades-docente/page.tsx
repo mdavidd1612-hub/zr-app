@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { ContextoDocente, type ContextoSel } from '@/components/ui/ContextoDocente'
-import { IconoChevron, IconoExamen, IconoDocumento } from '@/components/ui/Iconos'
+import { IconoChevron } from '@/components/ui/Iconos'
 
 /**
  * Aula Virtual — el profesor crea y administra las unidades de su módulo.
@@ -76,27 +76,10 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
 
   return (
     <div className="space-y-11">
-      {/* Antes "Crear examen" y "Material" no tenían ningún enlace que
-          llevara ahí desde el Aula Virtual -- quedaban invisibles aunque las
-          pantallas existieran y funcionaran (reporte real del coordinador,
-          oct. 2026: "el botón de crear examen no sirve / no se ve"). */}
-      <div className="grid grid-cols-2 gap-3">
-        <Link
-          href="/crear-examen"
-          className="zr-card zr-card-interactive flex flex-col items-center gap-2 p-5 text-center"
-        >
-          <IconoExamen size={22} className="text-zr-blue" />
-          <span className="text-sm font-bold text-zr-text">Crear examen</span>
-        </Link>
-        <Link
-          href="/contenido-docente"
-          className="zr-card zr-card-interactive flex flex-col items-center gap-2 p-5 text-center"
-        >
-          <IconoDocumento size={22} className="text-zr-blue" />
-          <span className="text-sm font-bold text-zr-text">Subir material</span>
-        </Link>
-      </div>
-
+      {/* Pedido explícito del coordinador (reunión 31-oct-2026): examen y
+          material se crean DENTRO de la unidad -- no hacen falta botones de
+          crear/subir fuera de ella. (Los que estaban aquí, de la tarde
+          anterior, se quitan.) */}
       <Seccion numero={1} titulo="Nueva unidad" delay={60}>
         {!formAbierto ? (
           <button

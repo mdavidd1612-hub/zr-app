@@ -7,6 +7,7 @@ import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { ContextoDocente, type ContextoSel } from '@/components/ui/ContextoDocente'
 import { IconoChevron } from '@/components/ui/Iconos'
+import { estadoUnidad } from '@/lib/estado-unidad'
 
 /**
  * Aula Virtual — el profesor crea y administra las unidades de su módulo.
@@ -20,14 +21,7 @@ interface UnidadFila {
   order_index: number
   open_at: string | null
   close_at: string | null
-}
-
-function ESTADO(u: UnidadFila): { texto: string; tono: 'exito' | 'aviso' | 'neutro' } {
-  const ahora = Date.now()
-  if (!u.open_at) return { texto: 'Borrador', tono: 'neutro' }
-  if (new Date(u.open_at).getTime() > ahora) return { texto: 'Programada', tono: 'aviso' }
-  if (u.close_at && new Date(u.close_at).getTime() < ahora) return { texto: 'Cerrada', tono: 'neutro' }
-  return { texto: 'Abierta', tono: 'exito' }
+  manual_status: 'abierta' | 'cerrada' | null
 }
 
 function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
@@ -42,7 +36,7 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
     const supabase = createClient()
     const { data } = await supabase
       .from('units')
-      .select('id, title, order_index, open_at, close_at')
+      .select('id, title, order_index, open_at, close_at, manual_status')
       .eq('module_id', ctx.moduleId)
       .order('order_index', { ascending: true })
     setUnidades((data ?? []) as UnidadFila[])
@@ -131,7 +125,7 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
         ) : (
           <div className="space-y-3">
             {unidades.map((u, i) => {
-              const estado = ESTADO(u)
+              const estado = estadoUnidad(u.open_at, u.close_at, u.manual_status)
               return (
                 <Link
                   key={u.id}

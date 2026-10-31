@@ -10,6 +10,7 @@ import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { BannerUnidad } from '@/components/ui/BannerUnidad'
 import { PestanasUnidad, type PestanaUnidad } from '@/components/ui/PestanasUnidad'
 import { IconoDocumento, IconoExamen, IconoDuda, IconoCheck, IconoLapiz } from '@/components/ui/Iconos'
+import { estadoUnidad } from '@/lib/estado-unidad'
 
 /**
  * Aula Virtual — el profesor administra el contenido de UNA unidad: fechas
@@ -42,17 +43,6 @@ interface Item {
 
 interface Opcion { id: string; title: string }
 
-// Misma idea que ESTADO() en unidades-docente/page.tsx (hub) -- aparte, no
-// en el cuerpo del componente, para que el linter de pureza de React no se
-// queje de llamar Date.now() directo durante el render.
-function estadoDe(openAt: string, closeAt: string): { texto: string; tono: 'exito' | 'aviso' | 'neutro' } {
-  const ahora = Date.now()
-  if (!openAt) return { texto: 'Borrador', tono: 'neutro' }
-  if (new Date(openAt).getTime() > ahora) return { texto: 'Programada', tono: 'aviso' }
-  if (closeAt && new Date(closeAt).getTime() < ahora) return { texto: 'Cerrada · repaso', tono: 'neutro' }
-  return { texto: 'Abierta', tono: 'exito' }
-}
-
 export default function UnidadDocenteDetalle() {
   const router = useRouter()
   const params = useParams()
@@ -62,6 +52,7 @@ export default function UnidadDocenteDetalle() {
   const [titulo, setTitulo] = useState('')
   const [openAt, setOpenAt] = useState('')
   const [closeAt, setCloseAt] = useState('')
+  const [manualStatus, setManualStatus] = useState<'abierta' | 'cerrada' | null>(null)
   const [unidades, setUnidades] = useState<PestanaUnidad[]>([])
   const [items, setItems] = useState<Item[]>([])
   const [materialesDisponibles, setMaterialesDisponibles] = useState<Opcion[]>([])
@@ -78,11 +69,12 @@ export default function UnidadDocenteDetalle() {
   async function cargar() {
     const supabase = createClient()
     const { data: unidad } = await supabase
-      .from('units').select('title, module_id, open_at, close_at').eq('id', unitId).maybeSingle()
+      .from('units').select('title, module_id, open_at, close_at, manual_status').eq('id', unitId).maybeSingle()
     if (!unidad) { router.replace('/unidades-docente'); return }
     setTitulo(unidad.title)
     setOpenAt(unidad.open_at ? unidad.open_at.slice(0, 16) : '')
     setCloseAt(unidad.close_at ? unidad.close_at.slice(0, 16) : '')
+    setManualStatus(unidad.manual_status)
 
     const { data: filas } = await supabase
       .from('unit_items')
@@ -117,10 +109,13 @@ export default function UnidadDocenteDetalle() {
     // estudiante, el profesor ve también borrador/programada, con su color
     // de siempre -- así sabe de un vistazo cuál todavía no ve nadie más).
     const { data: hermanas } = await supabase
-      .from('units').select('id, title, order_index, open_at, close_at')
+      .from('units').select('id, title, order_index, open_at, close_at, manual_status')
       .eq('module_id', unidad.module_id).order('order_index', { ascending: true })
     setUnidades(
-      (hermanas ?? []).map((h) => ({ id: h.id, title: h.title, tono: estadoDe(h.open_at ?? '', h.close_at ?? '').tono })),
+      (hermanas ?? []).map((h) => ({
+        id: h.id, title: h.title,
+        tono: estadoUnidad(h.open_at, h.close_at, h.manual_status).tono,
+      })),
     )
 
     setCargando(false)
@@ -225,7 +220,7 @@ export default function UnidadDocenteDetalle() {
   // Lectura: misma idea que app/(app)/unidades/[unitId]/page.tsx -- el
   // estudiante no ve "Borrador"/"Programada" (RLS se lo esconde), pero el
   // profesor sí necesita saber en qué estado está lo que está viendo.
-  const estado = estadoDe(openAt, closeAt)
+  const estado = estadoUnidad(openAt, closeAt, manualStatus)
 
   if (!modoEdicion) {
     return (

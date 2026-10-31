@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { ContextoDocente, type ContextoSel } from '@/components/ui/ContextoDocente'
-import { IconoChevron } from '@/components/ui/Iconos'
+import { IconoChevron, IconoExamen, IconoDocumento } from '@/components/ui/Iconos'
 
 /**
  * Aula Virtual — el profesor crea y administra las unidades de su módulo.
@@ -76,6 +76,27 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
 
   return (
     <div className="space-y-11">
+      {/* Antes "Crear examen" y "Material" no tenían ningún enlace que
+          llevara ahí desde el Aula Virtual -- quedaban invisibles aunque las
+          pantallas existieran y funcionaran (reporte real del coordinador,
+          oct. 2026: "el botón de crear examen no sirve / no se ve"). */}
+      <div className="grid grid-cols-2 gap-3">
+        <Link
+          href="/crear-examen"
+          className="zr-card zr-card-interactive flex flex-col items-center gap-2 p-5 text-center"
+        >
+          <IconoExamen size={22} className="text-zr-blue" />
+          <span className="text-sm font-bold text-zr-text">Crear examen</span>
+        </Link>
+        <Link
+          href="/contenido-docente"
+          className="zr-card zr-card-interactive flex flex-col items-center gap-2 p-5 text-center"
+        >
+          <IconoDocumento size={22} className="text-zr-blue" />
+          <span className="text-sm font-bold text-zr-text">Subir material</span>
+        </Link>
+      </div>
+
       <Seccion numero={1} titulo="Nueva unidad" delay={60}>
         {!formAbierto ? (
           <button
@@ -136,7 +157,7 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold uppercase tracking-wider text-zr-text-muted">Unidad {i + 1}</p>
-                    <p className="mt-1 truncate text-base font-bold text-zr-text">{u.title}</p>
+                    <p className="mt-1 break-words text-base font-bold text-zr-text">{u.title}</p>
                     <div className="mt-2"><Etiqueta tono={estado.tono}>{estado.texto}</Etiqueta></div>
                   </div>
                   <IconoChevron size={20} className="shrink-0 text-zr-text-muted" />

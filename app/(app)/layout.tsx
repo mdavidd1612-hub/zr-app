@@ -12,7 +12,7 @@ import { PASOS_POR_ROL } from '@/lib/tour-pasos'
 import { BannerNoSolvente, ModalNoSolvente } from '@/components/ui/AvisoSolvencia'
 import { ResultadoModulo } from '@/components/ui/ResultadoModulo'
 import {
-  IconoInicio, IconoPerfil, IconoProgreso, IconoDocumento, IconoDuda, IconoNotas,
+  IconoInicio, IconoPerfil, IconoProgreso, IconoDocumento, IconoVideo, IconoDuda, IconoNotas,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -24,9 +24,16 @@ import type { UserRole } from '@/lib/types'
 // — dos entradas para lo mismo confundía más de lo que ayudaba. Las rutas
 // viejas siguen existiendo en el código — no se borran — para retomarlas en
 // la fase siguiente sin rehacer nada.
+//
+// "Aula" (Aula Virtual, migraciones 174-182): antes solo se llegaba por un
+// enlace escondido dentro de "Mi módulo" -- el estudiante no tenía forma de
+// saber que ahí vivía lo que el profesor organizaba (reporte real del
+// coordinador, oct. 2026: "el estudiante no ve nada de lo que hace el
+// profesor"). Se saca a la barra, igual que en el menú del profesor.
 const NAV: ItemBarra[] = [
   { href: '/',          label: 'Inicio',    Icono: IconoInicio },
   { href: '/clases',    label: 'Mi módulo', Icono: IconoProgreso },
+  { href: '/unidades',  label: 'Aula',      Icono: IconoVideo },
   { href: '/contenido', label: 'Material',  Icono: IconoDocumento },
   { href: '/notas',     label: 'Notas',     Icono: IconoNotas },
   { href: '/dudas',     label: 'Dudas',     Icono: IconoDuda },

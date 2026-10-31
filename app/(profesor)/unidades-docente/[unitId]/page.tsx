@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -217,7 +218,7 @@ export default function UnidadDocenteDetalle() {
                   <Icono size={20} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-base font-bold text-zr-text">{item.titulo}</p>
+                  <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
                   {item.type === 'material' && (
                     <button
                       onClick={() => alternarObligatorio(item.id, item.required)}
@@ -267,7 +268,9 @@ export default function UnidadDocenteDetalle() {
                 Agregar
               </button>
             </div>
-            <p className="mt-1 text-xs text-zr-text-muted">Súbelo primero en &quot;Material&quot; si todavía no existe.</p>
+            <Link href="/contenido-docente" className="mt-1 inline-block text-xs font-bold text-zr-blue-mid">
+              Súbelo primero en &quot;Material&quot; › si todavía no existe.
+            </Link>
           </div>
 
           <div>
@@ -291,9 +294,12 @@ export default function UnidadDocenteDetalle() {
                 Agregar
               </button>
             </div>
-            <p className="mt-1 text-xs text-zr-text-muted">
-              Créalo primero en &quot;Crear examen&quot; — ahí eliges si es certificación (bloqueante) y cuántos intentos.
-            </p>
+            <Link
+              href="/crear-examen"
+              className="mt-1 inline-block text-xs font-bold text-zr-blue-mid"
+            >
+              Créalo primero en &quot;Crear examen&quot; › — ahí eliges si es certificación (bloqueante) y cuántos intentos.
+            </Link>
           </div>
 
           <div>

@@ -71,6 +71,7 @@ export default function UnidadDocenteDetalle() {
   // Bloque de texto (migración 187): título + párrafo escritos directo aquí,
   // sin archivo -- se guarda como content_items tipo 'texto'.
   const [moduleId, setModuleId] = useState('')
+  const [cohortId, setCohortId] = useState<string | null>(null)
   const [textoTitulo, setTextoTitulo] = useState('')
   const [textoCuerpo, setTextoCuerpo] = useState('')
   const [creandoTexto, setCreandoTexto] = useState(false)
@@ -85,6 +86,13 @@ export default function UnidadDocenteDetalle() {
     setCloseAt(unidad.close_at ? unidad.close_at.slice(0, 16) : '')
     setManualStatus(unidad.manual_status)
     setModuleId(unidad.module_id)
+
+    // El bloque de texto se guarda como content_items (RLS exige cohort_id +
+    // module_id que el profesor realmente dicta -- mismo requisito que el
+    // material subido por archivo, policy "profesor: escribir contenido").
+    const { data: asignaciones } = await supabase.rpc('mis_asignaciones_docente')
+    const asignacion = (asignaciones ?? []).find((a: { module_id: string }) => a.module_id === unidad.module_id)
+    setCohortId(asignacion?.cohort_id ?? null)
 
     const { data: filas } = await supabase
       .from('unit_items')
@@ -221,17 +229,29 @@ export default function UnidadDocenteDetalle() {
 
   async function crearBloqueTexto() {
     if (!textoTitulo.trim() || !textoCuerpo.trim()) return
+    if (!cohortId) {
+      setError('No se encontró la cohorte de esta unidad para guardar el bloque. Avisa a Dirección Académica.')
+      return
+    }
     setCreandoTexto(true)
     setError(null)
     const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setCreandoTexto(false); return }
     const { data: contenido, error: err } = await supabase
       .from('content_items')
       .insert({
         module_id: moduleId,
+        cohort_id: cohortId,
         title: textoTitulo.trim(),
         // Casteo: 'texto' entra en el enum content_type en la migración 186.
         type: 'texto' as unknown as 'pdf',
         description: textoCuerpo.trim(),
+        uploaded_by: user.id,
+        // Sin archivo que revisar (no hay riesgo de contenido subido): se
+        // publica directo, a diferencia del material con archivo que queda
+        // "pendiente" hasta que administración lo revise.
+        is_published: true,
       })
       .select('id')
       .single()

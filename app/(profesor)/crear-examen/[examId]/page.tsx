@@ -48,6 +48,11 @@ export default function EditarExamen() {
   const [cohortes, setCohortes] = useState<{ id: string; name: string }[]>([])
   const [puntajeMaximo, setPuntajeMaximo] = useState(20)
   const [duracion, setDuracion] = useState<number | ''>('')
+  // Modelo de evaluación (migración 176) -- mismos campos que "Crear examen".
+  const [tipo, setTipo] = useState<'formativo' | 'certificacion'>('formativo')
+  const [notaMinima, setNotaMinima] = useState<number | ''>(10)
+  const [intentos, setIntentos] = useState<number | ''>(2)
+  const [enfriamiento, setEnfriamiento] = useState<number | ''>(24)
   const [preguntas, setPreguntas] = useState<Pregunta[]>([])
   const [editorAbierto, setEditorAbierto] = useState<TipoPregunta | null>(null)
   const [eligiendoTipo, setEligiendoTipo] = useState(false)
@@ -85,6 +90,10 @@ export default function EditarExamen() {
       setCohorteId(examen.cohort_id ?? '')
       setPuntajeMaximo(Number(examen.max_score) || 20)
       setDuracion(examen.duration_minutes ?? '')
+      setTipo(examen.kind === 'certificacion' ? 'certificacion' : 'formativo')
+      setNotaMinima(examen.passing_score != null ? Number(examen.passing_score) : 10)
+      setIntentos(examen.max_attempts ?? 2)
+      setEnfriamiento(examen.cooldown_hours ?? 24)
       // Solo los módulos que dicta (más el del propio examen); si no tiene asignados, todos.
       const suyos = new Set((asig ?? []).map((x) => x.module_id))
       setModulos(suyos.size > 0 ? (mods ?? []).filter((m) => suyos.has(m.id) || m.id === examen.module_id) : (mods ?? []))
@@ -153,6 +162,10 @@ export default function EditarExamen() {
         cohort_id: cohorteId || null,
         max_score: puntajeMaximo,
         duration_minutes: duracion === '' ? null : duracion,
+        kind: tipo,
+        passing_score: tipo === 'certificacion' ? (notaMinima === '' ? 10 : notaMinima) : 10,
+        max_attempts: intentos === '' ? 2 : intentos,
+        cooldown_hours: enfriamiento === '' ? 24 : enfriamiento,
       })
       .eq('id', examId)
 
@@ -279,6 +292,66 @@ export default function EditarExamen() {
                 onChange={(e) => setDuracion(e.target.value === '' ? '' : Number(e.target.value))}
                 placeholder="Sin límite"
                 className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Modelo de evaluación (migración 176) -- mismo bloque que "Crear examen". */}
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">¿Qué tipo de examen es?</label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setTipo('formativo')}
+                className={`rounded-lg border p-4 text-left transition-colors ${
+                  tipo === 'formativo' ? 'border-zr-blue bg-zr-blue/8' : 'border-zr-border bg-zr-bg'
+                }`}
+              >
+                <p className="text-sm font-bold text-zr-text">Práctica</p>
+                <p className="mt-1 text-xs text-zr-text-muted">No bloquea nada. El estudiante practica.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTipo('certificacion')}
+                className={`rounded-lg border p-4 text-left transition-colors ${
+                  tipo === 'certificacion' ? 'border-zr-blue bg-zr-blue/8' : 'border-zr-border bg-zr-bg'
+                }`}
+              >
+                <p className="text-sm font-bold text-zr-text">Certificación</p>
+                <p className="mt-1 text-xs text-zr-text-muted">Hay que aprobarlo para abrir la unidad siguiente.</p>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            {tipo === 'certificacion' && (
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-zr-text">
+                  Nota mínima <span className="font-normal text-zr-text-muted">(sobre {puntajeMaximo})</span>
+                </label>
+                <input
+                  type="number" min={1} max={puntajeMaximo} value={notaMinima}
+                  onChange={(e) => setNotaMinima(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+                />
+              </div>
+            )}
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-zr-text">Intentos</label>
+              <input
+                type="number" min={1} value={intentos}
+                onChange={(e) => setIntentos(e.target.value === '' ? '' : Number(e.target.value))}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-zr-text">
+                Espera entre intentos <span className="font-normal text-zr-text-muted">(h)</span>
+              </label>
+              <input
+                type="number" min={0} value={enfriamiento}
+                onChange={(e) => setEnfriamiento(e.target.value === '' ? '' : Number(e.target.value))}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
               />
             </div>
           </div>

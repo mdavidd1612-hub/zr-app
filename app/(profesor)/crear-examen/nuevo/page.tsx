@@ -63,6 +63,14 @@ function NuevoExamenInterno() {
   const [puntajeMaximo, setPuntajeMaximo] = useState(20)
   const [duracion, setDuracion] = useState<number | ''>(10)
 
+  // Modelo de evaluación (migración 176). Antes solo se podía configurar por
+  // SQL; ahora el profesor elige desde la app si el examen abre la siguiente
+  // unidad (certificación) y con qué reglas.
+  const [tipo, setTipo] = useState<'formativo' | 'certificacion'>('formativo')
+  const [notaMinima, setNotaMinima] = useState<number | ''>(10)
+  const [intentos, setIntentos] = useState<number | ''>(2)
+  const [enfriamiento, setEnfriamiento] = useState<number | ''>(24)
+
   const [preguntas, setPreguntas] = useState<Pregunta[]>([])
   const [editorAbierto, setEditorAbierto] = useState<TipoPregunta | null>(null)
   const [eligiendoTipo, setEligiendoTipo] = useState(false)
@@ -173,6 +181,10 @@ function NuevoExamenInterno() {
         teacher_id: user.id,
         max_score: puntajeMaximo,
         duration_minutes: duracion === '' ? null : duracion,
+        kind: tipo,
+        passing_score: tipo === 'certificacion' ? (notaMinima === '' ? 10 : notaMinima) : 10,
+        max_attempts: intentos === '' ? 2 : intentos,
+        cooldown_hours: enfriamiento === '' ? 24 : enfriamiento,
         status: 'oculto',   // Nace como borrador. Publicar es un paso aparte.
       })
       .select()
@@ -329,6 +341,81 @@ function NuevoExamenInterno() {
                 onChange={(e) => setDuracion(e.target.value === '' ? '' : Number(e.target.value))}
                 placeholder="Sin límite"
                 className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Modelo de evaluación. El profesor elige esto desde la app -- antes
+              solo se podía por SQL (hueco detectado en la auditoría, nov 2026). */}
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">¿Qué tipo de examen es?</label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setTipo('formativo')}
+                className={`rounded-lg border p-4 text-left transition-colors ${
+                  tipo === 'formativo' ? 'border-zr-blue bg-zr-blue/8' : 'border-zr-border bg-zr-bg'
+                }`}
+              >
+                <p className="text-sm font-bold text-zr-text">Práctica</p>
+                <p className="mt-1 text-xs text-zr-text-muted">No bloquea nada. El estudiante practica.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTipo('certificacion')}
+                className={`rounded-lg border p-4 text-left transition-colors ${
+                  tipo === 'certificacion' ? 'border-zr-blue bg-zr-blue/8' : 'border-zr-border bg-zr-bg'
+                }`}
+              >
+                <p className="text-sm font-bold text-zr-text">Certificación</p>
+                <p className="mt-1 text-xs text-zr-text-muted">Hay que aprobarlo para abrir la unidad siguiente.</p>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            {tipo === 'certificacion' && (
+              <div>
+                <label htmlFor="nota-minima" className="mb-2 block text-sm font-semibold text-zr-text">
+                  Nota mínima <span className="font-normal text-zr-text-muted">(sobre {puntajeMaximo})</span>
+                </label>
+                <input
+                  id="nota-minima"
+                  type="number"
+                  min={1}
+                  max={puntajeMaximo}
+                  value={notaMinima}
+                  onChange={(e) => setNotaMinima(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+                />
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="intentos" className="mb-2 block text-sm font-semibold text-zr-text">
+                Intentos
+              </label>
+              <input
+                id="intentos"
+                type="number"
+                min={1}
+                value={intentos}
+                onChange={(e) => setIntentos(e.target.value === '' ? '' : Number(e.target.value))}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="enfriamiento" className="mb-2 block text-sm font-semibold text-zr-text">
+                Espera entre intentos <span className="font-normal text-zr-text-muted">(h)</span>
+              </label>
+              <input
+                id="enfriamiento"
+                type="number"
+                min={0}
+                value={enfriamiento}
+                onChange={(e) => setEnfriamiento(e.target.value === '' ? '' : Number(e.target.value))}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
               />
             </div>
           </div>

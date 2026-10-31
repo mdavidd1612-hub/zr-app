@@ -354,6 +354,7 @@ Se auditó el documento "ZR App — Módulo E-Learning" contra `zr-staging` y el
 - ✅ Tareas: entrega PDF, descarga individual firmada, calificación inline (migr. 178)
 - ✅ Calendario auto-alimentado + export iCal `fn_calendar_ical` (migr. 179)
 - ✅ Dudas por unidad/material, FAQ, respuesta oficial, resumen IA `resumir-dudas` (migr. 180/182)
+- ✅ **Compuerta real entre unidades por orden (migr. 185, nov 2026):** una unidad se bloquea solo si la unidad inmediatamente anterior tiene una certificación publicada sin aprobar. Bloqueo de contenido en RLS (no solo UI), unidad bloqueada visible con candado, y barra de materiales obligatorios que traba la certificación hasta completarlos. El profesor no administra prerrequisitos a mano: basta con marcar un examen como certificación.
 - 🔴 Falta: marca de agua (F.19) · conversión PPTX/DOCX→PDF (F.5; hoy abre en visor de Office) · YouTube embed (F.14) · proveedor de video + marca quemada · transcodificación MPG→MP4
 
 **Épico H (Evaluaciones) → 🟡.**

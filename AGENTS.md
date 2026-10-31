@@ -358,6 +358,7 @@ Se auditó el documento "ZR App — Módulo E-Learning" contra `zr-staging` y el
 
 **Épico H (Evaluaciones) → 🟡.**
 - ✅ Constructor de exámenes (opción múltiple, V/F, redacción), intentos/cooldown/tope, timer de servidor (`exam_attempts.expires_at`), calificación en servidor (`submit-attempt`, `grade-answer`), estado "Requiere intervención" (`intervention_grants`) (migr. 176)
+- ✅ **Modelo de evaluación configurable desde la app (nov 2026, cierra hueco de auditoría):** al crear/editar un examen el profesor elige tipo (formativo / certificación), nota mínima, intentos y horas de enfriamiento. Antes esos campos solo se podían cambiar por SQL, así que la compuerta de certificación nunca se activaba desde la UI.
 - 🟡 Banco de N al azar: columnas `questions_per_attempt`/`seed` existen y el estudiante usa la semilla, pero falta la opción en el constructor del profesor (H.11/H.12)
 - 🔴 Falta: importación masiva de preguntas desde Excel/CSV (H.14) · descarga masiva de tareas en ZIP
 

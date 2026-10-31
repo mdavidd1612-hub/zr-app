@@ -33,6 +33,8 @@ interface ItemFila {
   titulo: string
   completado: boolean
   esCertificacion: boolean
+  esTexto: boolean
+  cuerpoTexto: string | null
 }
 
 const ICONO: Record<ItemFila['type'], typeof IconoDocumento> = {
@@ -94,7 +96,7 @@ export default function UnidadDetalle() {
         .from('unit_items')
         .select(`
           id, type, required, content_item_id, exam_id, assignment_id, order_index,
-          content_items ( title ),
+          content_items ( title, type, description ),
           exams ( title, kind ),
           assignments ( title )
         `)
@@ -113,7 +115,7 @@ export default function UnidadDetalle() {
 
       setItems(
         (filas ?? []).map((f) => {
-          const ci = f.content_items as unknown as { title: string } | null
+          const ci = f.content_items as unknown as { title: string; type: string; description: string | null } | null
           const ex = f.exams as unknown as { title: string; kind: string } | null
           const ta = f.assignments as unknown as { title: string } | null
           return {
@@ -126,6 +128,8 @@ export default function UnidadDetalle() {
             titulo: ci?.title ?? ex?.title ?? ta?.title ?? (f.type === 'dudas' ? 'Dudas de esta unidad' : 'Sin título'),
             completado: f.content_item_id ? completos.has(f.content_item_id) : false,
             esCertificacion: f.type === 'quiz' && ex?.kind === 'certificacion',
+            esTexto: ci?.type === 'texto',
+            cuerpoTexto: ci?.type === 'texto' ? (ci.description ?? '') : null,
           }
         }),
       )
@@ -161,7 +165,10 @@ export default function UnidadDetalle() {
   // Barra de obligatorios: hasta no completar los materiales obligatorios, no
   // se puede presentar la certificación (lo valida el servidor; aquí se avisa
   // antes, con una barra, para que el estudiante sepa qué le falta).
-  const obligatorios = items.filter((i) => i.type === 'material' && i.required)
+  // Los bloques de texto no pasan por material_progress (no hay visor que
+  // marque "visto"), así que nunca cuentan como obligatorio -- quedaría
+  // trabada la certificación para siempre si se incluyeran.
+  const obligatorios = items.filter((i) => i.type === 'material' && i.required && !i.esTexto)
   const obligatoriosCompletos = obligatorios.filter((i) => i.completado).length
   const faltanObligatorios = obligatorios.length - obligatoriosCompletos
   const hayCertificacion = items.some((i) => i.esCertificacion)
@@ -234,6 +241,20 @@ export default function UnidadDetalle() {
                           <Etiqueta tono="neutro">Completa los materiales obligatorios</Etiqueta>
                         </div>
                       </div>
+                    </div>
+                  )
+                }
+                // Bloque de texto (migración 187): sin archivo que abrir, se
+                // muestra completo aquí mismo -- no tiene sentido llevarlo a
+                // un visor aparte para mostrar un párrafo.
+                if (item.esTexto) {
+                  return (
+                    <div key={item.id} className="zr-card space-y-2 p-5">
+                      <div className="flex items-center gap-2">
+                        <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
+                        {item.required && <Etiqueta tono="aviso">Obligatorio</Etiqueta>}
+                      </div>
+                      <p className="whitespace-pre-wrap break-words text-sm text-zr-text-muted">{item.cuerpoTexto}</p>
                     </div>
                   )
                 }

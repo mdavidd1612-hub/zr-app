@@ -39,6 +39,8 @@ interface Item {
   assignmentId: string | null
   contentItemId: string | null
   examId: string | null
+  esTexto: boolean
+  cuerpoTexto: string | null
 }
 
 interface Opcion { id: string; title: string }
@@ -66,6 +68,13 @@ export default function UnidadDocenteDetalle() {
   const [tareaFecha, setTareaFecha] = useState('')
   const [creandoTarea, setCreandoTarea] = useState(false)
 
+  // Bloque de texto (migración 187): título + párrafo escritos directo aquí,
+  // sin archivo -- se guarda como content_items tipo 'texto'.
+  const [moduleId, setModuleId] = useState('')
+  const [textoTitulo, setTextoTitulo] = useState('')
+  const [textoCuerpo, setTextoCuerpo] = useState('')
+  const [creandoTexto, setCreandoTexto] = useState(false)
+
   async function cargar() {
     const supabase = createClient()
     const { data: unidad } = await supabase
@@ -75,16 +84,17 @@ export default function UnidadDocenteDetalle() {
     setOpenAt(unidad.open_at ? unidad.open_at.slice(0, 16) : '')
     setCloseAt(unidad.close_at ? unidad.close_at.slice(0, 16) : '')
     setManualStatus(unidad.manual_status)
+    setModuleId(unidad.module_id)
 
     const { data: filas } = await supabase
       .from('unit_items')
-      .select('id, type, required, assignment_id, content_item_id, exam_id, content_items(title), exams(title), assignments(title)')
+      .select('id, type, required, assignment_id, content_item_id, exam_id, content_items(title, type, description), exams(title), assignments(title)')
       .eq('unit_id', unitId)
       .order('order_index', { ascending: true })
 
     setItems(
       (filas ?? []).map((f) => {
-        const ci = f.content_items as unknown as { title: string } | null
+        const ci = f.content_items as unknown as { title: string; type: string; description: string | null } | null
         const ex = f.exams as unknown as { title: string } | null
         const ta = f.assignments as unknown as { title: string } | null
         return {
@@ -93,12 +103,20 @@ export default function UnidadDocenteDetalle() {
           assignmentId: f.assignment_id,
           contentItemId: f.content_item_id,
           examId: f.exam_id,
+          esTexto: ci?.type === 'texto',
+          cuerpoTexto: ci?.type === 'texto' ? (ci.description ?? '') : null,
         }
       }),
     )
 
+    // Materiales "ya subidos" para el selector: solo archivos/enlaces reales
+    // -- los bloques de texto se crean directo aquí, no tiene sentido
+    // listarlos para "agregar ya existente".
+    // Casteo: 'texto' entra en el enum content_type en la migración 186; los
+    // tipos generados se regeneran en el próximo barrido.
     const { data: materiales } = await supabase
-      .from('content_items').select('id, title').eq('module_id', unidad.module_id).order('title')
+      .from('content_items').select('id, title').eq('module_id', unidad.module_id)
+      .neq('type', 'texto' as unknown as 'pdf').order('title')
     const { data: examenes } = await supabase
       .from('exams').select('id, title').eq('module_id', unidad.module_id).order('title')
 
@@ -201,6 +219,37 @@ export default function UnidadDocenteDetalle() {
     await cargar()
   }
 
+  async function crearBloqueTexto() {
+    if (!textoTitulo.trim() || !textoCuerpo.trim()) return
+    setCreandoTexto(true)
+    setError(null)
+    const supabase = createClient()
+    const { data: contenido, error: err } = await supabase
+      .from('content_items')
+      .insert({
+        module_id: moduleId,
+        title: textoTitulo.trim(),
+        // Casteo: 'texto' entra en el enum content_type en la migración 186.
+        type: 'texto' as unknown as 'pdf',
+        description: textoCuerpo.trim(),
+      })
+      .select('id')
+      .single()
+    if (err || !contenido) {
+      setError(err?.message ?? 'No se pudo crear el bloque de texto.')
+      setCreandoTexto(false)
+      return
+    }
+    const siguienteOrden = items.length > 0 ? items.length + 1 : 1
+    await supabase.from('unit_items').insert({
+      unit_id: unitId, type: 'material', order_index: siguienteOrden, content_item_id: contenido.id,
+    })
+    setTextoTitulo('')
+    setTextoCuerpo('')
+    setCreandoTexto(false)
+    await cargar()
+  }
+
   async function alternarObligatorio(itemId: string, actual: boolean) {
     const supabase = createClient()
     await supabase.from('unit_items').update({ required: !actual }).eq('id', itemId)
@@ -246,6 +295,14 @@ export default function UnidadDocenteDetalle() {
           ) : (
             <div className="space-y-3">
               {items.map((item) => {
+                if (item.esTexto) {
+                  return (
+                    <div key={item.id} className="zr-card space-y-2 p-5">
+                      <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
+                      <p className="whitespace-pre-wrap break-words text-sm text-zr-text-muted">{item.cuerpoTexto}</p>
+                    </div>
+                  )
+                }
                 const Icono = item.type === 'material' ? IconoDocumento : item.type === 'quiz' ? IconoExamen : IconoDuda
                 return (
                   <div key={item.id} className="zr-card flex items-center gap-4 p-5">
@@ -343,6 +400,19 @@ export default function UnidadDocenteDetalle() {
         {items.length === 0 && <p className="text-sm text-zr-text-muted">Todavía no has agregado nada.</p>}
         <div className="space-y-3">
           {items.map((item) => {
+            if (item.esTexto) {
+              return (
+                <div key={item.id} className="zr-card space-y-2 p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
+                    <button onClick={() => quitarItem(item.id)} className="shrink-0 text-xs font-bold text-zr-error">
+                      Quitar
+                    </button>
+                  </div>
+                  <p className="whitespace-pre-wrap break-words text-sm text-zr-text-muted">{item.cuerpoTexto}</p>
+                </div>
+              )
+            }
             const Icono = item.type === 'material' ? IconoDocumento : item.type === 'quiz' ? IconoExamen : IconoDuda
             return (
               <div key={item.id} className="zr-card flex items-center gap-4 p-5">
@@ -442,6 +512,33 @@ export default function UnidadDocenteDetalle() {
             >
               + Crear examen nuevo para esta unidad ›
             </Link>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Nuevo bloque de texto</label>
+            <p className="mb-2 text-xs text-zr-text-muted">
+              Título y párrafo escritos directo aquí, sin subir ningún archivo.
+            </p>
+            <input
+              value={textoTitulo}
+              onChange={(e) => setTextoTitulo(e.target.value)}
+              placeholder="Título del bloque"
+              className="mb-2 min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
+            />
+            <textarea
+              value={textoCuerpo}
+              onChange={(e) => setTextoCuerpo(e.target.value)}
+              placeholder="Escribe el párrafo…"
+              rows={4}
+              className="mb-2 w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3 text-sm text-zr-text outline-none focus:border-zr-blue"
+            />
+            <button
+              onClick={crearBloqueTexto}
+              disabled={!textoTitulo.trim() || !textoCuerpo.trim() || creandoTexto}
+              className="min-h-12 w-full rounded-lg bg-zr-blue text-sm font-bold text-white disabled:opacity-40"
+            >
+              {creandoTexto ? 'Creando…' : 'Agregar bloque de texto'}
+            </button>
           </div>
 
           <div>

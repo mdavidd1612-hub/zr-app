@@ -1,0 +1,11 @@
+-- =============================================================================
+-- ZR APP · MIGRACIÓN 186 · Nuevo tipo de contenido: texto plano
+-- =============================================================================
+-- Pedido explícito del coordinador (nov 2026): el profesor necesita escribir
+-- texto (título + párrafo) directo dentro de una unidad, sin subir archivo.
+-- Se reutiliza content_items (no una tabla nueva): este tipo guarda el cuerpo
+-- en la columna `description` ya existente y no usa storage_path ni
+-- external_url. ALTER TYPE ... ADD VALUE va solo en su propio archivo (no se
+-- puede usar el valor nuevo en la misma transacción que lo crea).
+-- =============================================================================
+alter type public.content_type add value 'texto';

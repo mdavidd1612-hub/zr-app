@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Encabezado, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
-import { IconoChevron } from '@/components/ui/Iconos'
+import { IconoChevron, IconoCandado } from '@/components/ui/Iconos'
 
 /**
  * Aula Virtual — lista de unidades del módulo que cursa el estudiante.
@@ -19,6 +19,7 @@ interface UnidadFila {
   id: string
   title: string
   effective_status: string
+  prerequisite_met: boolean
 }
 
 const ETIQUETA_ESTADO: Record<string, { texto: string; tono: 'exito' | 'neutro' }> = {
@@ -42,10 +43,12 @@ export default function Unidades() {
 
       const { data } = await supabase
         .from('v_units_status')
-        .select('id, title, effective_status, order_index')
+        .select('id, title, effective_status, order_index, prerequisite_met')
         .order('order_index', { ascending: true })
 
-      setUnidades((data ?? []) as UnidadFila[])
+      // Casteo: v_units_status gana la columna prerequisite_met en la
+      // migración 185; los tipos generados se regeneran en el próximo barrido.
+      setUnidades((data ?? []) as unknown as UnidadFila[])
       setCargando(false)
     }
     cargar()
@@ -83,6 +86,29 @@ export default function Unidades() {
             <div className="space-y-3">
               {unidades.map((u, i) => {
                 const estado = ETIQUETA_ESTADO[u.effective_status] ?? ETIQUETA_ESTADO.cerrada
+                const bloqueada = u.prerequisite_met === false
+
+                // Compuerta (migración 185): una unidad bloqueada se VE con
+                // candado y no deja entrar, hasta aprobar la certificación de
+                // la unidad anterior. No se oculta -- el estudiante sabe que
+                // existe y qué le falta.
+                if (bloqueada) {
+                  return (
+                    <div key={u.id} className="zr-card flex items-center justify-between gap-3 p-5 opacity-70">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold uppercase tracking-wider text-zr-text-muted">
+                          Unidad {i + 1}
+                        </p>
+                        <p className="mt-1 break-words text-base font-bold text-zr-text-muted">{u.title}</p>
+                        <div className="mt-2">
+                          <Etiqueta tono="neutro">Se abre al aprobar la unidad anterior</Etiqueta>
+                        </div>
+                      </div>
+                      <IconoCandado size={20} className="shrink-0 text-zr-text-muted" />
+                    </div>
+                  )
+                }
+
                 return (
                   <Link
                     key={u.id}

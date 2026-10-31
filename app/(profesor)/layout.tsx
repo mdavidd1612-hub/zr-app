@@ -10,7 +10,7 @@ import { Tour } from '@/components/ui/Tour'
 import { useTour } from '@/lib/useTour'
 import { PASOS_POR_ROL } from '@/lib/tour-pasos'
 import {
-  IconoPanel, IconoDuda, IconoProgreso, IconoDocumento, IconoNotas, IconoPerfil,
+  IconoPanel, IconoDuda, IconoProgreso, IconoDocumento, IconoVideo, IconoNotas, IconoPerfil,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -28,6 +28,11 @@ const NAV_BASE = [
   { href: '/dudas-docente',      label: 'Dudas',    Icono: IconoDuda },
   { href: '/casos-docente',      label: 'Casos',    Icono: IconoProgreso },
   { href: '/contenido-docente',  label: 'Material',  Icono: IconoDocumento },
+  // Aula Virtual: antes solo se llegaba por un enlace dentro de "Material"
+  // (pedido del coordinador, oct. 2026: sacarlo a la barra para que se vea).
+  // Etiqueta corta "Aula" para que quepa en la píldora del teléfono junto a
+  // las otras seis, como "Mi módulo" del estudiante.
+  { href: '/unidades-docente',   label: 'Aula',     Icono: IconoVideo },
   { href: '/notas-docente',      label: 'Notas',    Icono: IconoNotas },
   { href: '/perfil-docente',     label: 'Perfil',    Icono: IconoPerfil },
 ]

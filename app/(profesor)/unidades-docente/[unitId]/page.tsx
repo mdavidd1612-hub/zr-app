@@ -268,8 +268,11 @@ export default function UnidadDocenteDetalle() {
                 Agregar
               </button>
             </div>
-            <Link href="/contenido-docente" className="mt-1 inline-block text-xs font-bold text-zr-blue-mid">
-              Súbelo primero en &quot;Material&quot; › si todavía no existe.
+            <Link
+              href={`/contenido-docente?unitId=${unitId}`}
+              className="mt-1 inline-block text-xs font-bold text-zr-blue-mid"
+            >
+              + Subir material nuevo para esta unidad ›
             </Link>
           </div>
 
@@ -294,11 +297,15 @@ export default function UnidadDocenteDetalle() {
                 Agregar
               </button>
             </div>
+            {/* Pedido explícito del coordinador (reunión 31-oct-2026): el examen
+                se crea desde DENTRO de la unidad, no en una pantalla aparte que
+                luego hay que ir a buscar y enlazar. /crear-examen/nuevo ya sabe
+                preseleccionar el módulo y, al guardar, engancharse solo aquí. */}
             <Link
-              href="/crear-examen"
+              href={`/crear-examen/nuevo?unitId=${unitId}`}
               className="mt-1 inline-block text-xs font-bold text-zr-blue-mid"
             >
-              Créalo primero en &quot;Crear examen&quot; › — ahí eliges si es certificación (bloqueante) y cuántos intentos.
+              + Crear examen nuevo para esta unidad ›
             </Link>
           </div>
 

@@ -363,6 +363,17 @@ Se auditó el documento "ZR App — Módulo E-Learning" contra `zr-staging` y el
 
 > Con esto F deja de ser 🔴 (los "Totales" de arriba quedan desfasados; se recalculan al mergear a producción).
 
+### 8.2 Decisiones de la reunión del 31-oct-2026 — Aula Virtual
+
+Reunión Pedro + Marco, minuta + transcripción (`Reunión ZR APP Modulo E-learning 31 de octubre.pdf`). Contradecía lo construido esa misma tarde (§0.1); se confirmó con Marco y se aplicó en el mismo PR.
+
+- ✅ **Examen se crea DENTRO de la unidad**, no en pantalla aparte que luego se enlaza. `/crear-examen/nuevo?unitId=` precarga el módulo de la unidad y, al guardar, se engancha solo (`unit_items`) y vuelve a la unidad. El flujo viejo (crear aparte, luego "agregar examen ya creado") sigue disponible para reusar un examen entre unidades.
+- ✅ **Material, mismo patrón**: `/contenido-docente?unitId=` abre el formulario ya expandido y, al subir, se engancha solo a la unidad.
+- ✅ **"Material" se retira como sección aparte** del menú de profesor y estudiante — redundante con Aula Virtual, que ya centraliza todo. Las pantallas (`/contenido-docente`, `/contenido`) siguen existiendo (código intacto), solo dejan de ser pestaña del menú.
+- ✅ **Dirección Académica**: ya tenía los mismos permisos que el profesor para bloquear/ocultar unidades y archivos (RLS vía `is_staff()`, desde antes de esta reunión) — no hizo falta tocar la base. Su "Material" (`/material`, el explorador tipo Classroom) se mantiene intacto; se le agregó un atajo "Organizar directo en Aula Virtual" para no obligarla al recorrido completo programa→módulo→unidad.
+- ⏳ **Pendiente, no es código**: perfil de profesor para "el tío Jesús" con módulo de Proyecto (seguimiento de proyecto de grado) — requiere que Dirección Académica cree el módulo y lo asigne, vía las pantallas que ya existen (`N.7-N.10`).
+- Confirmado, ya documentado desde antes, sin cambios: penalización de reintentos (80% en el segundo intento, §7.4 del módulo E-Learning) y calendario auto-alimentado con export iCal — ambos ya estaban construidos.
+
 ---
 
 # PARTE IV — FLUJOGRAMAS POR ROL

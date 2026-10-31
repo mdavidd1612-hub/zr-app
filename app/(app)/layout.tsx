@@ -12,7 +12,7 @@ import { PASOS_POR_ROL } from '@/lib/tour-pasos'
 import { BannerNoSolvente, ModalNoSolvente } from '@/components/ui/AvisoSolvencia'
 import { ResultadoModulo } from '@/components/ui/ResultadoModulo'
 import {
-  IconoInicio, IconoPerfil, IconoProgreso, IconoDocumento, IconoVideo, IconoDuda, IconoNotas,
+  IconoInicio, IconoPerfil, IconoProgreso, IconoVideo, IconoDuda, IconoNotas,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -30,11 +30,15 @@ import type { UserRole } from '@/lib/types'
 // saber que ahí vivía lo que el profesor organizaba (reporte real del
 // coordinador, oct. 2026: "el estudiante no ve nada de lo que hace el
 // profesor"). Se saca a la barra, igual que en el menú del profesor.
+//
+// "Material" se retira del menú en la reunión del 31-oct-2026 -- redundante
+// con Aula Virtual, que ya muestra todos los materiales organizados por
+// unidad. La pantalla /contenido sigue existiendo en el código (no se
+// borra), solo deja de ser pestaña del menú.
 const NAV: ItemBarra[] = [
   { href: '/',          label: 'Inicio',    Icono: IconoInicio },
   { href: '/clases',    label: 'Mi módulo', Icono: IconoProgreso },
   { href: '/unidades',  label: 'Aula',      Icono: IconoVideo },
-  { href: '/contenido', label: 'Material',  Icono: IconoDocumento },
   { href: '/notas',     label: 'Notas',     Icono: IconoNotas },
   { href: '/dudas',     label: 'Dudas',     Icono: IconoDuda },
   { href: '/perfil',    label: 'Perfil',    Icono: IconoPerfil },

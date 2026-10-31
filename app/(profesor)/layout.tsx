@@ -10,7 +10,7 @@ import { Tour } from '@/components/ui/Tour'
 import { useTour } from '@/lib/useTour'
 import { PASOS_POR_ROL } from '@/lib/tour-pasos'
 import {
-  IconoPanel, IconoDuda, IconoProgreso, IconoDocumento, IconoVideo, IconoNotas, IconoPerfil,
+  IconoPanel, IconoDuda, IconoProgreso, IconoVideo, IconoNotas, IconoPerfil,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -27,11 +27,13 @@ const NAV_BASE = [
   { href: '/hoy',                label: 'Hoy',      Icono: IconoPanel },
   { href: '/dudas-docente',      label: 'Dudas',    Icono: IconoDuda },
   { href: '/casos-docente',      label: 'Casos',    Icono: IconoProgreso },
-  { href: '/contenido-docente',  label: 'Material',  Icono: IconoDocumento },
   // Aula Virtual: antes solo se llegaba por un enlace dentro de "Material"
   // (pedido del coordinador, oct. 2026: sacarlo a la barra para que se vea).
-  // Etiqueta corta "Aula" para que quepa en la píldora del teléfono junto a
-  // las otras seis, como "Mi módulo" del estudiante.
+  // "Material" se retira del menú en la reunión del 31-oct-2026 -- redundante
+  // con Aula Virtual, que ya centraliza materiales, exámenes y tareas. Subir
+  // y ver material sigue existiendo en /contenido-docente, pero ahora se
+  // llega siempre desde dentro de una unidad (botón "+ Subir material
+  // nuevo"), nunca como pestaña aparte.
   { href: '/unidades-docente',   label: 'Aula',     Icono: IconoVideo },
   { href: '/notas-docente',      label: 'Notas',    Icono: IconoNotas },
   { href: '/perfil-docente',     label: 'Perfil',    Icono: IconoPerfil },

@@ -1,6 +1,7 @@
 'use client'
 
 import { Select } from '@/components/ui/Select'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -741,6 +742,22 @@ export default function MaterialAdmin() {
         <a href="/metricas-material" className="block text-sm font-semibold text-zr-blue-mid underline">
           Ver métricas de uso del material
         </a>
+      )}
+
+      {/* Pedido explícito del coordinador (reunión 31-oct-2026): Dirección
+          Académica sigue viendo "Material" en su menú (esta pantalla, para
+          revisar/aprobar carpetas), pero necesita un atajo directo a Aula
+          Virtual sin el recorrido completo (programa → módulo → unidad →
+          agregar), que le resulta engorroso cuando solo quiere montar algo
+          rápido en una unidad. */}
+      {puedeCrearCarpetas && (
+        <Link
+          href="/unidades-docente"
+          className="zr-card zr-card-interactive flex min-h-14 items-center justify-between gap-3 p-5 text-base font-bold text-zr-text"
+        >
+          Organizar directo en Aula Virtual
+          <span aria-hidden className="text-zr-text-muted">›</span>
+        </Link>
       )}
 
       <Regla delay={60} />

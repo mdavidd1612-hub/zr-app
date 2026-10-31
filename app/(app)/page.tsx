@@ -471,8 +471,10 @@ export default function Inicio() {
                   </p>
                 </div>
               </button>
+              {/* "Material" se retira (reunión 31-oct-2026): ahora el material
+                  se revisa desde Aula Virtual, organizado por unidad. */}
               <button
-                onClick={() => router.push('/contenido')}
+                onClick={() => router.push('/unidades')}
                 className="flex min-h-14 w-full items-center justify-center gap-2 border-t border-zr-border text-sm font-bold text-zr-text active:bg-zr-border/30"
               >
                 📁 Revisar el material del módulo

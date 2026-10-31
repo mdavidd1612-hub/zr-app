@@ -1,12 +1,13 @@
 'use client'
 
 import { Select } from '@/components/ui/Select'
-import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { QuestionEditor } from '@/components/QuestionEditor'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 
 type TipoPregunta = 'opcion_multiple' | 'verdadero_falso' | 'redaccion_abierta'
@@ -34,7 +35,24 @@ const ETIQUETA_TIPO: Record<TipoPregunta, string> = {
 }
 
 export default function NuevoExamen() {
+  return (
+    <Suspense fallback={<PantallaEsqueleto />}>
+      <NuevoExamenInterno />
+    </Suspense>
+  )
+}
+
+/**
+ * Pedido explícito del coordinador (reunión 31-oct-2026): el examen se crea
+ * desde DENTRO de la unidad, no aparte. Con `?unitId=` en la URL (llegó desde
+ * la unidad) se precarga su módulo y, al guardar, el examen se engancha solo
+ * a esa unidad (unit_items) en vez de mandar al profesor a buscarlo y
+ * agregarlo a mano.
+ */
+function NuevoExamenInterno() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const unitId = searchParams.get('unitId')
 
   const [titulo, setTitulo] = useState('')
   const [instrucciones, setInstrucciones] = useState('')
@@ -52,6 +70,7 @@ export default function NuevoExamen() {
 
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [tituloUnidad, setTituloUnidad] = useState('')
 
 
   useEffect(() => {
@@ -80,10 +99,19 @@ export default function NuevoExamen() {
       setCohortes(cohortesOrdenadas)
       if (modsVisibles.length) setModuloId(modsVisibles[0].id)
       if (cohortesOrdenadas.length) setCohorteId(cohortesOrdenadas[0].id)
+
+      // Viene de una unidad: su módulo manda, no el primero de la lista.
+      if (unitId) {
+        const { data: unidad } = await supabase.from('units').select('title, module_id').eq('id', unitId).maybeSingle()
+        if (unidad) {
+          setTituloUnidad(unidad.title)
+          setModuloId(unidad.module_id)
+        }
+      }
     }
 
     cargar()
-  }, [])
+  }, [unitId])
 
   const puntosAsignados = preguntas.reduce((s, q) => s + q.points, 0)
   const puntosCuadran = puntosAsignados === puntajeMaximo
@@ -157,17 +185,36 @@ export default function NuevoExamen() {
       return
     }
 
+    // Viene de una unidad: se engancha solo (unit_items) y se vuelve ahí --
+    // el profesor no tiene que ir a buscarlo a la lista para agregarlo.
+    if (unitId) {
+      const { count } = await supabase
+        .from('unit_items').select('id', { count: 'exact', head: true }).eq('unit_id', unitId)
+      await supabase.from('unit_items').insert({
+        unit_id: unitId,
+        type: 'quiz',
+        order_index: (count ?? 0) + 1,
+        exam_id: examen.id,
+      })
+      router.push(`/unidades-docente/${unitId}`)
+      return
+    }
+
     router.push('/crear-examen')
   }
 
   return (
     <div className="space-y-11 px-5 pt-14">
-      <BotonVolver href="/crear-examen" />
+      <BotonVolver href={unitId ? `/unidades-docente/${unitId}` : '/crear-examen'} />
 
       <Encabezado
         sobretitulo="Docencia"
         titulo="Nuevo examen"
-        descripcion="Se guarda como borrador. Se publica después, cuando los puntos cuadren."
+        descripcion={
+          unitId
+            ? `Para la unidad "${tituloUnidad}" — se guarda y se agrega solo. Se publica después, cuando los puntos cuadren.`
+            : 'Se guarda como borrador. Se publica después, cuando los puntos cuadren.'
+        }
       />
 
       <Regla delay={60} />
@@ -210,13 +257,15 @@ export default function NuevoExamen() {
                 id="modulo"
                 value={moduloId}
                 onChange={(e) => setModuloId(e.target.value)}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+                disabled={!!unitId}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none disabled:opacity-60"
               >
                 {modulos.length === 0 && <option value="">Sin módulos cargados</option>}
                 {modulos.map((m) => (
                   <option key={m.id} value={m.id}>{m.name}</option>
                 ))}
               </Select>
+              {unitId && <p className="mt-1 text-xs text-zr-text-muted">El de esta unidad.</p>}
             </div>
 
             <div>
@@ -375,7 +424,7 @@ export default function NuevoExamen() {
 
         <div className="flex gap-3">
           <button
-            onClick={() => router.push('/crear-examen')}
+            onClick={() => router.push(unitId ? `/unidades-docente/${unitId}` : '/crear-examen')}
             className="flex-1 rounded-lg border border-zr-border px-6 py-4 text-base font-semibold text-zr-text"
           >
             Cancelar

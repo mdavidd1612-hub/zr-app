@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
+import { BotonVolver } from '@/components/ui/BotonVolver'
 import { prepararArchivo, subirAlBucket } from '@/lib/subida'
 import { EtiquetaTipoArchivo } from '@/components/ui/EtiquetaTipoArchivo'
 import {
@@ -36,7 +37,7 @@ interface Material {
   mensajeRevision: string | null
 }
 
-function ContenidoInterno({ ctx }: { ctx: ContextoSel }) {
+function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | null }) {
   const router = useRouter()
   const [materiales, setMateriales] = useState<Material[]>([])
   const [cargando, setCargando] = useState(true)
@@ -52,7 +53,9 @@ function ContenidoInterno({ ctx }: { ctx: ContextoSel }) {
   const [error, setError] = useState<string | null>(null)
   // Resultado de la compresión automática del último archivo subido.
   const [avisoSubida, setAvisoSubida] = useState<string | null>(null)
-  const [formAbierto, setFormAbierto] = useState(false)
+  // Viene de "+ Subir material nuevo" dentro de una unidad: el formulario se
+  // abre solo, no hace falta un clic extra para llegar a lo que ya se pidió.
+  const [formAbierto, setFormAbierto] = useState(!!unitId)
 
   useEffect(() => {
     let vigente = true
@@ -155,7 +158,7 @@ function ContenidoInterno({ ctx }: { ctx: ContextoSel }) {
     // Fase 0 (docs/16_FASE0_PLAN_PROFESOR.md, Sprint E): lo que sube el
     // profesor queda pendiente hasta que administración lo revise — nunca
     // se publica solo, aunque el profesor lo marque como listo.
-    const { error: falloRegistro } = await supabase.from('content_items').insert({
+    const { data: nuevoItem, error: falloRegistro } = await supabase.from('content_items').insert({
       module_id: moduloSel,
       cohort_id: cohorteSel,
       week_number: semana === '' ? null : semana,
@@ -168,13 +171,29 @@ function ContenidoInterno({ ctx }: { ctx: ContextoSel }) {
       uploaded_by: user.id,
       is_published: false,
       approval_status: 'pendiente',
-    })
+    }).select('id').single()
 
-    if (falloRegistro) {
+    if (falloRegistro || !nuevoItem) {
       // El archivo ya se subió; se limpia para no dejar huérfanos en el bucket.
       await supabase.storage.from('contenido').remove([ruta])
-      setError(falloRegistro.message)
+      setError(falloRegistro?.message ?? 'No se pudo registrar el material.')
       setSubiendo(false)
+      return
+    }
+
+    // Pedido explícito del coordinador (reunión 31-oct-2026): viene de una
+    // unidad (Aula Virtual) -- se engancha solo y se vuelve ahí, sin tener
+    // que ir a buscarlo después en "Agregar material ya subido".
+    if (unitId) {
+      const { count } = await supabase
+        .from('unit_items').select('id', { count: 'exact', head: true }).eq('unit_id', unitId)
+      await supabase.from('unit_items').insert({
+        unit_id: unitId,
+        type: 'material',
+        order_index: (count ?? 0) + 1,
+        content_item_id: nuevoItem.id,
+      })
+      router.push(`/unidades-docente/${unitId}`)
       return
     }
 
@@ -217,6 +236,11 @@ function ContenidoInterno({ ctx }: { ctx: ContextoSel }) {
 
   return (
     <div className="space-y-11 px-5 pb-28 pt-8">
+      {/* "Material" ya no es pestaña del menú (pedido del coordinador,
+          reunión 31-oct-2026: todo se organiza desde Aula Virtual) -- sin
+          esto no había cómo volver. */}
+      <BotonVolver href={unitId ? `/unidades-docente/${unitId}` : '/unidades-docente'} />
+
       <Encabezado
         sobretitulo={`${ctx.cohorteNombre}${ctx.sede ? ` · ${ctx.sede}` : ''} · Módulo ${ctx.moduloOrden}`}
         titulo="Material de estudio"
@@ -394,10 +418,20 @@ function ContenidoInterno({ ctx }: { ctx: ContextoSel }) {
   )
 }
 
-export default function ContenidoProfesor() {
+function ContenidoProfesorInterno() {
+  const searchParams = useSearchParams()
+  const unitId = searchParams.get('unitId')
   return (
     <ContextoDocente sobretitulo="Docencia" titulo="Material de estudio">
-      {(ctx) => <ContenidoInterno ctx={ctx} />}
+      {(ctx) => <ContenidoInterno ctx={ctx} unitId={unitId} />}
     </ContextoDocente>
+  )
+}
+
+export default function ContenidoProfesor() {
+  return (
+    <Suspense fallback={<PantallaEsqueleto />}>
+      <ContenidoProfesorInterno />
+    </Suspense>
   )
 }

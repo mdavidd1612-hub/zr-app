@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
+import { BotonVolver } from '@/components/ui/BotonVolver'
 
 type EstadoExamen = 'oculto' | 'habilitado' | 'cerrado' | 'calificado'
 
@@ -336,6 +337,11 @@ export default function ExamenesProfesor() {
 
   return (
     <div className="space-y-11 px-5 pt-14">
+      {/* No existía forma de volver de donde se vino (bug real reportado
+          por el coordinador, oct. 2026) -- esta pantalla no es una pestaña
+          del menú, solo se llega desde Aula Virtual. */}
+      <BotonVolver href="/unidades-docente" />
+
       <Encabezado
         sobretitulo="Docencia"
         titulo="Exámenes"

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Regla } from '@/components/ui/Editorial'
+import { BotonVolver } from '@/components/ui/BotonVolver'
 import { IconoCheck } from '@/components/ui/Iconos'
 import { ContextoDocente, AvisoModuloBloqueado, moduloVigente, type ContextoSel } from '@/components/ui/ContextoDocente'
 
@@ -68,6 +69,11 @@ function Temario({ ctx }: { ctx: ContextoSel }) {
 
   return (
     <div className="space-y-8 px-5 pb-28 pt-8">
+      {/* ContextoDocente solo muestra su propio botón de volver mientras el
+          profesor está ELIGIENDO programa/módulo -- quien da clase en uno
+          solo nunca ve ese paso y se queda sin forma de volver a su perfil
+          (bug real reportado por el coordinador, oct. 2026). */}
+      <BotonVolver href="/perfil-docente" />
       <header>
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">Temario</p>
         <h1 className="zr-display mt-3 text-3xl text-zr-text">Qué debo impartir</h1>

@@ -4,15 +4,23 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Seccion, Regla, Encabezado, Etiqueta } from '@/components/ui/Editorial'
+import { Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+import { BannerUnidad } from '@/components/ui/BannerUnidad'
+import { PestanasUnidad, type PestanaUnidad } from '@/components/ui/PestanasUnidad'
 import { IconoDocumento, IconoExamen, IconoDuda, IconoCheck, IconoChevron } from '@/components/ui/Iconos'
 
 /**
  * Aula Virtual — detalle de una unidad: sus elementos en orden (material,
  * examen, tarea, dudas). RLS de unit_items (migración 174) ya decide qué
  * elementos están visibles ahora mismo; aquí solo se pintan.
+ *
+ * Pedido explícito del coordinador (reunión 31-oct-2026, con video de
+ * referencia de un aula virtual real): que se parezca "demasiado" a eso,
+ * con nuestra identidad -- de ahí la fila de pestañas arriba (una por
+ * unidad, como el video) y el banner de marca en vez de foto de archivo
+ * (ver components/ui/PestanasUnidad.tsx y BannerUnidad.tsx).
  */
 
 interface ItemFila {
@@ -39,6 +47,7 @@ export default function UnidadDetalle() {
   const unitId = params.unitId as string
 
   const [titulo, setTitulo] = useState('')
+  const [unidades, setUnidades] = useState<PestanaUnidad[]>([])
   const [items, setItems] = useState<ItemFila[]>([])
   const [cargando, setCargando] = useState(true)
 
@@ -57,6 +66,17 @@ export default function UnidadDetalle() {
         return
       }
       setTitulo(unidad.title)
+
+      // Fila de pestañas: todas las unidades que RLS ya le deja ver (abierta
+      // o cerrada) a este estudiante, en su módulo -- v_units_status aplica
+      // la misma política que la lista de /unidades, no hace falta repetirla.
+      const { data: todas } = await supabase
+        .from('v_units_status').select('id, title, order_index').order('order_index', { ascending: true })
+      setUnidades(
+        (todas ?? [])
+          .filter((u): u is { id: string; title: string; order_index: number } => !!u.id && !!u.title)
+          .map((u) => ({ id: u.id, title: u.title })),
+      )
 
       const { data: filas } = await supabase
         .from('unit_items')
@@ -113,12 +133,14 @@ export default function UnidadDetalle() {
 
   return (
     <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
-      <div className="space-y-11">
+      <div className="space-y-7">
         <BotonVolver href="/unidades" />
 
-        <Encabezado sobretitulo="Unidad" titulo={titulo} />
+        <PestanasUnidad unidades={unidades} activaId={unitId} hrefBase="/unidades" />
+      </div>
 
-        <Regla delay={60} />
+      <div className="mt-7 space-y-11">
+        <BannerUnidad sobretitulo="Aula Virtual" titulo={titulo} />
 
         <Seccion numero={1} titulo="Contenido de la unidad" delay={100}>
           {items.length === 0 ? (
@@ -137,7 +159,7 @@ export default function UnidadDetalle() {
                       {item.completado ? <IconoCheck size={20} className="text-zr-success" /> : <Icono size={20} />}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-base font-bold text-zr-text">{item.titulo}</p>
+                      <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
                       <div className="mt-1 flex items-center gap-2">
                         {item.required && <Etiqueta tono="aviso">Obligatorio</Etiqueta>}
                         {item.completado && <Etiqueta tono="exito">Completado</Etiqueta>}

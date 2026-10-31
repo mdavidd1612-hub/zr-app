@@ -93,7 +93,7 @@ export default function Unidades() {
                       <p className="text-xs font-bold uppercase tracking-wider text-zr-text-muted">
                         Unidad {i + 1}
                       </p>
-                      <p className="mt-1 truncate text-base font-bold text-zr-text">{u.title}</p>
+                      <p className="mt-1 break-words text-base font-bold text-zr-text">{u.title}</p>
                       <div className="mt-2">
                         <Etiqueta tono={estado.tono}>{estado.texto}</Etiqueta>
                       </div>

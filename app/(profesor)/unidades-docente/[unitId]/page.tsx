@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Encabezado, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+import { BannerUnidad } from '@/components/ui/BannerUnidad'
+import { PestanasUnidad, type PestanaUnidad } from '@/components/ui/PestanasUnidad'
 import { IconoDocumento, IconoExamen, IconoDuda, IconoCheck, IconoLapiz } from '@/components/ui/Iconos'
 
 /**
@@ -60,6 +62,7 @@ export default function UnidadDocenteDetalle() {
   const [titulo, setTitulo] = useState('')
   const [openAt, setOpenAt] = useState('')
   const [closeAt, setCloseAt] = useState('')
+  const [unidades, setUnidades] = useState<PestanaUnidad[]>([])
   const [items, setItems] = useState<Item[]>([])
   const [materialesDisponibles, setMaterialesDisponibles] = useState<Opcion[]>([])
   const [examenesDisponibles, setExamenesDisponibles] = useState<Opcion[]>([])
@@ -109,6 +112,16 @@ export default function UnidadDocenteDetalle() {
 
     setMaterialesDisponibles((materiales ?? []) as Opcion[])
     setExamenesDisponibles((examenes ?? []) as Opcion[])
+
+    // Fila de pestañas: TODAS las unidades del módulo (a diferencia del
+    // estudiante, el profesor ve también borrador/programada, con su color
+    // de siempre -- así sabe de un vistazo cuál todavía no ve nadie más).
+    const { data: hermanas } = await supabase
+      .from('units').select('id, title, order_index, open_at, close_at')
+      .eq('module_id', unidad.module_id).order('order_index', { ascending: true })
+    setUnidades(
+      (hermanas ?? []).map((h) => ({ id: h.id, title: h.title, tono: estadoDe(h.open_at ?? '', h.close_at ?? '').tono })),
+    )
 
     setCargando(false)
   }
@@ -216,17 +229,22 @@ export default function UnidadDocenteDetalle() {
 
   if (!modoEdicion) {
     return (
-      <div className="space-y-11 pb-28">
+      <div className="space-y-7 pb-28">
         <BotonVolver href="/unidades-docente" />
 
-        <Encabezado
-          sobretitulo="Unidad"
+        <PestanasUnidad unidades={unidades} activaId={unitId} hrefBase="/unidades-docente" />
+
+        <BannerUnidad
+          sobretitulo="Aula Virtual · Vista del estudiante"
           titulo={titulo}
-          accion={<Etiqueta tono={estado.tono}>{estado.texto}</Etiqueta>}
+          accion={
+            <span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white">
+              {estado.texto}
+            </span>
+          }
         />
 
-        <Regla delay={60} />
-
+        <div className="space-y-11">
         <Seccion numero={1} titulo="Contenido de la unidad" delay={100}>
           {items.length === 0 ? (
             <p className="text-sm text-zr-text-muted">Todavía no has agregado nada. Toca &quot;Editar&quot; para empezar.</p>
@@ -259,6 +277,7 @@ export default function UnidadDocenteDetalle() {
             </div>
           )}
         </Seccion>
+        </div>
 
         {/* Pedido explícito del coordinador: "el profesor debería verlo
             similar [al estudiante]... y abajo un botón de editar." */}

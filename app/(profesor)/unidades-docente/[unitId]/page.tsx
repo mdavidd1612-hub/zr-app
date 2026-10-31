@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Encabezado, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
-import { IconoDocumento, IconoExamen, IconoDuda } from '@/components/ui/Iconos'
+import { IconoDocumento, IconoExamen, IconoDuda, IconoCheck, IconoLapiz } from '@/components/ui/Iconos'
 
 /**
  * Aula Virtual — el profesor administra el contenido de UNA unidad: fechas
@@ -15,6 +15,17 @@ import { IconoDocumento, IconoExamen, IconoDuda } from '@/components/ui/Iconos'
  * tarea nueva). El material y los exámenes se crean en sus pantallas de
  * siempre (contenido-docente, crear-examen) -- aquí solo se ENLAZAN a la
  * unidad, para no duplicar esos flujos.
+ *
+ * Pedido explícito del coordinador (reunión 31-oct-2026, con video de
+ * referencia de un aula virtual real): el profesor tiene que ver la unidad
+ * TAL CUAL la ve el estudiante -- no un formulario de administración aparte
+ * -- y un botón "Editar" abajo revela la gestión. Por eso esta pantalla
+ * tiene dos modos (`modoEdicion`): por defecto es una lectura igual a
+ * `app/(app)/unidades/[unitId]/page.tsx` (mismo orden de ítems, mismos
+ * iconos, misma idea de "obligatorio"/"completado"); el modo edición es el
+ * formulario que ya existía (fechas, agregar/quitar, crear tarea).
+ * Dirección Académica entra por la misma pantalla (vista de recorrido del
+ * layout de profesor) y hereda esto automáticamente, sin tocar nada más.
  */
 
 interface Item {
@@ -29,11 +40,23 @@ interface Item {
 
 interface Opcion { id: string; title: string }
 
+// Misma idea que ESTADO() en unidades-docente/page.tsx (hub) -- aparte, no
+// en el cuerpo del componente, para que el linter de pureza de React no se
+// queje de llamar Date.now() directo durante el render.
+function estadoDe(openAt: string, closeAt: string): { texto: string; tono: 'exito' | 'aviso' | 'neutro' } {
+  const ahora = Date.now()
+  if (!openAt) return { texto: 'Borrador', tono: 'neutro' }
+  if (new Date(openAt).getTime() > ahora) return { texto: 'Programada', tono: 'aviso' }
+  if (closeAt && new Date(closeAt).getTime() < ahora) return { texto: 'Cerrada · repaso', tono: 'neutro' }
+  return { texto: 'Abierta', tono: 'exito' }
+}
+
 export default function UnidadDocenteDetalle() {
   const router = useRouter()
   const params = useParams()
   const unitId = params.unitId as string
 
+  const [modoEdicion, setModoEdicion] = useState(false)
   const [titulo, setTitulo] = useState('')
   const [openAt, setOpenAt] = useState('')
   const [closeAt, setCloseAt] = useState('')
@@ -186,11 +209,84 @@ export default function UnidadDocenteDetalle() {
 
   const tieneDudas = items.some((i) => i.type === 'dudas')
 
+  // Lectura: misma idea que app/(app)/unidades/[unitId]/page.tsx -- el
+  // estudiante no ve "Borrador"/"Programada" (RLS se lo esconde), pero el
+  // profesor sí necesita saber en qué estado está lo que está viendo.
+  const estado = estadoDe(openAt, closeAt)
+
+  if (!modoEdicion) {
+    return (
+      <div className="space-y-11 pb-28">
+        <BotonVolver href="/unidades-docente" />
+
+        <Encabezado
+          sobretitulo="Unidad"
+          titulo={titulo}
+          accion={<Etiqueta tono={estado.tono}>{estado.texto}</Etiqueta>}
+        />
+
+        <Regla delay={60} />
+
+        <Seccion numero={1} titulo="Contenido de la unidad" delay={100}>
+          {items.length === 0 ? (
+            <p className="text-sm text-zr-text-muted">Todavía no has agregado nada. Toca &quot;Editar&quot; para empezar.</p>
+          ) : (
+            <div className="space-y-3">
+              {items.map((item) => {
+                const Icono = item.type === 'material' ? IconoDocumento : item.type === 'quiz' ? IconoExamen : IconoDuda
+                return (
+                  <div key={item.id} className="zr-card flex items-center gap-4 p-5">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue">
+                      <Icono size={20} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
+                      <div className="mt-1 flex items-center gap-2">
+                        {item.required && <Etiqueta tono="aviso">Obligatorio</Etiqueta>}
+                      </div>
+                    </div>
+                    {item.type === 'tarea' && item.assignmentId && (
+                      <button
+                        onClick={() => router.push(`/unidades-docente/tarea/${item.assignmentId}`)}
+                        className="shrink-0 text-xs font-bold text-zr-blue-mid"
+                      >
+                        Ver entregas ›
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </Seccion>
+
+        {/* Pedido explícito del coordinador: "el profesor debería verlo
+            similar [al estudiante]... y abajo un botón de editar." */}
+        <button
+          onClick={() => setModoEdicion(true)}
+          className="fixed bottom-24 left-1/2 flex min-h-14 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-zr-blue text-base font-bold text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)] lg:bottom-8"
+        >
+          <IconoLapiz size={18} />
+          Editar unidad
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-11 pb-20">
-      <BotonVolver href="/unidades-docente" />
+      <div className="flex items-center justify-between gap-3">
+        <BotonVolver href="/unidades-docente" />
+        <button
+          onClick={() => setModoEdicion(false)}
+          className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold text-zr-blue-mid"
+        >
+          <IconoCheck size={16} />
+          Listo
+        </button>
+      </div>
 
-      <Encabezado sobretitulo="Unidad" titulo={titulo} />
+      <Encabezado sobretitulo="Unidad · Editando" titulo={titulo} />
 
       <Regla delay={60} />
 

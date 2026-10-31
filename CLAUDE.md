@@ -314,9 +314,9 @@ Convenciones: **Estado** ✅ producción · 🟡 parcial · 🔴 no construido �
 | C | Asistencia y refrigerio (2 QR separados) | ✅ | Mantener |
 | D | Diagnóstico de entrada | ✅ | Mantener |
 | E | Ciclo semanal | 🔴 | Sprint 5 |
-| F | E-Learning / Aula Virtual (del profesor) | 🔴 | Sprint 3 y 4 |
+| F | E-Learning / Aula Virtual (del profesor) | 🟡 (construido en staging, ver §8.1) | Sprint 3 y 4 |
 | G | Casos (metodología PBL) | 🔴 | Sprint 5 |
-| H | Evaluaciones (fusionadas con Notas) | 🟡 | Sprint 7 |
+| H | Evaluaciones (fusionadas con Notas) | 🟡 (ver §8.1) | Sprint 7 |
 | I | Evaluación práctica | 🔴 | Sprint 6 |
 | J | Notas y progreso | 🟡 | Sprint 6 |
 | K | Feedback | ✅ | Mantener |
@@ -342,6 +342,26 @@ Convenciones: **Estado** ✅ producción · 🟡 parcial · 🔴 no construido �
 - **~180 funciones individuales** en total.
 - **~140 funciones** entre P0 y P1 (lo que entra en los sprints).
 - **~40 funciones P2/P3** (backlog).
+
+### 8.1 Auditoría del 31-oct-2026 — Módulo E-Learning (Aula Virtual) ya construido en staging
+
+Se auditó el documento "ZR App — Módulo E-Learning" contra `zr-staging` y el código (aplica §12.6). **El módulo está construido en `develop` → `zr-staging`, migraciones 174–182; NO está mergeado a `zr-prod` todavía, y las tablas están vacías (estructura lista, falta cargar contenido).** Reutiliza tablas existentes: materiales = `content_items` (extendida), quizzes = `exams` (extendida), más `units`, `unit_items`, `material_progress`, `assignments`, `submissions`, `calendar_events`, `activity_log`, `doubts`/`doubt_responses`, `intervention_grants`.
+
+**Épico F (E-Learning) → 🟡 (antes 🔴).**
+- ✅ Unidades: estados, `open_at`/`close_at`, visibilidad por elemento, prerrequisito (migr. 174)
+- ✅ Visor embebido: PDF (pdf.js/canvas), imagen, audio, video nativo con URL firmada (`VisorMaterial.tsx`, migr. 175)
+- ✅ Seguimiento por segmentos vistos (adelantar no cuenta) + guardado ~15s (migr. 177)
+- ✅ Tareas: entrega PDF, descarga individual firmada, calificación inline (migr. 178)
+- ✅ Calendario auto-alimentado + export iCal `fn_calendar_ical` (migr. 179)
+- ✅ Dudas por unidad/material, FAQ, respuesta oficial, resumen IA `resumir-dudas` (migr. 180/182)
+- 🔴 Falta: marca de agua (F.19) · conversión PPTX/DOCX→PDF (F.5; hoy abre en visor de Office) · YouTube embed (F.14) · proveedor de video + marca quemada · transcodificación MPG→MP4
+
+**Épico H (Evaluaciones) → 🟡.**
+- ✅ Constructor de exámenes (opción múltiple, V/F, redacción), intentos/cooldown/tope, timer de servidor (`exam_attempts.expires_at`), calificación en servidor (`submit-attempt`, `grade-answer`), estado "Requiere intervención" (`intervention_grants`) (migr. 176)
+- 🟡 Banco de N al azar: columnas `questions_per_attempt`/`seed` existen y el estudiante usa la semilla, pero falta la opción en el constructor del profesor (H.11/H.12)
+- 🔴 Falta: importación masiva de preguntas desde Excel/CSV (H.14) · descarga masiva de tareas en ZIP
+
+> Con esto F deja de ser 🔴 (los "Totales" de arriba quedan desfasados; se recalculan al mergear a producción).
 
 ---
 

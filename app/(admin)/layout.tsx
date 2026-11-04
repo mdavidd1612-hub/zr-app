@@ -40,9 +40,11 @@ const MATERIAL: ItemBarra = { href: '/material', label: 'Material', Icono: Icono
 
 const NAV_DIRECCION: ItemBarra[] = [NAV[0], NAV[1], NAV[2], MATERIAL, NAV[3]]
 
-// Cohortes y Reportes se retiran del menú (código intacto, se retoman en la
-// fase siguiente — mismo criterio que Exámenes/Notas/Progreso en Fase 0
-// estudiante).
+// Reportes se retira del menú (código intacto, se retoma en la fase
+// siguiente — mismo criterio que Exámenes/Notas/Progreso en Fase 0
+// estudiante). Cohortes SÍ vuelve a aparecer (ver TODAS_DIRECCION/TODAS_SUPER,
+// 4-nov-2026): Dirección Académica y super_admin necesitan poder abrir un
+// programa nuevo sin depender de que haya un vendedor disponible.
 //
 // División de trabajo reafirmada por el coordinador: administración lleva
 // estudiantes, asistencia y refrigerios, y valida quién ya firmó su planilla
@@ -84,6 +86,13 @@ const TODAS_DIRECCION: ItemBarra[] = [
   { ...MATERIAL, grupo: 'Clase de hoy' },
   TODAS[3], TODAS[4],
   { href: '/personal',             label: 'Personal',     Icono: IconoPersonal, grupo: 'Dirección académica' },
+  // Pedido explícito del coordinador (4-nov-2026, chequeo multi-programa):
+  // abrir un programa (cohorte) nuevo de PTMA/PFTA no puede depender solo de
+  // que haya un vendedor disponible -- Dirección Académica y super_admin
+  // necesitan su propia entrada, sin tener que simular el perfil de ventas.
+  // La pantalla (/cohortes) ya existía con el mismo CRUD, código intacto
+  // desde una fase anterior -- aquí solo se re-expone en el menú.
+  { href: '/cohortes',             label: 'Programas',    Icono: IconoProgreso, grupo: 'Dirección académica' },
   { href: '/cobertura-modulos',    label: 'Cobertura',    Icono: IconoProgreso, grupo: 'Dirección académica' },
   { href: '/notas-academicas',     label: 'Notas',        Icono: IconoNotas,    grupo: 'Dirección académica' },
   { href: '/examenes-academicos',  label: 'Exámenes',     Icono: IconoExamen,   grupo: 'Dirección académica' },
@@ -102,6 +111,9 @@ const TODAS_SUPER: ItemBarra[] = [
   { ...MATERIAL, grupo: 'Clase de hoy' },
   TODAS[3], TODAS[4],
   { href: '/personal',             label: 'Personal',      Icono: IconoPersonal, grupo: 'Dirección académica' },
+  // Mismo pedido que en TODAS_DIRECCION (ver comentario ahí): super_admin
+  // también necesita poder abrir un programa nuevo sin depender de ventas.
+  { href: '/cohortes',             label: 'Programas',     Icono: IconoProgreso, grupo: 'Dirección académica' },
   { href: '/cobertura-modulos',    label: 'Cobertura',     Icono: IconoProgreso, grupo: 'Dirección académica' },
   { href: '/notas-academicas',     label: 'Notas',         Icono: IconoNotas,    grupo: 'Dirección académica' },
   { href: '/examenes-academicos',  label: 'Exámenes',      Icono: IconoExamen,   grupo: 'Dirección académica' },

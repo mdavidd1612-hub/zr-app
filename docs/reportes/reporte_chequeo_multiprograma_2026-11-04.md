@@ -29,7 +29,9 @@ Quedan en el radar, sin tocar en esta pasada (bajo impacto, no bloquean nada de 
 
 **Corrección sobre mi primer reporte:** dije que no había pantalla para crear un programa nuevo — el coordinador me corrigió y tenía razón. En el lenguaje de la academia, "programa nuevo" (lo que va a cargar Erika) es un **corte/cohorte nuevo de un programa que ya existe** (PTMA o PFTA), no un currículo distinto desde cero. Eso **sí está 100% self-service**, ya en producción, sin tocar código: `/programas` (perfil de vendedor) tiene "+ Nuevo programa de PTMA" / "+ Nuevo programa de PFTA" para crear el corte (sede, turno, fecha de inicio — el nombre y el correlativo del carnet los pone el sistema solo); `/cohortes` (Dirección Académica) hace lo mismo y además asigna módulo inicial y profesor. **Erika no necesita nada de mí para este fin de semana.**
 
-Lo que sí sigue siendo cierto y sin cambiar: crear un **programa realmente nuevo** — un currículo distinto a PTMA/PFTA, con sus propios módulos — no tiene pantalla propia todavía y requiere migración directa. Eso solo aplica si lo que arranca el sábado es un currículo nuevo de verdad, no un corte de los que ya existen.
+**Segunda corrección, también del coordinador:** tampoco es cierto que un programa realmente nuevo (currículo distinto) requiera migración directa — también es self-service, pero exclusivo de super_admin: `/catalogo` tiene "+ Nueva sede", que crea la sede Y su programa/currículo juntos (`crear_sede_con_programa`), copiando los 14 módulos. En el modelo real de la academia, cada sede tiene su propio programa 1 a 1 (PTMA = La Morita, PFTA = UCV) — por eso "crear sede" y "crear programa" son la misma acción. Esto solo aplica si el sábado arranca un currículo realmente distinto, no un corte más de PTMA/PFTA.
+
+**Pedido adicional del coordinador, ya hecho:** Dirección Académica y super_admin tienen que poder abrir un programa sin depender de que haya un vendedor disponible. `/cohortes` ya tenía el mismo CRUD, pero estaba fuera del menú desde una fase anterior — se reexpuso como "Programas" en el menú de ambos roles. Probado en vivo en staging: Dirección Académica creó un corte de prueba de punta a punta (quedó bien nombrado, con su correlativo automático) y se confirmó que super_admin también lo ve.
 
 **Limitación menor, documentada, no bloqueante:** la malla curricular que ve un estudiante que TODAVÍA no tiene cohorte asignada asume que el contenido es igual entre programas (es cierto hoy, entre PTMA y PFTA). Si algún día hay un programa con currículo distinto, un estudiante en ese estado transitorio (antes de que admin lo valide) podría ver una malla rara por unos momentos. No afecta a nadie ya inscrito, y no aplica a un corte nuevo de PTMA/PFTA.
 
@@ -41,4 +43,15 @@ Verifiqué cuántas cohortes había realmente en `zr-prod`: 4 en total, pero **s
 
 ---
 
-**El fix de Gestión de Cohortes y el resto del módulo E-Learning siguen solo en `develop`/`zr-staging`**, probados en vivo, sin subir a producción — eso sigue pendiente de que decidas si se sube ahora (puedo hacer solo el fix de Gestión de Cohortes, sin el resto del Aula Virtual) o se espera al cierre normal del módulo. La limpieza de cohortes de este punto 3 sí se hizo directo en producción porque era una instrucción tuya explícita y acotada (borrar datos vacíos, no código).
+## 4. Ya está todo en producción
+
+Subí a `zr-prod` solo lo de este chequeo (el fix de los selectores de módulo + el nuevo acceso de Dirección Académica/super_admin a "Programas"), como un cambio aislado — sin arrastrar el resto del módulo E-Learning, que sigue solo en `zr-staging`, probado pero sin validar todavía con datos reales de estudiantes.
+
+**Chequeo total, para mañana:**
+- ✅ Erika puede abrir un corte nuevo de PTMA o PFTA desde `/programas` (perfil de vendedor) — sin cambios, siempre funcionó.
+- ✅ Dirección Académica y super_admin también pueden, desde "Programas" en su menú, por si no hay vendedor — nuevo, ya en producción.
+- ✅ El bug de módulos mezclados entre programas está corregido — ya en producción.
+- ✅ Producción solo tiene la cohorte real (`PTMA-2026-II`, 20 estudiantes) — las 3 vacías se eliminaron.
+- ⚠️ Si lo de mañana es un currículo realmente nuevo (no un corte más de PTMA/PFTA), eso lo crea super_admin desde `/catalogo` ("+ Nueva sede") — avísame si es el caso para acompañar la primera vez.
+
+**Todo esto está commiteado y pusheado**: a `develop` (todo el trabajo) y a `main` (el fix puntual, ya en producción).

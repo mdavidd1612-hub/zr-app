@@ -41,6 +41,9 @@ interface Item {
   examId: string | null
   esTexto: boolean
   cuerpoTexto: string | null
+  esVideoOAudio: boolean
+  checkQuizId: string | null
+  checkQuizTitulo: string | null
 }
 
 interface Opcion { id: string; title: string }
@@ -59,6 +62,8 @@ export default function UnidadDocenteDetalle() {
   const [items, setItems] = useState<Item[]>([])
   const [materialesDisponibles, setMaterialesDisponibles] = useState<Opcion[]>([])
   const [examenesDisponibles, setExamenesDisponibles] = useState<Opcion[]>([])
+  const [miniChequeosDisponibles, setMiniChequeosDisponibles] = useState<Opcion[]>([])
+  const [asignandoChequeo, setAsignandoChequeo] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -96,13 +101,16 @@ export default function UnidadDocenteDetalle() {
 
     const { data: filas } = await supabase
       .from('unit_items')
-      .select('id, type, required, assignment_id, content_item_id, exam_id, content_items(title, type, description), exams(title), assignments(title)')
+      .select('id, type, required, assignment_id, content_item_id, exam_id, content_items(title, type, description, check_quiz_id, check_quiz:exams!content_items_check_quiz_id_fkey(title)), exams(title), assignments(title)')
       .eq('unit_id', unitId)
       .order('order_index', { ascending: true })
 
     setItems(
       (filas ?? []).map((f) => {
-        const ci = f.content_items as unknown as { title: string; type: string; description: string | null } | null
+        const ci = f.content_items as unknown as {
+          title: string; type: string; description: string | null
+          check_quiz_id: string | null; check_quiz: { title: string } | null
+        } | null
         const ex = f.exams as unknown as { title: string } | null
         const ta = f.assignments as unknown as { title: string } | null
         return {
@@ -113,6 +121,9 @@ export default function UnidadDocenteDetalle() {
           examId: f.exam_id,
           esTexto: ci?.type === 'texto',
           cuerpoTexto: ci?.type === 'texto' ? (ci.description ?? '') : null,
+          esVideoOAudio: ci?.type === 'video' || ci?.type === 'audio',
+          checkQuizId: ci?.check_quiz_id ?? null,
+          checkQuizTitulo: ci?.check_quiz?.title ?? null,
         }
       }),
     )
@@ -126,10 +137,16 @@ export default function UnidadDocenteDetalle() {
       .from('content_items').select('id, title').eq('module_id', unidad.module_id)
       .neq('type', 'texto' as unknown as 'pdf').order('title')
     const { data: examenes } = await supabase
-      .from('exams').select('id, title').eq('module_id', unidad.module_id).order('title')
+      .from('exams').select('id, title, kind').eq('module_id', unidad.module_id).order('title')
 
     setMaterialesDisponibles((materiales ?? []) as Opcion[])
     setExamenesDisponibles((examenes ?? []) as Opcion[])
+    // Mini-chequeo (migración 177): solo exámenes formativos tiene sentido
+    // ofrecer -- uno de certificación ya tiene su propio flujo (compuerta).
+    setMiniChequeosDisponibles(
+      ((examenes ?? []) as unknown as { id: string; title: string; kind: string }[])
+        .filter((e) => e.kind === 'formativo'),
+    )
 
     // Fila de pestañas: TODAS las unidades del módulo (a diferencia del
     // estudiante, el profesor ve también borrador/programada, con su color
@@ -268,6 +285,28 @@ export default function UnidadDocenteDetalle() {
     setTextoCuerpo('')
     setCreandoTexto(false)
     await cargar()
+  }
+
+  async function asociarMiniChequeo(contentItemId: string, examId: string) {
+    setAsignandoChequeo(contentItemId)
+    setError(null)
+    const supabase = createClient()
+    const { error: err } = await supabase
+      .from('content_items').update({ check_quiz_id: examId }).eq('id', contentItemId)
+    if (err) setError(err.message)
+    else await cargar()
+    setAsignandoChequeo(null)
+  }
+
+  async function quitarMiniChequeo(contentItemId: string) {
+    setAsignandoChequeo(contentItemId)
+    setError(null)
+    const supabase = createClient()
+    const { error: err } = await supabase
+      .from('content_items').update({ check_quiz_id: null }).eq('id', contentItemId)
+    if (err) setError(err.message)
+    else await cargar()
+    setAsignandoChequeo(null)
   }
 
   async function alternarObligatorio(itemId: string, actual: boolean) {
@@ -435,34 +474,81 @@ export default function UnidadDocenteDetalle() {
             }
             const Icono = item.type === 'material' ? IconoDocumento : item.type === 'quiz' ? IconoExamen : IconoDuda
             return (
-              <div key={item.id} className="zr-card flex items-center gap-4 p-5">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue">
-                  <Icono size={20} />
+              <div key={item.id} className="zr-card space-y-3 p-5">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue">
+                    <Icono size={20} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
+                    {item.type === 'material' && (
+                      <button
+                        onClick={() => alternarObligatorio(item.id, item.required)}
+                        className="mt-1"
+                      >
+                        <Etiqueta tono={item.required ? 'aviso' : 'neutro'}>
+                          {item.required ? 'Obligatorio (toca para quitar)' : 'Opcional (toca para hacer obligatorio)'}
+                        </Etiqueta>
+                      </button>
+                    )}
+                    {item.type === 'tarea' && item.assignmentId && (
+                      <button
+                        onClick={() => router.push(`/unidades-docente/tarea/${item.assignmentId}`)}
+                        className="mt-1 text-xs font-bold text-zr-blue-mid"
+                      >
+                        Ver entregas y calificar ›
+                      </button>
+                    )}
+                  </div>
+                  <button onClick={() => quitarItem(item.id)} className="shrink-0 text-xs font-bold text-zr-error">
+                    Quitar
+                  </button>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
-                  {item.type === 'material' && (
-                    <button
-                      onClick={() => alternarObligatorio(item.id, item.required)}
-                      className="mt-1"
-                    >
-                      <Etiqueta tono={item.required ? 'aviso' : 'neutro'}>
-                        {item.required ? 'Obligatorio (toca para quitar)' : 'Opcional (toca para hacer obligatorio)'}
-                      </Etiqueta>
-                    </button>
-                  )}
-                  {item.type === 'tarea' && item.assignmentId && (
-                    <button
-                      onClick={() => router.push(`/unidades-docente/tarea/${item.assignmentId}`)}
-                      className="mt-1 text-xs font-bold text-zr-blue-mid"
-                    >
-                      Ver entregas y calificar ›
-                    </button>
-                  )}
-                </div>
-                <button onClick={() => quitarItem(item.id)} className="shrink-0 text-xs font-bold text-zr-error">
-                  Quitar
-                </button>
+
+                {/* Mini-chequeo (migración 177, spec §6.3): solo video/audio --
+                    al terminarlo, el estudiante ve un examen cortico ya
+                    existente del módulo; aprobarlo valida el material. */}
+                {item.esVideoOAudio && item.contentItemId && (
+                  item.checkQuizId ? (
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-zr-border bg-zr-bg px-3 py-2">
+                      <p className="text-xs text-zr-text-muted">
+                        Mini-chequeo: <span className="font-bold text-zr-text">{item.checkQuizTitulo ?? 'Examen'}</span>
+                      </p>
+                      <button
+                        onClick={() => quitarMiniChequeo(item.contentItemId as string)}
+                        disabled={asignandoChequeo === item.contentItemId}
+                        className="shrink-0 text-xs font-bold text-zr-error disabled:opacity-50"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  ) : miniChequeosDisponibles.length > 0 ? (
+                    <div className="flex gap-2">
+                      <select
+                        id={`sel-chequeo-${item.id}`}
+                        className="min-h-10 flex-1 rounded-lg border border-zr-border bg-zr-bg px-3 text-xs text-zr-text"
+                        defaultValue=""
+                      >
+                        <option value="" disabled>Mini-chequeo al terminar (opcional)…</option>
+                        {miniChequeosDisponibles.map((e) => <option key={e.id} value={e.id}>{e.title}</option>)}
+                      </select>
+                      <button
+                        onClick={() => {
+                          const sel = document.getElementById(`sel-chequeo-${item.id}`) as HTMLSelectElement
+                          if (sel.value) asociarMiniChequeo(item.contentItemId as string, sel.value)
+                        }}
+                        disabled={asignandoChequeo === item.contentItemId}
+                        className="shrink-0 rounded-lg bg-zr-blue px-3 text-xs font-bold text-white disabled:opacity-50"
+                      >
+                        Asociar
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-zr-text-muted">
+                      Para ponerle mini-chequeo, primero crea un examen formativo en este módulo.
+                    </p>
+                  )
+                )}
               </div>
             )
           })}

@@ -345,7 +345,19 @@ Convenciones: **Estado** ✅ producción · 🟡 parcial · 🔴 no construido �
 
 ### 8.1 Auditoría del 31-oct-2026 — Módulo E-Learning (Aula Virtual) ya construido en staging
 
-Se auditó el documento "ZR App — Módulo E-Learning" contra `zr-staging` y el código (aplica §12.6). **El módulo está construido en `develop` → `zr-staging`, migraciones 174–182; NO está mergeado a `zr-prod` todavía, y las tablas están vacías (estructura lista, falta cargar contenido).** Reutiliza tablas existentes: materiales = `content_items` (extendida), quizzes = `exams` (extendida), más `units`, `unit_items`, `material_progress`, `assignments`, `submissions`, `calendar_events`, `activity_log`, `doubts`/`doubt_responses`, `intervention_grants`.
+Se auditó el documento "ZR App — Módulo E-Learning" contra `zr-staging` y el código (aplica §12.6). **El módulo está construido en `develop` → `zr-staging`, migraciones 174–187; NO está mergeado a `zr-prod` todavía (salvo el hotfix puntual de §8.3), y las tablas están vacías (estructura lista, falta cargar contenido).** Reutiliza tablas existentes: materiales = `content_items` (extendida), quizzes = `exams` (extendida), más `units`, `unit_items`, `material_progress`, `assignments`, `submissions`, `calendar_events`, `activity_log`, `doubts`/`doubt_responses`, `intervention_grants`.
+
+**Estado de los 5 huecos de esta auditoría (actualizado 4-nov-2026) — los 5 están ✅ cerrados:**
+
+| # | Hueco | Estado | Dónde |
+|---|---|---|---|
+| 1 | Exámenes configurables desde la app (tipo, nota mínima, intentos, enfriamiento) | ✅ Cerrado (nov 2026) | Épico H, bullet abajo |
+| 2 | Compuerta real entre unidades (contradicción con §5.1 resuelta con el coordinador: compuerta por orden, no mapa manual) | ✅ Cerrado (migr. 185, nov 2026) | Épico F, bullet abajo |
+| 3 | Mini-chequeo al terminar un video/audio (UI; la base ya existía desde migr. 177) | ✅ Cerrado (nov 2026) | Épico F, bullet abajo |
+| 4 | UI de prerrequisitos/ventanas de visibilidad por ítem | ✅ Superado por el Hueco 2 — la compuerta por orden (migr. 185) reemplaza la necesidad de administrar `prerequisite_unit_id` a mano; no se construyó UI aparte porque dejó de hacer falta | — |
+| 5 | Bloques de texto dentro de la unidad (pedido nuevo del coordinador, no del análisis original) | ✅ Cerrado (migr. 186/187, nov 2026) | Épico F, bullet abajo |
+
+Lo que queda pendiente del módulo **no** son huecos del análisis — son faltantes ya conocidas del épico F/H de siempre (marca de agua, conversión PPTX/DOCX→PDF, YouTube embed, banco de preguntas aleatorio en el constructor, importación masiva de preguntas), listadas en los bullets 🔴/🟡 de abajo.
 
 **Épico F (E-Learning) → 🟡 (antes 🔴).**
 - ✅ Unidades: estados, `open_at`/`close_at`, visibilidad por elemento, prerrequisito (migr. 174)

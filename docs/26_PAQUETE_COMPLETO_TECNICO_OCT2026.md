@@ -378,6 +378,23 @@ Reunión Pedro + Marco, minuta + transcripción (`Reunión ZR APP Modulo E-learn
 - ⏳ **Pendiente, no es código**: perfil de profesor para "el tío Jesús" con módulo de Proyecto (seguimiento de proyecto de grado) — requiere que Dirección Académica cree el módulo y lo asigne, vía las pantallas que ya existen (`N.7-N.10`).
 - Confirmado, ya documentado desde antes, sin cambios: penalización de reintentos (80% en el segundo intento, §7.4 del módulo E-Learning) y calendario auto-alimentado con export iCal — ambos ya estaban construidos.
 
+### 8.3 Auditoría del 4-nov-2026 — Soporte multi-programa
+
+Pedido del coordinador antes de sumar un tercer programa (fin de semana del 7-8 nov 2026, Erika carga los nuevos estudiantes como vendedora): verificar que todo el sistema soporta varios programas activos a la vez, no solo PTMA/PFTA.
+
+**Lo que ya estaba bien (sin tocar):**
+- El modelo de datos ya es multi-programa de fondo: `programs` → `modules`/`cohorts` por `program_id`. En producción ya conviven PTMA y PFTA (2 programas, 13 módulos y 2 cohortes cada uno) desde antes de esta auditoría — sumar un tercero es agregar filas, no rediseñar nada.
+- Las funciones RLS que de verdad importan (`my_module_id`, `my_cohort_id`, `modulos_que_imparto`) se resuelven siempre desde la fila propia del estudiante/profesor (su `cohort_id`/asignación), nunca de una lista fija de programas — escalan solas a cualquier número de programas.
+- El formulario de inscripción (vendedor/admin/dirección, `FormularioInscripcion.tsx`) ya lista TODAS las cohortes `activa` sin filtrar por programa, con el programa como etiqueta visible (`SelectorCohorte`) — Erika va a poder elegir el programa nuevo igual que los demás en cuanto exista la cohorte.
+- Constructor de exámenes del profesor (`crear-examen/nuevo` y `[examId]`): ya filtra los módulos a los que el profesor tiene asignación, sin importar cuántos programas haya.
+- Gestión de profesores (`/personal`): ya agrupa y filtra módulos por programa al asignar.
+
+**Bug real encontrado y corregido en el mismo PR:** en Gestión de Cohortes (`/cohortes`, Dirección Académica), el selector de "Módulo inicial" al crear una cohorte y el de "Avanzar de módulo" de una cohorte existente mezclaban los módulos de **todos** los programas sin filtrar ni etiquetar. Con 2 programas (26 módulos en una sola lista) ya era fácil asignarle a una cohorte el módulo del programa equivocado por error, rompiéndole el Aula Virtual y los exámenes a esa cohorte entera. Se corrigió filtrando cada selector por el programa real. De paso, el selector que define el programa del carnet (PTMA/PFTA/el nuevo) estaba rotulado "Sede" por error — se corrigió a "Programa".
+
+**No es un bug, es un paso manual pendiente:** no hay pantalla para crear un `program` nuevo desde cero (con sus módulos) — eso lo hace el técnico por migración, como todos los programas hasta ahora. **Antes del fin de semana**, alguien (Marco) tiene que crear el `program`, sus `modules` (con el currículo real del programa nuevo) y al menos una `cohort` `activa` — sin eso, Erika no va a ver el programa nuevo en su selector porque no hay cohorte que mostrar. No es responsabilidad de esta auditoría decidir el currículo del programa nuevo.
+
+**Limitación menor, no bloqueante:** `app/(app)/malla/page.tsx`, cuando un estudiante todavía no tiene cohorte asignada, muestra una malla "estática" que asume que el contenido de los módulos es el mismo en todos los programas (deduplica por `order_index` sin distinguir programa). Es cierto hoy entre PTMA/PFTA; si el programa nuevo tiene un currículo distinto, un estudiante sin cohorte todavía vería una malla potencialmente mezclada hasta que lo asignen a su cohorte real. Como es un estado transitorio (antes de la validación de admin) y de bajo impacto, se deja documentado en vez de corregido en esta pasada — avisar si hace falta priorizarlo.
+
 ---
 
 # PARTE IV — FLUJOGRAMAS POR ROL

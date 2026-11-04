@@ -30,9 +30,10 @@ interface Cohorte {
   profesorNombre: string | null
   estudiantes: number
   estado: string
+  programaId: string | null
 }
 
-interface Modulo { id: string; name: string; order_index: number }
+interface Modulo { id: string; name: string; order_index: number; program_id: string }
 interface Profesor { id: string; full_name: string }
 
 export default function Cohortes() {
@@ -79,8 +80,14 @@ export default function Cohortes() {
       }
 
       const [{ data: cohs }, { data: mods }, { data: profs }, { data: programa }, { data: sedesActivas }] = await Promise.all([
-        supabase.from('cohorts').select('id, name, location, sede, turno, current_module_id, teacher_id, status, modules(name), teachers(profiles(full_name)), students(id)'),
-        supabase.from('modules').select('id, name, order_index').order('order_index'),
+        supabase.from('cohorts').select('id, name, location, sede, turno, current_module_id, teacher_id, status, program_id, modules(name), teachers(profiles(full_name)), students(id)'),
+        // Bug real (multi-programa, nov 2026): sin filtrar por programa, esta
+        // lista mezclaba los módulos de TODOS los programas en un solo
+        // selector -- con 2 programas activos (PTMA/PFTA, 13 módulos cada
+        // uno) ya era fácil asignarle a una cohorte el módulo del programa
+        // equivocado por error. Se trae program_id y se filtra client-side
+        // por la cohorte/programa elegido en cada selector de abajo.
+        supabase.from('modules').select('id, name, order_index, program_id').order('order_index'),
         supabase.from('teachers').select('id, profiles(full_name)').eq('is_active', true),
         // Antes se tomaba `limit(1).single()`: la cohorte nueva caía siempre en
         // el primer programa que devolviera la base, así que una cohorte de PFTA
@@ -95,7 +102,7 @@ export default function Cohortes() {
 
       const filas = cohs as unknown as {
         id: string; name: string; location: string | null; sede: string | null; turno: string | null
-        current_module_id: string | null; teacher_id: string | null; status: string
+        current_module_id: string | null; teacher_id: string | null; status: string; program_id: string | null
         modules: { name: string } | null
         teachers: { profiles: { full_name: string } | null } | null
         students: { id: string }[] | null
@@ -114,6 +121,7 @@ export default function Cohortes() {
           profesorNombre: c.teachers?.profiles?.full_name ?? null,
           estudiantes: c.students?.length ?? 0,
           estado: c.status,
+          programaId: c.program_id,
         })),
       )
 
@@ -233,7 +241,7 @@ export default function Cohortes() {
       {creando && (
         <div className="zr-card space-y-4 p-6">
           <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Sede</label>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Programa</label>
             <Select
               value={programaId ?? ''}
               onChange={(e) => setProgramaId(e.target.value || null)}
@@ -336,7 +344,7 @@ export default function Cohortes() {
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
             >
               <option value="">Sin asignar</option>
-              {modulos.map((m) => (
+              {modulos.filter((m) => m.program_id === programaId).map((m) => (
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
             </Select>
@@ -425,7 +433,7 @@ export default function Cohortes() {
                         className="w-full rounded-lg border border-zr-border bg-zr-surface px-3 py-2.5 text-sm text-zr-text"
                       >
                         <option value="" disabled>Elige el módulo siguiente</option>
-                        {modulos.map((m) => (
+                        {modulos.filter((m) => m.program_id === c.programaId).map((m) => (
                           <option key={m.id} value={m.id}>{m.name}</option>
                         ))}
                       </select>

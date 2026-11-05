@@ -35,10 +35,19 @@ const ROMANOS = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'
 // Vista previa del nombre que va a generar el servidor (migración 060). Aquí es
 // solo para que ventas vea qué va a salir antes de guardar — el nombre de
 // verdad lo pone la base, nunca este cálculo.
-function nombrePrevisto(siglas: string, fecha: string, cortesDelAnio: number) {
+//
+// Bug real reportado por el coordinador (nov 2026): se le pasaba CUÁNTAS
+// cohortes de ese año había (un conteo), no el `code_number` MÁXIMO real --
+// el servidor (fn_set_cohort_code_number, migr. 057/060) calcula
+// max(code_number)+1, nunca length+1. Si alguna cohorte de ese programa/año
+// ya tenía un número más alto que la cantidad de filas (p. ej. porque se
+// borró una anterior), el preview repetía un nombre ya usado aunque el
+// servidor fuera a poner el correcto -- confundía igual, aunque nunca iba a
+// crear un duplicado de verdad.
+function nombrePrevisto(siglas: string, fecha: string, maxCodeNumberDelAnio: number) {
   if (!fecha) return null
   const anio = fecha.slice(0, 4)
-  const siguiente = cortesDelAnio + 1
+  const siguiente = maxCodeNumberDelAnio + 1
   return `${siglas}-${anio}-${ROMANOS[siguiente] ?? siguiente}`
 }
 
@@ -276,10 +285,15 @@ export default function ProgramasVendedor() {
       )}
 
       {programas.map((p, i) => {
-        const cortesDelAnio = fechaInicio
-          ? p.cohortes.filter((c) => c.startDate.slice(0, 4) === fechaInicio.slice(0, 4)).length
+        const maxCodeNumberDelAnio = fechaInicio
+          ? Math.max(
+              0,
+              ...p.cohortes
+                .filter((c) => c.startDate.slice(0, 4) === fechaInicio.slice(0, 4))
+                .map((c) => c.codeNumber ?? 0),
+            )
           : 0
-        const previsto = nombrePrevisto(p.siglas, fechaInicio, cortesDelAnio)
+        const previsto = nombrePrevisto(p.siglas, fechaInicio, maxCodeNumberDelAnio)
 
         return (
           <Seccion key={p.id} numero={i + 1} titulo={p.name} delay={100 + i * 60}>

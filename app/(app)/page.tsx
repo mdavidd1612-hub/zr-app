@@ -7,7 +7,7 @@ import { Seccion, Regla } from '@/components/ui/Editorial'
 import { CASOS, diaSemanaISO, lunesDeLaSemana, fechaISO } from '@/lib/casos-fase0'
 import { leerSimulacionSabado } from '@/lib/demo-sabado'
 import { CASOS_HABILITADO } from '@/lib/flags'
-import { IconoCarnet, IconoCheck, IconoTaza } from '@/components/ui/Iconos'
+import { IconoCarnet, IconoCheck, IconoTaza, IconoCalendario, IconoDocumento } from '@/components/ui/Iconos'
 import { esAdmin } from '@/lib/auth-helpers'
 import { leerCohorteVistaRecorridoCookie, leerModuloVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import type { UserRole } from '@/lib/types'
@@ -477,7 +477,8 @@ export default function Inicio() {
                 onClick={() => router.push('/unidades')}
                 className="flex min-h-14 w-full items-center justify-center gap-2 border-t border-zr-border text-sm font-bold text-zr-text active:bg-zr-border/30"
               >
-                📁 Revisar el material del módulo
+                <IconoDocumento size={18} className="text-zr-blue-mid" />
+                Revisar el material del módulo
               </button>
             </div>
           ) : null}
@@ -514,25 +515,38 @@ export default function Inicio() {
         {/* 03 — ACCESOS */}
         <Seccion numero={3} titulo="Accesos" delay={280}>
           <div id="tour-accesos" className="space-y-3">
+            {/* Identidad: el carnet digital, acción destacada. */}
             <button
               onClick={() => router.push('/perfil')}
-              className="w-full overflow-hidden rounded-lg bg-gradient-to-r from-zr-blue-deep to-zr-blue px-6 py-5 text-left transition-all hover:shadow-lg hover:shadow-zr-blue/25"
+              className="flex w-full items-center justify-between gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-zr-blue-deep to-zr-blue px-6 py-5 text-left transition-all hover:shadow-lg hover:shadow-zr-blue/25"
             >
-              <p className="text-base font-bold text-white">Mi carnet</p>
+              <span>
+                <span className="block text-base font-bold text-white">Mi carnet</span>
+                <span className="mt-0.5 block text-xs text-white/70">Tu identidad y tu QR</span>
+              </span>
+              <IconoCarnet size={22} className="shrink-0 text-white/80" />
             </button>
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* Lo que NO está a un toque en la barra de abajo (Aula, Notas,
+                Dudas ya están ahí): el calendario y el repositorio de material.
+                Tiles livianos con icono, sin el borde de tarjeta. */}
+            <div className="grid grid-cols-2 gap-2">
               {[
-                { href: '/contenido', titulo: 'Material', sub: 'Guías y PDFs' },
-                { href: '/dudas',     titulo: 'Dudas',    sub: 'Pregúntale al profesor' },
-              ].map((a) => (
+                { href: '/calendario', titulo: 'Calendario', sub: 'Fechas y entregas', Icono: IconoCalendario },
+                { href: '/contenido',  titulo: 'Material',    sub: 'Guías y PDFs',      Icono: IconoDocumento },
+              ].map(({ href, titulo, sub, Icono }) => (
                 <button
-                  key={a.href}
-                  onClick={() => router.push(a.href)}
-                  className="zr-card zr-card-interactive px-4 py-4 text-left"
+                  key={href}
+                  onClick={() => router.push(href)}
+                  className="flex items-start gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-zr-surface/60"
                 >
-                  <p className="text-sm font-bold text-zr-text">{a.titulo}</p>
-                  <p className="mt-0.5 text-xs text-zr-text-muted">{a.sub}</p>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue-mid">
+                    <Icono size={20} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold text-zr-text">{titulo}</span>
+                    <span className="mt-0.5 block text-xs text-zr-text-muted">{sub}</span>
+                  </span>
                 </button>
               ))}
             </div>

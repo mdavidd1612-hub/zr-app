@@ -143,11 +143,11 @@ export default function CalificarTarea() {
       <Regla delay={60} />
 
       <Seccion numero={1} titulo={`Entregas (${filas.length} estudiantes)`} delay={100}>
-        <div className="space-y-3">
+        <div className="divide-y divide-zr-border/60">
           {filas.map((f) => {
             const et = ETIQUETA[f.status] ?? ETIQUETA.pendiente
             return (
-              <div key={f.student_id} className="zr-card space-y-3 p-5">
+              <div key={f.student_id} className="space-y-3 py-4 first:pt-0">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-zr-text">{f.full_name}</p>
@@ -160,8 +160,9 @@ export default function CalificarTarea() {
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => descargar(f.file_path!)}
-                      className="rounded-lg border border-zr-border px-4 py-2 text-xs font-bold text-zr-text"
+                      className="inline-flex items-center gap-2 rounded-full border border-zr-border px-4 py-2 text-xs font-bold text-zr-text transition-colors hover:border-zr-blue/40"
                     >
+                      <IconoDescargar size={14} />
                       Descargar PDF
                     </button>
                     {f.submitted_at && (

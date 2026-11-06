@@ -29,8 +29,8 @@ interface Modulo {
   competencias: string[] | null
 }
 
-const NOMBRE_DIA = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
-const INICIAL_DIA = ['', 'L', 'M', 'X', 'J', 'V', 'S']
+const NOMBRE_DIA = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+const INICIAL_DIA = ['', 'L', 'M', 'X', 'J', 'V', 'S', 'D']
 
 export default function Inicio() {
   const router = useRouter()

@@ -10,6 +10,7 @@ import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
 import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
 import { BotonComoUsarApp } from '@/components/ui/BotonComoUsarApp'
 import { CambiarRol } from '@/components/ui/CambiarRol'
+import { FotoPerfil } from '@/components/ui/FotoPerfil'
 import { leerSimulacionSabado, guardarSimulacionSabado } from '@/lib/demo-sabado'
 import { esDiaDeClase, hoyLocalISO } from '@/lib/dias-clase'
 import { rolDeTour } from '@/lib/tour-pasos'
@@ -19,10 +20,12 @@ import type { UserRole } from '@/lib/types'
  *  árbol de rutas, así que no pueden compartir /perfil sin chocar. */
 
 interface Perfil {
+  uid: string
   nombre: string
   cedula: string
   rol: UserRole
   correo: string | null
+  avatarPath: string | null
 }
 
 export default function PerfilAdmin() {
@@ -46,16 +49,18 @@ export default function PerfilAdmin() {
 
       const { data: p } = await supabase
         .from('profiles')
-        .select('full_name, cedula, role, contact_email')
+        .select('full_name, cedula, role, contact_email, avatar_url')
         .eq('id', user.id)
         .single()
 
       if (p) {
         setPerfil({
+          uid: user.id,
           nombre: p.full_name,
           cedula: p.cedula,
           rol: p.role as UserRole,
           correo: p.contact_email,
+          avatarPath: p.avatar_url,
         })
       }
 
@@ -155,6 +160,7 @@ export default function PerfilAdmin() {
       <Regla delay={60} />
 
       <Seccion numero={1} titulo="Cuenta" delay={120}>
+        <FotoPerfil uid={perfil.uid} rutaInicial={perfil.avatarPath} />
         <BloqueCuenta
           nombre={perfil.nombre}
           cedula={perfil.cedula}

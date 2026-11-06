@@ -254,18 +254,25 @@ function DudasInterno() {
                                 Marcar resuelta
                               </button>
                             )}
-                            <button
-                              onClick={() => empezarEdicion(d)}
-                              className="text-xs font-bold text-zr-blue-mid"
-                            >
-                              Editar
-                            </button>
-                            <button
-                              onClick={() => eliminarDuda(d.id)}
-                              className="text-xs font-bold text-zr-error"
-                            >
-                              Eliminar
-                            </button>
+                            {/* L-8: una vez respondida, no se puede editar ni
+                                borrar — si no, el profesor pierde el contexto
+                                de lo que respondió. */}
+                            {d.respuestas.length === 0 && (
+                              <>
+                                <button
+                                  onClick={() => empezarEdicion(d)}
+                                  className="text-xs font-bold text-zr-blue-mid"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={() => eliminarDuda(d.id)}
+                                  className="text-xs font-bold text-zr-error"
+                                >
+                                  Eliminar
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       </>

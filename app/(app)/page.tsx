@@ -477,7 +477,8 @@ export default function Inicio() {
                 onClick={() => router.push('/unidades')}
                 className="flex min-h-14 w-full items-center justify-center gap-2 border-t border-zr-border text-sm font-bold text-zr-text active:bg-zr-border/30"
               >
-                📁 Revisar el material del módulo
+                <IconoDocumento size={18} className="text-zr-blue-mid" />
+                Revisar el material del módulo
               </button>
             </div>
           ) : null}

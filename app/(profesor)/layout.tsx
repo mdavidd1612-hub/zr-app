@@ -34,7 +34,7 @@ const NAV_BASE = [
   // y ver material sigue existiendo en /contenido-docente, pero ahora se
   // llega siempre desde dentro de una unidad (botón "+ Subir material
   // nuevo"), nunca como pestaña aparte.
-  { href: '/unidades-docente',   label: 'Aula',     Icono: IconoVideo },
+  { href: '/unidades-docente',   label: 'Unidades', Icono: IconoVideo },
   { href: '/notas-docente',      label: 'Notas',    Icono: IconoNotas },
   { href: '/perfil-docente',     label: 'Perfil',    Icono: IconoPerfil },
 ]

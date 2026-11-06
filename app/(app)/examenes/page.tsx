@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
+import { Recorrido, Paso } from '@/components/ui/Recorrido'
+import { IconoExamen } from '@/components/ui/Iconos'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
@@ -238,9 +240,12 @@ export default function Examenes() {
         <Regla delay={60} />
 
         {examenes.length === 0 && (
-          <div className="zr-card animate-rise p-8" style={{ animationDelay: '120ms' }}>
-            <p className="text-base font-semibold text-zr-text">Todavía no hay exámenes</p>
-            <p className="mt-2 text-sm text-zr-text-muted">
+          <div className="flex flex-col items-center gap-3 py-12 text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-zr-blue/12 text-zr-blue-mid">
+              <IconoExamen size={26} />
+            </span>
+            <p className="text-base font-bold text-zr-text">Todavía no hay exámenes</p>
+            <p className="max-w-xs text-sm text-zr-text-muted">
               Tu profesor publica los exámenes cuando el programa llega a esa parte del módulo.
               Aparecerán aquí en cuanto lo haga.
             </p>
@@ -249,28 +254,26 @@ export default function Examenes() {
 
         {pendientes.length > 0 && (
           <Seccion numero={1} titulo="Por presentar" delay={120}>
-            <div className="space-y-3">
+            <Recorrido>
               {pendientes.map((e, i) => (
-                <button
+                <Paso
                   key={e.id}
-                  onClick={() => router.push(`/examenes/${e.id}`)}
-                  className="zr-card zr-card-interactive w-full animate-rise p-5 text-left"
-                  style={{ animationDelay: `${160 + i * 60}ms` }}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-base font-semibold text-zr-text">{e.titulo}</p>
-                      <p className="mt-1.5 text-sm text-zr-text-muted">
-                        {e.modulo} · {Number(e.puntajeMaximo).toFixed(2)} puntos
-                      </p>
-                    </div>
-                    <Etiqueta tono={ESTADO[e.estadoIntento].tono}>
-                      {ESTADO[e.estadoIntento].texto}
-                    </Etiqueta>
-                  </div>
-                </button>
+                  estado={e.estadoIntento === 'en_progreso' ? 'activo' : 'disponible'}
+                  icono={IconoExamen}
+                  eyebrow={e.modulo}
+                  titulo={e.titulo}
+                  meta={
+                    <>
+                      <span className="text-xs text-zr-text-muted">{Number(e.puntajeMaximo).toFixed(2)} puntos</span>
+                      <Etiqueta tono={ESTADO[e.estadoIntento].tono}>{ESTADO[e.estadoIntento].texto}</Etiqueta>
+                    </>
+                  }
+                  href={`/examenes/${e.id}`}
+                  ultimo={i === pendientes.length - 1}
+                  delay={80 + i * 50}
+                />
               ))}
-            </div>
+            </Recorrido>
           </Seccion>
         )}
 
@@ -280,9 +283,9 @@ export default function Examenes() {
             titulo="Ya presentados"
             delay={pendientes.length > 0 ? 240 : 120}
           >
-            <div className="space-y-3">
+            <div className="divide-y divide-zr-border/60">
               {cerrados.map((e) => (
-                <div key={e.id} className="zr-card p-5">
+                <div key={e.id} className="py-4 first:pt-0">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <p className="text-base font-semibold text-zr-text">{e.titulo}</p>

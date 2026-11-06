@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Etiqueta } from '@/components/ui/Editorial'
+import { Recorrido, Paso, type EstadoPaso } from '@/components/ui/Recorrido'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { IconoCheck } from '@/components/ui/Iconos'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
@@ -258,72 +259,66 @@ export default function MallaCurricular() {
           asigne, aquí verás la malla completa.
         </p>
       ) : (
-        <ol className="space-y-3">
-          {modulos.map((m, i) => (
-            <li
-              key={m.id}
-              // Bug real de producción (reportado por el coordinador, oct.
-              // 2026): el tour resaltaba la lista ENTERA (los 14 módulos),
-              // mucho más alta que cualquier pantalla de teléfono --
-              // scrollIntoView la centraba, el rectángulo visible quedaba del
-              // tamaño de la pantalla completa, y el tour se rendía sin
-              // dibujar ningún cuadro (solo el fondo oscuro con el texto).
-              // Se resalta solo la primera tarjeta -- representa a las demás
-              // sin salirse nunca de la pantalla.
-              id={i === 0 ? 'tour-malla' : undefined}
-              className={`zr-card p-5 ${m.estado === 'actual' ? 'border-zr-blue' : ''}`}
-            >
-              <div className="flex items-start gap-4">
-                <span
-                  className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums ${
-                    m.estado === 'cursado'
-                      ? 'bg-zr-success/15 text-zr-success'
-                      : m.estado === 'actual'
-                        ? 'bg-zr-blue text-white'
-                        : 'bg-zr-surface text-zr-text-muted'
-                  }`}
-                >
-                  {m.orden}
-                </span>
-
-                <div className="min-w-0 flex-1 space-y-2.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-base font-bold text-zr-text">{m.nombre}</p>
+        <Recorrido>
+          {modulos.map((m, i) => {
+            const estadoPaso: EstadoPaso =
+              m.estado === 'cursado' ? 'completado' : m.estado === 'actual' ? 'activo' : 'disponible'
+            return (
+              <Paso
+                key={m.id}
+                // Bug real de producción (reportado por el coordinador, oct.
+                // 2026): el tour resaltaba la lista ENTERA (los 14 módulos),
+                // mucho más alta que cualquier pantalla de teléfono --
+                // scrollIntoView la centraba, el rectángulo visible quedaba
+                // del tamaño de la pantalla completa, y el tour se rendía
+                // sin dibujar nada (solo el fondo oscuro con el texto). Se
+                // resalta solo el primer paso -- representa a los demás sin
+                // salirse nunca de la pantalla.
+                id={i === 0 ? 'tour-malla' : undefined}
+                estado={estadoPaso}
+                indice={m.orden}
+                titulo={m.nombre}
+                ultimo={i === modulos.length - 1}
+                delay={80 + i * 40}
+                meta={
+                  <>
                     {m.estado === 'actual' && <Etiqueta tono="info">Cursando ahora</Etiqueta>}
                     {m.estado === 'cursado' && <Etiqueta tono="exito">Cursado</Etiqueta>}
                     {m.homologado && <Etiqueta tono="neutro">Homologado INCES</Etiqueta>}
-                  </div>
-
+                  </>
+                }
+              >
+                <span className="space-y-2.5">
                   {m.descripcion && (
-                    <p className="text-sm leading-relaxed text-zr-text-muted">{m.descripcion}</p>
+                    <span className="block text-sm leading-relaxed text-zr-text-muted">{m.descripcion}</span>
                   )}
 
                   {/* Lista completa, sin recortar (a pedido explícito del
                       coordinador, sept. 2026 — revierte el límite de 3 +
                       "+N más" que él mismo había pedido antes). */}
                   {m.competencias && m.competencias.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 pt-0.5">
-                      {m.competencias.map((c, i) => (
+                    <span className="flex flex-wrap gap-1.5">
+                      {m.competencias.map((c, j) => (
                         <span
-                          key={i}
+                          key={j}
                           className="inline-flex items-center gap-1 rounded-full border border-zr-blue/20 bg-zr-blue/8 px-2.5 py-1 text-xs font-medium text-zr-text"
                         >
                           <IconoCheck size={12} className="shrink-0 text-zr-blue-mid" />
                           {c}
                         </span>
                       ))}
-                    </div>
+                    </span>
                   )}
 
-                  <p className="pt-0.5 text-xs font-bold uppercase tracking-wide text-zr-blue-mid">
+                  <span className="block text-xs font-bold uppercase tracking-wide text-zr-blue-mid">
                     {m.semanas * horasPorSabado} horas académicas · {m.semanas} {m.semanas === 1 ? 'sábado' : 'sábados'}
                     {m.fechas ? ` · ${m.fechas}` : ''}
-                  </p>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ol>
+                  </span>
+                </span>
+              </Paso>
+            )
+          })}
+        </Recorrido>
       )}
     </div>
   )

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Encabezado, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+import { IconoDocumento, IconoCheck, IconoReloj } from '@/components/ui/Iconos'
 
 /**
  * Aula Virtual — entrega de una tarea en PDF. Reemplazar antes de la fecha
@@ -42,6 +43,11 @@ export default function TareaDeUnidad() {
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState('')
   const [vencida, setVencida] = useState(false)
+  // El archivo elegido NO se sube de una: primero se muestra para que el
+  // estudiante confirme (antes se subía al instante al elegirlo — riesgo de
+  // mandar el archivo equivocado sin darse cuenta).
+  const [archivoSel, setArchivoSel] = useState<File | null>(null)
+  const [viendo, setViendo] = useState<string | null>(null)
 
   async function cargar() {
     const supabase = createClient()
@@ -105,9 +111,36 @@ export default function TareaDeUnidad() {
     if (insErr) {
       setError(insErr.message)
     } else {
+      setArchivoSel(null)
       await cargar()
     }
     setSubiendo(false)
+  }
+
+  // Al elegir un archivo NO se sube: se valida y se deja a la vista para que
+  // el estudiante confirme (ver nota en el estado archivoSel).
+  function elegirArchivo(archivo: File) {
+    setError(null)
+    if (archivo.type !== 'application/pdf') {
+      setError('Solo se aceptan archivos PDF.')
+      return
+    }
+    if (tarea && archivo.size > tarea.max_mb * 1024 * 1024) {
+      setError(`El archivo pesa más de ${tarea.max_mb} MB.`)
+      return
+    }
+    setArchivoSel(archivo)
+  }
+
+  // Ver la propia entrega: URL firmada de corta vida del bucket privado.
+  async function verPDF(filePath: string, id: string) {
+    setViendo(id)
+    const pestana = window.open('', '_blank')
+    const { data } = await createClient().storage.from('tareas').createSignedUrl(filePath, 300)
+    setViendo(null)
+    if (!data?.signedUrl) { pestana?.close(); return }
+    if (pestana) pestana.location.href = data.signedUrl
+    else window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
   }
 
   if (cargando || !tarea) return <PantallaEsqueleto />
@@ -123,38 +156,71 @@ export default function TareaDeUnidad() {
 
         <Regla delay={60} />
 
-        <Seccion numero={1} titulo="Fecha límite" delay={100}>
-          <div className="zr-card p-5">
-            <p className="text-sm text-zr-text">
-              {tarea.due_at
-                ? new Date(tarea.due_at).toLocaleString('es-VE', { dateStyle: 'long', timeStyle: 'short' })
-                : 'Sin fecha límite'}
-            </p>
-            {vencida && (
-              <p className="mt-2">
-                <Etiqueta tono="aviso">Ya pasó la fecha — tu primera entrega se acepta tardía; no podrás reemplazarla.</Etiqueta>
-              </p>
-            )}
-          </div>
-        </Seccion>
+        {/* Fecha límite tejida sin cuadro: un rótulo y el dato. */}
+        <div className="flex items-center gap-2 text-sm">
+          <IconoReloj size={16} className="shrink-0 text-zr-text-muted" />
+          <span className="text-zr-text-muted">Fecha límite:</span>
+          <span className="font-semibold text-zr-text">
+            {tarea.due_at
+              ? new Date(tarea.due_at).toLocaleString('es-VE', { dateStyle: 'long', timeStyle: 'short' })
+              : 'sin fecha'}
+          </span>
+        </div>
+        {vencida && (
+          <Etiqueta tono="aviso">Ya pasó la fecha — tu primera entrega se acepta tardía; no podrás reemplazarla.</Etiqueta>
+        )}
 
         <Regla delay={140} />
 
-        <Seccion numero={2} titulo={ultima ? 'Reemplazar entrega' : 'Entregar'} delay={180}>
+        <Seccion numero={1} titulo={ultima ? 'Reemplazar entrega' : 'Entregar'} delay={180}>
           <input
             ref={inputRef}
             type="file"
             accept="application/pdf"
             className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) subirPDF(f) }}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) elegirArchivo(f) }}
           />
-          <button
-            onClick={() => inputRef.current?.click()}
-            disabled={subiendo}
-            className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-50"
-          >
-            {subiendo ? 'Subiendo…' : ultima ? 'Subir otra versión (PDF)' : 'Subir mi tarea (PDF)'}
-          </button>
+
+          {archivoSel ? (
+            // Paso de confirmación: se ve qué archivo se va a entregar.
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 rounded-xl border border-zr-blue/30 bg-zr-blue/10 px-4 py-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zr-blue/15 text-zr-blue-mid">
+                  <IconoDocumento size={20} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold text-zr-text">{archivoSel.name}</span>
+                  <span className="text-xs text-zr-text-muted">{(archivoSel.size / (1024 * 1024)).toFixed(2)} MB · PDF</span>
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => subirPDF(archivoSel)}
+                  disabled={subiendo}
+                  className="flex min-h-14 flex-1 items-center justify-center gap-2 rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-50"
+                >
+                  <IconoCheck size={18} />
+                  {subiendo ? 'Enviando…' : 'Confirmar entrega'}
+                </button>
+                <button
+                  onClick={() => { setArchivoSel(null); inputRef.current?.click() }}
+                  disabled={subiendo}
+                  className="min-h-14 rounded-lg border border-zr-border px-5 text-sm font-semibold text-zr-text disabled:opacity-50"
+                >
+                  Elegir otro
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => inputRef.current?.click()}
+              className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg bg-zr-blue text-base font-bold text-white"
+            >
+              <IconoDocumento size={18} />
+              {ultima ? 'Elegir otra versión (PDF)' : 'Elegir mi tarea (PDF)'}
+            </button>
+          )}
+
           {error && (
             <p className="mt-3 rounded-lg border border-zr-error/30 bg-zr-error/10 px-4 py-3 text-sm text-zr-error">
               {error}
@@ -165,11 +231,11 @@ export default function TareaDeUnidad() {
         {entregas.length > 0 && (
           <>
             <Regla delay={220} />
-            <Seccion numero={3} titulo="Tus entregas" delay={260}>
-              <div className="space-y-3">
+            <Seccion numero={2} titulo="Tus entregas" delay={260}>
+              <div className="divide-y divide-zr-border/60">
                 {entregas.map((e) => (
-                  <div key={e.id} className="zr-card p-5">
-                    <div className="flex items-center justify-between">
+                  <div key={e.id} className="space-y-2 py-4 first:pt-0">
+                    <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-bold text-zr-text">Versión {e.version}</p>
                       {e.grade !== null ? (
                         <Etiqueta tono="exito">Calificada: {e.grade}</Etiqueta>
@@ -177,11 +243,20 @@ export default function TareaDeUnidad() {
                         <Etiqueta tono="info">Entregada</Etiqueta>
                       )}
                     </div>
-                    <p className="mt-1 text-xs text-zr-text-muted">
-                      {new Date(e.submitted_at).toLocaleString('es-VE', { dateStyle: 'medium', timeStyle: 'short' })}
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-xs text-zr-text-muted">
+                        {new Date(e.submitted_at).toLocaleString('es-VE', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </p>
+                      <button
+                        onClick={() => verPDF(e.file_path, e.id)}
+                        disabled={viendo === e.id}
+                        className="text-xs font-bold text-zr-blue-mid disabled:opacity-50"
+                      >
+                        {viendo === e.id ? '…' : 'Ver mi PDF'}
+                      </button>
+                    </div>
                     {e.feedback && (
-                      <p className="mt-3 rounded-lg border border-zr-border bg-zr-bg px-4 py-3 text-sm text-zr-text">
+                      <p className="rounded-lg border border-zr-border bg-zr-bg px-4 py-3 text-sm text-zr-text">
                         {e.feedback}
                       </p>
                     )}

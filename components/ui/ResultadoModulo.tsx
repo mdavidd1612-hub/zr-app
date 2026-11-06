@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 /**
@@ -9,6 +10,11 @@ import { createClient } from '@/lib/supabase/client'
  * estudiante ve una vez un mensaje con un check (aprobó) o una X (reprobó) y
  * su nota. La nota y el resultado los calcula la base (mis_notas_modulos).
  * Se recuerda en este teléfono para no repetirlo; si la nota cambia, vuelve a salir.
+ *
+ * Solo aparece en Inicio (/). Antes vivía en el layout y se mostraba encima de
+ * CUALQUIER pantalla — entrar directo a Unidades/Calendario/Dudas chocaba con
+ * un muro a pantalla completa (reporte del coordinador, nov 2026). En Inicio se
+ * celebra una vez y no estorba el resto del recorrido.
  */
 
 // Confeti: piezas de colores que caen una sola vez (CSS puro, sin librerías).
@@ -58,9 +64,12 @@ function marcarVisto(clave: string) {
 }
 
 export function ResultadoModulo() {
+  const pathname = usePathname()
   const [cola, setCola] = useState<Resultado[]>([])
 
   useEffect(() => {
+    // Solo en Inicio: no asaltar al estudiante cuando entra directo al aula.
+    if (pathname !== '/') return
     let vigente = true
     async function cargar() {
       const supabase = createClient()
@@ -82,10 +91,10 @@ export function ResultadoModulo() {
     }
     cargar()
     return () => { vigente = false }
-  }, [])
+  }, [pathname])
 
   const actual = cola[0]
-  if (!actual) return null
+  if (pathname !== '/' || !actual) return null
 
   const cifra = actual.nota.toFixed(2)
 

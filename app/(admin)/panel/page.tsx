@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, SeccionColegable, Regla, Dato } from '@/components/ui/Editorial'
-import { IconoEstudiantes, IconoNotas, IconoPanel, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoCalificar } from '@/components/ui/Iconos'
+import { IconoEstudiantes, IconoNotas, IconoPanel, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoCalificar, IconoVideo } from '@/components/ui/Iconos'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { leerSimulacionSabado } from '@/lib/demo-sabado'
 import { activarVistaRecorrido, type VistaRecorrido } from '@/lib/vista-recorrido'
@@ -55,8 +55,12 @@ const ACCESOS = [
 // Dirección Académica/super_admin) — ese flujo de solicitud nunca se llegó
 // a construir del lado del estudiante y quedaba como un enlace muerto.
 const ACCESOS_DIRECCION = [
+  // "Unidades" (Aula Virtual) es el centro del día a día académico — va de
+  // primero. "Material" baja a explorador tipo Classroom (pedido del
+  // coordinador, nov 2026).
+  { href: '/unidades-docente',     titulo: 'Unidades',                sub: 'Aula Virtual: material, exámenes y tareas por unidad', Icono: IconoVideo },
   { href: '/personal',             titulo: 'Personal',                sub: 'Profesores y administradores',      Icono: IconoPersonal },
-  { href: '/material',             titulo: 'Material',                sub: 'Subir por programa',                Icono: IconoDocumento },
+  { href: '/material',             titulo: 'Material',                sub: 'Explorador de archivos por programa', Icono: IconoDocumento },
   { href: '/notas-academicas',     titulo: 'Notas',                   sub: 'Calificaciones de cualquier programa', Icono: IconoNotas },
   { href: '/examenes-academicos',  titulo: 'Exámenes',                sub: 'Supervisar evaluaciones',           Icono: IconoExamen },
 ]

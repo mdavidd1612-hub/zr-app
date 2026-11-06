@@ -13,6 +13,7 @@ import {
 } from '@/lib/material'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { ContextoDocente, AvisoModuloBloqueado, moduloVigente, type ContextoSel } from '@/components/ui/ContextoDocente'
+import { IconoCerrar, IconoDescargar, IconoChevron, IconoDocumento } from '@/components/ui/Iconos'
 
 /**
  * T-401 · Subida de material de estudio por el profesor.
@@ -267,9 +268,10 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
         accion={!moduloVigente(ctx.estado) ? undefined : (
           <button
             onClick={() => setFormAbierto((f) => !f)}
-            className="rounded-lg bg-zr-blue px-5 py-3.5 text-sm font-bold text-white"
+            className="inline-flex items-center gap-2 rounded-full bg-zr-blue px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-zr-blue-deep"
           >
-            {formAbierto ? 'Cancelar' : '+ Subir archivo'}
+            {formAbierto ? <IconoCerrar size={16} /> : <IconoDescargar size={16} className="rotate-180" />}
+            {formAbierto ? 'Cancelar' : 'Subir archivo'}
           </button>
         )}
       />
@@ -281,10 +283,16 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
           -- ya tenía 6 secciones. */}
       <Link
         href="/unidades-docente"
-        className="flex min-h-14 items-center justify-between rounded-lg border border-zr-border bg-zr-surface px-5 text-base font-bold text-zr-text"
+        className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-zr-blue-deep to-zr-blue px-5 py-4 text-white transition-all hover:shadow-lg hover:shadow-zr-blue/25"
       >
-        Organizar en unidades (Aula Virtual)
-        <span aria-hidden className="text-zr-text-muted">›</span>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
+          <IconoDocumento size={20} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-base font-bold">Organizar en unidades</span>
+          <span className="mt-0.5 block text-xs text-white/70">Arma el Aula Virtual con este material, exámenes y tareas</span>
+        </span>
+        <IconoChevron size={18} className="shrink-0 -rotate-90 text-white/80" />
       </Link>
 
       <Regla delay={60} />
@@ -316,7 +324,7 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
               aria-label="Cerrar"
               className="flex h-9 w-9 items-center justify-center rounded-full border border-zr-border text-zr-text-muted disabled:opacity-40"
             >
-              ✕
+              <IconoCerrar size={16} />
             </button>
           </div>
           <div>
@@ -380,17 +388,20 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
       )}
 
       {materiales.length === 0 ? (
-        <div className="zr-card p-8 text-center">
-          <p className="text-base font-semibold text-zr-text">Todavía no has subido material</p>
-          <p className="mt-2 text-sm text-zr-text-muted">
+        <div className="flex flex-col items-center gap-3 py-12 text-center">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-zr-blue/12 text-zr-blue-mid">
+            <IconoDocumento size={26} />
+          </span>
+          <p className="text-base font-bold text-zr-text">Todavía no has subido material</p>
+          <p className="max-w-xs text-sm text-zr-text-muted">
             Sube guías en PDF o PowerPoint para que tus estudiantes las consulten antes de cada clase.
           </p>
         </div>
       ) : (
         <Seccion numero={1} titulo="Archivos" delay={120}>
-          <div className="space-y-3">
+          <div className="divide-y divide-zr-border/60">
             {materiales.map((m) => (
-              <div key={m.id} className="zr-card space-y-3 p-5">
+              <div key={m.id} className="space-y-3 py-4 first:pt-0">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                   <div className="min-w-0">
                     <div className="mb-1"><EtiquetaTipoArchivo tipo={m.tipo} nombre={m.rutaStorage} /></div>

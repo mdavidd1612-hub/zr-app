@@ -81,6 +81,14 @@ export default function UnidadDocenteDetalle() {
   const [textoCuerpo, setTextoCuerpo] = useState('')
   const [creandoTexto, setCreandoTexto] = useState(false)
 
+  // Editar un bloque de texto ya creado (pedido explícito del coordinador,
+  // nov 2026): antes solo se podía "Quitar", no corregir un título o un
+  // párrafo que se escribió mal.
+  const [editandoTextoId, setEditandoTextoId] = useState<string | null>(null)
+  const [editTextoTitulo, setEditTextoTitulo] = useState('')
+  const [editTextoCuerpo, setEditTextoCuerpo] = useState('')
+  const [guardandoEdicionTexto, setGuardandoEdicionTexto] = useState(false)
+
   async function cargar() {
     const supabase = createClient()
     const { data: unidad } = await supabase
@@ -287,6 +295,30 @@ export default function UnidadDocenteDetalle() {
     await cargar()
   }
 
+  function empezarEdicionTexto(item: Item) {
+    setEditandoTextoId(item.id)
+    setEditTextoTitulo(item.titulo)
+    setEditTextoCuerpo(item.cuerpoTexto ?? '')
+    setError(null)
+  }
+
+  async function guardarEdicionTexto(item: Item) {
+    if (!editTextoTitulo.trim() || !editTextoCuerpo.trim() || !item.contentItemId) return
+    setGuardandoEdicionTexto(true)
+    setError(null)
+    const supabase = createClient()
+    const { error: err } = await supabase
+      .from('content_items')
+      .update({ title: editTextoTitulo.trim(), description: editTextoCuerpo.trim() })
+      .eq('id', item.contentItemId)
+    if (err) setError(err.message)
+    else {
+      setEditandoTextoId(null)
+      await cargar()
+    }
+    setGuardandoEdicionTexto(false)
+  }
+
   async function asociarMiniChequeo(contentItemId: string, examId: string) {
     setAsignandoChequeo(contentItemId)
     setError(null)
@@ -356,9 +388,9 @@ export default function UnidadDocenteDetalle() {
               {items.map((item) => {
                 if (item.esTexto) {
                   return (
-                    <div key={item.id} className="zr-card space-y-2 p-5">
+                    <div key={item.id} className="space-y-2 rounded-r-lg border-l-4 border-zr-blue bg-zr-blue/[0.06] py-4 pl-4 pr-5">
                       <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
-                      <p className="whitespace-pre-wrap break-words text-sm text-zr-text-muted">{item.cuerpoTexto}</p>
+                      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zr-text-muted">{item.cuerpoTexto}</p>
                     </div>
                   )
                 }
@@ -380,6 +412,14 @@ export default function UnidadDocenteDetalle() {
                         className="shrink-0 text-xs font-bold text-zr-blue-mid"
                       >
                         Ver entregas ›
+                      </button>
+                    )}
+                    {item.type === 'dudas' && (
+                      <button
+                        onClick={() => router.push(`/dudas-docente?unidad=${unitId}`)}
+                        className="shrink-0 text-xs font-bold text-zr-blue-mid"
+                      >
+                        Ver dudas ›
                       </button>
                     )}
                   </div>
@@ -460,13 +500,50 @@ export default function UnidadDocenteDetalle() {
         <div className="space-y-3">
           {items.map((item) => {
             if (item.esTexto) {
+              if (editandoTextoId === item.id) {
+                return (
+                  <div key={item.id} className="zr-card space-y-3 p-5">
+                    <input
+                      value={editTextoTitulo}
+                      onChange={(e) => setEditTextoTitulo(e.target.value)}
+                      className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm font-bold text-zr-text outline-none focus:border-zr-blue"
+                    />
+                    <textarea
+                      value={editTextoCuerpo}
+                      onChange={(e) => setEditTextoCuerpo(e.target.value)}
+                      rows={4}
+                      className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3 text-sm text-zr-text outline-none focus:border-zr-blue"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setEditandoTextoId(null)}
+                        className="min-h-11 flex-1 rounded-lg border border-zr-border text-sm font-semibold text-zr-text"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={() => guardarEdicionTexto(item)}
+                        disabled={!editTextoTitulo.trim() || !editTextoCuerpo.trim() || guardandoEdicionTexto}
+                        className="min-h-11 flex-1 rounded-lg bg-zr-blue text-sm font-bold text-white disabled:opacity-40"
+                      >
+                        {guardandoEdicionTexto ? 'Guardando…' : 'Guardar'}
+                      </button>
+                    </div>
+                  </div>
+                )
+              }
               return (
-                <div key={item.id} className="zr-card space-y-2 p-5">
+                <div key={item.id} className="space-y-2 rounded-r-lg border-l-4 border-zr-blue bg-zr-blue/[0.06] py-4 pl-4 pr-5">
                   <div className="flex items-start justify-between gap-3">
                     <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
-                    <button onClick={() => quitarItem(item.id)} className="shrink-0 text-xs font-bold text-zr-error">
-                      Quitar
-                    </button>
+                    <div className="flex shrink-0 gap-3">
+                      <button onClick={() => empezarEdicionTexto(item)} className="text-xs font-bold text-zr-blue-mid">
+                        Editar
+                      </button>
+                      <button onClick={() => quitarItem(item.id)} className="text-xs font-bold text-zr-error">
+                        Quitar
+                      </button>
+                    </div>
                   </div>
                   <p className="whitespace-pre-wrap break-words text-sm text-zr-text-muted">{item.cuerpoTexto}</p>
                 </div>
@@ -497,6 +574,14 @@ export default function UnidadDocenteDetalle() {
                         className="mt-1 text-xs font-bold text-zr-blue-mid"
                       >
                         Ver entregas y calificar ›
+                      </button>
+                    )}
+                    {item.type === 'dudas' && (
+                      <button
+                        onClick={() => router.push(`/dudas-docente?unidad=${unitId}`)}
+                        className="mt-1 text-xs font-bold text-zr-blue-mid"
+                      >
+                        Ver y responder dudas ›
                       </button>
                     )}
                   </div>

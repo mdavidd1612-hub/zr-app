@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
@@ -30,12 +30,13 @@ interface RespuestaUnidad {
 interface DudaUnidad {
   id: string
   body: string
+  unitId: string
   unitTitle: string
   isFaq: boolean
   respuestas: RespuestaUnidad[]
 }
 
-function DudasInterno({ ctx }: { ctx: ContextoSel }) {
+function DudasInterno({ ctx, unidadFiltro }: { ctx: ContextoSel; unidadFiltro: string | null }) {
   const router = useRouter()
   const [dudas, setDudas] = useState<Duda[]>([])
   const [digest, setDigest] = useState<string[]>([])
@@ -67,6 +68,7 @@ function DudasInterno({ ctx }: { ctx: ContextoSel }) {
     setDudasUnidad(
       (data ?? []).map((d) => ({
         id: d.id, body: d.body, isFaq: d.is_faq,
+        unitId: d.unit_id as string,
         unitTitle: nombreUnidad.get(d.unit_id as string) ?? '',
         respuestas: ((d.doubt_responses ?? []) as unknown as Array<{ id: string; body: string; is_official: boolean }>)
           .map((r) => ({ id: r.id, body: r.body, isOfficial: r.is_official })),
@@ -156,64 +158,85 @@ function DudasInterno({ ctx }: { ctx: ContextoSel }) {
     )
   }
 
+  // Pedido explícito del coordinador (nov 2026): "Dudas de esta unidad" desde
+  // la pantalla de la unidad tiene que traer directo aquí, ya filtrado -- no
+  // al listado completo del módulo para que el profesor busque.
+  const dudasUnidadMostradas = unidadFiltro ? dudasUnidad.filter((d) => d.unitId === unidadFiltro) : dudasUnidad
+  const tituloUnidadFiltro = unidadFiltro ? dudasUnidad.find((d) => d.unitId === unidadFiltro)?.unitTitle : null
+
   return (
     <div className="space-y-11 px-5 pt-8">
       <Encabezado sobretitulo="Panel del profesor" titulo="Dudas" descripcion={`${ctx.cohorteNombre}${ctx.sede ? ` · ${ctx.sede}` : ''} · Módulo ${ctx.moduloOrden} — insumo para la clínica del sábado.`} />
 
-      <Regla delay={60} />
+      {unidadFiltro && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-zr-blue/30 bg-zr-blue/10 px-4 py-3">
+          <p className="text-sm text-zr-text">
+            Mostrando solo las dudas de <span className="font-bold">{tituloUnidadFiltro ?? 'esta unidad'}</span>
+          </p>
+          <button onClick={() => router.push('/dudas-docente')} className="shrink-0 text-xs font-bold text-zr-blue-mid">
+            Ver todas
+          </button>
+        </div>
+      )}
 
-      <Seccion numero={1} titulo="Dudas de la semana" delay={120}>
-        {digest.length === 0 ? (
-          <div className="zr-card space-y-4 p-6">
-            <p className="text-sm text-zr-text-muted">
-              Agrupa las {dudas.length} dudas de la semana en 3 preguntas generales, con IA.
-            </p>
-            {errorDigest && <p className="text-sm font-medium text-zr-error">{errorDigest}</p>}
-            <button
-              onClick={pedirResumen}
-              disabled={cargandoDigest || dudas.length < 3}
-              className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-40"
-            >
-              {cargandoDigest ? 'Generando…' : 'Generar resumen'}
-            </button>
-          </div>
-        ) : (
-          <div className="rounded-xl bg-gradient-to-br from-zr-blue-deep to-zr-blue p-6 text-white">
-            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">
-              De {dudas.length} dudas, estas cubren la mayoría
-            </p>
-            <ol className="list-decimal space-y-3 pl-5">
-              {digest.map((d, i) => (
-                <li key={i} className="text-sm leading-relaxed">{d}</li>
-              ))}
-            </ol>
-          </div>
-        )}
-      </Seccion>
+      {!unidadFiltro && (
+        <>
+          <Regla delay={60} />
 
-      <Seccion numero={2} titulo="Tal cual las escribieron" delay={200}>
-        {dudas.length === 0 ? (
-          <p className="text-sm text-zr-text-muted">Todavía no hay dudas esta semana.</p>
-        ) : (
-          <div className="space-y-3">
-            {dudas.map((d) => (
-              <div key={d.id} className="zr-card p-4">
-                <p className="text-sm leading-relaxed text-zr-text">{d.body}</p>
-                <p className="mt-2 text-xs text-zr-text-muted">
-                  {new Date(d.createdAt).toLocaleDateString('es-VE', { day: 'numeric', month: 'short' })}
+          <Seccion numero={1} titulo="Dudas de la semana" delay={120}>
+            {digest.length === 0 ? (
+              <div className="zr-card space-y-4 p-6">
+                <p className="text-sm text-zr-text-muted">
+                  Agrupa las {dudas.length} dudas de la semana en 3 preguntas generales, con IA.
                 </p>
+                {errorDigest && <p className="text-sm font-medium text-zr-error">{errorDigest}</p>}
+                <button
+                  onClick={pedirResumen}
+                  disabled={cargandoDigest || dudas.length < 3}
+                  className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-40"
+                >
+                  {cargandoDigest ? 'Generando…' : 'Generar resumen'}
+                </button>
               </div>
-            ))}
-          </div>
-        )}
-      </Seccion>
+            ) : (
+              <div className="rounded-xl bg-gradient-to-br from-zr-blue-deep to-zr-blue p-6 text-white">
+                <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">
+                  De {dudas.length} dudas, estas cubren la mayoría
+                </p>
+                <ol className="list-decimal space-y-3 pl-5">
+                  {digest.map((d, i) => (
+                    <li key={i} className="text-sm leading-relaxed">{d}</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+          </Seccion>
 
-      {dudasUnidad.length > 0 && (
+          <Seccion numero={2} titulo="Tal cual las escribieron" delay={200}>
+            {dudas.length === 0 ? (
+              <p className="text-sm text-zr-text-muted">Todavía no hay dudas esta semana.</p>
+            ) : (
+              <div className="space-y-3">
+                {dudas.map((d) => (
+                  <div key={d.id} className="zr-card p-4">
+                    <p className="text-sm leading-relaxed text-zr-text">{d.body}</p>
+                    <p className="mt-2 text-xs text-zr-text-muted">
+                      {new Date(d.createdAt).toLocaleDateString('es-VE', { day: 'numeric', month: 'short' })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Seccion>
+        </>
+      )}
+
+      {dudasUnidadMostradas.length > 0 ? (
         <>
           <Regla delay={240} />
           <Seccion numero={3} titulo="Dudas de Aula Virtual (por unidad)" delay={280}>
             <div className="space-y-3">
-              {dudasUnidad.map((d) => (
+              {dudasUnidadMostradas.map((d) => (
                 <div key={d.id} className="zr-card space-y-3 p-4">
                   <p className="text-xs font-bold uppercase tracking-wider text-zr-blue-mid">{d.unitTitle}</p>
                   <p className="text-sm leading-relaxed text-zr-text">{d.body}</p>
@@ -251,15 +274,27 @@ function DudasInterno({ ctx }: { ctx: ContextoSel }) {
             </div>
           </Seccion>
         </>
-      )}
+      ) : unidadFiltro ? (
+        <p className="text-sm text-zr-text-muted">Todavía no hay dudas en esta unidad.</p>
+      ) : null}
     </div>
+  )
+}
+
+function DudasDocenteInterno() {
+  const searchParams = useSearchParams()
+  const unidadFiltro = searchParams.get('unidad')
+  return (
+    <ContextoDocente sobretitulo="Panel del profesor" titulo="Dudas">
+      {(ctx) => <DudasInterno ctx={ctx} unidadFiltro={unidadFiltro} />}
+    </ContextoDocente>
   )
 }
 
 export default function DudasDocente() {
   return (
-    <ContextoDocente sobretitulo="Panel del profesor" titulo="Dudas">
-      {(ctx) => <DudasInterno ctx={ctx} />}
-    </ContextoDocente>
+    <Suspense fallback={<PantallaEsqueleto />}>
+      <DudasDocenteInterno />
+    </Suspense>
   )
 }

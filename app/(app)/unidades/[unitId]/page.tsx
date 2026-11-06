@@ -248,13 +248,17 @@ export default function UnidadDetalle() {
                 // muestra completo aquí mismo -- no tiene sentido llevarlo a
                 // un visor aparte para mostrar un párrafo.
                 if (item.esTexto) {
+                  // Pedido explícito del coordinador (nov 2026): un bloque de
+                  // texto no debe verse "como un cuadro más" -- se saca del
+                  // patrón de tarjeta-de-archivo (icono + caja) y se trata
+                  // como una nota editorial: borde de acento, sin icono.
                   return (
-                    <div key={item.id} className="zr-card space-y-2 p-5">
+                    <div key={item.id} className="space-y-2 rounded-r-lg border-l-4 border-zr-blue bg-zr-blue/[0.06] py-4 pl-4 pr-5">
                       <div className="flex items-center gap-2">
                         <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
                         {item.required && <Etiqueta tono="aviso">Obligatorio</Etiqueta>}
                       </div>
-                      <p className="whitespace-pre-wrap break-words text-sm text-zr-text-muted">{item.cuerpoTexto}</p>
+                      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zr-text-muted">{item.cuerpoTexto}</p>
                     </div>
                   )
                 }

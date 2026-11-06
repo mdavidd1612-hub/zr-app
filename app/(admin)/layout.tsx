@@ -11,7 +11,7 @@ import { Tour } from '@/components/ui/Tour'
 import { useTour } from '@/lib/useTour'
 import { rolDeTour, PASOS_POR_ROL, SIN_PASOS_DE_TOUR } from '@/lib/tour-pasos'
 import {
-  IconoPanel, IconoEstudiantes, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoProgreso, IconoDuda, IconoCalificar,
+  IconoPanel, IconoEstudiantes, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoProgreso, IconoDuda, IconoCalificar, IconoVideo,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -24,11 +24,6 @@ import type { UserRole } from '@/lib/types'
 // esta pantalla solo quedaba mostrando una cola y un aviso de bloqueo que ya
 // no era cierto.
 //
-// "Material" (pedido explícito del coordinador, sept. 2026): se quita de la
-// barra y del menú de administración normal -- queda exclusivo de Dirección
-// Académica y super_admin (`NAV_DIRECCION`, más abajo). El propio /material
-// además redirige a quien no sea de esos dos roles, por si entra por URL
-// directa.
 const NAV: ItemBarra[] = [
   { href: '/panel',        label: 'Panel',      Icono: IconoPanel },
   { href: '/asistencias',  label: 'Asistencia', Icono: IconoCalendario },
@@ -36,9 +31,21 @@ const NAV: ItemBarra[] = [
   { href: '/perfil-admin', label: 'Perfil',     Icono: IconoPerfil },
 ]
 
+// "Material" (pedido explícito del coordinador, sept. 2026): exclusivo de
+// Dirección Académica y super_admin. El propio /material redirige a quien no
+// sea de esos dos roles, por si entra por URL directa.
+//
+// Pedido explícito del coordinador (nov 2026): en el día a día de Dirección
+// Académica el primer botón NO puede seguir siendo "Material" -- es Aula
+// Virtual (/unidades-docente) la que centraliza todo desde la reunión del
+// 31-oct (§8.2 de docs/26_...), y hoy Dirección solo llegaba ahí por un
+// atajo escondido dentro de Material. "Unidades" pasa a ser el primero;
+// Material sigue existiendo (es el explorador tipo Classroom, no se quita),
+// pero baja al menú completo, grupo "Dirección académica".
+const UNIDADES: ItemBarra = { href: '/unidades-docente', label: 'Unidades', Icono: IconoVideo }
 const MATERIAL: ItemBarra = { href: '/material', label: 'Material', Icono: IconoDocumento }
 
-const NAV_DIRECCION: ItemBarra[] = [NAV[0], NAV[1], NAV[2], MATERIAL, NAV[3]]
+const NAV_DIRECCION: ItemBarra[] = [NAV[0], NAV[1], UNIDADES, NAV[2], NAV[3]]
 
 // Reportes se retira del menú (código intacto, se retoma en la fase
 // siguiente — mismo criterio que Exámenes/Notas/Progreso en Fase 0
@@ -79,13 +86,14 @@ const TODAS: ItemBarra[] = [
 ]
 
 // Dirección Académica: profesores, notas de cualquier cohorte, exámenes,
-// Material (exclusivo de estos dos roles y super_admin) — pero no
-// Configuración (exclusiva de super_admin).
+// Aula Virtual/Material (exclusivo de estos dos roles y super_admin) — pero
+// no Configuración (exclusiva de super_admin).
 const TODAS_DIRECCION: ItemBarra[] = [
   TODAS[0], TODAS[1], TODAS[2],
-  { ...MATERIAL, grupo: 'Clase de hoy' },
+  { ...UNIDADES, grupo: 'Clase de hoy' },
   TODAS[3], TODAS[4],
   { href: '/personal',             label: 'Personal',     Icono: IconoPersonal, grupo: 'Dirección académica' },
+  { ...MATERIAL, grupo: 'Dirección académica' },
   // Pedido explícito del coordinador (4-nov-2026, chequeo multi-programa):
   // abrir un programa (cohorte) nuevo de PTMA/PFTA no puede depender solo de
   // que haya un vendedor disponible -- Dirección Académica y super_admin
@@ -108,9 +116,10 @@ const TODAS_DIRECCION: ItemBarra[] = [
 
 const TODAS_SUPER: ItemBarra[] = [
   TODAS[0], TODAS[1], TODAS[2],
-  { ...MATERIAL, grupo: 'Clase de hoy' },
+  { ...UNIDADES, grupo: 'Clase de hoy' },
   TODAS[3], TODAS[4],
   { href: '/personal',             label: 'Personal',      Icono: IconoPersonal, grupo: 'Dirección académica' },
+  { ...MATERIAL, grupo: 'Dirección académica' },
   // Mismo pedido que en TODAS_DIRECCION (ver comentario ahí): super_admin
   // también necesita poder abrir un programa nuevo sin depender de ventas.
   { href: '/cohortes',             label: 'Programas',     Icono: IconoProgreso, grupo: 'Dirección académica' },

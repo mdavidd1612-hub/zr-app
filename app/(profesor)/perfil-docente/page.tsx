@@ -10,6 +10,7 @@ import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
 import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
 import { BotonComoUsarApp } from '@/components/ui/BotonComoUsarApp'
+import { FotoPerfil } from '@/components/ui/FotoPerfil'
 import { leerSimulacionSabado, guardarSimulacionSabado } from '@/lib/demo-sabado'
 import { leerVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
@@ -22,10 +23,12 @@ import type { UserRole } from '@/lib/types'
  */
 
 interface Perfil {
+  uid: string
   nombre: string
   cedula: string
   rol: UserRole
   correo: string | null
+  avatarPath: string | null
 }
 
 interface Cohorte {
@@ -56,16 +59,18 @@ export default function PerfilDocente() {
 
       const { data: p } = await supabase
         .from('profiles')
-        .select('full_name, cedula, role, contact_email')
+        .select('full_name, cedula, role, contact_email, avatar_url')
         .eq('id', user.id)
         .single()
 
       if (p) {
         setPerfil({
+          uid: user.id,
           nombre: p.full_name,
           cedula: p.cedula,
           rol: p.role as UserRole,
           correo: p.contact_email,
+          avatarPath: p.avatar_url,
         })
       }
 
@@ -179,6 +184,7 @@ export default function PerfilDocente() {
       </Seccion>
 
       <Seccion numero={4} titulo="Cuenta" delay={220}>
+        <FotoPerfil uid={perfil.uid} rutaInicial={perfil.avatarPath} />
         <BloqueCuenta
           nombre={perfil.nombre}
           cedula={perfil.cedula}

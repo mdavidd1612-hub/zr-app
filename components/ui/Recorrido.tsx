@@ -51,11 +51,13 @@ interface PasoProps {
   delay?: number
   /** Contenido extra bajo el título, a todo lo ancho (texto, una barra…). */
   children?: React.ReactNode
+  /** Id del elemento `<li>` — para anclar un tour guiado a un paso concreto. */
+  id?: string
 }
 
 /** Un paso del recorrido: su nodo sobre la espina y su contenido al lado. */
 export function Paso({
-  estado, eyebrow, titulo, meta, icono: Icono, indice, href, ultimo = false, delay = 0, children,
+  estado, eyebrow, titulo, meta, icono: Icono, indice, href, ultimo = false, delay = 0, children, id,
 }: PasoProps) {
   const navega = !!href && estado !== 'bloqueado'
   const atenuado = estado === 'bloqueado'
@@ -118,7 +120,7 @@ export function Paso({
 
   if (navega) {
     return (
-      <li className="animate-fade-in" style={estilo}>
+      <li id={id} className="animate-fade-in" style={estilo}>
         <Link href={href!} className={claseBase}>
           {cuerpo}
         </Link>
@@ -127,7 +129,7 @@ export function Paso({
   }
 
   return (
-    <li className={`animate-fade-in ${claseBase}`} style={estilo}>
+    <li id={id} className={`animate-fade-in ${claseBase}`} style={estilo}>
       {cuerpo}
     </li>
   )

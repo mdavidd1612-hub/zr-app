@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Encabezado, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
-import { IconoChevron } from '@/components/ui/Iconos'
+import { IconoChevron, IconoCalendario } from '@/components/ui/Iconos'
 
 /**
  * Aula Virtual — calendario de unidades, exámenes y tareas del módulo del
@@ -34,6 +34,15 @@ const ETIQUETA_TIPO: Record<Evento['source_type'], { texto: string; tono: 'exito
   unit_close: { texto: 'Se cierra', tono: 'neutro' },
   exam: { texto: 'Examen', tono: 'aviso' },
   assignment: { texto: 'Tarea', tono: 'info' },
+}
+
+// Punto de color por tipo: el mismo lenguaje de estado del resto del aula,
+// para que la agenda se lea de un vistazo sin encerrar cada fecha en un cuadro.
+const PUNTO_TIPO: Record<Evento['source_type'], string> = {
+  unit_open: 'bg-zr-success',
+  unit_close: 'bg-zr-text-muted',
+  exam: 'bg-zr-warning',
+  assignment: 'bg-zr-blue',
 }
 
 export default function Calendario() {
@@ -120,8 +129,9 @@ export default function Calendario() {
             <button
               onClick={exportarICal}
               disabled={exportando}
-              className="rounded-lg border border-zr-border px-4 py-2.5 text-xs font-bold text-zr-text disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-full border border-zr-border px-4 py-2.5 text-xs font-bold text-zr-text transition-colors hover:border-zr-blue/40 disabled:opacity-50"
             >
+              <IconoCalendario size={16} />
               {exportando ? 'Generando…' : 'Agregar a mi calendario'}
             </button>
           }
@@ -133,33 +143,34 @@ export default function Calendario() {
           {eventos.length === 0 ? (
             <p className="text-sm text-zr-text-muted">Todavía no hay fechas programadas.</p>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-7">
               {Array.from(porFecha.entries()).map(([dia, lista]) => (
                 <div key={dia}>
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-zr-text-muted">{dia}</p>
-                  <div className="space-y-2">
+                  <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-zr-blue-mid">
+                    {dia.charAt(0).toUpperCase() + dia.slice(1)}
+                  </p>
+                  <div className="divide-y divide-zr-border/60">
                     {lista.map((e) => {
                       const et = ETIQUETA_TIPO[e.source_type]
                       const href = hrefDe(e)
                       const contenido = (
                         <>
-                          <p className="min-w-0 truncate text-sm font-semibold text-zr-text">{e.title}</p>
-                          <div className="flex shrink-0 items-center gap-2">
-                            <Etiqueta tono={et.tono}>{et.texto}</Etiqueta>
-                            {href && <IconoChevron size={16} className="text-zr-text-muted" />}
-                          </div>
+                          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${PUNTO_TIPO[e.source_type]}`} />
+                          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-zr-text">{e.title}</span>
+                          <Etiqueta tono={et.tono}>{et.texto}</Etiqueta>
+                          {href && <IconoChevron size={16} className="shrink-0 -rotate-90 text-zr-text-muted" />}
                         </>
                       )
                       return href ? (
                         <button
                           key={e.id}
                           onClick={() => router.push(href)}
-                          className="zr-card zr-card-interactive flex w-full items-center justify-between gap-3 p-4 text-left"
+                          className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-zr-surface/60"
                         >
                           {contenido}
                         </button>
                       ) : (
-                        <div key={e.id} className="zr-card flex items-center justify-between gap-3 p-4">
+                        <div key={e.id} className="flex items-center gap-3 px-0 py-3">
                           {contenido}
                         </div>
                       )

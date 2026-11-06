@@ -6,11 +6,12 @@ import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Encabezado, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+import { IconoDescargar } from '@/components/ui/Iconos'
 
 /**
  * Aula Virtual — el profesor ve la entrega más reciente de cada estudiante
  * (v_assignment_status, migración 178) y la califica. Descarga individual
- * vía URL firmada del bucket privado 'tareas'.
+ * vía URL firmada del bucket privado 'tareas', o todas en un ZIP (G-7).
  */
 
 interface Fila {
@@ -41,6 +42,7 @@ export default function CalificarTarea() {
   const [cargando, setCargando] = useState(true)
   const [notas, setNotas] = useState<Record<string, string>>({})
   const [guardandoId, setGuardandoId] = useState<string | null>(null)
+  const [descargandoZip, setDescargandoZip] = useState(false)
 
   async function cargar() {
     const supabase = createClient()
@@ -65,6 +67,46 @@ export default function CalificarTarea() {
     if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
   }
 
+  // G-7 (spec §8): descargar TODAS las entregas en un ZIP. Se arma en el
+  // navegador — cada PDF se baja con su URL firmada del bucket privado y se
+  // empaqueta con JSZip, nombrado "cédula nombre.pdf" para que el profesor
+  // no tenga que abrir una por una.
+  async function descargarTodasZip() {
+    const conArchivo = filas.filter((f) => f.file_path)
+    if (conArchivo.length === 0 || descargandoZip) return
+    setDescargandoZip(true)
+    try {
+      const supabase = createClient()
+      const JSZip = (await import('jszip')).default
+      const zip = new JSZip()
+      const usados = new Set<string>()
+      for (const f of conArchivo) {
+        const { data } = await supabase.storage.from('tareas').createSignedUrl(f.file_path!, 300)
+        if (!data?.signedUrl) continue
+        const resp = await fetch(data.signedUrl)
+        if (!resp.ok) continue
+        const blob = await resp.blob()
+        const base = `${f.cedula} ${f.full_name}`.replace(/[^\p{L}\p{N} .\-_]/gu, '').trim() || f.student_id
+        let nombre = `${base}.pdf`
+        let n = 2
+        while (usados.has(nombre)) nombre = `${base} (${n++}).pdf`
+        usados.add(nombre)
+        zip.file(nombre, blob)
+      }
+      const contenido = await zip.generateAsync({ type: 'blob' })
+      const url = URL.createObjectURL(contenido)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Entregas - ${titulo || 'tarea'}.zip`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } finally {
+      setDescargandoZip(false)
+    }
+  }
+
   async function calificar(submissionId: string) {
     const valor = notas[submissionId]
     if (valor === undefined || valor === '') return
@@ -81,7 +123,22 @@ export default function CalificarTarea() {
     <div className="space-y-11 pb-20">
       <BotonVolver />
 
-      <Encabezado sobretitulo="Calificar tarea" titulo={titulo} />
+      <Encabezado
+        sobretitulo="Calificar tarea"
+        titulo={titulo}
+        accion={
+          filas.some((f) => f.file_path) ? (
+            <button
+              onClick={descargarTodasZip}
+              disabled={descargandoZip}
+              className="inline-flex items-center gap-2 rounded-full border border-zr-border px-4 py-2.5 text-xs font-bold text-zr-text transition-colors hover:border-zr-blue/40 disabled:opacity-50"
+            >
+              <IconoDescargar size={16} />
+              {descargandoZip ? 'Preparando ZIP…' : 'Descargar todas (ZIP)'}
+            </button>
+          ) : undefined
+        }
+      />
 
       <Regla delay={60} />
 

@@ -1,26 +1,25 @@
 'use client'
 
-import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Seccion, Etiqueta } from '@/components/ui/Editorial'
+import { Etiqueta } from '@/components/ui/Editorial'
+import { Recorrido, Paso, type EstadoPaso } from '@/components/ui/Recorrido'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { BannerUnidad } from '@/components/ui/BannerUnidad'
 import { PestanasUnidad, type PestanaUnidad } from '@/components/ui/PestanasUnidad'
-import { IconoDocumento, IconoExamen, IconoDuda, IconoCheck, IconoChevron, IconoCandado } from '@/components/ui/Iconos'
+import { IconoDocumento, IconoExamen, IconoDuda, IconoLapiz, IconoCandado } from '@/components/ui/Iconos'
 
 /**
  * Aula Virtual — detalle de una unidad: sus elementos en orden (material,
- * examen, tarea, dudas). RLS de unit_items (migración 174) ya decide qué
- * elementos están visibles ahora mismo; aquí solo se pintan.
+ * examen, tarea, dudas) como un recorrido conectado. RLS de unit_items
+ * (migración 174) ya decide qué está visible ahora; aquí solo se dibuja.
  *
- * Pedido explícito del coordinador (reunión 31-oct-2026, con video de
- * referencia de un aula virtual real): que se parezca "demasiado" a eso,
- * con nuestra identidad -- de ahí la fila de pestañas arriba (una por
- * unidad, como el video) y el banner de marca en vez de foto de archivo
- * (ver components/ui/PestanasUnidad.tsx y BannerUnidad.tsx).
+ * Pedido del coordinador (reunión 31-oct-2026, con video de referencia de un
+ * aula virtual real): que se parezca a eso con nuestra identidad — de ahí la
+ * fila de pestañas arriba (una por unidad) y el banner de marca. El contenido
+ * baja como un camino de pasos, no como cuadros apilados.
  */
 
 interface ItemFila {
@@ -40,8 +39,15 @@ interface ItemFila {
 const ICONO: Record<ItemFila['type'], typeof IconoDocumento> = {
   material: IconoDocumento,
   quiz: IconoExamen,
-  tarea: IconoDocumento,
+  tarea: IconoLapiz,
   dudas: IconoDuda,
+}
+
+function eyebrowDe(item: ItemFila): string {
+  if (item.type === 'quiz') return item.esCertificacion ? 'Certificación' : 'Examen'
+  if (item.type === 'tarea') return 'Tarea'
+  if (item.type === 'dudas') return 'Dudas'
+  return item.esTexto ? 'Lectura' : 'Material'
 }
 
 export default function UnidadDetalle() {
@@ -150,10 +156,12 @@ export default function UnidadDetalle() {
         </div>
         <div className="mt-7 space-y-6">
           <BannerUnidad sobretitulo="Aula Virtual" titulo={titulo} />
-          <div className="zr-card flex flex-col items-center gap-3 p-8 text-center">
-            <IconoCandado size={32} className="text-zr-text-muted" />
+          <div className="flex flex-col items-center gap-3 py-10 text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-zr-surface text-zr-text-muted ring-1 ring-zr-border">
+              <IconoCandado size={26} />
+            </span>
             <p className="text-base font-bold text-zr-text">Esta unidad todavía está cerrada</p>
-            <p className="text-sm text-zr-text-muted">
+            <p className="max-w-xs text-sm text-zr-text-muted">
               Se abre cuando apruebes la certificación de la unidad anterior. Vuelve cuando la tengas lista.
             </p>
           </div>
@@ -164,7 +172,7 @@ export default function UnidadDetalle() {
 
   // Barra de obligatorios: hasta no completar los materiales obligatorios, no
   // se puede presentar la certificación (lo valida el servidor; aquí se avisa
-  // antes, con una barra, para que el estudiante sepa qué le falta).
+  // antes para que el estudiante sepa qué le falta).
   // Los bloques de texto no pasan por material_progress (no hay visor que
   // marque "visto"), así que nunca cuentan como obligatorio -- quedaría
   // trabada la certificación para siempre si se incluyeran.
@@ -191,101 +199,114 @@ export default function UnidadDetalle() {
         <PestanasUnidad unidades={unidades} activaId={unitId} hrefBase="/unidades" />
       </div>
 
-      <div className="mt-7 space-y-11">
+      <div className="mt-7 space-y-9">
         <BannerUnidad sobretitulo="Aula Virtual" titulo={titulo} />
 
+        {/* Avance de obligatorios, tejido sin cuadro: un rótulo, una línea fina
+            y el texto de lo que falta. */}
         {hayCertificacion && obligatorios.length > 0 && (
-          <div className="zr-card space-y-3 p-5">
+          <div className="space-y-2.5">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-bold text-zr-text">
-                {certificacionTrabada ? 'Antes de la certificación' : '¡Materiales obligatorios listos!'}
+              <p className="text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">
+                {certificacionTrabada ? 'Para la certificación' : 'Materiales obligatorios listos'}
               </p>
-              <span className="text-sm font-bold tabular-nums text-zr-blue-mid">
+              <span className="cifra text-sm text-zr-blue-mid">
                 {obligatoriosCompletos}/{obligatorios.length}
               </span>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-zr-border">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-zr-border/60">
               <div
-                className={`h-full rounded-full transition-all ${certificacionTrabada ? 'bg-zr-warning' : 'bg-zr-success'}`}
+                className={`h-full rounded-full transition-all duration-500 ${certificacionTrabada ? 'bg-zr-warning' : 'bg-zr-success'}`}
                 style={{ width: `${pctObligatorios}%` }}
               />
             </div>
             <p className="text-xs text-zr-text-muted">
               {certificacionTrabada
-                ? `Completa ${faltanObligatorios} material${faltanObligatorios === 1 ? '' : 'es'} obligatorio${faltanObligatorios === 1 ? '' : 's'} para poder presentar la certificación.`
+                ? `Te falta${faltanObligatorios === 1 ? '' : 'n'} ${faltanObligatorios} material${faltanObligatorios === 1 ? '' : 'es'} obligatorio${faltanObligatorios === 1 ? '' : 's'} para presentar la certificación.`
                 : 'Ya puedes presentar la certificación de esta unidad.'}
             </p>
           </div>
         )}
 
-        <Seccion numero={1} titulo="Contenido de la unidad" delay={100}>
+        <section className="animate-rise space-y-6">
+          <p className="zr-eyebrow">01 — CONTENIDO DE LA UNIDAD</p>
+
           {items.length === 0 ? (
             <p className="text-sm text-zr-text-muted">Tu profesor todavía no agregó nada aquí.</p>
           ) : (
-            <div className="space-y-3">
-              {items.map((item) => {
+            <Recorrido>
+              {items.map((item, idx) => {
                 const Icono = ICONO[item.type]
-                // Certificación trabada por materiales obligatorios pendientes:
-                // se ve con candado y no deja entrar (el servidor igual lo
-                // bloquea; esto evita que choque contra el error).
+                const ultimo = idx === items.length - 1
                 const trabada = item.esCertificacion && certificacionTrabada
-                if (trabada) {
-                  return (
-                    <div key={item.id} className="zr-card flex items-center gap-4 p-5 opacity-70">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zr-border/60 text-zr-text-muted">
-                        <IconoCandado size={20} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="break-words text-base font-bold text-zr-text-muted">{item.titulo}</p>
-                        <div className="mt-1">
-                          <Etiqueta tono="neutro">Completa los materiales obligatorios</Etiqueta>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                }
+
                 // Bloque de texto (migración 187): sin archivo que abrir, se
-                // muestra completo aquí mismo -- no tiene sentido llevarlo a
-                // un visor aparte para mostrar un párrafo.
+                // muestra completo aquí mismo, como una lectura del camino.
                 if (item.esTexto) {
                   // Pedido explícito del coordinador (nov 2026): un bloque de
                   // texto no debe verse "como un cuadro más" -- se saca del
                   // patrón de tarjeta-de-archivo (icono + caja) y se trata
                   // como una nota editorial: borde de acento, sin icono.
                   return (
-                    <div key={item.id} className="space-y-2 rounded-r-lg border-l-4 border-zr-blue bg-zr-blue/[0.06] py-4 pl-4 pr-5">
-                      <div className="flex items-center gap-2">
-                        <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
-                        {item.required && <Etiqueta tono="aviso">Obligatorio</Etiqueta>}
-                      </div>
-                      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zr-text-muted">{item.cuerpoTexto}</p>
-                    </div>
+                    <Paso
+                      key={item.id}
+                      estado="disponible"
+                      icono={Icono}
+                      eyebrow={eyebrowDe(item)}
+                      titulo={item.titulo}
+                      meta={item.required ? <Etiqueta tono="aviso">Obligatorio</Etiqueta> : undefined}
+                      ultimo={ultimo}
+                      delay={80 + idx * 50}
+                    >
+                      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zr-text-muted">
+                        {item.cuerpoTexto}
+                      </p>
+                    </Paso>
                   )
                 }
+
+                // Certificación trabada por materiales obligatorios pendientes:
+                // nodo con candado y sin navegar (el servidor igual lo bloquea).
+                if (trabada) {
+                  return (
+                    <Paso
+                      key={item.id}
+                      estado="bloqueado"
+                      eyebrow={eyebrowDe(item)}
+                      titulo={item.titulo}
+                      meta={<Etiqueta tono="neutro">Completa los materiales obligatorios</Etiqueta>}
+                      ultimo={ultimo}
+                      delay={80 + idx * 50}
+                    />
+                  )
+                }
+
+                const estado: EstadoPaso = item.completado ? 'completado' : 'disponible'
+                const meta = (
+                  <>
+                    {item.required && !item.completado && <Etiqueta tono="aviso">Obligatorio</Etiqueta>}
+                    {item.esCertificacion && <Etiqueta tono="info">Certificación</Etiqueta>}
+                    {item.completado && <Etiqueta tono="exito">Completado</Etiqueta>}
+                  </>
+                )
+
                 return (
-                  <Link
+                  <Paso
                     key={item.id}
+                    estado={estado}
+                    icono={item.completado ? undefined : Icono}
+                    eyebrow={eyebrowDe(item)}
+                    titulo={item.titulo}
+                    meta={meta}
                     href={hrefDe(item)}
-                    className="zr-card zr-card-interactive flex items-center gap-4 p-5"
-                  >
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue">
-                      {item.completado ? <IconoCheck size={20} className="text-zr-success" /> : <Icono size={20} />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
-                      <div className="mt-1 flex items-center gap-2">
-                        {item.required && <Etiqueta tono="aviso">Obligatorio</Etiqueta>}
-                        {item.completado && <Etiqueta tono="exito">Completado</Etiqueta>}
-                        {item.esCertificacion && <Etiqueta tono="info">Certificación</Etiqueta>}
-                      </div>
-                    </div>
-                    <IconoChevron size={18} className="shrink-0 text-zr-text-muted" />
-                  </Link>
+                    ultimo={ultimo}
+                    delay={80 + idx * 50}
+                  />
                 )
               })}
-            </div>
+            </Recorrido>
           )}
-        </Seccion>
+        </section>
       </div>
     </div>
   )

@@ -4,15 +4,16 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Seccion, Regla, Encabezado, Etiqueta } from '@/components/ui/Editorial'
+import { Encabezado, Regla, Etiqueta } from '@/components/ui/Editorial'
+import { Recorrido, Paso, type EstadoPaso } from '@/components/ui/Recorrido'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
-import { IconoChevron, IconoCandado } from '@/components/ui/Iconos'
+import { IconoCalendario } from '@/components/ui/Iconos'
 
 /**
- * Aula Virtual — lista de unidades del módulo que cursa el estudiante.
- * RLS ya filtra: solo unidades en estado 'abierta' o 'cerrada' de SU módulo
- * (migración 174) -- aquí no se repite ese filtro, solo se pide y se pinta.
+ * Aula Virtual — las unidades del módulo como un recorrido, no una lista de
+ * cuadros. RLS ya filtra: solo unidades 'abierta' o 'cerrada' de SU módulo
+ * (migración 174); aquí solo se pide y se dibuja el camino.
  */
 
 interface UnidadFila {
@@ -20,11 +21,6 @@ interface UnidadFila {
   title: string
   effective_status: string
   prerequisite_met: boolean
-}
-
-const ETIQUETA_ESTADO: Record<string, { texto: string; tono: 'exito' | 'neutro' }> = {
-  abierta: { texto: 'Abierta', tono: 'exito' },
-  cerrada: { texto: 'Cerrada · repaso', tono: 'neutro' },
 }
 
 export default function Unidades() {
@@ -56,81 +52,77 @@ export default function Unidades() {
 
   if (cargando) return <PantallaEsqueleto variante="lista" />
 
+  // "Dónde vas": la primera unidad abierta y no bloqueada se marca como activa
+  // (nodo resaltado), para que el recorrido tenga un punto de atención claro.
+  const indiceActiva = unidades.findIndex(
+    (u) => u.effective_status === 'abierta' && u.prerequisite_met !== false,
+  )
+
   return (
     <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
-      <div className="space-y-11">
+      <div className="space-y-9">
         <BotonVolver href="/" />
 
         <Encabezado
           sobretitulo="Aula Virtual"
-          titulo="Unidades"
-          descripcion="El material, los exámenes y las tareas de tu módulo, organizados por tema."
+          titulo="Tu recorrido"
+          descripcion="El material, los exámenes y las tareas de tu módulo, paso a paso."
           accion={
             <Link
               href="/calendario"
-              className="rounded-lg border border-zr-border px-4 py-2.5 text-xs font-bold text-zr-text"
+              className="inline-flex items-center gap-2 rounded-full border border-zr-border px-4 py-2.5 text-xs font-bold text-zr-text transition-colors hover:border-zr-blue/40"
             >
-              Ver calendario
+              <IconoCalendario size={16} />
+              Calendario
             </Link>
           }
         />
 
         <Regla delay={60} />
 
-        <Seccion numero={1} titulo="Tus unidades" delay={100}>
-          {unidades.length === 0 ? (
-            <p className="text-sm text-zr-text-muted">
-              Todavía no hay unidades abiertas para tu módulo. Cuando tu profesor publique una, aparece aquí sola.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {unidades.map((u, i) => {
-                const estado = ETIQUETA_ESTADO[u.effective_status] ?? ETIQUETA_ESTADO.cerrada
-                const bloqueada = u.prerequisite_met === false
+        {unidades.length === 0 ? (
+          <p className="text-sm text-zr-text-muted">
+            Todavía no hay unidades abiertas para tu módulo. Cuando tu profesor publique una, aparece aquí sola.
+          </p>
+        ) : (
+          <Recorrido>
+            {unidades.map((u, i) => {
+              const bloqueada = u.prerequisite_met === false
+              const cerrada = u.effective_status === 'cerrada'
+              const activa = i === indiceActiva
 
-                // Compuerta (migración 185): una unidad bloqueada se VE con
-                // candado y no deja entrar, hasta aprobar la certificación de
-                // la unidad anterior. No se oculta -- el estudiante sabe que
-                // existe y qué le falta.
-                if (bloqueada) {
-                  return (
-                    <div key={u.id} className="zr-card flex items-center justify-between gap-3 p-5 opacity-70">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold uppercase tracking-wider text-zr-text-muted">
-                          Unidad {i + 1}
-                        </p>
-                        <p className="mt-1 break-words text-base font-bold text-zr-text-muted">{u.title}</p>
-                        <div className="mt-2">
-                          <Etiqueta tono="neutro">Se abre al aprobar la unidad anterior</Etiqueta>
-                        </div>
-                      </div>
-                      <IconoCandado size={20} className="shrink-0 text-zr-text-muted" />
-                    </div>
-                  )
-                }
+              const estado: EstadoPaso = bloqueada
+                ? 'bloqueado'
+                : activa
+                  ? 'activo'
+                  : 'disponible'
 
-                return (
-                  <Link
-                    key={u.id}
-                    href={`/unidades/${u.id}`}
-                    className="zr-card zr-card-interactive flex items-center justify-between gap-3 p-5"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold uppercase tracking-wider text-zr-text-muted">
-                        Unidad {i + 1}
-                      </p>
-                      <p className="mt-1 break-words text-base font-bold text-zr-text">{u.title}</p>
-                      <div className="mt-2">
-                        <Etiqueta tono={estado.tono}>{estado.texto}</Etiqueta>
-                      </div>
-                    </div>
-                    <IconoChevron size={20} className="shrink-0 text-zr-text-muted" />
-                  </Link>
-                )
-              })}
-            </div>
-          )}
-        </Seccion>
+              const meta = bloqueada ? (
+                <Etiqueta tono="neutro">Se abre al aprobar la unidad anterior</Etiqueta>
+              ) : cerrada ? (
+                <Etiqueta tono="neutro">Cerrada · repaso</Etiqueta>
+              ) : activa ? (
+                <Etiqueta tono="info">Vas aquí</Etiqueta>
+              ) : (
+                <Etiqueta tono="exito">Abierta</Etiqueta>
+              )
+
+              return (
+                <Paso
+                  key={u.id}
+                  estado={estado}
+                  indice={i + 1}
+                  eyebrow={`Unidad ${i + 1}`}
+                  titulo={u.title}
+                  meta={meta}
+                  href={bloqueada ? undefined : `/unidades/${u.id}`}
+                  ultimo={i === unidades.length - 1}
+                  delay={80 + i * 50}
+                />
+              )
+            })}
+          </Recorrido>
+        )}
       </div>
     </div>
   )

@@ -250,6 +250,15 @@ export function IconoAviso(p: IconoProps) {
   )
 }
 
+/** Carpeta: para el explorador de material, tipo Classroom. */
+export function IconoCarpeta(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <path d="M3.5 7a1.5 1.5 0 0 1 1.5-1.5h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 19.5H5A1.5 1.5 0 0 1 3.5 18V7Z" />
+    </Base>
+  )
+}
+
 export function IconoCandado(p: IconoProps) {
   return (
     <Base {...p}>

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Bloque } from '@/components/ui/Esqueleto'
-import { IconoDocumento, IconoVideo, IconoAviso } from '@/components/ui/Iconos'
+import { IconoDocumento, IconoVideo, IconoAviso, IconoCarpeta, IconoProgreso, IconoChevron } from '@/components/ui/Iconos'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EtiquetaTipoArchivo } from '@/components/ui/EtiquetaTipoArchivo'
 import {
@@ -432,78 +432,94 @@ export default function Contenido() {
             </p>
           </div>
         ) : !moduloActual && modulos.length > 1 ? (
-          <div className="space-y-2">
+          <div className="divide-y divide-zr-border/60">
             {modulos.map((m) => (
               <button
                 key={m.id}
                 onClick={() => abrirModulo(m)}
-                className="zr-card zr-card-interactive flex w-full items-center gap-3 p-4 text-left"
+                className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-zr-surface/60"
               >
-                <span className="text-xl">📚</span>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue-mid">
+                  <IconoProgreso size={18} />
+                </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold text-zr-text">Módulo {m.orden} · {m.nombre}</span>
                   {m.esActual && <span className="text-xs text-zr-blue-mid">Módulo actual</span>}
                 </span>
+                <IconoChevron size={16} className="shrink-0 -rotate-90 text-zr-text-muted" />
               </button>
             ))}
           </div>
         ) : subcarpetas.length === 0 && materiales.length === 0 ? (
-          <div className="zr-card p-8 text-center">
-            <p className="text-base font-semibold text-zr-text">
+          <div className="flex flex-col items-center gap-3 py-12 text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-zr-blue/12 text-zr-blue-mid">
+              <IconoCarpeta size={26} />
+            </span>
+            <p className="text-base font-bold text-zr-text">
               {pilaCarpetas.length === 0 ? 'Todavía no hay material' : 'Esta carpeta está vacía'}
             </p>
             {pilaCarpetas.length === 0 && (
-              <p className="mt-2 text-sm text-zr-text-muted">
+              <p className="max-w-xs text-sm text-zr-text-muted">
                 Tu profesor sube las guías aquí a medida que avanza el módulo.
               </p>
             )}
           </div>
         ) : (
-          <div className="space-y-2">
-            {subcarpetas.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => abrirCarpeta(c)}
-                className="zr-card zr-card-interactive flex w-full items-center gap-3 p-4 text-left"
-              >
-                <span className="text-xl">📁</span>
-                <span className="text-sm font-semibold text-zr-text">{c.nombre}</span>
-              </button>
-            ))}
+          <div className="space-y-5">
+            {subcarpetas.length > 0 && (
+              <div className="divide-y divide-zr-border/60">
+                {subcarpetas.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => abrirCarpeta(c)}
+                    className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-zr-surface/60"
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue-mid">
+                      <IconoCarpeta size={18} />
+                    </span>
+                    <span className="text-sm font-semibold text-zr-text">{c.nombre}</span>
+                  </button>
+                ))}
+              </div>
+            )}
 
-            {materiales.map((m) => (
-              <div key={m.id} className="zr-card p-4">
-                <div className="flex items-start gap-3">
-                  {m.tipo === 'video' || m.tipo === 'audio'
-                    ? <IconoVideo size={22} className="mt-0.5 shrink-0 text-zr-blue" />
-                    : <IconoDocumento size={22} className="mt-0.5 shrink-0 text-zr-error" />}
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-1"><EtiquetaTipoArchivo tipo={m.tipo} nombre={m.rutaStorage} /></div>
-                    <p className="break-words text-sm font-semibold text-zr-text">{m.titulo}</p>
-                    <p className="mt-1 text-xs text-zr-text-muted">
-                      {m.semana ? `Semana ${m.semana}` : ''}
-                      {m.tamañoKB ? `${m.semana ? ' · ' : ''}${(m.tamañoKB / 1024).toFixed(1)} MB` : ''}
-                    </p>
+            <div className="divide-y divide-zr-border/60">
+              {materiales.map((m) => (
+                <div key={m.id} className="py-4 first:pt-0">
+                  <div className="flex items-start gap-3">
+                    <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${m.tipo === 'video' || m.tipo === 'audio' ? 'bg-zr-blue/12 text-zr-blue' : 'bg-zr-error/12 text-zr-error'}`}>
+                      {m.tipo === 'video' || m.tipo === 'audio'
+                        ? <IconoVideo size={20} />
+                        : <IconoDocumento size={20} />}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1"><EtiquetaTipoArchivo tipo={m.tipo} nombre={m.rutaStorage} /></div>
+                      <p className="break-words text-sm font-semibold text-zr-text">{m.titulo}</p>
+                      <p className="mt-1 text-xs text-zr-text-muted">
+                        {m.semana ? `Semana ${m.semana}` : ''}
+                        {m.tamañoKB ? `${m.semana ? ' · ' : ''}${(m.tamañoKB / 1024).toFixed(1)} MB` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => ver(m)}
+                      disabled={abriendo === m.id}
+                      className="flex min-h-11 flex-1 items-center justify-center rounded-lg bg-zr-blue text-sm font-bold text-white disabled:opacity-50"
+                    >
+                      {abriendo === m.id ? 'Abriendo…' : 'Ver'}
+                    </button>
+                    <button
+                      onClick={() => descargar(m)}
+                      disabled={descargando === m.id}
+                      className="flex min-h-11 flex-1 items-center justify-center rounded-lg border border-zr-border text-sm font-bold text-zr-text disabled:opacity-50"
+                    >
+                      {descargando === m.id ? 'Descargando…' : 'Descargar'}
+                    </button>
                   </div>
                 </div>
-                <div className="mt-3 flex gap-2">
-                  <button
-                    onClick={() => ver(m)}
-                    disabled={abriendo === m.id}
-                    className="flex min-h-11 flex-1 items-center justify-center rounded-lg bg-zr-blue text-sm font-bold text-white disabled:opacity-50"
-                  >
-                    {abriendo === m.id ? 'Abriendo…' : 'Ver'}
-                  </button>
-                  <button
-                    onClick={() => descargar(m)}
-                    disabled={descargando === m.id}
-                    className="flex min-h-11 flex-1 items-center justify-center rounded-lg border border-zr-border text-sm font-bold text-zr-text disabled:opacity-50"
-                  >
-                    {descargando === m.id ? 'Descargando…' : 'Descargar'}
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 

@@ -2550,6 +2550,7 @@ export type Database = {
           module_id: string
           passing_min: number
           scale_max: number
+          sort_order: number | null
           title: string
           weight_pct: number
         }
@@ -2563,6 +2564,7 @@ export type Database = {
           module_id: string
           passing_min?: number
           scale_max?: number
+          sort_order?: number | null
           title: string
           weight_pct?: number
         }
@@ -2576,6 +2578,7 @@ export type Database = {
           module_id?: string
           passing_min?: number
           scale_max?: number
+          sort_order?: number | null
           title?: string
           weight_pct?: number
         }

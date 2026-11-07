@@ -38,7 +38,7 @@ interface FilaNota {
   status: string | null
 }
 
-interface Evaluacion { id: string; titulo: string; kind: 'examen' | 'practica' | 'prepractica' | 'exposicion' | 'participacion' | 'otro'; detalle: string | null; scaleMax: number; passingMin: number; pesoPct: number }
+interface Evaluacion { id: string; titulo: string; kind: 'examen' | 'practica' | 'prepractica' | 'exposicion' | 'participacion' | 'otro'; detalle: string | null; scaleMax: number; passingMin: number; pesoPct: number; orden: number | null }
 interface Modulo { id: string; nombre: string; orden: number }
 interface Envio { status: 'enviado' | 'validado' | 'devuelto'; submittedAt: string; validatedAt: string | null; motivo: string | null }
 type Tipo = 'todos' | 'examen' | 'practica' | 'prepractica' | 'exposicion' | 'participacion' | 'otro'
@@ -74,6 +74,11 @@ export default function VerCalificacionesCohorte() {
   const [version, setVersion] = useState(0)
   // Evaluaciones con notas que Dirección tocó (o que aún no valida) y los estudiantes todavía no ven.
   const [sinPublicar, setSinPublicar] = useState(0)
+  // Reordenar columnas a mano (pedido de Dirección, nov. 2026). `arrastrando`
+  // es el id de la columna que se está moviendo; `reordenando` bloquea mientras
+  // se guarda el nuevo orden en la base.
+  const [arrastrando, setArrastrando] = useState<string | null>(null)
+  const [reordenando, setReordenando] = useState(false)
 
   // 1) Autorización + datos de la cohorte y la malla de su programa
   useEffect(() => {
@@ -135,8 +140,11 @@ export default function VerCalificacionesCohorte() {
           .maybeSingle(),
         supabase
           .from('manual_exam_definitions')
-          .select('id, title, kind, kind_detail, scale_max, passing_min, weight_pct, exam_date')
+          .select('id, title, kind, kind_detail, scale_max, passing_min, weight_pct, exam_date, sort_order')
           .eq('module_id', moduleId as string)
+          // Orden manual primero (Dirección arrastra las columnas, migr. 191);
+          // las que nunca se ordenaron a mano, por fecha como antes.
+          .order('sort_order', { nullsFirst: false })
           .order('exam_date'),
       ])
 
@@ -174,6 +182,7 @@ export default function VerCalificacionesCohorte() {
       setEvaluaciones((defs ?? []).map((d) => ({
         id: d.id, titulo: d.title, kind: d.kind as Evaluacion['kind'], detalle: d.kind_detail, scaleMax: Number(d.scale_max),
         passingMin: Number(d.passing_min), pesoPct: Number(d.weight_pct),
+        orden: d.sort_order === null || d.sort_order === undefined ? null : Number(d.sort_order),
       })))
       const mapa: Record<string, Record<string, number | null>> = {}
       for (const s of (scores ?? []) as { definition_id: string; student_id: string; score: number }[]) {
@@ -223,6 +232,32 @@ export default function VerCalificacionesCohorte() {
     await releer(studentId)
     void contarSinPublicar()
     setGuardando(null)
+  }
+
+  // Mueve la columna `origenId` al lugar de `destinoId` y guarda el orden nuevo.
+  // Reordena el arreglo entero de evaluaciones: como el encabezado y las celdas
+  // de cada fila se dibujan a partir de este mismo arreglo (por id), la columna
+  // se mueve COMPLETA, con sus notas ya cargadas. No toca ninguna nota ni cálculo.
+  async function reordenarColumnas(origenId: string, destinoId: string) {
+    if (origenId === destinoId) return
+    const desde = evaluaciones.findIndex((e) => e.id === origenId)
+    const hasta = evaluaciones.findIndex((e) => e.id === destinoId)
+    if (desde < 0 || hasta < 0) return
+    const orden = [...evaluaciones]
+    const [movida] = orden.splice(desde, 1)
+    orden.splice(hasta, 0, movida)
+    // Reflejo inmediato en pantalla; el orden queda con su índice nuevo.
+    const conOrden = orden.map((e, i) => ({ ...e, orden: i }))
+    setEvaluaciones(conOrden)
+    setReordenando(true)
+    setError(null)
+    const supabase = createClient()
+    const resultados = await Promise.all(
+      conOrden.map((e, i) => supabase.from('manual_exam_definitions').update({ sort_order: i }).eq('id', e.id)),
+    )
+    setReordenando(false)
+    const fallo = resultados.find((r) => r.error)?.error
+    if (fallo) { setError(`No se pudo guardar el orden: ${fallo.message}`); setVersion((v) => v + 1) }
   }
 
   async function contarSinPublicar() {
@@ -292,6 +327,9 @@ export default function VerCalificacionesCohorte() {
 
   const visibles = tipo === 'todos' ? evaluaciones : evaluaciones.filter((e) => e.kind === tipo)
   const mostrarResto = tipo === 'todos'
+  // Solo se arrastran las columnas cuando se ven TODAS (si está filtrado por
+  // tipo, mover una sería ambiguo contra las ocultas). Hace falta más de una.
+  const reordenable = tipo === 'todos' && visibles.length > 1
   const sumaPct = evaluaciones.reduce((t, e) => t + e.pesoPct, 0)
   // Menos del mínimo en rojo, el mínimo o más en verde (reunión oct. 2026).
   const tonoNota = (v: number | undefined, min: number) =>
@@ -465,6 +503,12 @@ export default function VerCalificacionesCohorte() {
       ) : filas.length === 0 ? (
         <EstadoVacio titulo="Sin estudiantes" explicacion="Esta cohorte todavía no tiene estudiantes." />
       ) : (
+        <>
+        {reordenable && (
+          <p className="-mb-3 text-xs text-zr-text-muted">
+            Arrastra el encabezado de una columna para cambiar su orden. La columna se mueve completa, con sus notas.
+          </p>
+        )}
         <div className="max-h-[65dvh] overflow-auto rounded-lg border border-zr-border">
           <table className="w-full border-collapse text-sm">
             <thead>
@@ -473,7 +517,32 @@ export default function VerCalificacionesCohorte() {
                   Estudiante
                 </th>
                 {visibles.map((ev) => (
-                  <th key={ev.id} className="sticky top-0 z-10 min-w-[88px] border-b border-zr-border bg-zr-surface px-2 py-2 text-center align-bottom">
+                  <th
+                    key={ev.id}
+                    draggable={reordenable && !reordenando}
+                    onDragStart={reordenable ? () => setArrastrando(ev.id) : undefined}
+                    onDragOver={reordenable ? (e) => e.preventDefault() : undefined}
+                    onDrop={reordenable ? (e) => {
+                      e.preventDefault()
+                      if (arrastrando) void reordenarColumnas(arrastrando, ev.id)
+                      setArrastrando(null)
+                    } : undefined}
+                    onDragEnd={reordenable ? () => setArrastrando(null) : undefined}
+                    className={`group sticky top-0 z-10 min-w-[88px] border-b border-zr-border bg-zr-surface px-2 py-2 text-center align-bottom ${
+                      reordenable ? 'cursor-grab active:cursor-grabbing' : ''
+                    } ${arrastrando === ev.id ? 'opacity-40' : ''}`}
+                    title={reordenable ? 'Arrastra para reordenar la columna' : undefined}
+                  >
+                    {reordenable && (
+                      // Manito que aparece al pasar el mouse por encima.
+                      <span className="mb-0.5 flex justify-center text-zr-text-muted opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" />
+                          <circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" />
+                          <circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" />
+                        </svg>
+                      </span>
+                    )}
                     <span className="block text-xs font-bold text-zr-text">{ev.titulo}</span>
                     <span className="block text-[10px] font-normal text-zr-text-muted">
                       {ev.kind === 'otro' && ev.detalle ? ev.detalle : ABREV[ev.kind]} · /{ev.scaleMax} · {ev.pesoPct} %
@@ -508,7 +577,19 @@ export default function VerCalificacionesCohorte() {
                         // quedaría guardada una nota de 0 para alguien sin evaluar).
                         placeholder={notas[f.studentId]?.[ev.id] == null ? '0.00' : undefined}
                         defaultValue={notas[f.studentId]?.[ev.id] != null ? fmt(notas[f.studentId][ev.id]) : ''}
-                        onBlur={(e) => guardarNota(f.studentId, ev, e.target.value)}
+                        // Enter guarda y, de paso, normaliza "12" a "12.00" (pedido
+                        // de Dirección, nov. 2026): Enter no dispara blur solo en un
+                        // input suelto, así que lo forzamos.
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur() } }}
+                        onBlur={(e) => {
+                          const crudo = e.target.value
+                          guardarNota(f.studentId, ev, crudo)
+                          // Muestra siempre dos decimales (12 -> 12.00). Si el valor no
+                          // cambió, guardarNota no re-renderiza la celda, así que lo
+                          // normalizamos aquí también.
+                          const v = crudo.trim() === '' ? null : parseFloat(crudo.replace(',', '.'))
+                          if (v !== null && !Number.isNaN(v) && v >= 0 && v <= ev.scaleMax) e.target.value = fmt(v)
+                        }}
                         disabled={guardando === `${f.studentId}:${ev.id}`}
                         className={`${CELDA} ${tonoNota(notas[f.studentId]?.[ev.id] ?? undefined, ev.passingMin)}`}
                       />
@@ -547,6 +628,7 @@ export default function VerCalificacionesCohorte() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   )

@@ -57,10 +57,14 @@ Deno.serve(async (req: Request) => {
     }
 
     // Solo personal. Un estudiante con el token en la mano no califica nada.
+    // 'direccion_academica' faltaba aquí (hueco encontrado el 7-nov-2026,
+    // mismo patrón que el de crear-examen/[examId]: la hoja de ruta le dio
+    // acceso a Dirección a calificar exámenes de cualquier profesor, pero
+    // esta función se quedó con la lista vieja).
     const { data: perfil } = await adminSupabase
       .from('profiles').select('role').eq('id', user.id).single()
 
-    if (!perfil || !['profesor', 'admin', 'super_admin'].includes(perfil.role)) {
+    if (!perfil || !['profesor', 'admin', 'super_admin', 'direccion_academica'].includes(perfil.role)) {
       return errorResponse('NO_AUTORIZADO', 'Solo el personal docente califica', 403)
     }
 

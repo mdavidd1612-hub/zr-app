@@ -15,6 +15,7 @@
 
 import Link from 'next/link'
 import { IconoCheck, IconoCandado, IconoChevron } from './Iconos'
+import { hexARgba } from '@/lib/banner-unidad'
 
 export type EstadoPaso = 'completado' | 'activo' | 'disponible' | 'bloqueado'
 
@@ -53,11 +54,14 @@ interface PasoProps {
   children?: React.ReactNode
   /** Id del elemento `<li>` — para anclar un tour guiado a un paso concreto. */
   id?: string
+  /** Color de acento de la unidad (pedido #4, migración 194): recolorea el
+      nodo cuando el paso está activo/disponible, en vez del azul fijo. */
+  acento?: string
 }
 
 /** Un paso del recorrido: su nodo sobre la espina y su contenido al lado. */
 export function Paso({
-  estado, eyebrow, titulo, meta, icono: Icono, indice, href, ultimo = false, delay = 0, children, id,
+  estado, eyebrow, titulo, meta, icono: Icono, indice, href, ultimo = false, delay = 0, children, id, acento,
 }: PasoProps) {
   const navega = !!href && estado !== 'bloqueado'
   const atenuado = estado === 'bloqueado'
@@ -82,9 +86,22 @@ export function Paso({
         />
       )}
 
-      {/* Nodo sobre la espina. */}
+      {/* Nodo sobre la espina. Con acento (color de la unidad), se
+          recolorea solo cuando está activo/disponible -- completado
+          (verde) y bloqueado (gris) se quedan igual, son semánticos. */}
       <span
-        className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${NODO_ESTILO[estado]}`}
+        className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+          acento && (estado === 'activo' || estado === 'disponible') ? '' : NODO_ESTILO[estado]
+        }`}
+        style={
+          acento && (estado === 'activo' || estado === 'disponible')
+            ? {
+                backgroundColor: hexARgba(acento, estado === 'activo' ? 0.2 : 0.12),
+                color: acento,
+                boxShadow: `inset 0 0 0 1px ${hexARgba(acento, estado === 'activo' ? 0.6 : 0.3)}`,
+              }
+            : undefined
+        }
       >
         {dentroDelNodo}
       </span>

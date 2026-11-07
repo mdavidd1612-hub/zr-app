@@ -8,6 +8,8 @@ import { Seccion, Regla, Encabezado, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { BannerUnidad, PALETA_BANNER, type ColorBanner } from '@/components/ui/BannerUnidad'
+import { acentoDe } from '@/lib/banner-unidad'
+import { prepararArchivo } from '@/lib/subida'
 import { PestanasUnidad, type PestanaUnidad } from '@/components/ui/PestanasUnidad'
 import { Recorrido, Paso } from '@/components/ui/Recorrido'
 import { IconoDocumento, IconoExamen, IconoDuda, IconoCheck, IconoLapiz } from '@/components/ui/Iconos'
@@ -110,15 +112,15 @@ export default function UnidadDocenteDetalle() {
   // o color a elegir, y el aspecto clásico/moderno de la unidad entera. Lo
   // configura quien edita; lo ve igual cualquier perfil que entre.
   const [bannerImagePath, setBannerImagePath] = useState<string | null>(null)
+  const [bannerPosicion, setBannerPosicion] = useState(50)
   const [bannerColor, setBannerColor] = useState<ColorBanner | null>(null)
-  const [bannerAspecto, setBannerAspecto] = useState<'moderno' | 'clasico'>('moderno')
   const [subiendoBanner, setSubiendoBanner] = useState(false)
 
   async function cargar() {
     const supabase = createClient()
     const { data: unidad } = await supabase
       .from('units')
-      .select('title, module_id, open_at, close_at, manual_status, banner_image_path, banner_color, banner_aspecto')
+      .select('title, module_id, open_at, close_at, manual_status, banner_image_path, banner_color, banner_image_position')
       .eq('id', unitId).maybeSingle()
     if (!unidad) { router.replace('/unidades-docente'); return }
     setTitulo(unidad.title)
@@ -128,7 +130,7 @@ export default function UnidadDocenteDetalle() {
     setModuleId(unidad.module_id)
     setBannerImagePath(unidad.banner_image_path)
     setBannerColor(unidad.banner_color as ColorBanner | null)
-    setBannerAspecto((unidad.banner_aspecto as 'moderno' | 'clasico') ?? 'moderno')
+    setBannerPosicion(unidad.banner_image_position ?? 50)
 
     // El bloque de texto se guarda como content_items (RLS exige cohort_id +
     // module_id que el profesor realmente dicta -- mismo requisito que el
@@ -223,23 +225,27 @@ export default function UnidadDocenteDetalle() {
 
   // Banner (migración 194): imagen en el bucket público 'banners-unidad',
   // ruta guardada en units.banner_image_path. Subir una nueva borra la
-  // vieja (si había) para no acumular archivos huérfanos.
+  // vieja (si había) para no acumular archivos huérfanos. Pasa por el mismo
+  // comprimidor que el material (lib/subida.ts, prepararArchivo) -- si pesa
+  // más del límite de system_config, se reduce antes de subir.
   async function subirImagenBanner(archivo: File) {
     if (!archivo.type.startsWith('image/')) {
       setError('Elige un archivo de imagen.')
       return
     }
-    if (archivo.size > 5 * 1024 * 1024) {
-      setError('La imagen no puede pesar más de 5 MB.')
-      return
-    }
     setSubiendoBanner(true)
     setError(null)
+    const { archivo: listo } = await prepararArchivo(archivo)
+    if (listo.size > 8 * 1024 * 1024) {
+      setError('La imagen pesa demasiado incluso comprimida. Prueba con otra.')
+      setSubiendoBanner(false)
+      return
+    }
     const supabase = createClient()
-    const ext = archivo.name.split('.').pop() || 'jpg'
+    const ext = listo.type === 'image/jpeg' ? 'jpg' : (listo.name.split('.').pop() || 'jpg')
     const ruta = `${unitId}-${Date.now()}.${ext}`
     const { error: errSubida } = await supabase.storage
-      .from('banners-unidad').upload(ruta, archivo, { upsert: false })
+      .from('banners-unidad').upload(ruta, listo, { upsert: false })
     if (errSubida) {
       setError(errSubida.message)
       setSubiendoBanner(false)
@@ -247,7 +253,7 @@ export default function UnidadDocenteDetalle() {
     }
     const anterior = bannerImagePath
     const { error: errUnidad } = await supabase
-      .from('units').update({ banner_image_path: ruta }).eq('id', unitId)
+      .from('units').update({ banner_image_path: ruta, banner_image_position: 50 }).eq('id', unitId)
     if (errUnidad) {
       setError(errUnidad.message)
       await supabase.storage.from('banners-unidad').remove([ruta])
@@ -256,6 +262,7 @@ export default function UnidadDocenteDetalle() {
     }
     if (anterior) await supabase.storage.from('banners-unidad').remove([anterior])
     setBannerImagePath(ruta)
+    setBannerPosicion(50)
     setSubiendoBanner(false)
   }
 
@@ -275,10 +282,16 @@ export default function UnidadDocenteDetalle() {
     await supabase.from('units').update({ banner_color: color }).eq('id', unitId)
   }
 
-  async function elegirAspecto(valor: 'moderno' | 'clasico') {
-    setBannerAspecto(valor)
+  // Posición vertical de la imagen (pedido explícito: "que pueda agarrarla y
+  // subirla o bajarla para donde quiera"). Se actualiza en pantalla en cada
+  // movimiento del control, pero solo se guarda en la base al soltar -- no
+  // hace falta escribir en cada pixel de arrastre.
+  function moverPosicionBanner(valor: number) {
+    setBannerPosicion(valor)
+  }
+  async function guardarPosicionBanner() {
     const supabase = createClient()
-    await supabase.from('units').update({ banner_aspecto: valor }).eq('id', unitId)
+    await supabase.from('units').update({ banner_image_position: bannerPosicion }).eq('id', unitId)
   }
 
   const urlBanner = bannerImagePath
@@ -477,6 +490,7 @@ export default function UnidadDocenteDetalle() {
             sobretitulo="Aula Virtual · Vista del estudiante"
             titulo={titulo}
             imagenUrl={urlBanner}
+            posicionImagen={bannerPosicion}
             color={bannerColor}
             accion={
               <span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white">
@@ -490,58 +504,6 @@ export default function UnidadDocenteDetalle() {
 
             {items.length === 0 ? (
               <p className="text-sm text-zr-text-muted">Todavía no has agregado nada. Toca &quot;Editar unidad&quot; para empezar.</p>
-            ) : bannerAspecto === 'clasico' ? (
-              // Aspecto clásico (migración 194): tarjetas apiladas, como se
-              // veía antes del recorrido conectado -- a elección de quien
-              // edita, no el default.
-              <div className="space-y-3">
-                {items.map((item) => {
-                  if (item.esTexto) {
-                    return (
-                      <div key={item.id} className="zr-card space-y-2 p-5">
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">Lectura</p>
-                        <p className="text-base font-bold text-zr-text">{item.titulo}</p>
-                        {item.required && <Etiqueta tono="aviso">Obligatorio</Etiqueta>}
-                        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zr-text-muted">
-                          {item.cuerpoTexto}
-                        </p>
-                      </div>
-                    )
-                  }
-                  let eyebrow = 'Material'
-                  let href = '#'
-                  if (item.type === 'material') {
-                    eyebrow = eyebrowMaterial(item.materialTipo ?? '')
-                    href = item.contentItemId ? `/unidades-docente/${unitId}/material/${item.contentItemId}` : '#'
-                  } else if (item.type === 'quiz') {
-                    eyebrow = item.esCertificacion ? 'Certificación' : 'Examen'
-                    href = item.examId ? `/crear-examen/${item.examId}` : '#'
-                  } else if (item.type === 'tarea') {
-                    eyebrow = 'Tarea'
-                    href = item.assignmentId ? `/unidades-docente/tarea/${item.assignmentId}` : '#'
-                  } else if (item.type === 'dudas') {
-                    eyebrow = 'Dudas'
-                    href = `/dudas-docente?unidad=${unitId}`
-                  }
-                  const contenido = (
-                    <>
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">{eyebrow}</p>
-                      <p className="mt-0.5 text-base font-bold text-zr-text">{item.titulo}</p>
-                      <span className="mt-2 flex flex-wrap gap-2">
-                        {item.required && <Etiqueta tono="aviso">Obligatorio</Etiqueta>}
-                        {item.esCertificacion && <Etiqueta tono="info">Certificación</Etiqueta>}
-                      </span>
-                    </>
-                  )
-                  return href === '#' ? (
-                    <div key={item.id} className="zr-card p-5">{contenido}</div>
-                  ) : (
-                    <Link key={item.id} href={href} className="zr-card zr-card-interactive block p-5">
-                      {contenido}
-                    </Link>
-                  )
-                })}
-              </div>
             ) : (
               <Recorrido>
                 {items.map((item, idx) => {
@@ -560,6 +522,7 @@ export default function UnidadDocenteDetalle() {
                         meta={item.required ? <Etiqueta tono="aviso">Obligatorio</Etiqueta> : undefined}
                         ultimo={ultimo}
                         delay={80 + idx * 50}
+                        acento={acentoDe(bannerColor)}
                       >
                         <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zr-text-muted">
                           {item.cuerpoTexto}
@@ -581,7 +544,11 @@ export default function UnidadDocenteDetalle() {
                   } else if (item.type === 'quiz') {
                     Icono = IconoExamen
                     eyebrow = item.esCertificacion ? 'Certificación' : 'Examen'
-                    href = item.examId ? `/crear-examen/${item.examId}` : '#'
+                    // "Ver" va a la lista de estudiantes que lo presentaron,
+                    // no al constructor (pedido explícito del coordinador,
+                    // 7-nov-2026) -- editar la estructura del examen sigue
+                    // disponible desde ahí ("Editar examen").
+                    href = item.examId ? `/calificar/${item.examId}` : '#'
                   } else if (item.type === 'tarea') {
                     Icono = IconoLapiz
                     eyebrow = 'Tarea'
@@ -622,7 +589,8 @@ export default function UnidadDocenteDetalle() {
             similar [al estudiante]... y abajo un botón de editar." */}
         <button
           onClick={() => setModoEdicion(true)}
-          className="fixed bottom-24 left-1/2 flex min-h-14 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-zr-blue text-base font-bold text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)] lg:bottom-8"
+          style={{ backgroundColor: acentoDe(bannerColor) }}
+          className="fixed bottom-24 left-1/2 flex min-h-14 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 items-center justify-center gap-2 rounded-full text-base font-bold text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)] lg:bottom-8"
         >
           <IconoLapiz size={18} />
           Editar unidad
@@ -646,14 +614,22 @@ export default function UnidadDocenteDetalle() {
 
       <Encabezado sobretitulo="Unidad · Editando" titulo={titulo} />
 
-      {/* Banner personalizable (migración 194, pedido #4 del coordinador):
-          imagen o color, y el aspecto clásico/moderno de toda la unidad. Lo
-          ve igual cualquier perfil que entre -- se guarda solo al tocar
-          cada control, sin un botón "Guardar" aparte. */}
+      {/* Banner personalizable (migración 194/195, pedido #4 del
+          coordinador): imagen (con control de posición) o color. El mismo
+          color tiñe el fondo del banner (sin imagen) o los botones y
+          contornos de la unidad (con imagen) -- pedido explícito. Lo ve
+          igual cualquier perfil que entre. Cada control se guarda solo al
+          tocarlo, sin un botón "Guardar" aparte. */}
       <div className="zr-card space-y-5 p-5">
         <p className="zr-eyebrow">Banner de la unidad</p>
 
-        <BannerUnidad sobretitulo="Vista previa" titulo={titulo} imagenUrl={urlBanner} color={bannerColor} />
+        <BannerUnidad
+          sobretitulo="Vista previa"
+          titulo={titulo}
+          imagenUrl={urlBanner}
+          posicionImagen={bannerPosicion}
+          color={bannerColor}
+        />
 
         <div>
           <label className="mb-2 block text-sm font-semibold text-zr-text">Imagen propia (opcional)</label>
@@ -682,52 +658,47 @@ export default function UnidadDocenteDetalle() {
               </button>
             )}
           </div>
+          <p className="mt-1.5 text-xs text-zr-text-muted">
+            Se comprime sola si pesa mucho, igual que al subir material.
+          </p>
         </div>
+
+        {bannerImagePath && (
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Posición de la imagen</label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={bannerPosicion}
+              onChange={(e) => moverPosicionBanner(Number(e.target.value))}
+              onMouseUp={guardarPosicionBanner}
+              onTouchEnd={guardarPosicionBanner}
+              className="w-full accent-zr-blue"
+            />
+            <p className="mt-1 flex justify-between text-xs text-zr-text-muted">
+              <span>Arriba</span><span>Abajo</span>
+            </p>
+          </div>
+        )}
 
         <div>
           <label className="mb-2 block text-sm font-semibold text-zr-text">
-            Color {bannerImagePath && <span className="font-normal text-zr-text-muted">(se usa solo sin imagen)</span>}
+            Color {bannerImagePath ? '(botones y contornos de la unidad)' : ''}
           </label>
           <div className="flex gap-2">
             {(Object.keys(PALETA_BANNER) as ColorBanner[]).map((c) => (
               <button
                 key={c}
                 onClick={() => elegirColorBanner(c)}
-                disabled={!!bannerImagePath}
                 title={PALETA_BANNER[c].etiqueta}
                 aria-label={PALETA_BANNER[c].etiqueta}
-                className={`h-10 w-10 shrink-0 rounded-full disabled:opacity-40 ${
+                className={`h-10 w-10 shrink-0 rounded-full ${
                   (bannerColor ?? 'azul') === c ? 'ring-2 ring-zr-blue ring-offset-2 ring-offset-zr-bg' : ''
                 }`}
                 style={{ backgroundColor: PALETA_BANNER[c].muestra }}
               />
             ))}
-          </div>
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-zr-text">Aspecto de la unidad</label>
-          <div className="flex gap-2">
-            <button
-              onClick={() => elegirAspecto('moderno')}
-              className={`min-h-12 flex-1 rounded-lg border text-sm font-bold ${
-                bannerAspecto === 'moderno'
-                  ? 'border-zr-blue bg-zr-blue/10 text-zr-text'
-                  : 'border-zr-border text-zr-text-muted'
-              }`}
-            >
-              Moderno (recorrido)
-            </button>
-            <button
-              onClick={() => elegirAspecto('clasico')}
-              className={`min-h-12 flex-1 rounded-lg border text-sm font-bold ${
-                bannerAspecto === 'clasico'
-                  ? 'border-zr-blue bg-zr-blue/10 text-zr-text'
-                  : 'border-zr-border text-zr-text-muted'
-              }`}
-            >
-              Clásico (tarjetas)
-            </button>
           </div>
         </div>
       </div>

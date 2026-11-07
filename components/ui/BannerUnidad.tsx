@@ -6,10 +6,14 @@
  * app como marca de agua y la tipografía editorial de siempre
  * (`zr-display`). Nada de fotos externas que haya que mantener.
  *
- * Personalizable (migración 194, pedido #4 del coordinador, 7-nov-2026):
- * el profesor puede poner una imagen propia o elegir uno de 5 colores
- * oscuros, desde "Editar unidad" -- lo ve igual cualquier perfil que entre
- * a la unidad. Sin ninguno de los dos, se ve exactamente como antes.
+ * Personalizable (migración 194/195, pedido #4 del coordinador, 7-nov-2026):
+ * el profesor puede poner una imagen propia (con control de posición
+ * vertical, porque una imagen cuadrada no entra entera en el rectángulo) o
+ * elegir uno de 5 colores oscuros, desde "Editar unidad" -- lo ve igual
+ * cualquier perfil que entre a la unidad. El mismo color, cuando hay
+ * imagen, se usa como acento de botones y contornos en vez de fondo (ver
+ * `colorAcento` en lib/banner-unidad.ts). Sin ninguno de los dos, se ve
+ * exactamente como antes.
  */
 
 export type ColorBanner = 'azul' | 'verde' | 'morado' | 'grafito' | 'vino'
@@ -27,6 +31,7 @@ export function BannerUnidad({
   titulo,
   accion,
   imagenUrl,
+  posicionImagen,
   color,
 }: {
   sobretitulo: string
@@ -34,7 +39,9 @@ export function BannerUnidad({
   accion?: React.ReactNode
   /** URL pública de la imagen de banco (bucket banners-unidad). */
   imagenUrl?: string | null
-  /** Uno de los 5 tonos oscuros de PALETA_BANNER. Se ignora si hay imagen. */
+  /** Foco vertical del recorte, 0 (arriba) a 100 (abajo). Default 50 (centro). */
+  posicionImagen?: number | null
+  /** Uno de los 5 tonos oscuros de PALETA_BANNER. Fondo sin imagen; acento de botones con imagen. */
   color?: ColorBanner | null
 }) {
   const degradado = PALETA_BANNER[color ?? 'azul']?.clase ?? PALETA_BANNER.azul.clase
@@ -46,7 +53,11 @@ export function BannerUnidad({
       }`}
       style={
         imagenUrl
-          ? { backgroundImage: `url(${imagenUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+          ? {
+              backgroundImage: `url(${imagenUrl})`,
+              backgroundSize: 'cover',
+              backgroundPosition: `center ${posicionImagen ?? 50}%`,
+            }
           : undefined
       }
     >

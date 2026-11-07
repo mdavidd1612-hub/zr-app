@@ -448,7 +448,12 @@ Pedido del coordinador: verificar lo que hay contra "todo el mapa del documento 
 
 **No se completó una auditoría de los 24 épicos completos** — quedaría para una sesión dedicada solo a eso, siguiendo el mismo patrón de §8.1 (leer el doc de referencia, confrontar contra `zr-prod`/`zr-staging` y el código, actualizar estado con fecha).
 
-### 8.6 Ajustes de Notas pedidos por Dirección Académica (7-nov-2026)
+### 8.7 Ajustes de Notas pedidos por Dirección Académica (7-nov-2026)
+
+> Nota de numeración: esta sección y la §8.6 de arriba ("Ronda de Aula Virtual")
+> se escribieron el mismo día en dos sesiones en paralelo y ambas empezaron como
+> "§8.6". Esta se renumeró a §8.7 al descubrir el choque; el bullet #3b de la §8.6
+> es justamente el que anticipó estos cambios de Notas.
 
 Tres cambios en la sección de Notas de Dirección Académica (aplican solo a `direccion_academica` y `super_admin`, que es quién entra a esas pantallas). Épicos J/N. Desplegados directo a staging y producción por pedido explícito del coordinador ("necesito ahorita, directo en los dos").
 

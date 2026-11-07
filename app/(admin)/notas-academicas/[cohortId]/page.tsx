@@ -528,14 +528,16 @@ export default function VerCalificacionesCohorte() {
                       setArrastrando(null)
                     } : undefined}
                     onDragEnd={reordenable ? () => setArrastrando(null) : undefined}
-                    className={`group sticky top-0 z-10 min-w-[88px] border-b border-zr-border bg-zr-surface px-2 py-2 text-center align-bottom ${
-                      reordenable ? 'cursor-grab active:cursor-grabbing' : ''
+                    className={`group sticky top-0 z-10 min-w-[88px] border-b border-zr-border bg-zr-surface px-2 pb-2 text-center align-bottom ${
+                      reordenable ? 'cursor-grab pt-5 active:cursor-grabbing' : 'pt-2'
                     } ${arrastrando === ev.id ? 'opacity-40' : ''}`}
                     title={reordenable ? 'Arrastra para reordenar la columna' : undefined}
                   >
                     {reordenable && (
-                      // Manito que aparece al pasar el mouse por encima.
-                      <span className="mb-0.5 flex justify-center text-zr-text-muted opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true">
+                      // Manito FIJA arriba, pegada al borde superior (posición
+                      // absoluta): así queda en el mismo lugar aunque el título
+                      // ocupe una o dos líneas. Aparece al pasar el mouse.
+                      <span className="pointer-events-none absolute inset-x-0 top-1 flex justify-center text-zr-text-muted opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                           <circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" />
                           <circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" />

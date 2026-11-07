@@ -12,7 +12,7 @@ import { PASOS_POR_ROL } from '@/lib/tour-pasos'
 import { BannerNoSolvente, ModalNoSolvente } from '@/components/ui/AvisoSolvencia'
 import { ResultadoModulo } from '@/components/ui/ResultadoModulo'
 import {
-  IconoInicio, IconoPerfil, IconoProgreso, IconoVideo, IconoDuda, IconoNotas,
+  IconoInicio, IconoPerfil, IconoProgreso, IconoDocumento, IconoDuda, IconoNotas,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -25,20 +25,18 @@ import type { UserRole } from '@/lib/types'
 // viejas siguen existiendo en el código — no se borran — para retomarlas en
 // la fase siguiente sin rehacer nada.
 //
-// "Aula" (Aula Virtual, migraciones 174-182): antes solo se llegaba por un
-// enlace escondido dentro de "Mi módulo" -- el estudiante no tenía forma de
-// saber que ahí vivía lo que el profesor organizaba (reporte real del
-// coordinador, oct. 2026: "el estudiante no ve nada de lo que hace el
-// profesor"). Se saca a la barra, igual que en el menú del profesor.
-//
-// "Material" se retira del menú en la reunión del 31-oct-2026 -- redundante
-// con Aula Virtual, que ya muestra todos los materiales organizados por
-// unidad. La pantalla /contenido sigue existiendo en el código (no se
-// borra), solo deja de ser pestaña del menú.
+// AULA VIRTUAL FUERA DE PRODUCCIÓN (hotfix 7-nov-2026): el módulo de Unidades
+// (Aula Virtual) está construido pero SOLO validado en staging (zr-staging);
+// sus tablas (units, unit_items, material_progress...) NO están aplicadas en
+// zr-prod, así que "/unidades" en producción muestra una pantalla vacía/rota.
+// Por eso el menú del estudiante vuelve a "Material" (/contenido), como estaba
+// antes del 31-oct. El código del Aula se queda (no se borra) para cuando el
+// módulo completo se mergee a producción; aquí solo se le quita la entrada del
+// menú. Lo mismo en /clases, en Inicio y en el menú del profesor.
 const NAV: ItemBarra[] = [
   { href: '/',          label: 'Inicio',    Icono: IconoInicio },
   { href: '/clases',    label: 'Mi módulo', Icono: IconoProgreso },
-  { href: '/unidades',  label: 'Aula',      Icono: IconoVideo },
+  { href: '/contenido', label: 'Material',  Icono: IconoDocumento },
   { href: '/notas',     label: 'Notas',     Icono: IconoNotas },
   { href: '/dudas',     label: 'Dudas',     Icono: IconoDuda },
   { href: '/perfil',    label: 'Perfil',    Icono: IconoPerfil },

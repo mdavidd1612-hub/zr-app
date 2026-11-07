@@ -218,15 +218,15 @@ export default function MiModulo() {
               </div>
             </Seccion>
 
-            {/* Aula Virtual: unidades de este módulo (material, exámenes,
-                tareas). Enlace desde aquí en vez de un botón nuevo en la
-                barra -- ya tenía 6 secciones y se desbordaba en teléfonos
-                angostos (bug real de producción, ver BarraFlotante.tsx). */}
+            {/* Material del módulo. El Aula Virtual (unidades) está solo en
+                staging por ahora (hotfix 7-nov-2026, ver app/(app)/layout.tsx):
+                en producción este enlace vuelve a /contenido, el repositorio
+                de material de siempre. */}
             <Link
-              href="/unidades"
+              href="/contenido"
               className="flex min-h-14 items-center justify-between rounded-lg border border-zr-border bg-zr-surface px-5 text-base font-bold text-zr-text"
             >
-              Ver las unidades de este módulo
+              Ver el material de este módulo
               <span aria-hidden className="text-zr-text-muted">›</span>
             </Link>
 

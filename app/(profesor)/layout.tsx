@@ -73,17 +73,35 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
   const escaneando = /^\/escanear\//.test(pathname)
 
   useEffect(() => {
+    let vigente = true
     const supabase = createClient()
 
-    async function verificarRol() {
+    // Bug real reportado por el coordinador (7-nov-2026): al navegar entre
+    // pantallas del profesor/Unidades, una falla transitoria de red al leer
+    // el rol (p. ej. un refresco de sesión a mitad de la consulta) hacía que
+    // `perfil` llegara vacío, y el código lo trataba como "rol no permitido"
+    // -- expulsaba a Dirección/super_admin a "/" (que termina en su propio
+    // panel) en pleno uso, sin haber confirmado de verdad que no tenía
+    // acceso. Ahora se distingue "no se pudo confirmar todavía" (se
+    // reintenta, sin expulsar a nadie) de "se confirmó que el rol no es
+    // ninguno de los permitidos" (ahí sí se va). Máximo 3 intentos con una
+    // pausa corta; si de verdad no hay sesión, `getUser()` ya manda a login.
+    async function verificarRol(intento = 0) {
       const { data: { user } } = await supabase.auth.getUser()
+      if (!vigente) return
       if (!user) {
         router.replace('/login')
         return
       }
 
-      const { data: perfil } = await supabase
-        .from('profiles').select('role').eq('id', user.id).single()
+      const { data: perfil, error: errorPerfil } = await supabase
+        .from('profiles').select('role').eq('id', user.id).maybeSingle()
+      if (!vigente) return
+
+      if ((errorPerfil || !perfil) && intento < 2) {
+        setTimeout(() => { if (vigente) verificarRol(intento + 1) }, 400)
+        return
+      }
 
       const rol = perfil?.role as UserRole | undefined
       if (rol === 'super_admin' || rol === 'direccion_academica') {
@@ -96,7 +114,9 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
       // Un estudiante (o administración, que no tiene vista de profesor) que
       // escriba /calificar en la barra de direcciones se va a su pantalla. La
       // RLS ya lo bloquea en la base; esto solo evita que vea un panel vacío
-      // y crea que la app está rota.
+      // y crea que la app está rota. Solo expulsa con el rol YA confirmado
+      // -- nunca por una consulta que todavía no respondió bien.
+      if (!perfil) return
       if (rol !== 'profesor' && rol !== 'direccion_academica' && rol !== 'super_admin') {
         router.replace('/')
         return
@@ -106,6 +126,7 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
     }
 
     verificarRol()
+    return () => { vigente = false }
   }, [router])
 
   // Tour guiado (migración 173, pedido explícito del coordinador): TAMBIÉN

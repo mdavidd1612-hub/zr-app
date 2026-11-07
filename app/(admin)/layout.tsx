@@ -142,19 +142,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [rol, setRol] = useState<UserRole | null>(null)
 
   useEffect(() => {
+    let vigente = true
     const supabase = createClient()
 
-    async function verificarRol() {
+    // Mismo bug que en app/(profesor)/layout.tsx (7-nov-2026): una falla
+    // transitoria al leer el rol (perfil llega vacío por un hiccup de red,
+    // no porque el rol de verdad no califique) se trataba como "no es
+    // admin" y expulsaba a mitad de uso. Se distingue "todavía no se pudo
+    // confirmar" (reintenta) de "se confirmó que no es admin" (ahí sí sale).
+    async function verificarRol(intento = 0) {
       const { data: { user } } = await supabase.auth.getUser()
+      if (!vigente) return
       if (!user) {
         router.replace('/login')
         return
       }
 
-      const { data: perfil } = await supabase
-        .from('profiles').select('role').eq('id', user.id).single()
+      const { data: perfil, error: errorPerfil } = await supabase
+        .from('profiles').select('role').eq('id', user.id).maybeSingle()
+      if (!vigente) return
 
-      if (!esAdmin(perfil?.role as UserRole | undefined)) {
+      if ((errorPerfil || !perfil) && intento < 2) {
+        setTimeout(() => { if (vigente) verificarRol(intento + 1) }, 400)
+        return
+      }
+
+      if (!perfil) return
+      if (!esAdmin(perfil.role as UserRole | undefined)) {
         router.replace('/')
         return
       }
@@ -172,6 +186,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
 
     verificarRol()
+    return () => { vigente = false }
   }, [router])
 
   if (verificando) {

@@ -1597,7 +1597,7 @@ export type Database = {
             foreignKeyName: "exam_answers_graded_by_fkey"
             columns: ["graded_by"]
             isOneToOne: false
-            referencedRelation: "teachers"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1854,7 +1854,7 @@ export type Database = {
             foreignKeyName: "exam_rehabilitation_requests_responded_by_fkey"
             columns: ["responded_by"]
             isOneToOne: false
-            referencedRelation: "teachers"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2003,14 +2003,14 @@ export type Database = {
             foreignKeyName: "exams_published_by_fkey"
             columns: ["published_by"]
             isOneToOne: false
-            referencedRelation: "teachers"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "exams_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
-            referencedRelation: "teachers"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2441,7 +2441,7 @@ export type Database = {
             foreignKeyName: "intervention_grants_granted_by_fkey"
             columns: ["granted_by"]
             isOneToOne: false
-            referencedRelation: "teachers"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2783,7 +2783,7 @@ export type Database = {
             foreignKeyName: "mastery_map_marked_by_fkey"
             columns: ["marked_by"]
             isOneToOne: false
-            referencedRelation: "teachers"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -3916,7 +3916,7 @@ export type Database = {
             foreignKeyName: "submissions_graded_by_fkey"
             columns: ["graded_by"]
             isOneToOne: false
-            referencedRelation: "teachers"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -5008,6 +5008,7 @@ export type Database = {
         Args: { nuevo_rol: Database["public"]["Enums"]["user_role"] }
         Returns: undefined
       }
+      fn_eliminar_unidad: { Args: { p_unit_id: string }; Returns: undefined }
       fn_feedback_modulos_docente: {
         Args: never
         Returns: {

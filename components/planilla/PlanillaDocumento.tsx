@@ -16,7 +16,7 @@ const INSTITUCION = {
   horario: 'Sábados',
 }
 
-import { CAMPOS_TODOS, algunCampoDe, type CamposPlanilla } from '@/lib/planilla-campos'
+import { CAMPOS_TODOS, algunCampoDe, esPlanillaCompleta, type CamposPlanilla } from '@/lib/planilla-campos'
 
 // Mismo azul de marca que usa el resto de la app (--zr-blue en globals.css) —
 // la planilla tiene que verse de la misma identidad, no en blanco y negro.
@@ -68,6 +68,7 @@ function CampoAncho({ etiqueta, valor }: { etiqueta: string; valor: string }) {
 /** Página 1: datos del participante (y del representante, si es menor). */
 export function PlanillaPagina1({ datos, campos = CAMPOS_TODOS }: { datos: DatosPlanilla; campos?: CamposPlanilla }) {
   const hayParticipante = algunCampoDe('participante', campos)
+  const completa = esPlanillaCompleta(campos)
   return (
     <div className="mx-auto mt-8 max-w-[700px] rounded-lg bg-white p-8 text-black print:mt-0 print:max-w-none print:rounded-none print:p-8 print:shadow-none print:break-after-page">
       <header className="flex items-center gap-3 border-b-4 pb-3 text-left" style={{ borderColor: AZUL }}>
@@ -86,13 +87,15 @@ export function PlanillaPagina1({ datos, campos = CAMPOS_TODOS }: { datos: Datos
       </header>
 
       <p className="mt-4 text-center text-sm font-bold uppercase tracking-wide" style={{ color: AZUL }}>
-        Planilla de inscripción – Comprobante Módulo 1
+        {completa ? 'Planilla de inscripción – Comprobante Módulo 1' : 'Datos del estudiante'}
       </p>
-      <p className="mt-1 text-center text-[11px] leading-relaxed text-neutral-600">
-        Documento generado automáticamente por el sistema a partir de los datos cargados al momento
-        del pago. Los campos no incluidos aquí (perfil académico, condiciones, correo, etc.) se
-        completan luego dentro de la aplicación.
-      </p>
+      {completa && (
+        <p className="mt-1 text-center text-[11px] leading-relaxed text-neutral-600">
+          Documento generado automáticamente por el sistema a partir de los datos cargados al momento
+          del pago. Los campos no incluidos aquí (perfil académico, condiciones, correo, etc.) se
+          completan luego dentro de la aplicación.
+        </p>
+      )}
 
       {campos.codigo && (
         <div className="mt-5 rounded p-4 text-center text-white" style={{ backgroundColor: AZUL }}>
@@ -192,10 +195,13 @@ export function PlanillaPagina2({ datos }: { datos: DatosPlanilla }) {
 }
 
 export function PlanillaDocumento({ datos, campos = CAMPOS_TODOS }: { datos: DatosPlanilla; campos?: CamposPlanilla }) {
+  // La página 2 (políticas + firmas) solo tiene sentido en la planilla
+  // completa; si se quitó algún campo, es un resumen de datos y no se imprime.
+  const completa = esPlanillaCompleta(campos)
   return (
     <>
       <PlanillaPagina1 datos={datos} campos={campos} />
-      <PlanillaPagina2 datos={datos} />
+      {completa && <PlanillaPagina2 datos={datos} />}
     </>
   )
 }

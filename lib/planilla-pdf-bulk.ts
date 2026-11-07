@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf'
 import type { DatosPlanilla } from '@/components/planilla/PlanillaDocumento'
 import { cargarDatosPlanilla } from '@/lib/planilla-datos'
-import { CAMPOS_TODOS, algunCampoDe, type CamposPlanilla } from '@/lib/planilla-campos'
+import { CAMPOS_TODOS, algunCampoDe, esPlanillaCompleta, type CamposPlanilla } from '@/lib/planilla-campos'
 
 /**
  * Descarga todas las planillas de un programa de un solo golpe (pedido
@@ -87,7 +87,9 @@ export function generarPdfEstudiante(
   const anchoUtil = anchoPagina - margen * 2
   let y = margen
 
-  function encabezado(conTitulo: boolean) {
+  const completa = esPlanillaCompleta(campos)
+
+  function encabezado() {
     // El logo real es un rectángulo ancho (958×254 px, ~3.77:1) — meterlo en
     // un cuadrado de 14×14 lo achataba. Se calcula el alto a partir del
     // ancho para que guarde su proporción real.
@@ -114,8 +116,11 @@ export function generarPdfEstudiante(
     doc.setLineWidth(0.8)
     doc.line(margen, y, margen + anchoUtil, y)
     y += 7
+  }
 
-    if (conTitulo) {
+  function titulo() {
+    if (completa) {
+      // Planilla formal: título de comprobante + nota explicativa.
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(12)
       doc.setTextColor(...AZUL)
@@ -130,6 +135,13 @@ export function generarPdfEstudiante(
       )
       doc.text(lineas, anchoPagina / 2, y, { align: 'center' })
       y += lineas.length * 3.6 + 5
+    } else {
+      // Se quitó algún campo: es un resumen de datos, no una planilla firmable.
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(12)
+      doc.setTextColor(...AZUL)
+      doc.text('DATOS DEL ESTUDIANTE', anchoPagina / 2, y, { align: 'center' })
+      y += 7
     }
   }
 
@@ -160,7 +172,8 @@ export function generarPdfEstudiante(
   }
 
   // ============================= PÁGINA 1 =============================
-  encabezado(true)
+  encabezado()
+  titulo()
 
   if (campos.codigo) {
     doc.setFillColor(...AZUL)
@@ -212,10 +225,11 @@ export function generarPdfEstudiante(
     if (campos.repCorreo) campo('Correo', datos.representante.correo || '—')
   }
 
-  // ============================= PÁGINA 2 =============================
+  // ===== PÁGINA 2 (solo en la planilla completa: políticas + firmas) =====
+  if (completa) {
   doc.addPage()
   y = margen
-  encabezado(false)
+  encabezado()
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
@@ -257,6 +271,7 @@ export function generarPdfEstudiante(
   } else {
     doc.line(anchoPagina / 2 - 35, y, anchoPagina / 2 + 35, y)
     doc.text('Firma del Participante', anchoPagina / 2, y + 5, { align: 'center' })
+  }
   }
 
   return doc.output('arraybuffer')

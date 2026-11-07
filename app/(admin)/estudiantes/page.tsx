@@ -6,7 +6,8 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { descargarPlanillasDelPrograma } from '@/lib/planilla-pdf-bulk'
-import { CAMPOS_TODOS, type CamposPlanilla } from '@/lib/planilla-campos'
+import { descargarTablaDelPrograma } from '@/lib/estudiantes-tabla'
+import { CAMPOS_TODOS, esPlanillaCompleta, type CamposPlanilla } from '@/lib/planilla-campos'
 import { SelectorCampos } from '@/components/planilla/SelectorCampos'
 import { IconoCerrar } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
@@ -74,6 +75,10 @@ export default function Estudiantes() {
   // descarga pendiente; `campos` arranca con todo marcado.
   const [modalDescarga, setModalDescarga] = useState<{ cohorteId: string; nombre: string; grupo: Estudiante[] } | null>(null)
   const [campos, setCampos] = useState<CamposPlanilla>(CAMPOS_TODOS)
+  // Formato de descarga: planilla en PDF (una por estudiante, en .zip) o
+  // tabla en Excel (un archivo, una fila por estudiante, columnas = campos
+  // marcados). Pedido de Dirección Académica + Pedro (nov. 2026).
+  const [formato, setFormato] = useState<'pdf' | 'excel'>('pdf')
 
   useEffect(() => {
     let vigente = true
@@ -161,20 +166,30 @@ export default function Estudiantes() {
     setOcupado(null)
   }
 
-  async function descargarTodas(cohorteId: string, nombreCohorte: string, grupo: Estudiante[]) {
+  async function ejecutarDescarga(cohorteId: string, nombreCohorte: string, grupo: Estudiante[]) {
     setError(null)
     setModalDescarga(null)
     setDescargando({ cohorteId, hecho: 0, total: grupo.length })
-    const { generadas, fallidas } = await descargarPlanillasDelPrograma(
-      grupo.map((e) => ({ id: e.id, nombre: e.nombre, cedula: e.cedula })),
-      nombreCohorte,
-      (hecho, total) => setDescargando({ cohorteId, hecho, total }),
-      campos,
-    )
+    const progreso = (hecho: number, total: number) => setDescargando({ cohorteId, hecho, total })
+
+    const { generadas, fallidas } = formato === 'excel'
+      ? await descargarTablaDelPrograma(
+          grupo.map((e) => ({ id: e.id, nombre: e.nombre })),
+          nombreCohorte,
+          campos,
+          progreso,
+        )
+      : await descargarPlanillasDelPrograma(
+          grupo.map((e) => ({ id: e.id, nombre: e.nombre, cedula: e.cedula })),
+          nombreCohorte,
+          progreso,
+          campos,
+        )
+
     setDescargando(null)
     if (fallidas.length > 0) {
       setError(
-        `Se descargaron ${generadas} planillas. No se pudo generar la de: ${fallidas.join(', ')}.`,
+        `Se descargaron ${generadas} de ${grupo.length}. No se pudo con: ${fallidas.join(', ')}.`,
       )
     }
   }
@@ -354,8 +369,8 @@ export default function Estudiantes() {
                   className="mt-3 flex min-h-14 w-full items-center justify-center gap-2 rounded-lg border border-zr-blue/30 bg-zr-blue/10 text-sm font-bold text-zr-blue disabled:opacity-60"
                 >
                   {descargando?.cohorteId === grupo.cohorteId
-                    ? `Generando planillas… ${descargando.hecho} de ${descargando.total}`
-                    : `📄 Descargar todas las planillas (${grupo.estudiantes.length})`}
+                    ? `Generando… ${descargando.hecho} de ${descargando.total}`
+                    : `📥 Descargar estudiantes (${grupo.estudiantes.length})`}
                 </button>
               )}
             </div>
@@ -377,9 +392,9 @@ export default function Estudiantes() {
           >
             <div className="flex items-start justify-between gap-3 border-b border-zr-border px-5 py-4">
               <div>
-                <p className="text-base font-bold text-zr-text">¿Qué campos incluir?</p>
+                <p className="text-base font-bold text-zr-text">Descargar estudiantes</p>
                 <p className="mt-0.5 text-sm text-zr-text-muted">
-                  {modalDescarga.nombre} · {modalDescarga.grupo.length} planillas
+                  {modalDescarga.nombre} · {modalDescarga.grupo.length} estudiantes
                 </p>
               </div>
               <button
@@ -391,16 +406,50 @@ export default function Estudiantes() {
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 zr-scroll">
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4 zr-scroll">
+              {/* Formato: planilla (PDF) o tabla (Excel). */}
+              <div>
+                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-zr-blue-mid">Formato</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {([['pdf', '📄 Planilla (PDF)'], ['excel', '📊 Tabla (Excel)']] as const).map(([valor, texto]) => (
+                    <button
+                      key={valor}
+                      type="button"
+                      onClick={() => setFormato(valor)}
+                      aria-pressed={formato === valor}
+                      className={`rounded-lg border px-3 py-3 text-sm font-bold transition-colors ${
+                        formato === valor
+                          ? 'border-zr-blue bg-zr-blue/15 text-zr-blue'
+                          : 'border-zr-border text-zr-text-muted'
+                      }`}
+                    >
+                      {texto}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-zr-text-muted">
+                  {formato === 'excel'
+                    ? 'Un archivo de Excel: una fila por estudiante, una columna por cada campo marcado.'
+                    : esPlanillaCompleta(campos)
+                      ? 'Planilla de inscripción completa (con políticas y firma), una por estudiante en un .zip.'
+                      : 'Como quitaste campos, el PDF sale como resumen de datos — sin la página de políticas ni la firma.'}
+                </p>
+              </div>
+
               <SelectorCampos campos={campos} onCambiar={setCampos} />
             </div>
 
             <div className="border-t border-zr-border px-5 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
               <button
-                onClick={() => descargarTodas(modalDescarga.cohorteId, modalDescarga.nombre, modalDescarga.grupo)}
-                className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white active:bg-zr-blue-deep"
+                onClick={() => ejecutarDescarga(modalDescarga.cohorteId, modalDescarga.nombre, modalDescarga.grupo)}
+                disabled={!Object.values(campos).some(Boolean)}
+                className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white active:bg-zr-blue-deep disabled:opacity-50"
               >
-                📄 Descargar {modalDescarga.grupo.length} planillas
+                {!Object.values(campos).some(Boolean)
+                  ? 'Marca al menos un campo'
+                  : formato === 'excel'
+                    ? `📊 Descargar tabla (${modalDescarga.grupo.length})`
+                    : `📄 Descargar ${modalDescarga.grupo.length} ${esPlanillaCompleta(campos) ? 'planillas' : 'PDF'}`}
               </button>
             </div>
           </div>

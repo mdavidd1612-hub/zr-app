@@ -181,6 +181,7 @@ export function generarPdfEstudiante(
     tituloSeccion('Datos del participante')
     if (campos.nombre) campo('Nombre y apellido', datos.nombre)
     if (campos.cedula) campo('C.I.', datos.cedula)
+    if (campos.correo) campo('Correo', datos.correo ?? '—')
     if (campos.modulo) campo('Módulo a cursar', datos.moduloActual ?? '—')
     if (campos.diasHorario) campo('Días y horario', datos.diasYHorario ?? '—')
     if (campos.fechaInscripcion) campo('Fecha de inscripción', fecha(datos.fechaInscripcion))

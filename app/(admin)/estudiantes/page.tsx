@@ -368,7 +368,7 @@ export default function Estudiantes() {
           imprimir. La misma selección se aplica a todas las planillas del lote. */}
       {modalDescarga && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6"
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6"
           onClick={() => setModalDescarga(null)}
         >
           <div
@@ -395,7 +395,7 @@ export default function Estudiantes() {
               <SelectorCampos campos={campos} onCambiar={setCampos} />
             </div>
 
-            <div className="border-t border-zr-border px-5 py-4">
+            <div className="border-t border-zr-border px-5 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
               <button
                 onClick={() => descargarTodas(modalDescarga.cohorteId, modalDescarga.nombre, modalDescarga.grupo)}
                 className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white active:bg-zr-blue-deep"

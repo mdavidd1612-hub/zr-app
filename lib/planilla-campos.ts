@@ -16,6 +16,7 @@ export type ClaveCampo =
   | 'codigo'
   | 'nombre'
   | 'cedula'
+  | 'correo'
   | 'modulo'
   | 'diasHorario'
   | 'fechaInscripcion'
@@ -39,6 +40,7 @@ export const GRUPOS_CAMPOS: { grupo: string; campos: { clave: ClaveCampo; etique
       { clave: 'codigo', etiqueta: 'Código de estudiante' },
       { clave: 'nombre', etiqueta: 'Nombre y apellido' },
       { clave: 'cedula', etiqueta: 'C.I.' },
+      { clave: 'correo', etiqueta: 'Correo' },
       { clave: 'modulo', etiqueta: 'Módulo a cursar' },
       { clave: 'diasHorario', etiqueta: 'Días y horario' },
       { clave: 'fechaInscripcion', etiqueta: 'Fecha de inscripción' },

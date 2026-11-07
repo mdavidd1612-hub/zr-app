@@ -11,7 +11,7 @@ export async function cargarDatosPlanilla(id: string): Promise<DatosPlanilla | n
 
   const { data: est } = await supabase
     .from('v_students')
-    .select('full_name, cedula, phone, address, birth_date, enrollment_date, is_minor')
+    .select('full_name, cedula, contact_email, phone, address, birth_date, enrollment_date, is_minor')
     .eq('id', id)
     .single()
 
@@ -37,6 +37,7 @@ export async function cargarDatosPlanilla(id: string): Promise<DatosPlanilla | n
   return {
     nombre: est.full_name ?? '',
     cedula: est.cedula ?? '',
+    correo: est.contact_email ?? null,
     telefono: est.phone,
     direccion: est.address,
     fechaNacimiento: est.birth_date ?? '',

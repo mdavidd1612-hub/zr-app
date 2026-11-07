@@ -80,3 +80,45 @@ export function algunCampoDe(grupo: 'participante' | 'representante', campos: Ca
     : GRUPOS_CAMPOS[1].campos
   return claves.some((c) => campos[c.clave])
 }
+
+/**
+ * ¿Están TODOS los campos marcados? Solo entonces el PDF es la planilla de
+ * inscripción formal (con la página 2 de políticas y firmas). Si se quitó
+ * aunque sea un campo, deja de ser una planilla firmable y pasa a ser un
+ * simple resumen de datos de la página 1 — Dirección Académica no necesita
+ * las políticas ni la firma cuando solo extrae, p. ej., nombre y correo.
+ */
+export function esPlanillaCompleta(campos: CamposPlanilla): boolean {
+  return TODAS_LAS_CLAVES.every((c) => campos[c])
+}
+
+/** Claves marcadas, en el orden del catálogo (columnas de la tabla Excel). */
+export function camposSeleccionados(campos: CamposPlanilla): ClaveCampo[] {
+  return TODAS_LAS_CLAVES.filter((c) => campos[c])
+}
+
+/**
+ * Encabezados para la descarga en tabla (Excel). A diferencia de las
+ * etiquetas del checklist —que se agrupan visualmente bajo "participante" /
+ * "representante"— aquí cada columna tiene que explicarse sola, por eso los
+ * campos del representante llevan el prefijo.
+ */
+export const ENCABEZADO_TABLA: Record<ClaveCampo, string> = {
+  codigo: 'Código de estudiante',
+  nombre: 'Nombre y apellido',
+  cedula: 'C.I.',
+  correo: 'Correo',
+  modulo: 'Módulo',
+  diasHorario: 'Días y horario',
+  fechaInscripcion: 'Fecha de inscripción',
+  telefono: 'Celular',
+  direccion: 'Dirección',
+  repNombre: 'Representante: nombre',
+  repCedula: 'Representante: C.I.',
+  repParentesco: 'Representante: parentesco',
+  repEdad: 'Representante: edad',
+  repNacionalidad: 'Representante: nacionalidad',
+  repProfesion: 'Representante: profesión',
+  repTelefono: 'Representante: celular',
+  repCorreo: 'Representante: correo',
+}

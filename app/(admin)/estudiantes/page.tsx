@@ -6,6 +6,9 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { descargarPlanillasDelPrograma } from '@/lib/planilla-pdf-bulk'
+import { CAMPOS_TODOS, type CamposPlanilla } from '@/lib/planilla-campos'
+import { SelectorCampos } from '@/components/planilla/SelectorCampos'
+import { IconoCerrar } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
@@ -66,6 +69,11 @@ export default function Estudiantes() {
   // coordinador): guarda cuál cohorte está generando y cuántas lleva, para
   // mostrar el progreso — con 19 estudiantes puede tardar unos segundos.
   const [descargando, setDescargando] = useState<{ cohorteId: string; hecho: number; total: number } | null>(null)
+  // Antes de bajar el .zip de planillas, Dirección elige qué campos salen
+  // impresos (pedido nov. 2026). El modal guarda de cuál programa es la
+  // descarga pendiente; `campos` arranca con todo marcado.
+  const [modalDescarga, setModalDescarga] = useState<{ cohorteId: string; nombre: string; grupo: Estudiante[] } | null>(null)
+  const [campos, setCampos] = useState<CamposPlanilla>(CAMPOS_TODOS)
 
   useEffect(() => {
     let vigente = true
@@ -155,11 +163,13 @@ export default function Estudiantes() {
 
   async function descargarTodas(cohorteId: string, nombreCohorte: string, grupo: Estudiante[]) {
     setError(null)
+    setModalDescarga(null)
     setDescargando({ cohorteId, hecho: 0, total: grupo.length })
     const { generadas, fallidas } = await descargarPlanillasDelPrograma(
       grupo.map((e) => ({ id: e.id, nombre: e.nombre, cedula: e.cedula })),
       nombreCohorte,
       (hecho, total) => setDescargando({ cohorteId, hecho, total }),
+      campos,
     )
     setDescargando(null)
     if (fallidas.length > 0) {
@@ -335,7 +345,11 @@ export default function Estudiantes() {
                   planilla una por una. */}
               {grupo.cohorteId && (
                 <button
-                  onClick={() => descargarTodas(grupo.cohorteId as string, grupo.cohorte ?? 'programa', grupo.estudiantes)}
+                  onClick={() => setModalDescarga({
+                    cohorteId: grupo.cohorteId as string,
+                    nombre: grupo.cohorte ?? 'programa',
+                    grupo: grupo.estudiantes,
+                  })}
                   disabled={descargando?.cohorteId === grupo.cohorteId}
                   className="mt-3 flex min-h-14 w-full items-center justify-center gap-2 rounded-lg border border-zr-blue/30 bg-zr-blue/10 text-sm font-bold text-zr-blue disabled:opacity-60"
                 >
@@ -346,6 +360,50 @@ export default function Estudiantes() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Checklist de campos antes de bajar el .zip (pedido de Dirección
+          Académica): por defecto todo marcado; se quita lo que no se quiera
+          imprimir. La misma selección se aplica a todas las planillas del lote. */}
+      {modalDescarga && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6"
+          onClick={() => setModalDescarga(null)}
+        >
+          <div
+            className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl bg-zr-surface sm:rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-zr-border px-5 py-4">
+              <div>
+                <p className="text-base font-bold text-zr-text">¿Qué campos incluir?</p>
+                <p className="mt-0.5 text-sm text-zr-text-muted">
+                  {modalDescarga.nombre} · {modalDescarga.grupo.length} planillas
+                </p>
+              </div>
+              <button
+                onClick={() => setModalDescarga(null)}
+                aria-label="Cerrar"
+                className="shrink-0 rounded-lg p-1.5 text-zr-text-muted transition-colors hover:text-zr-text"
+              >
+                <IconoCerrar size={20} />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 zr-scroll">
+              <SelectorCampos campos={campos} onCambiar={setCampos} />
+            </div>
+
+            <div className="border-t border-zr-border px-5 py-4">
+              <button
+                onClick={() => descargarTodas(modalDescarga.cohorteId, modalDescarga.nombre, modalDescarga.grupo)}
+                className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white active:bg-zr-blue-deep"
+              >
+                📄 Descargar {modalDescarga.grupo.length} planillas
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

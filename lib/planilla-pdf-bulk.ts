@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import type { DatosPlanilla } from '@/components/planilla/PlanillaDocumento'
 import { cargarDatosPlanilla } from '@/lib/planilla-datos'
+import { CAMPOS_TODOS, algunCampoDe, type CamposPlanilla } from '@/lib/planilla-campos'
 
 /**
  * Descarga todas las planillas de un programa de un solo golpe (pedido
@@ -74,7 +75,11 @@ export async function obtenerLogoDataUrl(): Promise<string | null> {
   }
 }
 
-export function generarPdfEstudiante(datos: DatosPlanilla, logoDataUrl: string | null): ArrayBuffer {
+export function generarPdfEstudiante(
+  datos: DatosPlanilla,
+  logoDataUrl: string | null,
+  campos: CamposPlanilla = CAMPOS_TODOS,
+): ArrayBuffer {
   const doc = new jsPDF({ unit: 'mm', format: 'letter' })
   const margen = 18
   const anchoPagina = doc.internal.pageSize.getWidth()
@@ -157,47 +162,53 @@ export function generarPdfEstudiante(datos: DatosPlanilla, logoDataUrl: string |
   // ============================= PÁGINA 1 =============================
   encabezado(true)
 
-  doc.setFillColor(...AZUL)
-  doc.roundedRect(margen, y, anchoUtil, 16, 2, 2, 'F')
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(7.5)
-  doc.setTextColor(255, 255, 255)
-  doc.text(
-    'CÓDIGO DE ESTUDIANTE — CONSÉRVELO, LO NECESITARÁ PARA SU PRIMER INGRESO A LA APP',
-    anchoPagina / 2, y + 6, { align: 'center' },
-  )
-  doc.setFontSize(13)
-  doc.text(datos.studentCode ?? 'PENDIENTE', anchoPagina / 2, y + 12.5, { align: 'center' })
-  y += 24
+  if (campos.codigo) {
+    doc.setFillColor(...AZUL)
+    doc.roundedRect(margen, y, anchoUtil, 16, 2, 2, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7.5)
+    doc.setTextColor(255, 255, 255)
+    doc.text(
+      'CÓDIGO DE ESTUDIANTE — CONSÉRVELO, LO NECESITARÁ PARA SU PRIMER INGRESO A LA APP',
+      anchoPagina / 2, y + 6, { align: 'center' },
+    )
+    doc.setFontSize(13)
+    doc.text(datos.studentCode ?? 'PENDIENTE', anchoPagina / 2, y + 12.5, { align: 'center' })
+    y += 24
+  }
 
-  tituloSeccion('Datos del participante')
-  campo('Nombre y apellido', datos.nombre)
-  campo('C.I.', datos.cedula)
-  campo('Módulo a cursar', datos.moduloActual ?? '—')
-  campo('Días y horario', datos.diasYHorario ?? '—')
-  campo('Fecha de inscripción', fecha(datos.fechaInscripcion))
-  campo('Nro. celular del participante', datos.telefono ?? '—')
-  campo('Dirección', datos.direccion ?? '—')
+  if (algunCampoDe('participante', campos)) {
+    tituloSeccion('Datos del participante')
+    if (campos.nombre) campo('Nombre y apellido', datos.nombre)
+    if (campos.cedula) campo('C.I.', datos.cedula)
+    if (campos.modulo) campo('Módulo a cursar', datos.moduloActual ?? '—')
+    if (campos.diasHorario) campo('Días y horario', datos.diasYHorario ?? '—')
+    if (campos.fechaInscripcion) campo('Fecha de inscripción', fecha(datos.fechaInscripcion))
+    if (campos.telefono) campo('Nro. celular del participante', datos.telefono ?? '—')
+    if (campos.direccion) campo('Dirección', datos.direccion ?? '—')
 
-  doc.setFont('helvetica', 'italic')
-  doc.setFontSize(7)
-  doc.setTextColor(...GRIS_ETIQUETA)
-  doc.text(
-    'Los "Días y Horario" se muestran automáticamente según el módulo seleccionado; no se solicitan como dato aparte al vendedor.',
-    margen, y,
-  )
-  y += 6
+    if (campos.diasHorario) {
+      doc.setFont('helvetica', 'italic')
+      doc.setFontSize(7)
+      doc.setTextColor(...GRIS_ETIQUETA)
+      doc.text(
+        'Los "Días y Horario" se muestran automáticamente según el módulo seleccionado; no se solicitan como dato aparte al vendedor.',
+        margen, y,
+      )
+      y += 6
+    }
+  }
 
-  if (datos.esMenor && datos.representante) {
+  if (datos.esMenor && datos.representante && algunCampoDe('representante', campos)) {
     tituloSeccion('Datos del representante')
-    campo('Nombre y apellido del representante', datos.representante.nombre || '—')
-    campo('C.I.', datos.representante.cedula || '—')
-    campo('Parentesco', datos.representante.parentesco || '—')
-    campo('Edad', datos.representante.edad ? String(datos.representante.edad) : '—')
-    campo('Nacionalidad', datos.representante.nacionalidad || '—')
-    campo('Profesión u ocupación', datos.representante.profesion || '—')
-    campo('Nro. celular', datos.representante.telefono ?? '—')
-    campo('Correo', datos.representante.correo || '—')
+    if (campos.repNombre) campo('Nombre y apellido del representante', datos.representante.nombre || '—')
+    if (campos.repCedula) campo('C.I.', datos.representante.cedula || '—')
+    if (campos.repParentesco) campo('Parentesco', datos.representante.parentesco || '—')
+    if (campos.repEdad) campo('Edad', datos.representante.edad ? String(datos.representante.edad) : '—')
+    if (campos.repNacionalidad) campo('Nacionalidad', datos.representante.nacionalidad || '—')
+    if (campos.repProfesion) campo('Profesión u ocupación', datos.representante.profesion || '—')
+    if (campos.repTelefono) campo('Nro. celular', datos.representante.telefono ?? '—')
+    if (campos.repCorreo) campo('Correo', datos.representante.correo || '—')
   }
 
   // ============================= PÁGINA 2 =============================
@@ -272,6 +283,7 @@ export async function descargarPlanillasDelPrograma(
   estudiantes: { id: string; nombre: string; cedula: string }[],
   nombrePrograma: string,
   onProgreso?: (hecho: number, total: number) => void,
+  campos: CamposPlanilla = CAMPOS_TODOS,
 ): Promise<{ generadas: number; fallidas: string[] }> {
   const JSZip = (await import('jszip')).default
   const zip = new JSZip()
@@ -289,7 +301,7 @@ export async function descargarPlanillasDelPrograma(
         fallidas.push(e.nombre)
         continue
       }
-      const buffer = generarPdfEstudiante(datos, logo)
+      const buffer = generarPdfEstudiante(datos, logo, campos)
       zip.file(`${nombreArchivoSeguro(e.nombre)} - ${e.cedula}.pdf`, buffer)
       generadas++
     } catch (err) {

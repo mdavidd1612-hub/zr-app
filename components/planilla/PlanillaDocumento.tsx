@@ -16,6 +16,8 @@ const INSTITUCION = {
   horario: 'Sábados',
 }
 
+import { CAMPOS_TODOS, algunCampoDe, type CamposPlanilla } from '@/lib/planilla-campos'
+
 // Mismo azul de marca que usa el resto de la app (--zr-blue en globals.css) —
 // la planilla tiene que verse de la misma identidad, no en blanco y negro.
 const AZUL = '#3869B1'
@@ -63,7 +65,8 @@ function CampoAncho({ etiqueta, valor }: { etiqueta: string; valor: string }) {
 }
 
 /** Página 1: datos del participante (y del representante, si es menor). */
-export function PlanillaPagina1({ datos }: { datos: DatosPlanilla }) {
+export function PlanillaPagina1({ datos, campos = CAMPOS_TODOS }: { datos: DatosPlanilla; campos?: CamposPlanilla }) {
+  const hayParticipante = algunCampoDe('participante', campos)
   return (
     <div className="mx-auto mt-8 max-w-[700px] rounded-lg bg-white p-8 text-black print:mt-0 print:max-w-none print:rounded-none print:p-8 print:shadow-none print:break-after-page">
       <header className="flex items-center gap-3 border-b-4 pb-3 text-left" style={{ borderColor: AZUL }}>
@@ -90,44 +93,52 @@ export function PlanillaPagina1({ datos }: { datos: DatosPlanilla }) {
         completan luego dentro de la aplicación.
       </p>
 
-      <div className="mt-5 rounded p-4 text-center text-white" style={{ backgroundColor: AZUL }}>
-        <p className="text-[11px] font-bold uppercase tracking-wide">
-          Código de estudiante — consérvelo, lo necesitará para su primer ingreso a la app
-        </p>
-        <p className="mt-1 text-2xl font-bold tabular-nums">{datos.studentCode ?? 'PENDIENTE'}</p>
-      </div>
+      {campos.codigo && (
+        <div className="mt-5 rounded p-4 text-center text-white" style={{ backgroundColor: AZUL }}>
+          <p className="text-[11px] font-bold uppercase tracking-wide">
+            Código de estudiante — consérvelo, lo necesitará para su primer ingreso a la app
+          </p>
+          <p className="mt-1 text-2xl font-bold tabular-nums">{datos.studentCode ?? 'PENDIENTE'}</p>
+        </div>
+      )}
 
-      <p className="mt-6 border-b-2 pb-1 text-xs font-bold uppercase tracking-wide" style={{ borderColor: AZUL, color: AZUL }}>
-        Datos del participante
-      </p>
-      <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-        <CampoAncho etiqueta="Nombre y apellido" valor={datos.nombre} />
-        <Campo etiqueta="C.I." valor={datos.cedula} />
-        <Campo etiqueta="Módulo a cursar" valor={datos.moduloActual ?? '—'} />
-        <Campo etiqueta="Días y horario" valor={datos.diasYHorario ?? '—'} />
-        <Campo etiqueta="Fecha de inscripción" valor={fecha(datos.fechaInscripcion)} />
-        <Campo etiqueta="Nro. celular del participante" valor={datos.telefono ?? '—'} />
-        <CampoAncho etiqueta="Dirección" valor={datos.direccion ?? '—'} />
-      </div>
-      <p className="mt-2 text-[10px] italic text-neutral-500">
-        Los &quot;Días y Horario&quot; se muestran automáticamente según el módulo seleccionado; no se
-        solicitan como dato aparte al vendedor.
-      </p>
+      {hayParticipante && (
+        <>
+          <p className="mt-6 border-b-2 pb-1 text-xs font-bold uppercase tracking-wide" style={{ borderColor: AZUL, color: AZUL }}>
+            Datos del participante
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+            {campos.nombre && <CampoAncho etiqueta="Nombre y apellido" valor={datos.nombre} />}
+            {campos.cedula && <Campo etiqueta="C.I." valor={datos.cedula} />}
+            {campos.modulo && <Campo etiqueta="Módulo a cursar" valor={datos.moduloActual ?? '—'} />}
+            {campos.diasHorario && <Campo etiqueta="Días y horario" valor={datos.diasYHorario ?? '—'} />}
+            {campos.fechaInscripcion && <Campo etiqueta="Fecha de inscripción" valor={fecha(datos.fechaInscripcion)} />}
+            {campos.telefono && <Campo etiqueta="Nro. celular del participante" valor={datos.telefono ?? '—'} />}
+            {campos.direccion && <CampoAncho etiqueta="Dirección" valor={datos.direccion ?? '—'} />}
+          </div>
+          {campos.diasHorario && (
+            <p className="mt-2 text-[10px] italic text-neutral-500">
+              Los &quot;Días y Horario&quot; se muestran automáticamente según el módulo seleccionado; no se
+              solicitan como dato aparte al vendedor.
+            </p>
+          )}
+        </>
+      )}
 
-      {datos.esMenor && datos.representante && (
+      {datos.esMenor && datos.representante && algunCampoDe('representante', campos) && (
         <>
           <p className="mt-6 border-b-2 pb-1 text-xs font-bold uppercase tracking-wide" style={{ borderColor: AZUL, color: AZUL }}>
             Datos del representante
           </p>
           <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-            <CampoAncho etiqueta="Nombre y apellido del representante" valor={datos.representante.nombre || '—'} />
-            <Campo etiqueta="C.I." valor={datos.representante.cedula || '—'} />
-            <Campo etiqueta="Parentesco" valor={datos.representante.parentesco || '—'} />
-            <Campo etiqueta="Edad" valor={datos.representante.edad ? String(datos.representante.edad) : '—'} />
-            <Campo etiqueta="Nacionalidad" valor={datos.representante.nacionalidad || '—'} />
-            <Campo etiqueta="Profesión u ocupación" valor={datos.representante.profesion || '—'} />
-            <Campo etiqueta="Nro. celular" valor={datos.representante.telefono ?? '—'} />
-            <Campo etiqueta="Correo" valor={datos.representante.correo || '—'} />
+            {campos.repNombre && <CampoAncho etiqueta="Nombre y apellido del representante" valor={datos.representante.nombre || '—'} />}
+            {campos.repCedula && <Campo etiqueta="C.I." valor={datos.representante.cedula || '—'} />}
+            {campos.repParentesco && <Campo etiqueta="Parentesco" valor={datos.representante.parentesco || '—'} />}
+            {campos.repEdad && <Campo etiqueta="Edad" valor={datos.representante.edad ? String(datos.representante.edad) : '—'} />}
+            {campos.repNacionalidad && <Campo etiqueta="Nacionalidad" valor={datos.representante.nacionalidad || '—'} />}
+            {campos.repProfesion && <Campo etiqueta="Profesión u ocupación" valor={datos.representante.profesion || '—'} />}
+            {campos.repTelefono && <Campo etiqueta="Nro. celular" valor={datos.representante.telefono ?? '—'} />}
+            {campos.repCorreo && <Campo etiqueta="Correo" valor={datos.representante.correo || '—'} />}
           </div>
         </>
       )}
@@ -178,10 +189,10 @@ export function PlanillaPagina2({ datos }: { datos: DatosPlanilla }) {
   )
 }
 
-export function PlanillaDocumento({ datos }: { datos: DatosPlanilla }) {
+export function PlanillaDocumento({ datos, campos = CAMPOS_TODOS }: { datos: DatosPlanilla; campos?: CamposPlanilla }) {
   return (
     <>
-      <PlanillaPagina1 datos={datos} />
+      <PlanillaPagina1 datos={datos} campos={campos} />
       <PlanillaPagina2 datos={datos} />
     </>
   )

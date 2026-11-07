@@ -89,11 +89,43 @@ const ETIQUETA_ESTADO: Record<EstadoModulo, string | null> = {
   terminado: 'Ya se cursó',
 }
 
+// Bug real reportado por el coordinador (7-nov-2026, video): a mitad de
+// trabajo, sin tocar nada, la pantalla volvía a "¿qué módulo quieres
+// revisar?" -- perdía la elección de programa/módulo ya hecha. No se pudo
+// confirmar la causa exacta (candidato más fuerte: lib/use-recargar-al-
+// volver.ts, que recarga la página si estuvo oculta 60s+, puede estar
+// disparando de más en esta app empaquetada como PWA de escritorio). Lo que
+// sí se corrige, pase lo que pase: la elección se guarda en sessionStorage,
+// así que si la pantalla se remonta, recupera dónde estaba en vez de
+// mandar a elegir de nuevo desde cero.
+const CLAVE_COHORTE = 'zr_ctx_cohort'
+const CLAVE_MODULO = 'zr_ctx_module'
+
+function leerGuardado(clave: string): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return window.sessionStorage.getItem(clave)
+  } catch {
+    return null
+  }
+}
+
+function guardar(clave: string, valor: string | null) {
+  if (typeof window === 'undefined') return
+  try {
+    if (valor) window.sessionStorage.setItem(clave, valor)
+    else window.sessionStorage.removeItem(clave)
+  } catch {
+    // Privado/incógnito puede bloquear sessionStorage -- sin esto no se
+    // recuerda la elección, pero la pantalla sigue funcionando igual.
+  }
+}
+
 export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nivel = 'modulo', children }: Props) {
   const router = useRouter()
   const [opciones, setOpciones] = useState<ContextoSel[] | null>(null)
-  const [cohortId, setCohortId] = useState<string | null>(null)
-  const [moduleId, setModuleId] = useState<string | null>(null)
+  const [cohortId, setCohortId] = useState<string | null>(() => leerGuardado(CLAVE_COHORTE))
+  const [moduleId, setModuleId] = useState<string | null>(() => leerGuardado(CLAVE_MODULO))
 
   useEffect(() => {
     let vigente = true
@@ -176,6 +208,8 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
   function cambiar() {
     setCohortId(null)
     setModuleId(null)
+    guardar(CLAVE_COHORTE, null)
+    guardar(CLAVE_MODULO, null)
   }
 
   // ── Ya hay selección: la sección + una franja para cambiar ──
@@ -216,6 +250,7 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
                 key={p.cohortId}
                 onClick={() => {
                   setCohortId(p.cohortId)
+                  guardar(CLAVE_COHORTE, p.cohortId)
                 }}
                 className="zr-card zr-card-interactive flex w-full items-center justify-between gap-3 p-5 text-left"
               >
@@ -261,6 +296,7 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
             key={o.moduleId}
             onClick={() => {
               setModuleId(o.moduleId)
+              guardar(CLAVE_MODULO, o.moduleId)
             }}
             className="zr-card zr-card-interactive flex w-full items-center justify-between gap-3 p-5 text-left"
           >

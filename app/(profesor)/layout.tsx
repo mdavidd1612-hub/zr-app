@@ -10,6 +10,7 @@ import { Tour } from '@/components/ui/Tour'
 import { useTour } from '@/lib/useTour'
 import { PASOS_POR_ROL } from '@/lib/tour-pasos'
 import { leerVistaRecorridoCookie } from '@/lib/vista-recorrido'
+import { NAV_DIRECCION, TODAS_DIRECCION, TODAS_SUPER } from '@/lib/nav-direccion'
 import {
   IconoPanel, IconoDuda, IconoProgreso, IconoVideo, IconoNotas, IconoPerfil,
 } from '@/components/ui/Iconos'
@@ -55,6 +56,10 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
   // tutorial de profesor no se les dispare solo (soloManual), aunque entren
   // sin el banner de simulación.
   const [esStaff, setEsStaff] = useState(false)
+  // Rol exacto de staff (direccion_academica vs super_admin): decide cuál de
+  // los dos menús completos (TODAS_DIRECCION / TODAS_SUPER) les corresponde
+  // cuando entran a Unidades como ellos mismos.
+  const [rolStaff, setRolStaff] = useState<UserRole | null>(null)
   // Banner "Vista de recorrido": SOLO cuando la persona eligió a propósito
   // "Vista de profesor" desde su panel (cookie zr_vista=profesor). Pedido
   // explícito del coordinador (nov. 2026): al entrar por "Unidades" de su
@@ -83,6 +88,7 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
       const rol = perfil?.role as UserRole | undefined
       if (rol === 'super_admin' || rol === 'direccion_academica') {
         setEsStaff(true)
+        setRolStaff(rol)
         // El banner solo si vienen de elegir "Vista de profesor" a propósito.
         setEnRecorrido(leerVistaRecorridoCookie() === 'profesor')
       }
@@ -119,8 +125,20 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
     )
   }
 
+  // Dirección/super_admin entrando COMO ELLOS MISMOS (no simulando al
+  // profesor): conservan su propio menú completo -- con "Unidades"
+  // resaltado -- en vez de perder Panel, Asistencia, Personal, Cohortes,
+  // Notas académicas, etc. Bug real reportado por el coordinador
+  // (7-nov-2026): el fix anterior solo quitó el banner de simulación, pero
+  // la barra lateral seguía siendo la reducida del profesor.
+  const propioMenu = esStaff && !enRecorrido
+  const itemsBarra = propioMenu ? NAV_DIRECCION : NAV
+  const todasLasSecciones = propioMenu
+    ? (rolStaff === 'super_admin' ? TODAS_SUPER : TODAS_DIRECCION)
+    : undefined
+
   return (
-    <Marco items={NAV} sinNavegacion={escaneando}>
+    <Marco items={itemsBarra} todasLasSecciones={todasLasSecciones} sinNavegacion={escaneando}>
       {enRecorrido && <BannerSimulacion etiqueta="Profesor" />}
       {children}
       {pasosTour && <Tour pasos={pasosTour} incremental={tourIncremental} onTerminado={terminarTour} />}

@@ -38,7 +38,7 @@ import type { UserRole } from '@/lib/types'
 const NAV: ItemBarra[] = [
   { href: '/',          label: 'Inicio',    Icono: IconoInicio },
   { href: '/clases',    label: 'Mi módulo', Icono: IconoProgreso },
-  { href: '/unidades',  label: 'Aula',      Icono: IconoVideo },
+  { href: '/unidades',  label: 'Unidades',  Icono: IconoVideo },
   { href: '/notas',     label: 'Notas',     Icono: IconoNotas },
   { href: '/dudas',     label: 'Dudas',     Icono: IconoDuda },
   { href: '/perfil',    label: 'Perfil',    Icono: IconoPerfil },

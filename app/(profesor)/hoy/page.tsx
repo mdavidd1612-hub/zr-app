@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { useEsqueletoVisible } from '@/lib/useEsqueletoVisible'
 import { Encabezado, Seccion, Regla, Dato } from '@/components/ui/Editorial'
+import { IconoDuda, IconoNotas } from '@/components/ui/Iconos'
 import { esAdmin } from '@/lib/auth-helpers'
 import { leerCohorteVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import type { UserRole } from '@/lib/types'
@@ -134,9 +135,9 @@ export default function Hoy() {
       <Seccion numero={1} titulo={sesion?.esHoy ? 'Tu clase de hoy' : 'Próxima clase'} delay={140}>
         <div id="tour-hoy-clase">
           {!sesion ? (
-            <div className="zr-card p-10 text-center">
-              <p className="text-lg font-semibold text-zr-text">No tienes clases programadas</p>
-              <p className="mx-auto mt-2 max-w-sm text-sm text-zr-text-muted">
+            <div className="flex flex-col items-center gap-2 py-12 text-center">
+              <p className="text-lg font-bold text-zr-text">No tienes clases programadas</p>
+              <p className="mx-auto max-w-sm text-sm text-zr-text-muted">
                 Cuando administración programe la próxima sesión de tu programa, aparecerá aquí.
               </p>
             </div>
@@ -171,39 +172,41 @@ export default function Hoy() {
         </Seccion>
       )}
 
-      {/* Feedback de módulo (pedido explícito del coordinador, sept. 2026):
-          no está en la barra fija (ya tiene sus 5 secciones) -- se llega
-          desde aquí, igual que /feedback-clase/[sessionId] se llega desde
-          /sesiones. */}
-      <Seccion numero={sesion ? 3 : 2} titulo="Feedback" delay={280}>
-        <button
-          onClick={() => router.push('/feedback-modulo-docente')}
-          className="zr-card zr-card-interactive flex w-full items-center justify-between gap-3 p-5 text-left"
-        >
-          <div>
-            <p className="text-sm font-semibold text-zr-text">Feedback de tus módulos</p>
-            <p className="mt-0.5 text-sm text-zr-text-muted">Promedio del grupo por pregunta.</p>
-          </div>
-          <span className="shrink-0 text-zr-text-muted">›</span>
-        </button>
-      </Seccion>
-
-      {/* Notas (pedido explícito del coordinador, sept. 2026): mismo patrón
-          que Feedback -- no está en la barra fija, se llega desde aquí. */}
-      {sesion && (
-        <Seccion numero={4} titulo="Notas" delay={340}>
+      {/* Feedback y Notas (pedido explícito del coordinador, sept. 2026): no
+          están en la barra fija (ya tiene sus 5 secciones) -- se llega desde
+          aquí. Tiles livianos con icono, igual que los Accesos de Inicio del
+          estudiante -- son enlaces de navegación, no datos que pesen como
+          tarjeta completa. */}
+      <Seccion numero={sesion ? 3 : 2} titulo="Accesos" delay={280}>
+        <div className={`grid gap-2 ${sesion ? 'grid-cols-2' : 'grid-cols-1'}`}>
           <button
-            onClick={() => router.push(`/notas/${sesion.cohortId}`)}
-            className="zr-card zr-card-interactive flex w-full items-center justify-between gap-3 p-5 text-left"
+            onClick={() => router.push('/feedback-modulo-docente')}
+            className="flex items-start gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-zr-surface/60"
           >
-            <div>
-              <p className="text-sm font-semibold text-zr-text">Evaluar a tus estudiantes</p>
-              <p className="mt-0.5 text-sm text-zr-text-muted">Por módulo y por examen.</p>
-            </div>
-            <span className="shrink-0 text-zr-text-muted">›</span>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue-mid">
+              <IconoDuda size={20} />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-bold text-zr-text">Feedback</span>
+              <span className="mt-0.5 block text-xs text-zr-text-muted">Promedio del grupo</span>
+            </span>
           </button>
-        </Seccion>
-      )}
+          {sesion && (
+            <button
+              onClick={() => router.push(`/notas/${sesion.cohortId}`)}
+              className="flex items-start gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-zr-surface/60"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue-mid">
+                <IconoNotas size={20} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-zr-text">Notas</span>
+                <span className="mt-0.5 block text-xs text-zr-text-muted">Evaluar estudiantes</span>
+              </span>
+            </button>
+          )}
+        </div>
+      </Seccion>
     </div>
   )
 }

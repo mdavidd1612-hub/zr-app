@@ -19,7 +19,12 @@ const PUBLIC_ROUTES = ['/login', '/recuperar', '/api/auth/callback', '/descargar
 // (sin nada más), el profesor ve '/notas/[cohortId]'. Va aparte para no
 // hacer match de prefijo con el otro rol por accidente.
 const RUTAS_ESTUDIANTE = ['/', '/clases', '/contenido', '/examenes', '/perfil', '/progreso', '/completar-perfil', '/aceptar-terminos', '/malla', '/feedback-modulo']
-const RUTAS_PROFESOR = ['/hoy', '/sesiones', '/crear-examen', '/calificar', '/perfil-docente', '/contenido-docente', '/temario-docente', '/dominio', '/escanear', '/feedback-clase', '/feedback-modulo-docente', '/notas-docente', '/evaluaciones']
+// '/unidades-docente' faltaba aquí (hueco encontrado el 7-nov-2026, junto
+// con el bug de la cookie de arriba): sin estar en esta lista, el proxy no
+// frenaba a NINGÚN rol autenticado pidiéndola -- funcionaba igual gracias al
+// chequeo de rol en app/(profesor)/layout.tsx y a la RLS, pero las dos
+// capas deben decir lo mismo. Se agrega para que sea consistente.
+const RUTAS_PROFESOR = ['/hoy', '/sesiones', '/crear-examen', '/calificar', '/perfil-docente', '/contenido-docente', '/unidades-docente', '/temario-docente', '/dominio', '/escanear', '/feedback-clase', '/feedback-modulo-docente', '/notas-docente', '/evaluaciones']
 const RUTAS_ADMIN = ['/panel', '/estudiantes', '/consentimientos', '/cohortes', '/reportes', '/perfil-admin', '/configuracion', '/personal', '/notas-academicas', '/examenes-academicos', '/cobertura-modulos', '/feedback-modulos', '/metricas-material']
 
 function empiezaConAlguna(pathname: string, rutas: string[]) {
@@ -106,9 +111,10 @@ export async function proxy(request: NextRequest) {
 
   // Vistas de recorrido (a pedido explícito del coordinador, docs/19_...):
   // administración, dirección académica y super_admin pueden recorrer la
-  // vista de estudiante; dirección académica y super_admin también la de
-  // profesor. El layout de cada una ya sabe mostrar el banner de "vista de
-  // recorrido" y saltarse los pasos que no le aplican (onboarding, etc).
+  // vista de estudiante (simulación -- ven cómo luce para otro rol, no es
+  // su área de trabajo real). El layout de cada una ya sabe mostrar el
+  // banner de "vista de recorrido" y saltarse los pasos que no le aplican
+  // (onboarding, etc).
   //
   // OJO: además del rol, se exige la cookie zr_vista (lib/vista-recorrido.ts)
   // — bug reportado por el coordinador: la PWA arranca en "/" (start_url,
@@ -126,9 +132,25 @@ export async function proxy(request: NextRequest) {
       return redirigirConSesion(new URL(INICIO_POR_ROL[role] ?? '/', request.url), response)
     }
   }
+  // Dirección Académica y super_admin: Unidades (Aula Virtual) es SU propia
+  // área de trabajo, no una simulación -- entran COMO ELLOS MISMOS, pudiendo
+  // modificar todo (RLS por is_staff() ya se los permite desde antes, ver
+  // app/(profesor)/layout.tsx y CLAUDE.md §8.6 #1, 7-nov-2026). Bug real
+  // reportado por el coordinador ese mismo día: este gate seguía exigiendo
+  // la cookie zr_vista=profesor (la de "vista de recorrido", pensada para
+  // CUANDO SÍ eligen simular al profesor desde su panel) para dejarlos
+  // entrar a /crear-examen y /contenido-docente -- sin esa cookie (que es
+  // justo el caso normal al entrar por su propio menú "Unidades"), el
+  // servidor los regresaba a /panel ANTES de que la pantalla llegara a
+  // renderizar. /unidades-docente no estaba en RUTAS_PROFESOR (arriba), así
+  // que esa pantalla sí funcionaba por omisión -- pero cualquier "Ver"
+  // dentro de una unidad (examen, crear examen nuevo, subir material) caía
+  // en esta trampa. Se agregó /unidades-docente a la lista también, para
+  // que de aquí en más pase por este mismo chequeo en vez de colarse sin
+  // pasar por ninguno.
   if (esRutaDeProfesor && role !== 'profesor') {
-    const puedeRecorrer = ['direccion_academica', 'super_admin'].includes(role) && vistaRecorrido === 'profesor'
-    if (!puedeRecorrer) {
+    const puedeEntrar = ['direccion_academica', 'super_admin'].includes(role)
+    if (!puedeEntrar) {
       return redirigirConSesion(new URL(INICIO_POR_ROL[role] ?? '/', request.url), response)
     }
   }

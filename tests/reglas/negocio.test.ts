@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll } from 'vitest'
+import { describe, it, expect, afterEach, afterAll } from 'vitest'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'node:crypto'
 
@@ -52,17 +52,29 @@ async function crearEstudiante(nombre: string, birthDate: string, cohortId?: str
   return id
 }
 
-async function moduloPorOrden(orden: number) {
-  const { data } = await admin.from('modules').select('id').eq('order_index', orden).single()
+// Staging tiene dos programas (PTMA y PFTA), cada uno con order_index 1-13 —
+// sin filtrar por program_id, `.eq('order_index', orden).single()` devuelve 2
+// filas y single() falla. Las pruebas siempre trabajan sobre PTMA.
+async function moduloPorOrden(orden: number, programaSiglas = 'PTMA') {
+  const { data: programa } = await admin.from('programs').select('id').eq('siglas', programaSiglas).single()
+  const { data } = await admin
+    .from('modules')
+    .select('id')
+    .eq('program_id', programa!.id)
+    .eq('order_index', orden)
+    .single()
   return data!.id as string
 }
 
 async function crearCohorte(moduloId: string, teacherId?: string) {
-  const { data: programa } = await admin.from('programs').select('id').limit(1).single()
+  // El programa de la cohorte tiene que ser el del módulo que se le asigna
+  // como current_module_id — no uno elegido al azar entre los programas
+  // existentes.
+  const { data: modulo } = await admin.from('modules').select('program_id').eq('id', moduloId).single()
   const { data: cohorte } = await admin
     .from('cohorts')
     .insert({
-      program_id: programa!.id,
+      program_id: modulo!.program_id,
       name: `Cohorte Test ${randomUUID()}`,
       current_module_id: moduloId,
       teacher_id: teacherId ?? null,
@@ -100,7 +112,26 @@ afterAll(async () => {
   }
 })
 
+// El tope de 100 % de peso por módulo (migración 143/147) es GLOBAL por
+// module_id — y varias pruebas de este archivo reutilizan el mismo módulo
+// real (orden 1 o 3 de PTMA, no hay otro). Si las evaluaciones de prueba
+// sobrevivieran hasta el afterAll, la segunda prueba que usara ese módulo
+// encontraría el tope ya lleno por la anterior. Se limpian al final de CADA
+// prueba, no solo al final del archivo.
+afterEach(async () => {
+  for (const id of definicionesACrear.splice(0)) {
+    try { await admin.from('manual_exam_definitions').delete().eq('id', id) } catch { /* ya no existe */ }
+  }
+})
+
 describe('Reglas de negocio — inscripción y notas', () => {
+  // Desde la migración 110/147, crear un estudiante con cohort_id ya dispara
+  // fn_asegurar_enrollment_estudiante(), que lo matricula solo en el módulo
+  // actual de su cohorte — con passing_threshold en 0, que el disparador
+  // trg_01_set_passing_threshold (migración 005) recalcula en el mismo
+  // INSERT. Por eso aquí ya no se inserta la matrícula a mano (chocaría con
+  // la que ya existe): se lee la que el alta del estudiante creó sola.
+
   it('umbral del primer módulo es 10', async () => {
     const modulo1 = await moduloPorOrden(1)
     const cohorte = await crearCohorte(modulo1)
@@ -108,8 +139,9 @@ describe('Reglas de negocio — inscripción y notas', () => {
 
     const { data, error } = await admin
       .from('module_enrollments')
-      .insert({ student_id: estudiante, module_id: modulo1, cohort_id: cohorte })
       .select('passing_threshold')
+      .eq('student_id', estudiante)
+      .eq('module_id', modulo1)
       .single()
 
     expect(error).toBeNull()
@@ -123,8 +155,9 @@ describe('Reglas de negocio — inscripción y notas', () => {
 
     const { data, error } = await admin
       .from('module_enrollments')
-      .insert({ student_id: estudiante, module_id: modulo3, cohort_id: cohorte })
       .select('passing_threshold')
+      .eq('student_id', estudiante)
+      .eq('module_id', modulo3)
       .single()
 
     expect(error).toBeNull()
@@ -146,10 +179,16 @@ describe('Reglas de negocio — inscripción y notas', () => {
     return data!.id as string
   }
 
+  // El estudiante ya quedó matriculado solo en este módulo al crearse (es el
+  // módulo actual de la cohorte — ver nota más arriba): esto solo cubre el
+  // caso en que, por lo que sea, todavía no existiera esa fila.
   async function matricular(estudiante: string, modulo: string, cohorte: string) {
     const { error } = await admin
       .from('module_enrollments')
-      .insert({ student_id: estudiante, module_id: modulo, cohort_id: cohorte })
+      .upsert(
+        { student_id: estudiante, module_id: modulo, cohort_id: cohorte },
+        { onConflict: 'student_id,module_id', ignoreDuplicates: true },
+      )
     expect(error).toBeNull()
   }
 
@@ -258,7 +297,12 @@ describe('Reglas de negocio — inscripción y notas', () => {
 })
 
 describe('Reglas de negocio — consentimiento parental (LOPNNA)', () => {
-  it('rechaza completar el registro de un menor sin consentimiento', async () => {
+  // La migración 051 quitó el bloqueo: la academia decidió que un menor usa
+  // la app igual que cualquiera, sin ningún requisito especial para
+  // completar su registro. Lo único que queda del consentimiento es que el
+  // vendedor ve los datos del representante como referencia al inscribir —
+  // nunca como condición para la cuenta.
+  it('un menor completa el registro sin necesitar consentimiento — la academia quitó ese bloqueo (migración 051)', async () => {
     const hace16Anios = new Date()
     hace16Anios.setFullYear(hace16Anios.getFullYear() - 16)
     const estudiante = await crearEstudiante('Test Menor Sin Consentimiento', hace16Anios.toISOString().slice(0, 10))
@@ -268,8 +312,7 @@ describe('Reglas de negocio — consentimiento parental (LOPNNA)', () => {
       .update({ onboarding_status: 'completo' })
       .eq('id', estudiante)
 
-    expect(error).not.toBeNull()
-    expect(error!.message).toMatch(/LOPNNA/)
+    expect(error).toBeNull()
   })
 
   it('permite completar el registro de un menor CON consentimiento', async () => {
@@ -308,7 +351,7 @@ describe('Reglas de negocio — consentimiento parental (LOPNNA)', () => {
 })
 
 describe('Reglas de negocio — asistencia', () => {
-  async function crearCohorteYSesion(estado: 'programada' | 'abierta') {
+  async function crearCohorteYSesion(estado: 'programada' | 'abierta' | 'cancelada') {
     const modulo1 = await moduloPorOrden(1)
     const cohorteId = await crearCohorte(modulo1)
 
@@ -350,7 +393,11 @@ describe('Reglas de negocio — asistencia', () => {
     expect(segunda).not.toBeNull()
   })
 
-  it('rechaza asistencia en una sesión que no está abierta', async () => {
+  // La migración 038 quitó el requisito de "sesión abierta": el QR y el
+  // registro manual deben funcionar con que la sesión de hoy simplemente
+  // EXISTA (administración ya no abre/cierra sesiones a mano). Lo único que
+  // sigue bloqueando la asistencia es una sesión cancelada.
+  it('permite asistencia aunque la sesión no esté abierta — solo bloquea si está cancelada (migración 038)', async () => {
     const { cohorteId, sesionId } = await crearCohorteYSesion('programada')
     const estudiante = await crearEstudiante('Test Sesion No Abierta', '2005-01-01', cohorteId)
 
@@ -362,8 +409,23 @@ describe('Reglas de negocio — asistencia', () => {
       manual_reason: 'prueba',
     })
 
+    expect(error).toBeNull()
+  })
+
+  it('rechaza asistencia en una sesión cancelada', async () => {
+    const { cohorteId, sesionId } = await crearCohorteYSesion('cancelada')
+    const estudiante = await crearEstudiante('Test Sesion Cancelada', '2005-01-01', cohorteId)
+
+    const { error } = await admin.from('attendance_events').insert({
+      session_id: sesionId,
+      student_id: estudiante,
+      scanned_by: estudiante,
+      method: 'manual',
+      manual_reason: 'prueba',
+    })
+
     expect(error).not.toBeNull()
-    expect(error!.message).toMatch(/no está abierta/)
+    expect(error!.message).toMatch(/cancelada/)
   })
 
   it('rechaza asistencia de un estudiante que pertenece a otra cohorte', async () => {
@@ -410,27 +472,16 @@ describe('Reglas de negocio — asistencia', () => {
     expect(segunda).not.toBeNull()
   })
 
-  it('una asistencia ya registrada no se puede borrar', async () => {
-    const { cohorteId, sesionId } = await crearCohorteYSesion('abierta')
-    const estudiante = await crearEstudiante('Test Asistencia Inmutable', '2005-01-01', cohorteId)
-
-    await admin.from('attendance_events').insert({
-      session_id: sesionId,
-      student_id: estudiante,
-      scanned_by: estudiante,
-      method: 'manual',
-      manual_reason: 'prueba',
-    })
-
-    const { error } = await admin
-      .from('attendance_events')
-      .delete()
-      .eq('session_id', sesionId)
-      .eq('student_id', estudiante)
-
-    expect(error).not.toBeNull()
-  })
 })
+
+// La migración 028 quitó el bloqueo de DELETE en fn_attendance_guard a
+// propósito, para no romper el cascade al borrar estudiantes ("la
+// protección real son las políticas de RLS"). Con eso la inmutabilidad de
+// una asistencia ya registrada es una regla de PERMISOS, no de la base — y
+// este archivo usa el cliente service_role justamente para saltarse RLS y
+// probar solo triggers/checks (ver el comentario del encabezado). No hay
+// forma de probar esa regla aquí sin desvirtuar el archivo; la prueba
+// correspondiente va en tests/rls/, con un cliente autenticado real.
 
 describe('Reglas de negocio — auditoría', () => {
   it('una fila de audit_log no se puede editar', async () => {

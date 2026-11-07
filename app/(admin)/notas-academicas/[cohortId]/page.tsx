@@ -505,11 +505,11 @@ export default function VerCalificacionesCohorte() {
       ) : (
         <>
         {reordenable && (
-          <p className="-mb-3 text-xs text-zr-text-muted">
+          <p className="mb-3 text-xs text-zr-text-muted">
             Arrastra el encabezado de una columna para cambiar su orden. La columna se mueve completa, con sus notas.
           </p>
         )}
-        <div className="max-h-[65dvh] overflow-auto rounded-lg border border-zr-border">
+        <div className="zr-scroll max-h-[65dvh] overflow-auto rounded-lg border border-zr-border">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="bg-zr-surface">

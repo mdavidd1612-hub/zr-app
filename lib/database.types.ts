@@ -234,6 +234,7 @@ export type Database = {
           title: string
           unit_id: string
           updated_at: string
+          weight: number | null
         }
         Insert: {
           created_at?: string
@@ -245,6 +246,7 @@ export type Database = {
           title: string
           unit_id: string
           updated_at?: string
+          weight?: number | null
         }
         Update: {
           created_at?: string
@@ -256,6 +258,7 @@ export type Database = {
           title?: string
           unit_id?: string
           updated_at?: string
+          weight?: number | null
         }
         Relationships: [
           {
@@ -2551,6 +2554,8 @@ export type Database = {
           passing_min: number
           scale_max: number
           sort_order: number | null
+          source_assignment_id: string | null
+          source_exam_id: string | null
           title: string
           weight_pct: number
         }
@@ -2565,6 +2570,8 @@ export type Database = {
           passing_min?: number
           scale_max?: number
           sort_order?: number | null
+          source_assignment_id?: string | null
+          source_exam_id?: string | null
           title: string
           weight_pct?: number
         }
@@ -2579,6 +2586,8 @@ export type Database = {
           passing_min?: number
           scale_max?: number
           sort_order?: number | null
+          source_assignment_id?: string | null
+          source_exam_id?: string | null
           title?: string
           weight_pct?: number
         }
@@ -2595,6 +2604,27 @@ export type Database = {
             columns: ["module_id"]
             isOneToOne: false
             referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_exam_definitions_source_assignment_id_fkey"
+            columns: ["source_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_exam_definitions_source_assignment_id_fkey"
+            columns: ["source_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "v_assignment_status"
+            referencedColumns: ["assignment_id"]
+          },
+          {
+            foreignKeyName: "manual_exam_definitions_source_exam_id_fkey"
+            columns: ["source_exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
             referencedColumns: ["id"]
           },
         ]
@@ -4804,6 +4834,7 @@ export type Database = {
           module_id: string | null
           open_at: string | null
           order_index: number | null
+          prerequisite_met: boolean | null
           prerequisite_unit_id: string | null
           title: string | null
           updated_at: string | null
@@ -4820,6 +4851,7 @@ export type Database = {
           module_id?: string | null
           open_at?: string | null
           order_index?: number | null
+          prerequisite_met?: never
           prerequisite_unit_id?: string | null
           title?: string | null
           updated_at?: string | null
@@ -4836,6 +4868,7 @@ export type Database = {
           module_id?: string | null
           open_at?: string | null
           order_index?: number | null
+          prerequisite_met?: never
           prerequisite_unit_id?: string | null
           title?: string | null
           updated_at?: string | null
@@ -5162,6 +5195,7 @@ export type Database = {
         | "documento"
         | "video"
         | "audio"
+        | "texto"
       doubt_status: "abierta" | "respondida" | "resuelta"
       enrollment_status: "en_curso" | "aprobado" | "reprobado" | "retirado"
       exam_status: "oculto" | "habilitado" | "cerrado" | "calificado"
@@ -5332,6 +5366,7 @@ export const Constants = {
         "documento",
         "video",
         "audio",
+        "texto",
       ],
       doubt_status: ["abierta", "respondida", "resuelta"],
       enrollment_status: ["en_curso", "aprobado", "reprobado", "retirado"],

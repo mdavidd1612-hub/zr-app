@@ -9,6 +9,7 @@ import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
+import { ModalEvaluacionAgregada } from '@/components/ui/ModalEvaluacionAgregada'
 
 type TipoPregunta = 'opcion_multiple' | 'verdadero_falso' | 'redaccion_abierta'
 
@@ -70,6 +71,14 @@ function NuevoExamenInterno() {
   const [notaMinima, setNotaMinima] = useState<number | ''>(10)
   const [intentos, setIntentos] = useState<number | ''>(2)
   const [enfriamiento, setEnfriamiento] = useState<number | ''>(24)
+
+  // Fusión con Notas (H.33, pedido del coordinador 7-nov-2026): el examen,
+  // al crearse, YA es una evaluación de Notas (migración 193) -- este % es
+  // lo que vale en la nota del módulo. Se fija aquí mismo, sin volver a
+  // Notas a registrarlo aparte.
+  const [peso, setPeso] = useState<number | ''>(0)
+  const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false)
+  const [destinoTrasConfirmar, setDestinoTrasConfirmar] = useState<string | null>(null)
 
   const [preguntas, setPreguntas] = useState<Pregunta[]>([])
   const [editorAbierto, setEditorAbierto] = useState<TipoPregunta | null>(null)
@@ -185,6 +194,7 @@ function NuevoExamenInterno() {
         passing_score: tipo === 'certificacion' ? (notaMinima === '' ? 10 : notaMinima) : 10,
         max_attempts: intentos === '' ? 2 : intentos,
         cooldown_hours: enfriamiento === '' ? 24 : enfriamiento,
+        weight: peso === '' ? 0 : peso,
         status: 'oculto',   // Nace como borrador. Publicar es un paso aparte.
       })
       .select()
@@ -226,11 +236,15 @@ function NuevoExamenInterno() {
         order_index: (count ?? 0) + 1,
         exam_id: examen.id,
       })
-      router.push(`/unidades-docente/${unitId}`)
+      setGuardando(false)
+      setDestinoTrasConfirmar(`/unidades-docente/${unitId}`)
+      setMostrarConfirmacion(true)
       return
     }
 
-    router.push('/crear-examen')
+    setGuardando(false)
+    setDestinoTrasConfirmar('/crear-examen')
+    setMostrarConfirmacion(true)
   }
 
   return (
@@ -418,6 +432,24 @@ function NuevoExamenInterno() {
                 className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
               />
             </div>
+
+            <div>
+              <label htmlFor="peso" className="mb-2 block text-sm font-semibold text-zr-text">
+                % que vale en la nota del módulo
+              </label>
+              <input
+                id="peso"
+                type="number"
+                min={0}
+                max={100}
+                value={peso}
+                onChange={(e) => setPeso(e.target.value === '' ? '' : Number(e.target.value))}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+              />
+              <p className="mt-1.5 text-xs text-zr-text-muted">
+                Este examen ya queda registrado como evaluación en Notas -- no hay que volver a crearlo ahí.
+              </p>
+            </div>
           </div>
         </div>
       </Seccion>
@@ -547,6 +579,13 @@ function NuevoExamenInterno() {
           El examen se guarda oculto. Para que los estudiantes lo vean, publícalo desde la lista.
         </p>
       </div>
+
+      {mostrarConfirmacion && destinoTrasConfirmar && (
+        <ModalEvaluacionAgregada
+          peso={typeof peso === 'number' ? peso : 0}
+          onCerrar={() => router.push(destinoTrasConfirmar)}
+        />
+      )}
     </div>
   )
 }

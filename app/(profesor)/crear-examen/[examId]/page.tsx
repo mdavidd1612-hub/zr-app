@@ -8,6 +8,7 @@ import { QuestionEditor } from '@/components/QuestionEditor'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
+import { ModalEvaluacionAgregada } from '@/components/ui/ModalEvaluacionAgregada'
 
 type TipoPregunta = 'opcion_multiple' | 'verdadero_falso' | 'redaccion_abierta'
 
@@ -53,6 +54,10 @@ export default function EditarExamen() {
   const [notaMinima, setNotaMinima] = useState<number | ''>(10)
   const [intentos, setIntentos] = useState<number | ''>(2)
   const [enfriamiento, setEnfriamiento] = useState<number | ''>(24)
+  // Fusión con Notas (H.33, migración 193): este % es lo que vale en la nota
+  // del módulo -- se guarda junto con el resto del examen.
+  const [peso, setPeso] = useState<number | ''>(0)
+  const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false)
   const [preguntas, setPreguntas] = useState<Pregunta[]>([])
   const [editorAbierto, setEditorAbierto] = useState<TipoPregunta | null>(null)
   const [eligiendoTipo, setEligiendoTipo] = useState(false)
@@ -103,6 +108,7 @@ export default function EditarExamen() {
       setNotaMinima(examen.passing_score != null ? Number(examen.passing_score) : 10)
       setIntentos(examen.max_attempts ?? 2)
       setEnfriamiento(examen.cooldown_hours ?? 24)
+      setPeso(examen.weight != null ? Number(examen.weight) : 0)
       // Solo los módulos que dicta (más el del propio examen); si no tiene asignados, todos.
       const suyos = new Set((asig ?? []).map((x) => x.module_id))
       setModulos(suyos.size > 0 ? (mods ?? []).filter((m) => suyos.has(m.id) || m.id === examen.module_id) : (mods ?? []))
@@ -175,6 +181,7 @@ export default function EditarExamen() {
         passing_score: tipo === 'certificacion' ? (notaMinima === '' ? 10 : notaMinima) : 10,
         max_attempts: intentos === '' ? 2 : intentos,
         cooldown_hours: enfriamiento === '' ? 24 : enfriamiento,
+        weight: peso === '' ? 0 : peso,
       })
       .eq('id', examId)
 
@@ -213,7 +220,8 @@ export default function EditarExamen() {
       return
     }
 
-    router.push('/crear-examen')
+    setGuardando(false)
+    setMostrarConfirmacion(true)
   }
 
   if (cargando) {
@@ -363,6 +371,19 @@ export default function EditarExamen() {
                 className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
               />
             </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-zr-text">
+                % que vale en la nota del módulo
+              </label>
+              <input
+                type="number" min={0} max={100} value={peso}
+                onChange={(e) => setPeso(e.target.value === '' ? '' : Number(e.target.value))}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+              />
+              <p className="mt-1.5 text-xs text-zr-text-muted">
+                Este examen ya es una evaluación en Notas -- no hay que crearla ahí aparte.
+              </p>
+            </div>
           </div>
         </div>
       </Seccion>
@@ -474,6 +495,14 @@ export default function EditarExamen() {
           </button>
         </div>
       </div>
+
+      {mostrarConfirmacion && (
+        <ModalEvaluacionAgregada
+          peso={typeof peso === 'number' ? peso : 0}
+          modo="actualizada"
+          onCerrar={() => router.push('/crear-examen')}
+        />
+      )}
     </div>
   )
 }

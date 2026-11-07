@@ -13,6 +13,7 @@ import { Recorrido, Paso } from '@/components/ui/Recorrido'
 import { IconoDocumento, IconoExamen, IconoDuda, IconoCheck, IconoLapiz } from '@/components/ui/Iconos'
 import { estadoUnidad } from '@/lib/estado-unidad'
 import { eyebrowMaterial } from '@/lib/material'
+import { ModalEvaluacionAgregada } from '@/components/ui/ModalEvaluacionAgregada'
 
 /**
  * Aula Virtual — el profesor administra el contenido de UNA unidad: fechas
@@ -82,7 +83,12 @@ export default function UnidadDocenteDetalle() {
   // Tarea nueva (sin pantalla propia todavía -- se crea aquí mismo).
   const [tareaTitulo, setTareaTitulo] = useState('')
   const [tareaFecha, setTareaFecha] = useState('')
+  // Fusión con Notas (H.33, migración 193): % que vale en la nota del
+  // módulo -- la tarea, al crearse, ya es una evaluación en Notas.
+  const [tareaPeso, setTareaPeso] = useState<number | ''>(0)
   const [creandoTarea, setCreandoTarea] = useState(false)
+  const [confirmandoTarea, setConfirmandoTarea] = useState(false)
+  const [pesoTareaConfirmada, setPesoTareaConfirmada] = useState(0)
 
   // Bloque de texto (migración 187): título + párrafo escritos directo aquí,
   // sin archivo -- se guarda como content_items tipo 'texto'.
@@ -238,6 +244,7 @@ export default function UnidadDocenteDetalle() {
 
   async function crearTarea() {
     if (!tareaTitulo.trim()) return
+    const pesoCreado = tareaPeso === '' ? 0 : tareaPeso
     setCreandoTarea(true)
     setError(null)
     const supabase = createClient()
@@ -247,6 +254,7 @@ export default function UnidadDocenteDetalle() {
         unit_id: unitId,
         title: tareaTitulo.trim(),
         due_at: tareaFecha ? new Date(tareaFecha).toISOString() : null,
+        weight: pesoCreado,
       })
       .select('id')
       .single()
@@ -261,7 +269,10 @@ export default function UnidadDocenteDetalle() {
     })
     setTareaTitulo('')
     setTareaFecha('')
+    setTareaPeso(0)
+    setPesoTareaConfirmada(pesoCreado)
     setCreandoTarea(false)
+    setConfirmandoTarea(true)
     await cargar()
   }
 
@@ -792,6 +803,18 @@ export default function UnidadDocenteDetalle() {
               onChange={(e) => setTareaFecha(e.target.value)}
               className="mb-2 min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
             />
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={tareaPeso}
+              onChange={(e) => setTareaPeso(e.target.value === '' ? '' : Number(e.target.value))}
+              placeholder="% que vale en la nota del módulo"
+              className="mb-1 min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm tabular-nums text-zr-text outline-none focus:border-zr-blue"
+            />
+            <p className="mb-2 text-xs text-zr-text-muted">
+              Esta tarea ya queda registrada como evaluación en Notas -- no hay que crearla ahí aparte.
+            </p>
             <button
               onClick={crearTarea}
               disabled={!tareaTitulo.trim() || creandoTarea}
@@ -811,6 +834,13 @@ export default function UnidadDocenteDetalle() {
           )}
         </div>
       </Seccion>
+
+      {confirmandoTarea && (
+        <ModalEvaluacionAgregada
+          peso={pesoTareaConfirmada}
+          onCerrar={() => setConfirmandoTarea(false)}
+        />
+      )}
     </div>
   )
 }

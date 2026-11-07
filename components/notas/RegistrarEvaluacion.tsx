@@ -25,7 +25,7 @@ import type { UserRole } from '@/lib/types'
  * se filtra por Programa y luego por Módulo.
  */
 
-type Tipo = 'examen' | 'practica' | 'prepractica' | 'exposicion' | 'participacion' | 'otro'
+type Tipo = 'examen' | 'practica' | 'prepractica' | 'exposicion' | 'participacion' | 'otro' | 'tarea'
 
 interface Cohorte {
   id: string
@@ -60,6 +60,10 @@ const ETIQUETA_KIND: Record<Tipo, string> = {
   exposicion: 'Exposición',
   participacion: 'Participación',
   otro: 'Otro',
+  // "tarea" no se crea a mano desde aquí -- llega sola desde una tarea de
+  // Aula Virtual (migración 193, H.33). Solo falta la etiqueta para que se
+  // vea bien donde ya se lista junto a las demás.
+  tarea: 'Tarea (Aula Virtual)',
 }
 const TIPOS: Tipo[] = ['examen', 'practica', 'prepractica', 'exposicion', 'participacion', 'otro']
 

@@ -165,7 +165,7 @@ export default function UnidadDetalle() {
   // Compuerta: unidad bloqueada por no aprobar la certificación anterior.
   if (bloqueada) {
     return (
-      <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
+      <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
         <div className="space-y-7">
           <BotonVolver href="/unidades" />
           <PestanasUnidad unidades={unidades} activaId={unitId} hrefBase="/unidades" />
@@ -208,7 +208,7 @@ export default function UnidadDetalle() {
   }
 
   return (
-    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
+    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <div className="space-y-7">
         <BotonVolver href="/unidades" />
 

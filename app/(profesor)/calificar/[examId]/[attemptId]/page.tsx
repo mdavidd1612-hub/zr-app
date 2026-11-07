@@ -146,7 +146,7 @@ export default function CorregirIntento() {
   if (resultado) {
     const aprobo = notaMinima != null && resultado.totalScore != null && resultado.totalScore >= notaMinima
     return (
-      <div className="space-y-9 px-5 pb-20 pt-14">
+      <div className="space-y-9 px-5 pb-20 pt-[calc(3.5rem+env(safe-area-inset-top))]">
         <BotonVolver href={`/calificar/${examId}`} />
         <Encabezado sobretitulo="Calificación" titulo={estudiante} descripcion={tituloExamen} />
         <Regla delay={60} />
@@ -185,7 +185,7 @@ export default function CorregirIntento() {
   const avance = Math.round((indice / cola.length) * 100)
 
   return (
-    <div className="px-5 pt-14">
+    <div className="px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <BotonVolver href={`/calificar/${examId}`} />
 
       <div className="mt-7">

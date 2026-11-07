@@ -8,7 +8,7 @@ import { Seccion, Regla, Encabezado, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { BannerUnidad, PALETA_BANNER, type ColorBanner } from '@/components/ui/BannerUnidad'
-import { acentoDe } from '@/lib/banner-unidad'
+import { acentoDe, hexARgba } from '@/lib/banner-unidad'
 import { prepararArchivo } from '@/lib/subida'
 import { PestanasUnidad, type PestanaUnidad } from '@/components/ui/PestanasUnidad'
 import { Recorrido, Paso } from '@/components/ui/Recorrido'
@@ -469,6 +469,12 @@ export default function UnidadDocenteDetalle() {
 
   if (cargando) return <PantallaEsqueleto variante="lista" />
 
+  // Color de acento de la unidad (migración 194/195): pedido explícito del
+  // coordinador -- "todos los botones y contornos" lo usan, no solo el
+  // banner y el nodo del recorrido. Una sola constante para toda la pantalla.
+  const acento = acentoDe(bannerColor)
+  const acentoSuave = hexARgba(acento, 0.12)
+
   const tieneDudas = items.some((i) => i.type === 'dudas')
 
   // Lectura: misma idea que app/(app)/unidades/[unitId]/page.tsx -- el
@@ -478,7 +484,7 @@ export default function UnidadDocenteDetalle() {
 
   if (!modoEdicion) {
     return (
-      <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
+      <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
         <div className="space-y-7">
           <BotonVolver href="/unidades-docente" />
 
@@ -522,7 +528,7 @@ export default function UnidadDocenteDetalle() {
                         meta={item.required ? <Etiqueta tono="aviso">Obligatorio</Etiqueta> : undefined}
                         ultimo={ultimo}
                         delay={80 + idx * 50}
-                        acento={acentoDe(bannerColor)}
+                        acento={acento}
                       >
                         <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zr-text-muted">
                           {item.cuerpoTexto}
@@ -577,6 +583,7 @@ export default function UnidadDocenteDetalle() {
                       href={href === '#' ? undefined : href}
                       ultimo={ultimo}
                       delay={80 + idx * 50}
+                      acento={acento}
                     />
                   )
                 })}
@@ -589,8 +596,8 @@ export default function UnidadDocenteDetalle() {
             similar [al estudiante]... y abajo un botón de editar." */}
         <button
           onClick={() => setModoEdicion(true)}
-          style={{ backgroundColor: acentoDe(bannerColor) }}
-          className="fixed bottom-24 left-1/2 flex min-h-14 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 items-center justify-center gap-2 rounded-full text-base font-bold text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)] lg:bottom-8"
+          style={{ backgroundColor: acento }}
+          className="fixed bottom-[calc(7rem+env(safe-area-inset-bottom))] left-1/2 z-[60] flex min-h-14 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 items-center justify-center gap-2 rounded-full text-base font-bold text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)] lg:bottom-8"
         >
           <IconoLapiz size={18} />
           Editar unidad
@@ -600,12 +607,13 @@ export default function UnidadDocenteDetalle() {
   }
 
   return (
-    <div className="space-y-11 pb-20">
+    <div className="min-h-dvh space-y-11 bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <div className="flex items-center justify-between gap-3">
         <BotonVolver href="/unidades-docente" />
         <button
           onClick={() => setModoEdicion(false)}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold text-zr-blue-mid"
+          style={{ color: acento }}
+          className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold"
         >
           <IconoCheck size={16} />
           Listo
@@ -634,7 +642,10 @@ export default function UnidadDocenteDetalle() {
         <div>
           <label className="mb-2 block text-sm font-semibold text-zr-text">Imagen propia (opcional)</label>
           <div className="flex gap-2">
-            <label className="flex min-h-12 flex-1 cursor-pointer items-center justify-center rounded-lg border border-dashed border-zr-border text-sm font-bold text-zr-text-muted">
+            <label
+              style={{ borderColor: acento, color: acento }}
+              className="flex min-h-12 flex-1 cursor-pointer items-center justify-center rounded-lg border border-dashed text-sm font-bold"
+            >
               {subiendoBanner ? 'Subiendo…' : bannerImagePath ? 'Cambiar imagen' : '+ Subir imagen'}
               <input
                 type="file"
@@ -652,7 +663,8 @@ export default function UnidadDocenteDetalle() {
               <button
                 onClick={quitarImagenBanner}
                 disabled={subiendoBanner}
-                className="min-h-12 rounded-lg border border-zr-border px-4 text-sm font-bold text-zr-text-muted"
+                style={{ borderColor: acento, color: acento }}
+                className="min-h-12 rounded-lg border px-4 text-sm font-bold"
               >
                 Quitar
               </button>
@@ -674,7 +686,8 @@ export default function UnidadDocenteDetalle() {
               onChange={(e) => moverPosicionBanner(Number(e.target.value))}
               onMouseUp={guardarPosicionBanner}
               onTouchEnd={guardarPosicionBanner}
-              className="w-full accent-zr-blue"
+              style={{ accentColor: acento }}
+              className="w-full"
             />
             <p className="mt-1 flex justify-between text-xs text-zr-text-muted">
               <span>Arriba</span><span>Abajo</span>
@@ -693,10 +706,11 @@ export default function UnidadDocenteDetalle() {
                 onClick={() => elegirColorBanner(c)}
                 title={PALETA_BANNER[c].etiqueta}
                 aria-label={PALETA_BANNER[c].etiqueta}
-                className={`h-10 w-10 shrink-0 rounded-full ${
-                  (bannerColor ?? 'azul') === c ? 'ring-2 ring-zr-blue ring-offset-2 ring-offset-zr-bg' : ''
-                }`}
-                style={{ backgroundColor: PALETA_BANNER[c].muestra }}
+                className="h-10 w-10 shrink-0 rounded-full"
+                style={{
+                  backgroundColor: PALETA_BANNER[c].muestra,
+                  boxShadow: (bannerColor ?? 'azul') === c ? `0 0 0 2px var(--zr-bg), 0 0 0 4px ${PALETA_BANNER[c].muestra}` : undefined,
+                }}
               />
             ))}
           </div>
@@ -731,7 +745,8 @@ export default function UnidadDocenteDetalle() {
           <button
             onClick={guardarFechas}
             disabled={guardando}
-            className="min-h-12 w-full rounded-lg bg-zr-blue text-sm font-bold text-white disabled:opacity-50"
+            style={{ backgroundColor: acento }}
+            className="min-h-12 w-full rounded-lg text-sm font-bold text-white disabled:opacity-50"
           >
             {guardando ? 'Guardando…' : 'Guardar fechas'}
           </button>
@@ -769,7 +784,8 @@ export default function UnidadDocenteDetalle() {
                       <button
                         onClick={() => guardarEdicionTexto(item)}
                         disabled={!editTextoTitulo.trim() || !editTextoCuerpo.trim() || guardandoEdicionTexto}
-                        className="min-h-11 flex-1 rounded-lg bg-zr-blue text-sm font-bold text-white disabled:opacity-40"
+                        style={{ backgroundColor: acento }}
+                        className="min-h-11 flex-1 rounded-lg text-sm font-bold text-white disabled:opacity-40"
                       >
                         {guardandoEdicionTexto ? 'Guardando…' : 'Guardar'}
                       </button>
@@ -778,11 +794,15 @@ export default function UnidadDocenteDetalle() {
                 )
               }
               return (
-                <div key={item.id} className="space-y-2 rounded-r-lg border-l-4 border-zr-blue bg-zr-blue/[0.06] py-4 pl-4 pr-5">
+                <div
+                  key={item.id}
+                  style={{ borderColor: acento, backgroundColor: acentoSuave }}
+                  className="space-y-2 rounded-r-lg border-l-4 py-4 pl-4 pr-5"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
                     <div className="flex shrink-0 gap-3">
-                      <button onClick={() => empezarEdicionTexto(item)} className="text-xs font-bold text-zr-blue-mid">
+                      <button onClick={() => empezarEdicionTexto(item)} style={{ color: acento }} className="text-xs font-bold">
                         Editar
                       </button>
                       <button onClick={() => quitarItem(item.id)} className="text-xs font-bold text-zr-error">
@@ -798,7 +818,10 @@ export default function UnidadDocenteDetalle() {
             return (
               <div key={item.id} className="zr-card space-y-3 p-5">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue">
+                  <div
+                    style={{ backgroundColor: acentoSuave, color: acento }}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+                  >
                     <Icono size={20} />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -816,7 +839,8 @@ export default function UnidadDocenteDetalle() {
                     {item.type === 'tarea' && item.assignmentId && (
                       <button
                         onClick={() => router.push(`/unidades-docente/tarea/${item.assignmentId}`)}
-                        className="mt-1 text-xs font-bold text-zr-blue-mid"
+                        style={{ color: acento }}
+                        className="mt-1 text-xs font-bold"
                       >
                         Ver entregas y calificar ›
                       </button>
@@ -824,7 +848,8 @@ export default function UnidadDocenteDetalle() {
                     {item.type === 'dudas' && (
                       <button
                         onClick={() => router.push(`/dudas-docente?unidad=${unitId}`)}
-                        className="mt-1 text-xs font-bold text-zr-blue-mid"
+                        style={{ color: acento }}
+                        className="mt-1 text-xs font-bold"
                       >
                         Ver y responder dudas ›
                       </button>
@@ -868,7 +893,8 @@ export default function UnidadDocenteDetalle() {
                           if (sel.value) asociarMiniChequeo(item.contentItemId as string, sel.value)
                         }}
                         disabled={asignandoChequeo === item.contentItemId}
-                        className="shrink-0 rounded-lg bg-zr-blue px-3 text-xs font-bold text-white disabled:opacity-50"
+                        style={{ backgroundColor: acento }}
+                        className="shrink-0 rounded-lg px-3 text-xs font-bold text-white disabled:opacity-50"
                       >
                         Asociar
                       </button>
@@ -903,14 +929,16 @@ export default function UnidadDocenteDetalle() {
                   if (sel.value) agregarItem('material', sel.value)
                 }}
                 disabled={agregando}
-                className="shrink-0 rounded-lg bg-zr-blue px-4 text-sm font-bold text-white disabled:opacity-50"
+                style={{ backgroundColor: acento }}
+                className="shrink-0 rounded-lg px-4 text-sm font-bold text-white disabled:opacity-50"
               >
                 Agregar
               </button>
             </div>
             <Link
               href={`/contenido-docente?unitId=${unitId}`}
-              className="mt-1 inline-block text-xs font-bold text-zr-blue-mid"
+              style={{ color: acento }}
+              className="mt-1 inline-block text-xs font-bold"
             >
               + Subir material nuevo para esta unidad ›
             </Link>
@@ -933,7 +961,8 @@ export default function UnidadDocenteDetalle() {
                   if (sel.value) agregarItem('quiz', sel.value)
                 }}
                 disabled={agregando}
-                className="shrink-0 rounded-lg bg-zr-blue px-4 text-sm font-bold text-white disabled:opacity-50"
+                style={{ backgroundColor: acento }}
+                className="shrink-0 rounded-lg px-4 text-sm font-bold text-white disabled:opacity-50"
               >
                 Agregar
               </button>
@@ -944,7 +973,8 @@ export default function UnidadDocenteDetalle() {
                 preseleccionar el módulo y, al guardar, engancharse solo aquí. */}
             <Link
               href={`/crear-examen/nuevo?unitId=${unitId}`}
-              className="mt-1 inline-block text-xs font-bold text-zr-blue-mid"
+              style={{ color: acento }}
+              className="mt-1 inline-block text-xs font-bold"
             >
               + Crear examen nuevo para esta unidad ›
             </Link>
@@ -971,7 +1001,8 @@ export default function UnidadDocenteDetalle() {
             <button
               onClick={crearBloqueTexto}
               disabled={!textoTitulo.trim() || !textoCuerpo.trim() || creandoTexto}
-              className="min-h-12 w-full rounded-lg bg-zr-blue text-sm font-bold text-white disabled:opacity-40"
+              style={{ backgroundColor: acento }}
+              className="min-h-12 w-full rounded-lg text-sm font-bold text-white disabled:opacity-40"
             >
               {creandoTexto ? 'Creando…' : 'Agregar bloque de texto'}
             </button>
@@ -1006,7 +1037,8 @@ export default function UnidadDocenteDetalle() {
             <button
               onClick={crearTarea}
               disabled={!tareaTitulo.trim() || creandoTarea}
-              className="min-h-12 w-full rounded-lg bg-zr-blue text-sm font-bold text-white disabled:opacity-40"
+              style={{ backgroundColor: acento }}
+              className="min-h-12 w-full rounded-lg text-sm font-bold text-white disabled:opacity-40"
             >
               {creandoTarea ? 'Creando…' : 'Crear tarea'}
             </button>
@@ -1015,7 +1047,8 @@ export default function UnidadDocenteDetalle() {
           {!tieneDudas && (
             <button
               onClick={() => agregarItem('dudas')}
-              className="min-h-12 w-full rounded-lg border border-dashed border-zr-border text-sm font-bold text-zr-text-muted"
+              style={{ borderColor: acento, color: acento }}
+              className="min-h-12 w-full rounded-lg border border-dashed text-sm font-bold"
             >
               + Agregar sección de Dudas a esta unidad
             </button>

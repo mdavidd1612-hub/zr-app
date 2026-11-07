@@ -105,7 +105,7 @@ export default function ListaEstudiantesExamen() {
   if (cargando) return <PantallaEsqueleto variante="lista" />
 
   return (
-    <div className="space-y-9 px-5 pb-20 pt-14">
+    <div className="space-y-9 px-5 pb-20 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <div className="flex items-center justify-between gap-3">
         <BotonVolver />
         <button

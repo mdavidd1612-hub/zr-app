@@ -25,6 +25,7 @@ const AZUL = '#3869B1'
 export interface DatosPlanilla {
   nombre: string
   cedula: string
+  correo: string | null
   telefono: string | null
   direccion: string | null
   fechaNacimiento: string
@@ -110,6 +111,7 @@ export function PlanillaPagina1({ datos, campos = CAMPOS_TODOS }: { datos: Datos
           <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
             {campos.nombre && <CampoAncho etiqueta="Nombre y apellido" valor={datos.nombre} />}
             {campos.cedula && <Campo etiqueta="C.I." valor={datos.cedula} />}
+            {campos.correo && <Campo etiqueta="Correo" valor={datos.correo ?? '—'} />}
             {campos.modulo && <Campo etiqueta="Módulo a cursar" valor={datos.moduloActual ?? '—'} />}
             {campos.diasHorario && <Campo etiqueta="Días y horario" valor={datos.diasYHorario ?? '—'} />}
             {campos.fechaInscripcion && <Campo etiqueta="Fecha de inscripción" valor={fecha(datos.fechaInscripcion)} />}

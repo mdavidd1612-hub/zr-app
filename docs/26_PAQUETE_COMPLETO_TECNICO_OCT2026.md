@@ -1229,6 +1229,11 @@ Si eres **Claude Code** u otra IA de código trabajando con Marco en `C:\Dev\ZR 
 2. Lee el `CLAUDE.md` del repo.
 3. Mira en qué sprint estamos (§10) y qué micro-actividades toca hoy.
 4. Si hay un reporte abierto de sprint anterior, léelo (`docs/reportes/reporte_sprint_N.md`).
+5. Lee el **§14.1 Historial por sesión de trabajo** — ahí están, en orden, todas las sesiones anteriores con lo que hicieron y los documentos que generaron en `docs/reportes/`. Léelo siempre, no solo el primer día: es la forma de enterarte de auditorías, chequeos o decisiones de una sesión anterior aunque no estén en el cuerpo de este documento todavía.
+
+### 12.1bis Lo último de cada sesión — dejar rastro en el historial
+
+Antes de cerrar cualquier sesión en la que hiciste trabajo real (no para una pregunta rápida), agrega una fila nueva al **§14.1 Historial por sesión de trabajo**: fecha, dos líneas de qué se hizo, y el nombre de cada archivo que generaste en `docs/reportes/` (con su ruta). Esto no reemplaza actualizar el cuerpo del documento cuando algo cambia el roadmap (regla 0.2) — es además, para que una sesión nueva sepa qué pasó aunque el cambio no haya tocado ninguna sección del roadmap.
 
 ### 12.2 Jerarquía de documentos
 
@@ -1339,6 +1344,21 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-10-26 | v1 (`docs/24`) | Primer roadmap maestro con 24 épicos |
 | 2026-10-26 | v2 (`docs/25`) | +Flujo vendedor, +QR 2 flujos, +Dirección dueña de lo académico, +E-Learning integrado, +ZR Coffee aparte, +4 reglas pedagógicas, +ciclo semanal, +8 indicadores con ejemplos, +criterios validación, +decisiones tomadas |
 | 2026-10-26 | v3 (`docs/26`, este) | **Documento consolidado único.** Reordena sprints en orden lógico, agrega fechas reales (3 nov 2026 – 4 abr 2027), agrega micro-actividades por día en cada sprint, agrega plantilla de reporte del técnico, agrega instrucciones completas para la IA del técnico. Reemplaza la necesidad de documentos separados. |
+
+---
+
+## 14.1 HISTORIAL POR SESIÓN DE TRABAJO
+
+> Esto es distinto a la tabla de arriba. La tabla de §14 lleva el historial de **versiones de este documento** (cuando cambia el roadmap). Esta tabla lleva el historial de **sesiones de trabajo** — qué hizo cada sesión de la IA, aunque no haya tocado el roadmap. Regla de uso en §12.1 y §12.1bis: toda sesión nueva la lee antes de empezar, toda sesión que trabajó de verdad agrega una fila antes de cerrar.
+
+| Fecha | Qué se hizo | Documentos generados |
+|---|---|---|
+| 2026-11-07 | Ronda de UX pedida por el coordinador sobre Aula Virtual en `zr-staging` (ver §8.4) y validación parcial del mapa de épicos contra el código real (ver §8.5). | — (cambios directo en §8 del documento maestro) |
+| 2026-11-07 | Reporte de estado para el coordinador: qué está en `zr-prod` vs. qué está terminado en `zr-staging` esperando subir, más validación contra el documento maestro. | `docs/reportes/reporte_coordinador_2026-11-07.md` |
+| 2026-11-07 | **Chequeo masivo de producción** (`zr-prod`/`main`) antes del arranque del nuevo programa del sábado: build/typecheck/lint, advisors de seguridad/rendimiento, RLS y Edge Functions de asistencia/QR/refrigerio, PWA/manifest, rutas enlazadas vs. reales, responsive 320-375px. Encontró y corrigió 1 bug real: el atajo "Mi carnet" del manifest apuntaba a `/carnet` (no existe) en vez de `/perfil` — ya desplegado a producción. | `docs/reportes/chequeo_masivo_produccion_2026-11-07.md` |
+| 2026-11-07 | **Chequeo masivo de staging** (`zr-staging`/`develop`), mismo alcance que el de producción, más verificación funcional de punta a punta del módulo Unidades/E-Learning con cuentas QA reales (recorrido, compuerta, materiales, bloques de texto, dudas, tareas, examen de certificación completo). Encontró y corrigió 1 bug real de RLS (la compuerta de la migración 185 no bloqueaba `content_items` directamente — migración 190, ver §8.1). Dejó documentados sin tocar código: falta de enlace a `/calificar` (decisión intencional de Fase 0, a confirmar si se retoma), una pregunta inapropiada en un examen de prueba (pendiente de que Pedro la borre), y dos migraciones (188/189) aplicadas directo a la base el 6-nov sin quedar como archivo en git (efecto neto ya es cero). | `docs/reportes/chequeo_masivo_staging_2026-11-07.md` |
+| 2026-11-07 | Lista de pruebas manuales de Aula Virtual en staging (por rol, con criterio de "no desplegar hasta marcar todo") + tareas pendientes de Sprint 0 y decisiones abiertas para la semana, armada para el trabajo del sábado. | `docs/reportes/SAB_7_NOV.md` |
+| 2026-11-07 | Se agregó este apartado (§14.1) y la regla §12.1bis, a pedido explícito de Pedro, para que el historial de sesiones quede dentro del documento maestro y cualquier sesión nueva se entere de lo de arriba sin que se lo tengan que explicar de nuevo. | — (este mismo cambio) |
 
 ---
 

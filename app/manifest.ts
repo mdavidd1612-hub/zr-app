@@ -50,7 +50,7 @@ export default function manifest(): MetadataRoute.Manifest {
         name: 'Mi carnet',
         short_name: 'Carnet',
         description: 'Ver mi carnet digital con QR',
-        url: '/carnet',
+        url: '/perfil',
         icons: [{ src: `${CARPETA}/icon-96.png`, sizes: '96x96', type: 'image/png' }],
       },
     ],

@@ -9,6 +9,7 @@ import { BannerSimulacion } from '@/components/ui/BannerSimulacion'
 import { Tour } from '@/components/ui/Tour'
 import { useTour } from '@/lib/useTour'
 import { PASOS_POR_ROL } from '@/lib/tour-pasos'
+import { leerVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import {
   IconoPanel, IconoDuda, IconoProgreso, IconoVideo, IconoNotas, IconoPerfil,
 } from '@/components/ui/Iconos'
@@ -48,10 +49,18 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
   const router = useRouter()
   const pathname = usePathname()
   const [verificando, setVerificando] = useState(true)
-  // A pedido explícito del coordinador: dirección académica y super_admin
-  // pueden recorrer la vista de profesor sin crear una cuenta de prueba
-  // aparte (administración NO — esta vista es solo de las dos anteriores).
-  const [simulando, setSimulando] = useState(false)
+  // Dirección académica y super_admin son "staff" de esta vista: pueden
+  // administrar las Unidades como propias (RLS por is_staff() ya les permite
+  // editar todo). Se guarda aparte del "recorrido deliberado" para que el
+  // tutorial de profesor no se les dispare solo (soloManual), aunque entren
+  // sin el banner de simulación.
+  const [esStaff, setEsStaff] = useState(false)
+  // Banner "Vista de recorrido": SOLO cuando la persona eligió a propósito
+  // "Vista de profesor" desde su panel (cookie zr_vista=profesor). Pedido
+  // explícito del coordinador (nov. 2026): al entrar por "Unidades" de su
+  // propio menú, super_admin y dirección entran COMO ELLOS MISMOS, pudiendo
+  // modificar todo, no como una simulación del profesor.
+  const [enRecorrido, setEnRecorrido] = useState(false)
 
   // La pantalla de escaneo necesita cada centímetro: es la que se usa de
   // pie, con una mano, mientras entran los estudiantes. La barra flotante
@@ -72,7 +81,11 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
         .from('profiles').select('role').eq('id', user.id).single()
 
       const rol = perfil?.role as UserRole | undefined
-      if (rol === 'super_admin' || rol === 'direccion_academica') setSimulando(true)
+      if (rol === 'super_admin' || rol === 'direccion_academica') {
+        setEsStaff(true)
+        // El banner solo si vienen de elegir "Vista de profesor" a propósito.
+        setEnRecorrido(leerVistaRecorridoCookie() === 'profesor')
+      }
 
       // Un estudiante (o administración, que no tiene vista de profesor) que
       // escriba /calificar en la barra de direcciones se va a su pantalla. La
@@ -96,7 +109,7 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
   // profiles.tour_pasos_vistos de quien está recorriendo (los IDs ya llevan
   // el prefijo del rol -- "profesor-...", nunca chocan con los suyos).
   const { pasos: pasosTour, incremental: tourIncremental, terminar: terminarTour } =
-    useTour(PASOS_POR_ROL.profesor, !verificando, simulando)
+    useTour(PASOS_POR_ROL.profesor, !verificando, esStaff)
 
   if (verificando) {
     return (
@@ -108,7 +121,7 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
 
   return (
     <Marco items={NAV} sinNavegacion={escaneando}>
-      {simulando && <BannerSimulacion etiqueta="Profesor" />}
+      {enRecorrido && <BannerSimulacion etiqueta="Profesor" />}
       {children}
       {pasosTour && <Tour pasos={pasosTour} incremental={tourIncremental} onTerminado={terminarTour} />}
     </Marco>

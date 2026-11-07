@@ -54,6 +54,37 @@ export const ETIQUETA_TIPO: Record<string, string> = {
   pdf: 'PDF', presentacion: 'PPT', documento: 'DOC', imagen: 'IMG', video: 'VIDEO', audio: 'AUDIO',
 }
 
+/**
+ * Texto del botón "Ver" según el tipo de material (pedido del coordinador,
+ * nov. 2026): una presentación dice "Ver presentación", no "Ver documento".
+ */
+export const ACCION_VER_TIPO: Record<string, string> = {
+  pdf: 'Ver documento',
+  documento: 'Ver documento',
+  presentacion: 'Ver presentación',
+  imagen: 'Ver imagen',
+  video: 'Ver video',
+  audio: 'Escuchar audio',
+}
+
+export function accionVerMaterial(tipo: string): string {
+  return ACCION_VER_TIPO[tipo] ?? 'Ver material'
+}
+
+/** Eyebrow (rótulo pequeño) del material según su tipo, para el recorrido. */
+export const EYEBROW_TIPO: Record<string, string> = {
+  pdf: 'Documento',
+  documento: 'Documento',
+  presentacion: 'Presentación',
+  imagen: 'Imagen',
+  video: 'Video',
+  audio: 'Audio',
+}
+
+export function eyebrowMaterial(tipo: string): string {
+  return EYEBROW_TIPO[tipo] ?? 'Material'
+}
+
 /** Ruta en Storage: el nombre se limpia SOLO para la ruta; el original va en la fila. */
 export function rutaDeStorage(moduloId: string, nombreOriginal: string): string {
   const limpio = nombreOriginal.replace(/[^a-zA-Z0-9.\-_]/g, '_')

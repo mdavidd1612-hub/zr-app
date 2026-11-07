@@ -9,8 +9,10 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { BannerUnidad } from '@/components/ui/BannerUnidad'
 import { PestanasUnidad, type PestanaUnidad } from '@/components/ui/PestanasUnidad'
+import { Recorrido, Paso } from '@/components/ui/Recorrido'
 import { IconoDocumento, IconoExamen, IconoDuda, IconoCheck, IconoLapiz } from '@/components/ui/Iconos'
 import { estadoUnidad } from '@/lib/estado-unidad'
+import { eyebrowMaterial } from '@/lib/material'
 
 /**
  * Aula Virtual — el profesor administra el contenido de UNA unidad: fechas
@@ -27,8 +29,15 @@ import { estadoUnidad } from '@/lib/estado-unidad'
  * `app/(app)/unidades/[unitId]/page.tsx` (mismo orden de ítems, mismos
  * iconos, misma idea de "obligatorio"/"completado"); el modo edición es el
  * formulario que ya existía (fechas, agregar/quitar, crear tarea).
- * Dirección Académica entra por la misma pantalla (vista de recorrido del
- * layout de profesor) y hereda esto automáticamente, sin tocar nada más.
+ * Dirección Académica y super_admin entran por esta misma pantalla COMO
+ * ELLOS MISMOS (sin el banner de simulación -- ver app/(profesor)/layout.tsx)
+ * y pueden administrar todo igual que el profesor: RLS por is_staff() ya se
+ * los permite, sin tocar nada más.
+ *
+ * La lectura usa el mismo recorrido (components/ui/Recorrido) que el
+ * estudiante -- pedido del coordinador (nov. 2026): unificar la estética; y
+ * cada ítem navega a su "Ver" (material → visor del docente, examen → su
+ * constructor, tarea → entregas, dudas → panel de dudas de la unidad).
  */
 
 interface Item {
@@ -42,6 +51,8 @@ interface Item {
   esTexto: boolean
   cuerpoTexto: string | null
   esVideoOAudio: boolean
+  materialTipo: string | null
+  esCertificacion: boolean
   checkQuizId: string | null
   checkQuizTitulo: string | null
 }
@@ -109,7 +120,7 @@ export default function UnidadDocenteDetalle() {
 
     const { data: filas } = await supabase
       .from('unit_items')
-      .select('id, type, required, assignment_id, content_item_id, exam_id, content_items(title, type, description, check_quiz_id, check_quiz:exams!content_items_check_quiz_id_fkey(title)), exams(title), assignments(title)')
+      .select('id, type, required, assignment_id, content_item_id, exam_id, content_items(title, type, description, check_quiz_id, check_quiz:exams!content_items_check_quiz_id_fkey(title)), exams(title, kind), assignments(title)')
       .eq('unit_id', unitId)
       .order('order_index', { ascending: true })
 
@@ -119,7 +130,7 @@ export default function UnidadDocenteDetalle() {
           title: string; type: string; description: string | null
           check_quiz_id: string | null; check_quiz: { title: string } | null
         } | null
-        const ex = f.exams as unknown as { title: string } | null
+        const ex = f.exams as unknown as { title: string; kind: string } | null
         const ta = f.assignments as unknown as { title: string } | null
         return {
           id: f.id, type: f.type, required: f.required,
@@ -130,6 +141,8 @@ export default function UnidadDocenteDetalle() {
           esTexto: ci?.type === 'texto',
           cuerpoTexto: ci?.type === 'texto' ? (ci.description ?? '') : null,
           esVideoOAudio: ci?.type === 'video' || ci?.type === 'audio',
+          materialTipo: ci?.type ?? null,
+          esCertificacion: f.type === 'quiz' && ex?.kind === 'certificacion',
           checkQuizId: ci?.check_quiz_id ?? null,
           checkQuizTitulo: ci?.check_quiz?.title ?? null,
         }
@@ -364,70 +377,103 @@ export default function UnidadDocenteDetalle() {
 
   if (!modoEdicion) {
     return (
-      <div className="space-y-7 pb-28">
-        <BotonVolver href="/unidades-docente" />
+      <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
+        <div className="space-y-7">
+          <BotonVolver href="/unidades-docente" />
 
-        <PestanasUnidad unidades={unidades} activaId={unitId} hrefBase="/unidades-docente" />
+          <PestanasUnidad unidades={unidades} activaId={unitId} hrefBase="/unidades-docente" />
+        </div>
 
-        <BannerUnidad
-          sobretitulo="Aula Virtual · Vista del estudiante"
-          titulo={titulo}
-          accion={
-            <span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white">
-              {estado.texto}
-            </span>
-          }
-        />
+        <div className="mt-7 space-y-9">
+          <BannerUnidad
+            sobretitulo="Aula Virtual · Vista del estudiante"
+            titulo={titulo}
+            accion={
+              <span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white">
+                {estado.texto}
+              </span>
+            }
+          />
 
-        <div className="space-y-11">
-        <Seccion numero={1} titulo="Contenido de la unidad" delay={100}>
-          {items.length === 0 ? (
-            <p className="text-sm text-zr-text-muted">Todavía no has agregado nada. Toca &quot;Editar&quot; para empezar.</p>
-          ) : (
-            <div className="space-y-3">
-              {items.map((item) => {
-                if (item.esTexto) {
-                  return (
-                    <div key={item.id} className="space-y-2 rounded-r-lg border-l-4 border-zr-blue bg-zr-blue/[0.06] py-4 pl-4 pr-5">
-                      <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
-                      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zr-text-muted">{item.cuerpoTexto}</p>
-                    </div>
+          <section className="animate-rise space-y-6">
+            <p className="zr-eyebrow">01 — CONTENIDO DE LA UNIDAD</p>
+
+            {items.length === 0 ? (
+              <p className="text-sm text-zr-text-muted">Todavía no has agregado nada. Toca &quot;Editar unidad&quot; para empezar.</p>
+            ) : (
+              <Recorrido>
+                {items.map((item, idx) => {
+                  const ultimo = idx === items.length - 1
+
+                  // Bloque de texto: sin archivo, se lee completo en el camino
+                  // (mismo trato que en la vista del estudiante).
+                  if (item.esTexto) {
+                    return (
+                      <Paso
+                        key={item.id}
+                        estado="disponible"
+                        icono={IconoDocumento}
+                        eyebrow="Lectura"
+                        titulo={item.titulo}
+                        meta={item.required ? <Etiqueta tono="aviso">Obligatorio</Etiqueta> : undefined}
+                        ultimo={ultimo}
+                        delay={80 + idx * 50}
+                      >
+                        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zr-text-muted">
+                          {item.cuerpoTexto}
+                        </p>
+                      </Paso>
+                    )
+                  }
+
+                  // Cada ítem navega a su "Ver": material → visor del docente,
+                  // examen → su constructor (ver cómo quedó), tarea → entregas,
+                  // dudas → el panel de dudas filtrado por esta unidad.
+                  let Icono = IconoDocumento
+                  let eyebrow = 'Material'
+                  let href = '#'
+                  if (item.type === 'material') {
+                    Icono = IconoDocumento
+                    eyebrow = eyebrowMaterial(item.materialTipo ?? '')
+                    href = item.contentItemId ? `/unidades-docente/${unitId}/material/${item.contentItemId}` : '#'
+                  } else if (item.type === 'quiz') {
+                    Icono = IconoExamen
+                    eyebrow = item.esCertificacion ? 'Certificación' : 'Examen'
+                    href = item.examId ? `/crear-examen/${item.examId}` : '#'
+                  } else if (item.type === 'tarea') {
+                    Icono = IconoLapiz
+                    eyebrow = 'Tarea'
+                    href = item.assignmentId ? `/unidades-docente/tarea/${item.assignmentId}` : '#'
+                  } else if (item.type === 'dudas') {
+                    Icono = IconoDuda
+                    eyebrow = 'Dudas'
+                    href = `/dudas-docente?unidad=${unitId}`
+                  }
+
+                  const meta = (
+                    <>
+                      {item.required && <Etiqueta tono="aviso">Obligatorio</Etiqueta>}
+                      {item.esCertificacion && <Etiqueta tono="info">Certificación</Etiqueta>}
+                    </>
                   )
-                }
-                const Icono = item.type === 'material' ? IconoDocumento : item.type === 'quiz' ? IconoExamen : IconoDuda
-                return (
-                  <div key={item.id} className="zr-card flex items-center gap-4 p-5">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue">
-                      <Icono size={20} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
-                      <div className="mt-1 flex items-center gap-2">
-                        {item.required && <Etiqueta tono="aviso">Obligatorio</Etiqueta>}
-                      </div>
-                    </div>
-                    {item.type === 'tarea' && item.assignmentId && (
-                      <button
-                        onClick={() => router.push(`/unidades-docente/tarea/${item.assignmentId}`)}
-                        className="shrink-0 text-xs font-bold text-zr-blue-mid"
-                      >
-                        Ver entregas ›
-                      </button>
-                    )}
-                    {item.type === 'dudas' && (
-                      <button
-                        onClick={() => router.push(`/dudas-docente?unidad=${unitId}`)}
-                        className="shrink-0 text-xs font-bold text-zr-blue-mid"
-                      >
-                        Ver dudas ›
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </Seccion>
+
+                  return (
+                    <Paso
+                      key={item.id}
+                      estado="disponible"
+                      icono={Icono}
+                      eyebrow={eyebrow}
+                      titulo={item.titulo}
+                      meta={item.required || item.esCertificacion ? meta : undefined}
+                      href={href === '#' ? undefined : href}
+                      ultimo={ultimo}
+                      delay={80 + idx * 50}
+                    />
+                  )
+                })}
+              </Recorrido>
+            )}
+          </section>
         </div>
 
         {/* Pedido explícito del coordinador: "el profesor debería verlo

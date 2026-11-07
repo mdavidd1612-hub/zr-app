@@ -428,6 +428,16 @@ El coordinador probó el módulo en `zr-staging` (viendo el video de referencia 
 
 **Pendiente, no es bloqueante, queda para una próxima pasada:** llevar el mismo tratamiento "Recorrido" (camino conectado) a las pantallas del profesor (`unidades-docente/[unitId]/page.tsx`, lectura y edición) — hoy siguen con el patrón de tarjetas apiladas; solo se les agregó la edición del bloque de texto y el enlace de dudas, sin rediseñar el contenedor. Coordinar con quien siga trabajando esa otra sesión en paralelo antes de tocarlo, para no duplicar.
 
+### 8.5 Validación rápida del mapa de épicos (6-nov-2026, parcial)
+
+Pedido del coordinador: verificar lo que hay contra "todo el mapa del documento maestro". Dado el tamaño (24 épicos, ~180 funciones), esta pasada fue parcial — se confirmó contra el código real lo que tocaban las auditorías §8.1-8.4 (épicos F, H) y se revisó de pasada N y X, que no tenían bullets propios aunque esta sesión los movió:
+
+- **Épico N (Dirección Académica):** las pantallas que el mapa da por 🟡 ya existen y funcionan de verdad — `/personal`, `/cobertura-modulos`, `/notas-academicas`, `/examenes-academicos`, `/modulos`, `/feedback-modulos`, y ahora `/cohortes` (§8.3). **N.11 Comunicados/anuncios no existe todavía** (no hay pantalla ni tabla) — sigue 🔴 real, coincide con el Sprint 8 donde está planificado.
+- **Épico X (Dudas mejoradas):** FAQ, dudas por unidad, respuesta oficial y resumen IA (`resumir-dudas`) ya existen desde migr. 180/182. Esta sesión sumó el filtro por unidad en el panel del profesor (§8.4). Sigue 🟡 porque faltan X.6-X.9 (imagen adjunta en duda, tiempo de respuesta con alertas) — Sprint 9, no construido.
+- Épicos ✅ (C, D, K, M, P, Q) no se tocaron esta sesión — se asume que siguen vigentes tal cual estaban, sin verificación línea por línea en esta pasada.
+
+**No se completó una auditoría de los 24 épicos completos** — quedaría para una sesión dedicada solo a eso, siguiendo el mismo patrón de §8.1 (leer el doc de referencia, confrontar contra `zr-prod`/`zr-staging` y el código, actualizar estado con fecha).
+
 ---
 
 # PARTE IV — FLUJOGRAMAS POR ROL

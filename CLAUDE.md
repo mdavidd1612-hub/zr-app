@@ -463,6 +463,36 @@ Reportado con video por el coordinador, la misma noche: entrando a Unidades, eli
 
 **Pendiente real**: confirmar si sigue pasando el reinicio en sí (aunque ya no debería doler tanto, gracias a sessionStorage). Si vuelve a pasar, el dato que más ayuda es la consola del navegador (F12) en el momento exacto -- o decirle al coordinador que pruebe sin minimizar/cambiar de ventana durante la prueba, para descartar `use-recargar-al-volver.ts`.
 
+### 8.6quater Bug real (7-nov-2026) — "No se pudo guardar" al calificar una redacción como super_admin
+
+Reportado con captura de pantalla, la misma noche: al calificar una respuesta de redacción (pantalla nueva de §8.6 #4) y tocar "Guardar y ver resultado", salía "No se pudo guardar. Revisa tu conexión e inténtalo otra vez." -- no era la conexión.
+
+**Causa exacta, confirmada por logs** (`query_logs`, `function_logs`, no hubo que adivinar):
+
+```
+Error grading answer: {
+  code: "23503",
+  details: 'Key (graded_by)=(d0b1916f-...) is not present in table "teachers".',
+  message: 'insert or update on table "exam_answers" violates foreign key constraint "exam_answers_graded_by_fkey"'
+}
+```
+
+`exam_answers.graded_by` tenía una foreign key hacia `teachers(id)` -- una tabla de solo **3 filas** (los profesores de verdad). super_admin/Dirección Académica nunca van a estar ahí, aunque hoy pueden calificar exámenes igual que un profesor (todo lo de §8.6 #4). Se revisó qué OTRAS columnas tenían el mismo patrón (`pg_constraint` contra `confrelid = teachers`) y aparecieron **7 en total**, todas con el mismo riesgo latente (no probadas todavía, pero iban a fallar igual en cuanto alguien de Dirección/super_admin las tocara):
+
+| Tabla | Columna | Qué significa |
+|---|---|---|
+| `exam_answers` | `graded_by` | quién calificó la respuesta (el bug real, ya reportado) |
+| `submissions` | `graded_by` | quién calificó una tarea |
+| `exams` | `teacher_id` | quién creó el examen (`/crear-examen/nuevo` ya guarda `user.id` sea quien sea) |
+| `exams` | `published_by` | quién lo publicó |
+| `exam_rehabilitation_requests` | `responded_by` | quién aprobó un intento extra |
+| `intervention_grants` | `granted_by` | quién otorgó la intervención |
+| `mastery_map` | `marked_by` | quién marcó el dominio |
+
+**Fix** (migración 196): las 7 se relajan a `profiles(id)` -- cambio seguro porque `teachers.id` YA referencia `profiles(id)` (mismo patrón que `students`), así que ningún valor existente deja de ser válido. **A propósito NO se tocaron** `cohorts.teacher_id`, `class_sessions.teacher_id` ni `teacher_module_assignments.teacher_id` -- esas sí significan "quién es EL profesor asignado de verdad" y deben seguir siendo solo de `teachers`.
+
+**Patrón que se repite hoy**: es la tercera vez en la misma sesión (ver también grade-answer sin `direccion_academica` en §8.6 #4, y el filtro `teacher_id` del cliente en §8.6 #1) que una regla vieja, pensada para cuando solo el profesor hacía estas cosas, bloquea a Dirección/super_admin ahora que el modelo cambió a "entran como ellos mismos, pueden hacer todo". Vale la pena, en algún momento, una auditoría dedicada a buscar este patrón en el resto del sistema en vez de ir encontrándolo pantalla por pantalla.
+
 ### 8.6bis Bug real (7-nov-2026) — super_admin devuelto al panel desde dentro de Unidades
 
 Reportado por el coordinador sobre staging, el mismo día de #1-#3b: entrando como super_admin, dentro de una unidad (`inglés 1`, módulo 2), tocar **"Certificación"** (ver el examen), **"Crear examen nuevo"** y **agregar material ya subido** lo devolvían al panel "en varias ocasiones". El coordinador sospechó que tenía que ver con #1 (entrar como sí mismo, no como vista de profesor) — tenía razón.
@@ -1455,6 +1485,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-07 | **#4 construido** (banner editable de la unidad): imagen propia o uno de 5 colores oscuros, y aspecto moderno/clásico por unidad -- a pedido explícito, después de haberlo dejado fuera de alcance al inicio del día. Migración 194 + bucket público `banners-unidad`. Ver §8.6 #4. Solo en staging. | `supabase/migrations/194_banner_unidad_personalizable.sql` |
 | 2026-11-07 | **#4, ronda 2**: se quitó "aspecto" (migración 195), se agregó posición de imagen y comprimidor reutilizado, el color ahora también tiñe botones/contornos (acento), y "Ver" examen ya no va al constructor sino a una pantalla nueva (lista de estudiantes → corregir redacciones por intento, adaptando la cola `/calificar` que ya existía). Bug encontrado y corregido en el camino: `grade-answer` no dejaba calificar a `direccion_academica`. Ver §8.6 #4. Solo en staging. | `supabase/migrations/195_banner_unidad_ajustes.sql` |
 | 2026-11-07 | **Bug reportado por el coordinador (video):** la selección de programa/módulo se perdía sola a mitad de trabajo, sin ningún clic, y mandaba de vuelta a elegir módulo. Analizado fotograma a fotograma -- causa exacta no confirmada (candidato: `use-recargar-al-volver.ts`, recarga la página tras 60s+ oculta). Corregido lo que sí se pudo con certeza: `ContextoDocente` ahora guarda la elección en `sessionStorage` y la restaura si se remonta. Ver §8.6ter. | — |
+| 2026-11-07 | **Bug reportado por el coordinador (captura):** "No se pudo guardar" al calificar una redacción como super_admin. Causa confirmada por logs: `exam_answers.graded_by` (y otras 6 columnas iguales) referenciaban `teachers(id)` -- tabla de solo 3 filas, sin super_admin/Dirección. Migración 196: las 7 se relajan a `profiles(id)`; se dejaron intactas `cohorts.teacher_id`/`class_sessions.teacher_id`/`teacher_module_assignments.teacher_id`, que sí son "el profesor asignado de verdad". Ver §8.6quater. | `supabase/migrations/196_fks_graded_by_a_profiles.sql` |
 
 ---
 

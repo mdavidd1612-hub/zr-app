@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Encabezado, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
-import { BannerUnidad } from '@/components/ui/BannerUnidad'
+import { BannerUnidad, PALETA_BANNER, type ColorBanner } from '@/components/ui/BannerUnidad'
 import { PestanasUnidad, type PestanaUnidad } from '@/components/ui/PestanasUnidad'
 import { Recorrido, Paso } from '@/components/ui/Recorrido'
 import { IconoDocumento, IconoExamen, IconoDuda, IconoCheck, IconoLapiz } from '@/components/ui/Iconos'
@@ -106,16 +106,29 @@ export default function UnidadDocenteDetalle() {
   const [editTextoCuerpo, setEditTextoCuerpo] = useState('')
   const [guardandoEdicionTexto, setGuardandoEdicionTexto] = useState(false)
 
+  // Banner personalizable (migración 194, pedido #4 del coordinador): imagen
+  // o color a elegir, y el aspecto clásico/moderno de la unidad entera. Lo
+  // configura quien edita; lo ve igual cualquier perfil que entre.
+  const [bannerImagePath, setBannerImagePath] = useState<string | null>(null)
+  const [bannerColor, setBannerColor] = useState<ColorBanner | null>(null)
+  const [bannerAspecto, setBannerAspecto] = useState<'moderno' | 'clasico'>('moderno')
+  const [subiendoBanner, setSubiendoBanner] = useState(false)
+
   async function cargar() {
     const supabase = createClient()
     const { data: unidad } = await supabase
-      .from('units').select('title, module_id, open_at, close_at, manual_status').eq('id', unitId).maybeSingle()
+      .from('units')
+      .select('title, module_id, open_at, close_at, manual_status, banner_image_path, banner_color, banner_aspecto')
+      .eq('id', unitId).maybeSingle()
     if (!unidad) { router.replace('/unidades-docente'); return }
     setTitulo(unidad.title)
     setOpenAt(unidad.open_at ? unidad.open_at.slice(0, 16) : '')
     setCloseAt(unidad.close_at ? unidad.close_at.slice(0, 16) : '')
     setManualStatus(unidad.manual_status)
     setModuleId(unidad.module_id)
+    setBannerImagePath(unidad.banner_image_path)
+    setBannerColor(unidad.banner_color as ColorBanner | null)
+    setBannerAspecto((unidad.banner_aspecto as 'moderno' | 'clasico') ?? 'moderno')
 
     // El bloque de texto se guarda como content_items (RLS exige cohort_id +
     // module_id que el profesor realmente dicta -- mismo requisito que el
@@ -207,6 +220,70 @@ export default function UnidadDocenteDetalle() {
     if (err) setError(err.message)
     setGuardando(false)
   }
+
+  // Banner (migración 194): imagen en el bucket público 'banners-unidad',
+  // ruta guardada en units.banner_image_path. Subir una nueva borra la
+  // vieja (si había) para no acumular archivos huérfanos.
+  async function subirImagenBanner(archivo: File) {
+    if (!archivo.type.startsWith('image/')) {
+      setError('Elige un archivo de imagen.')
+      return
+    }
+    if (archivo.size > 5 * 1024 * 1024) {
+      setError('La imagen no puede pesar más de 5 MB.')
+      return
+    }
+    setSubiendoBanner(true)
+    setError(null)
+    const supabase = createClient()
+    const ext = archivo.name.split('.').pop() || 'jpg'
+    const ruta = `${unitId}-${Date.now()}.${ext}`
+    const { error: errSubida } = await supabase.storage
+      .from('banners-unidad').upload(ruta, archivo, { upsert: false })
+    if (errSubida) {
+      setError(errSubida.message)
+      setSubiendoBanner(false)
+      return
+    }
+    const anterior = bannerImagePath
+    const { error: errUnidad } = await supabase
+      .from('units').update({ banner_image_path: ruta }).eq('id', unitId)
+    if (errUnidad) {
+      setError(errUnidad.message)
+      await supabase.storage.from('banners-unidad').remove([ruta])
+      setSubiendoBanner(false)
+      return
+    }
+    if (anterior) await supabase.storage.from('banners-unidad').remove([anterior])
+    setBannerImagePath(ruta)
+    setSubiendoBanner(false)
+  }
+
+  async function quitarImagenBanner() {
+    if (!bannerImagePath) return
+    setSubiendoBanner(true)
+    const supabase = createClient()
+    await supabase.from('units').update({ banner_image_path: null }).eq('id', unitId)
+    await supabase.storage.from('banners-unidad').remove([bannerImagePath])
+    setBannerImagePath(null)
+    setSubiendoBanner(false)
+  }
+
+  async function elegirColorBanner(color: ColorBanner) {
+    setBannerColor(color)
+    const supabase = createClient()
+    await supabase.from('units').update({ banner_color: color }).eq('id', unitId)
+  }
+
+  async function elegirAspecto(valor: 'moderno' | 'clasico') {
+    setBannerAspecto(valor)
+    const supabase = createClient()
+    await supabase.from('units').update({ banner_aspecto: valor }).eq('id', unitId)
+  }
+
+  const urlBanner = bannerImagePath
+    ? createClient().storage.from('banners-unidad').getPublicUrl(bannerImagePath).data.publicUrl
+    : null
 
   const [agregando, setAgregando] = useState(false)
 
@@ -399,6 +476,8 @@ export default function UnidadDocenteDetalle() {
           <BannerUnidad
             sobretitulo="Aula Virtual · Vista del estudiante"
             titulo={titulo}
+            imagenUrl={urlBanner}
+            color={bannerColor}
             accion={
               <span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white">
                 {estado.texto}
@@ -411,6 +490,58 @@ export default function UnidadDocenteDetalle() {
 
             {items.length === 0 ? (
               <p className="text-sm text-zr-text-muted">Todavía no has agregado nada. Toca &quot;Editar unidad&quot; para empezar.</p>
+            ) : bannerAspecto === 'clasico' ? (
+              // Aspecto clásico (migración 194): tarjetas apiladas, como se
+              // veía antes del recorrido conectado -- a elección de quien
+              // edita, no el default.
+              <div className="space-y-3">
+                {items.map((item) => {
+                  if (item.esTexto) {
+                    return (
+                      <div key={item.id} className="zr-card space-y-2 p-5">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">Lectura</p>
+                        <p className="text-base font-bold text-zr-text">{item.titulo}</p>
+                        {item.required && <Etiqueta tono="aviso">Obligatorio</Etiqueta>}
+                        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zr-text-muted">
+                          {item.cuerpoTexto}
+                        </p>
+                      </div>
+                    )
+                  }
+                  let eyebrow = 'Material'
+                  let href = '#'
+                  if (item.type === 'material') {
+                    eyebrow = eyebrowMaterial(item.materialTipo ?? '')
+                    href = item.contentItemId ? `/unidades-docente/${unitId}/material/${item.contentItemId}` : '#'
+                  } else if (item.type === 'quiz') {
+                    eyebrow = item.esCertificacion ? 'Certificación' : 'Examen'
+                    href = item.examId ? `/crear-examen/${item.examId}` : '#'
+                  } else if (item.type === 'tarea') {
+                    eyebrow = 'Tarea'
+                    href = item.assignmentId ? `/unidades-docente/tarea/${item.assignmentId}` : '#'
+                  } else if (item.type === 'dudas') {
+                    eyebrow = 'Dudas'
+                    href = `/dudas-docente?unidad=${unitId}`
+                  }
+                  const contenido = (
+                    <>
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">{eyebrow}</p>
+                      <p className="mt-0.5 text-base font-bold text-zr-text">{item.titulo}</p>
+                      <span className="mt-2 flex flex-wrap gap-2">
+                        {item.required && <Etiqueta tono="aviso">Obligatorio</Etiqueta>}
+                        {item.esCertificacion && <Etiqueta tono="info">Certificación</Etiqueta>}
+                      </span>
+                    </>
+                  )
+                  return href === '#' ? (
+                    <div key={item.id} className="zr-card p-5">{contenido}</div>
+                  ) : (
+                    <Link key={item.id} href={href} className="zr-card zr-card-interactive block p-5">
+                      {contenido}
+                    </Link>
+                  )
+                })}
+              </div>
             ) : (
               <Recorrido>
                 {items.map((item, idx) => {
@@ -514,6 +645,92 @@ export default function UnidadDocenteDetalle() {
       </div>
 
       <Encabezado sobretitulo="Unidad · Editando" titulo={titulo} />
+
+      {/* Banner personalizable (migración 194, pedido #4 del coordinador):
+          imagen o color, y el aspecto clásico/moderno de toda la unidad. Lo
+          ve igual cualquier perfil que entre -- se guarda solo al tocar
+          cada control, sin un botón "Guardar" aparte. */}
+      <div className="zr-card space-y-5 p-5">
+        <p className="zr-eyebrow">Banner de la unidad</p>
+
+        <BannerUnidad sobretitulo="Vista previa" titulo={titulo} imagenUrl={urlBanner} color={bannerColor} />
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-zr-text">Imagen propia (opcional)</label>
+          <div className="flex gap-2">
+            <label className="flex min-h-12 flex-1 cursor-pointer items-center justify-center rounded-lg border border-dashed border-zr-border text-sm font-bold text-zr-text-muted">
+              {subiendoBanner ? 'Subiendo…' : bannerImagePath ? 'Cambiar imagen' : '+ Subir imagen'}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={subiendoBanner}
+                onChange={(e) => {
+                  const archivo = e.target.files?.[0]
+                  if (archivo) subirImagenBanner(archivo)
+                  e.target.value = ''
+                }}
+              />
+            </label>
+            {bannerImagePath && (
+              <button
+                onClick={quitarImagenBanner}
+                disabled={subiendoBanner}
+                className="min-h-12 rounded-lg border border-zr-border px-4 text-sm font-bold text-zr-text-muted"
+              >
+                Quitar
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-zr-text">
+            Color {bannerImagePath && <span className="font-normal text-zr-text-muted">(se usa solo sin imagen)</span>}
+          </label>
+          <div className="flex gap-2">
+            {(Object.keys(PALETA_BANNER) as ColorBanner[]).map((c) => (
+              <button
+                key={c}
+                onClick={() => elegirColorBanner(c)}
+                disabled={!!bannerImagePath}
+                title={PALETA_BANNER[c].etiqueta}
+                aria-label={PALETA_BANNER[c].etiqueta}
+                className={`h-10 w-10 shrink-0 rounded-full disabled:opacity-40 ${
+                  (bannerColor ?? 'azul') === c ? 'ring-2 ring-zr-blue ring-offset-2 ring-offset-zr-bg' : ''
+                }`}
+                style={{ backgroundColor: PALETA_BANNER[c].muestra }}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-zr-text">Aspecto de la unidad</label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => elegirAspecto('moderno')}
+              className={`min-h-12 flex-1 rounded-lg border text-sm font-bold ${
+                bannerAspecto === 'moderno'
+                  ? 'border-zr-blue bg-zr-blue/10 text-zr-text'
+                  : 'border-zr-border text-zr-text-muted'
+              }`}
+            >
+              Moderno (recorrido)
+            </button>
+            <button
+              onClick={() => elegirAspecto('clasico')}
+              className={`min-h-12 flex-1 rounded-lg border text-sm font-bold ${
+                bannerAspecto === 'clasico'
+                  ? 'border-zr-blue bg-zr-blue/10 text-zr-text'
+                  : 'border-zr-border text-zr-text-muted'
+              }`}
+            >
+              Clásico (tarjetas)
+            </button>
+          </div>
+        </div>
+      </div>
 
       <Regla delay={60} />
 

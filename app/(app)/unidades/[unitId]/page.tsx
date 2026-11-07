@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -7,7 +8,7 @@ import { Etiqueta } from '@/components/ui/Editorial'
 import { Recorrido, Paso, type EstadoPaso } from '@/components/ui/Recorrido'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
-import { BannerUnidad } from '@/components/ui/BannerUnidad'
+import { BannerUnidad, type ColorBanner } from '@/components/ui/BannerUnidad'
 import { PestanasUnidad, type PestanaUnidad } from '@/components/ui/PestanasUnidad'
 import { IconoDocumento, IconoExamen, IconoDuda, IconoLapiz, IconoCandado } from '@/components/ui/Iconos'
 
@@ -60,6 +61,11 @@ export default function UnidadDetalle() {
   const [items, setItems] = useState<ItemFila[]>([])
   const [bloqueada, setBloqueada] = useState(false)
   const [cargando, setCargando] = useState(true)
+  // Banner personalizable (migración 194): lo configura el profesor desde
+  // "Editar unidad"; aquí solo se lee y se dibuja igual.
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null)
+  const [bannerColor, setBannerColor] = useState<ColorBanner | null>(null)
+  const [bannerAspecto, setBannerAspecto] = useState<'moderno' | 'clasico'>('moderno')
 
   useEffect(() => {
     async function cargar() {
@@ -70,12 +76,22 @@ export default function UnidadDetalle() {
         return
       }
 
-      const { data: unidad } = await supabase.from('units').select('title').eq('id', unitId).maybeSingle()
+      const { data: unidad } = await supabase
+        .from('units')
+        .select('title, banner_image_path, banner_color, banner_aspecto')
+        .eq('id', unitId).maybeSingle()
       if (!unidad) {
         router.replace('/unidades')
         return
       }
       setTitulo(unidad.title)
+      setBannerColor(unidad.banner_color as ColorBanner | null)
+      setBannerAspecto((unidad.banner_aspecto as 'moderno' | 'clasico') ?? 'moderno')
+      setBannerUrl(
+        unidad.banner_image_path
+          ? supabase.storage.from('banners-unidad').getPublicUrl(unidad.banner_image_path).data.publicUrl
+          : null,
+      )
 
       // Fila de pestañas: todas las unidades que RLS ya le deja ver (abierta
       // o cerrada) a este estudiante, en su módulo -- v_units_status aplica
@@ -155,7 +171,7 @@ export default function UnidadDetalle() {
           <PestanasUnidad unidades={unidades} activaId={unitId} hrefBase="/unidades" />
         </div>
         <div className="mt-7 space-y-6">
-          <BannerUnidad sobretitulo="Aula Virtual" titulo={titulo} />
+          <BannerUnidad sobretitulo="Aula Virtual" titulo={titulo} imagenUrl={bannerUrl} color={bannerColor} />
           <div className="flex flex-col items-center gap-3 py-10 text-center">
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-zr-surface text-zr-text-muted ring-1 ring-zr-border">
               <IconoCandado size={26} />
@@ -200,7 +216,7 @@ export default function UnidadDetalle() {
       </div>
 
       <div className="mt-7 space-y-9">
-        <BannerUnidad sobretitulo="Aula Virtual" titulo={titulo} />
+        <BannerUnidad sobretitulo="Aula Virtual" titulo={titulo} imagenUrl={bannerUrl} color={bannerColor} />
 
         {/* Avance de obligatorios, tejido sin cuadro: un rótulo, una línea fina
             y el texto de lo que falta. */}
@@ -233,6 +249,38 @@ export default function UnidadDetalle() {
 
           {items.length === 0 ? (
             <p className="text-sm text-zr-text-muted">Tu profesor todavía no agregó nada aquí.</p>
+          ) : bannerAspecto === 'clasico' ? (
+            // Aspecto clásico (migración 194): el profesor eligió tarjetas
+            // apiladas en vez del recorrido conectado para esta unidad.
+            <div className="space-y-3">
+              {items.map((item) => {
+                const trabada = item.esCertificacion && certificacionTrabada
+                const contenido = (
+                  <>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">{eyebrowDe(item)}</p>
+                    <p className="mt-0.5 text-base font-bold text-zr-text">{item.titulo}</p>
+                    <span className="mt-2 flex flex-wrap gap-2">
+                      {item.required && !item.completado && <Etiqueta tono="aviso">Obligatorio</Etiqueta>}
+                      {item.esCertificacion && <Etiqueta tono="info">Certificación</Etiqueta>}
+                      {item.completado && <Etiqueta tono="exito">Completado</Etiqueta>}
+                      {trabada && <Etiqueta tono="neutro">Completa los materiales obligatorios</Etiqueta>}
+                    </span>
+                    {item.esTexto && (
+                      <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-zr-text-muted">
+                        {item.cuerpoTexto}
+                      </p>
+                    )}
+                  </>
+                )
+                return item.esTexto || trabada ? (
+                  <div key={item.id} className="zr-card p-5">{contenido}</div>
+                ) : (
+                  <Link key={item.id} href={hrefDe(item)} className="zr-card zr-card-interactive block p-5">
+                    {contenido}
+                  </Link>
+                )
+              })}
+            </div>
           ) : (
             <Recorrido>
               {items.map((item, idx) => {

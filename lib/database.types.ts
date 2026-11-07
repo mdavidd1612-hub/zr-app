@@ -4264,6 +4264,9 @@ export type Database = {
       }
       units: {
         Row: {
+          banner_aspecto: string
+          banner_color: string | null
+          banner_image_path: string | null
           close_at: string | null
           created_at: string
           created_by: string | null
@@ -4279,6 +4282,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          banner_aspecto?: string
+          banner_color?: string | null
+          banner_image_path?: string | null
           close_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -4294,6 +4300,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          banner_aspecto?: string
+          banner_color?: string | null
+          banner_image_path?: string | null
           close_at?: string | null
           created_at?: string
           created_by?: string | null

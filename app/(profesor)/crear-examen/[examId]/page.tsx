@@ -72,7 +72,16 @@ export default function EditarExamen() {
       if (!user) { router.replace('/login'); return }
 
       const [{ data: examen }, { data: mods }, { data: cohs }, { data: asig }, { data: pregs }] = await Promise.all([
-        supabase.from('exams').select('*').eq('id', examId).eq('teacher_id', user.id).single(),
+        // Sin filtrar por teacher_id: la RLS (migración 165, is_admin_up())
+        // ya permite a Dirección Académica/super_admin ver y editar
+        // CUALQUIER examen, no solo los propios. El filtro .eq('teacher_id',
+        // user.id) que había aquí los bloqueaba en el cliente aunque la base
+        // sí los dejara entrar -- al entrar a un examen de certificación que
+        // no era suyo, la consulta no devolvía nada y la pantalla los
+        // regresaba a /crear-examen (bug real reportado por el coordinador,
+        // 7-nov-2026). Para un profesor normal, la RLS sigue restringiendo
+        // igual que antes (teacher_id propio o módulo que imparte).
+        supabase.from('exams').select('*').eq('id', examId).single(),
         supabase.from('modules').select('id, name').order('order_index'),
         // Sin filtrar por dueño: la base entrega las cohortes de los programas donde
         // este profesor tiene módulos asignados (migración 150).

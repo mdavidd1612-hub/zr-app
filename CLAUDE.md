@@ -1,9 +1,11 @@
 # 26 · PAQUETE COMPLETO PARA EL TÉCNICO — ZR APP
 
-> **Qué es este documento:** todo lo que el técnico y su IA necesitan para trabajar en ZR App, en un solo lugar. Reemplaza y consolida: `docs/24_...`, `docs/25_...`, el plan de sprints, la plantilla de reporte y las instrucciones para la IA.
-> **Fecha:** 26 de octubre de 2026
+> **Qué es este documento:** todo lo que el técnico y su IA necesitan para trabajar en ZR App, en un solo lugar — el "qué construir" y el "cómo construir". Reemplaza y consolida: `docs/24_...`, `docs/25_...`, el `CLAUDE.md` viejo, el plan de sprints, la plantilla de reporte y las instrucciones para la IA.
+> **Fecha:** 26 de octubre de 2026 (fusionado con el `docs/26_...` que había quedado aparte el 7 de noviembre de 2026 — ver nota abajo).
 > **Autor:** Vita (Pedro para producto, Marco para técnico)
-> **Jerarquía:** este documento manda sobre el `CLAUDE.md` viejo en lo que respecta al "qué construir" y al "en qué orden". El `CLAUDE.md` sigue mandando en el "cómo construir" (reglas técnicas, stack, estilo).
+> **Jerarquía:** este archivo (`CLAUDE.md`, en la raíz del repo) es la **única fuente de verdad** — manda en el "qué construir", "en qué orden" y "cómo construir". Es el que toda IA de código lee automáticamente al abrir el repo, por eso es el que se mantiene.
+>
+> **Nota del 7-nov-2026:** este documento y `docs/26_PAQUETE_COMPLETO_TECNICO_OCT2026.md` se habían separado — cada uno tenía secciones que el otro no tenía (distintas sesiones editaban uno u otro sin saber que existían dos copias). Se reconciliaron en uno solo, aquí en `CLAUDE.md`, porque es el que se carga solo. `docs/26_...` queda como archivo histórico/redirección — no se vuelve a editar.
 
 ---
 
@@ -466,6 +468,12 @@ Tres cambios en la sección de Notas de Dirección Académica (aplican solo a `d
 - ✅ **Manito del encabezado fija arriba** (`/notas-academicas/[cohortId]`): con `align-bottom`, el puntico de arrastrar se veía más arriba o más abajo según cuántas líneas ocupara el título de la columna, y a veces pisaba el texto. Ahora va en posición absoluta pegada al borde superior (`absolute inset-x-0 top-1`, `pointer-events-none`), con `pt-5` en el `th` para reservar su espacio; la línea de "/100 · 10 %" sigue alineada abajo entre columnas. Se quitó el `relative` que había puesto (chocaba con `sticky`: el propio `sticky` ya sirve de ancla al hijo absoluto).
 - ✅ **Barra lateral de escritorio colapsable** (`components/ui/BarraLateral.tsx`, solo `lg:`): en módulos con muchas evaluaciones el cuadro de notas es muy ancho y la directora tenía que barrer de lado hasta la nota final y devolverse. La flechita de arriba de la barra la recoge a solo iconos (72 px) y, como el shell es flex (`.zr-app-shell` → barra `shrink-0` + `main` `flex:1`), el contenido se estira solo hasta el borde. Estado guardado en `localStorage` (`zr-barra-colapsada`), leído en `useEffect` para no romper la hidratación. El teléfono (`BarraFlotante`) no se toca. Los grupos del menú, recogidos, se marcan con una rayita en vez del texto; cada icono lleva `title` con su nombre.
 - ✅ **Tercer retoque (7-nov-2026, sobre lo visto en vivo):** la pista "Arrastra el encabezado…" tenía `-mb-3` y quedaba pisada por el cuadro (se veía como texto fantasma detrás de las columnas) — se pasó a `mb-3`, limpia arriba. Y las barras de scroll nativas salían blancas en Windows (feo sobre el tema oscuro): se tiñeron con los tokens de la app — nueva utilidad `.zr-scroll` (ambos ejes) aplicada al cuadro de notas, y un estilo global de `html::-webkit-scrollbar` para la barra de la página.
+
+### 8.8 Dos incidentes en vivo el 7-nov-2026 (sábado de arranque de PTMA-2026-III)
+
+**Incidente 1 — PTMA-2026-III sin clase de hoy.** Al llegar los primeros estudiantes del programa nuevo, `/qr` no mostraba la cohorte y el escaneo decía "no tienes clase programada hoy". No era error del vendedor: Dirección Académica ya había asignado módulo y profesor en `teacher_module_assignments` (Isaac Sánchez, "Introducción a la Mecánica", desde el 5-nov), pero a la cohorte nunca se le "inició" ese módulo — `cohorts.current_module_id`/`teacher_id` seguían en null, y `asegurarSesionDeHoy()` (`app/(admin)/asistencias/page.tsx`) no crea la sesión del día si `current_module_id` es null, sin avisar por qué. Arreglado en caliente, directo en `zr-prod` (sin migración, es dato — se hizo el mismo `update` que hace `/cohortes`): se puso `current_module_id`/`teacher_id` según la asignación ya existente y se creó a mano la `class_session` de hoy. **Pendiente real:** `/cohortes` debería avisar si se marca "activa" una cohorte sin módulo/profesor inicial.
+
+**Incidente 2 — abrir el feedback de módulo (K.2) nunca mandaba push.** Hoy es el último sábado de "Instrumentación automotriz" para PTMA-2026-II (confirmado con los datos: 7 sesiones = `modules.duration_weeks`, semana 11 = la 7ª). Al abrir el formulario (`/feedback-modulos`, `alternarVentana`) se confirmó que el upsert en `feedback_macro_windows` nunca tuvo un trigger de push — a diferencia de `fn_notify_hora_clase`/`fn_notify_modulo_cambiado` (migr. 106), que sí avisan. Se construyó y probó primero en `zr-staging` y después en `zr-prod` la **migración 192** (`fn_notify_feedback_macro_abierto`, mismo patrón: `channel='push'` explícito, dispara solo al abrir/reabrir, nunca al cerrar ni en un re-guardado sin cambios — probado con los 3 casos en staging antes de tocar producción). Se usó para re-disparar el push real de hoy (el feedback de Instrumentación automotriz ya estaba abierto desde antes del fix). Chequeo post-fix: `get_advisors` solo marca la misma advertencia ya aceptada que tienen los otros dos triggers de notificación (`anon`/`authenticated` pueden "ejecutar" la función como RPC — no es explotable, es el mismo patrón ya en producción), nada nuevo. **Recordatorio para el próximo módulo que cierre:** el sistema no avanza de módulo solo por fecha — alguien de Dirección Académica tiene que entrar a `/cohortes` y darle "Avanzar módulo" a PTMA-2026-II hacia "Fluidos automotrices" antes del sábado 14-nov, o la próxima clase quedará registrada bajo el módulo viejo.
 
 ---
 
@@ -1214,7 +1222,7 @@ Para cada métrica única de las funciones entregadas (del §8 del documento mae
 
 Si algo cambió (nuevo épico, nueva función, prioridad distinta), lo propongo acá:
 
-- 🔄 [Cambio propuesto]: [razón]. Si Pedro aprueba, actualizo `docs/26_...` sección [X].
+- 🔄 [Cambio propuesto]: [razón]. Si Pedro aprueba, actualizo `CLAUDE.md` sección [X].
 
 ---
 
@@ -1253,22 +1261,27 @@ Si eres **Claude Code** u otra IA de código trabajando con Marco en `C:\Dev\ZR 
 
 ### 12.1 Lo primero cada sesión
 
-1. Lee este documento (`docs/26_...`) completo si es tu primera sesión del día.
-2. Lee el `CLAUDE.md` del repo.
+1. Lee este documento (`CLAUDE.md`, en la raíz del repo) completo si es tu primera sesión del día — ya se carga solo al abrir el repo, pero igual confírmalo.
+2. Lee el **§14.1 Historial por sesión de trabajo** — ahí están, en orden, todas las sesiones anteriores con lo que hicieron y los documentos que generaron en `docs/reportes/`. Léelo siempre, no solo el primer día.
 3. Mira en qué sprint estamos (§10) y qué micro-actividades toca hoy.
 4. Si hay un reporte abierto de sprint anterior, léelo (`docs/reportes/reporte_sprint_N.md`).
+
+### 12.1bis Lo último de cada sesión — dejar rastro en el historial
+
+Antes de cerrar cualquier sesión que hizo trabajo real (no una pregunta rápida), agrega una fila a **§14.1** con: fecha, 1-2 líneas de qué se hizo, y el nombre de los documentos que generaste en `docs/reportes/` (si generaste alguno). Esto es **además** de la regla §0.2 (actualizar el roadmap en el mismo PR) — §0.2 es para cuando cambia el "qué construir"; §14.1 es para que cualquier sesión nueva se entere de lo que pasó, aunque no haya cambiado el roadmap.
 
 ### 12.2 Jerarquía de documentos
 
 | Prioridad | Archivo | Para qué |
 |---|---|---|
 | 1 | **El estado real de `zr-prod`** | La verdad final |
-| 2 | **`docs/26_...` (este)** | Qué construir, en qué orden, con qué prioridad |
-| 3 | **`CLAUDE.md`** | Cómo construir (reglas, stack, estilo) |
-| 4 | **`docs/25_...`** | Detalle de las ~180 funciones (resumidas aquí en §8) |
-| 5 | **`plan/07_ALCANCE_V10.md`** | Detalle técnico de pantallas ya especificadas |
-| 6 | **`spec/`** | Especificación concreta por pieza |
-| 7 | **`metodologia/`** | Por qué el modelo es así |
+| 2 | **Este documento (`CLAUDE.md`)** | Qué construir, en qué orden, con qué prioridad, y cómo construirlo (reglas, stack, estilo) — todo junto, desde el 7-nov-2026 |
+| 3 | **`docs/25_...`** | Detalle de las ~180 funciones (resumidas aquí en §8) |
+| 4 | **`plan/07_ALCANCE_V10.md`** | Detalle técnico de pantallas ya especificadas |
+| 5 | **`spec/`** | Especificación concreta por pieza |
+| 6 | **`metodologia/`** | Por qué el modelo es así |
+
+`docs/26_PAQUETE_COMPLETO_TECNICO_OCT2026.md` ya no se edita — es un archivo histórico que redirige aquí (ver nota al inicio del documento).
 
 ### 12.3 Cuando algo contradice este documento
 
@@ -1276,7 +1289,7 @@ Si eres **Claude Code** u otra IA de código trabajando con Marco en `C:\Dev\ZR 
 - **Di en una línea** qué contradice.
 - **Pregunta a Pedro (producto) o Marco (técnico).**
 - **Si dicen "procede", procedes.**
-- En el mismo PR actualizas `docs/26_...` sección correspondiente.
+- En el mismo PR actualizas este documento (`CLAUDE.md`), sección correspondiente.
 - Las 10 reglas absolutas (§6) siguen vigentes.
 
 ### 12.4 Antes de cerrar cualquier tarea
@@ -1366,7 +1379,28 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 |---|---|---|
 | 2026-10-26 | v1 (`docs/24`) | Primer roadmap maestro con 24 épicos |
 | 2026-10-26 | v2 (`docs/25`) | +Flujo vendedor, +QR 2 flujos, +Dirección dueña de lo académico, +E-Learning integrado, +ZR Coffee aparte, +4 reglas pedagógicas, +ciclo semanal, +8 indicadores con ejemplos, +criterios validación, +decisiones tomadas |
-| 2026-10-26 | v3 (`docs/26`, este) | **Documento consolidado único.** Reordena sprints en orden lógico, agrega fechas reales (3 nov 2026 – 4 abr 2027), agrega micro-actividades por día en cada sprint, agrega plantilla de reporte del técnico, agrega instrucciones completas para la IA del técnico. Reemplaza la necesidad de documentos separados. |
+| 2026-10-26 | v3 (`docs/26`) | **Documento consolidado único.** Reordena sprints en orden lógico, agrega fechas reales (3 nov 2026 – 4 abr 2027), agrega micro-actividades por día en cada sprint, agrega plantilla de reporte del técnico, agrega instrucciones completas para la IA del técnico. Reemplaza la necesidad de documentos separados. |
+| 2026-11-07 | v4 (`CLAUDE.md`, este) | **Reconciliación.** `CLAUDE.md` y `docs/26_...` se habían separado (cada uno con secciones que el otro no tenía — ver nota al inicio del documento). Se fusionó todo aquí, en `CLAUDE.md`, por ser el archivo que toda IA de código carga sola; `docs/26_...` queda como histórico sin editar. Se agregó §12.1bis y §14.1 (historial por sesión de trabajo). |
+
+---
+
+## 14.1 HISTORIAL POR SESIÓN DE TRABAJO
+
+> Esto es distinto a la tabla de arriba. La tabla de §14 lleva el historial de **versiones de este documento** (cuando cambia el roadmap o su estructura). Esta tabla lleva el historial de **sesiones de trabajo** — qué hizo cada sesión de la IA, aunque no haya tocado el roadmap. Regla de uso en §12.1 y §12.1bis: toda sesión nueva la lee antes de empezar, toda sesión que trabajó de verdad agrega una fila antes de cerrar.
+
+| Fecha | Qué se hizo | Documentos generados |
+|---|---|---|
+| 2026-11-07 | Ronda de UX pedida por el coordinador sobre Aula Virtual en `zr-staging` (ver §8.4) y validación parcial del mapa de épicos contra el código real (ver §8.5). | — (cambios directo en §8 de este documento) |
+| 2026-11-07 | Reporte de estado para el coordinador: qué está en `zr-prod` vs. qué está terminado en `zr-staging` esperando subir, más validación contra el documento maestro. | `docs/reportes/reporte_coordinador_2026-11-07.md` |
+| 2026-11-07 | **Chequeo masivo de producción** (`zr-prod`/`main`) antes del arranque del nuevo programa del sábado: build/typecheck/lint, advisors de seguridad/rendimiento, RLS y Edge Functions de asistencia/QR/refrigerio, PWA/manifest, rutas enlazadas vs. reales, responsive 320-375px. Encontró y corrigió 1 bug real: el atajo "Mi carnet" del manifest apuntaba a `/carnet` (no existe) en vez de `/perfil` — ya desplegado a producción. | `docs/reportes/chequeo_masivo_produccion_2026-11-07.md` |
+| 2026-11-07 | **Chequeo masivo de staging** (`zr-staging`/`develop`), mismo alcance que el de producción, más verificación funcional de punta a punta del módulo Unidades/E-Learning con cuentas QA reales (recorrido, compuerta, materiales, bloques de texto, dudas, tareas, examen de certificación completo). Encontró y corrigió 1 bug real de RLS (la compuerta de la migración 185 no bloqueaba `content_items` directamente — migración 190, ver §8.1). Dejó documentados sin tocar código: falta de enlace a `/calificar` (decisión intencional de Fase 0, a confirmar si se retoma), una pregunta inapropiada en un examen de prueba (pendiente de que Pedro la borre), y dos migraciones (188/189) aplicadas directo a la base el 6-nov sin quedar como archivo en git (efecto neto ya es cero). | `docs/reportes/chequeo_masivo_staging_2026-11-07.md` |
+| 2026-11-07 | Lista de pruebas manuales de Aula Virtual en staging (por rol, con criterio de "no desplegar hasta marcar todo") + tareas pendientes de Sprint 0 y decisiones abiertas para la semana, armada para el trabajo del sábado. | `docs/reportes/SAB_7_NOV.md` |
+| 2026-11-07 | Ronda de UX del coordinador sobre Aula Virtual: staff entra a Unidades como sí mismo, estética "Recorrido" en la vista de lectura del profesor, botón "Ver" en cada ítem de la unidad (ver §8.6). | — |
+| 2026-11-07 | Tres ajustes a Notas de Dirección Académica pedidos directo por el coordinador, dos rondas sobre lo visto en vivo: reordenar columnas con drag-and-drop, historial de evaluaciones por sesión, formato de nota manual, barra lateral colapsable, color de scrollbars (ver §8.7). | — |
+| 2026-11-07 | **Incidente en vivo (sábado de arranque):** PTMA-2026-III no tenía clase de hoy ni aparecía en `/qr` — a la cohorte nunca se le inició el módulo ya asignado. Corregido directo en `zr-prod` (dato, sin migración). Ver §8.8. | — |
+| 2026-11-07 | **Incidente en vivo:** abrir el feedback de módulo (último sábado de Instrumentación automotriz en PTMA-2026-II) no mandaba push — nunca se había construido ese trigger. Se construyó, se probó en `zr-staging` y se aplicó a `zr-prod` (migración 192); se re-disparó el push real de hoy. Ver §8.8. | `supabase/migrations/192_push_feedback_macro_abierto.sql` |
+| 2026-11-07 | Se agregó este apartado (§14.1) y la regla §12.1bis en `docs/26_...`, a pedido de Pedro, para que el historial de sesiones quedara dentro del documento maestro. | — |
+| 2026-11-07 | **Reconciliación de `CLAUDE.md` y `docs/26_...`** (este mismo cambio): se detectó que ambos archivos se habían separado y se fusionó todo en `CLAUDE.md`, que queda como única fuente de verdad desde ahora. `docs/26_...` se dejó como histórico, con una nota al inicio que redirige aquí. | — |
 
 ---
 
@@ -1379,12 +1413,10 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 
 ---
 
-# ANEXO TÉCNICO — del `CLAUDE.md` anterior (reglas de "cómo construir" que el doc 26 no incluye)
+# ANEXO TÉCNICO — reglas de "cómo construir" (stack, estilo, convenciones del repo)
 
-> El documento 26 (§6 y §12.2) dice que el `CLAUDE.md` **sigue mandando en el "cómo construir"**
-> (reglas técnicas, stack, estilo). Estas dos secciones estaban en el `CLAUDE.md`/`AGENTS.md`
-> anterior, siguen 100% vigentes y **no aparecen en el cuerpo del doc 26**, así que se conservan
-> aquí para no perderlas. Respaldo completo del maestro anterior en
+> Estas dos secciones (A1 y A2) vienen del `CLAUDE.md`/`AGENTS.md` anterior a la fusión del
+> 26-oct-2026 y siguen 100% vigentes. Respaldo completo del maestro anterior en
 > `docs/CLAUDE_AGENTS_viejo_2026-10-30.md`.
 
 ## A1. RAMAS Y ENTORNOS

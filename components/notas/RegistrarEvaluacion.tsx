@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { IconoReloj, IconoCerrar } from '@/components/ui/Iconos'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import type { UserRole } from '@/lib/types'
 
@@ -123,6 +124,16 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
   const [filtroCohorteId, setFiltroCohorteId] = useState('')
   const [filtroModuloId, setFiltroModuloId] = useState('')
 
+  // Pedido de Dirección Académica (nov. 2026): la lista de abajo confundía
+  // porque mostraba evaluaciones de módulos pasados. Ahora, SOLO para Dirección
+  // y super_admin (modo 'direccion'), esa lista arranca vacía y muestra únicamente
+  // lo que se registra en ESTA sesión (en memoria: al salir y volver, vacía otra
+  // vez). El historial completo, filtrable por programa y módulo, vive detrás del
+  // botón "Historial de evaluaciones". El profesor mantiene la lista completa.
+  const esSesion = modo === 'direccion'
+  const [tocadas, setTocadas] = useState<Set<string>>(new Set())
+  const [historialAbierto, setHistorialAbierto] = useState(false)
+
   useEffect(() => {
     let vigente = true
     const supabase = createClient()
@@ -231,6 +242,7 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
     setMinimo(String(e.passingMin))
     setPeso(String(e.pesoPct))
     setError(null)
+    setHistorialAbierto(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -281,6 +293,8 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
 
     const nueva = aEvaluacion(data as unknown as ExamenCrudo)
     setEvaluaciones((ex) => editandoId ? ex.map((x) => x.id === editandoId ? nueva : x) : [nueva, ...ex])
+    // Lo registrado/editado en esta sesión entra en la lista de abajo (modo direccion).
+    setTocadas((prev) => new Set(prev).add(nueva.id))
     // Programa y módulo se conservan: lo normal es cargar varias seguidas.
     limpiarFormulario()
     setGuardando(false)
@@ -290,7 +304,10 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
     if (!confirm('¿Quitar esta evaluación? También se borran las notas que ya tenga cargadas.')) return
     const supabase = createClient()
     const { error: fallo } = await supabase.from('manual_exam_definitions').delete().eq('id', id)
-    if (!fallo) setEvaluaciones((ex) => ex.filter((e) => e.id !== id))
+    if (!fallo) {
+      setEvaluaciones((ex) => ex.filter((e) => e.id !== id))
+      setTocadas((prev) => { const s = new Set(prev); s.delete(id); return s })
+    }
     if (editandoId === id) limpiarFormulario()
   }
 
@@ -309,6 +326,34 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
       </div>
     )
   }
+
+  // Evaluaciones de esta sesión (modo direccion): solo las que se tocaron ahora.
+  const listaSesion = evaluaciones.filter((e) => tocadas.has(e.id))
+
+  const tarjetaEval = (e: Evaluacion) => (
+    <div key={e.id} className="zr-card flex items-center justify-between gap-3 p-4">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-zr-text">
+          {e.title}{' '}
+          <span className="text-xs font-normal text-zr-text-muted">
+            · {e.kind === 'otro' && e.kindDetail ? `Otro: ${e.kindDetail}` : ETIQUETA_KIND[e.kind]}
+          </span>
+        </p>
+        <p className="text-xs text-zr-text-muted">
+          {cohortes.find((c) => c.programId === modulos.find((m) => m.id === e.moduleId)?.programId)?.nombre ?? '—'} ·{' '}
+          {e.moduloNombre} · {e.examDate} · Vale {e.pesoPct} % · Escala {e.scaleMax} · Mínimo {e.passingMin}
+        </p>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1.5">
+        <button onClick={() => empezarEdicion(e)} className="text-xs font-bold text-zr-blue-mid">
+          Editar
+        </button>
+        <button onClick={() => borrar(e.id)} className="text-xs font-bold text-zr-error">
+          Quitar
+        </button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="space-y-8 px-5 pt-14 pb-10">
@@ -470,64 +515,133 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
         </div>
       </div>
 
-      <div className="space-y-3">
-        <p className="text-xs font-bold uppercase tracking-wide text-zr-text-muted">
-          Evaluaciones registradas ({visibles.length})
-        </p>
+      {esSesion ? (
+        /* Dirección / super_admin: solo esta sesión + botón al historial completo. */
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-zr-text-muted">
+              Evaluaciones registradas ({listaSesion.length})
+            </p>
+            <button
+              type="button"
+              onClick={() => setHistorialAbierto(true)}
+              className="flex shrink-0 items-center gap-1.5 text-xs font-bold text-zr-blue-mid"
+            >
+              <IconoReloj size={16} />
+              Historial de evaluaciones
+            </button>
+          </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Select
-            value={filtroCohorteId}
-            onChange={(e) => { setFiltroCohorteId(e.target.value); setFiltroModuloId('') }}
-            className={CAMPO}
-          >
-            <option value="">Todos los programas</option>
-            {cohortes.map((c) => (
-              <option key={c.id} value={c.id}>{c.nombre}</option>
-            ))}
-          </Select>
-          <Select
-            value={filtroModuloId}
-            onChange={(e) => setFiltroModuloId(e.target.value)}
-            disabled={!filtroCohorteId}
-            className={`${CAMPO} disabled:opacity-50`}
-          >
-            <option value="">Todos los módulos</option>
-            {modulosFiltro.map((m) => (
-              <option key={m.id} value={m.id}>Módulo {m.orden} · {m.nombre}</option>
-            ))}
-          </Select>
+          {listaSesion.length === 0 ? (
+            <p className="text-sm text-zr-text-muted">
+              Aquí aparecen las evaluaciones que registres en esta sesión. El historial completo,
+              por programa y módulo, está en «Historial de evaluaciones».
+            </p>
+          ) : (
+            listaSesion.map(tarjetaEval)
+          )}
         </div>
+      ) : (
+        /* Profesor: lista completa con filtros, como antes. */
+        <div className="space-y-3">
+          <p className="text-xs font-bold uppercase tracking-wide text-zr-text-muted">
+            Evaluaciones registradas ({visibles.length})
+          </p>
 
-        {visibles.length === 0 && (
-          <p className="text-sm text-zr-text-muted">No hay evaluaciones con ese filtro.</p>
-        )}
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              value={filtroCohorteId}
+              onChange={(e) => { setFiltroCohorteId(e.target.value); setFiltroModuloId('') }}
+              className={CAMPO}
+            >
+              <option value="">Todos los programas</option>
+              {cohortes.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </Select>
+            <Select
+              value={filtroModuloId}
+              onChange={(e) => setFiltroModuloId(e.target.value)}
+              disabled={!filtroCohorteId}
+              className={`${CAMPO} disabled:opacity-50`}
+            >
+              <option value="">Todos los módulos</option>
+              {modulosFiltro.map((m) => (
+                <option key={m.id} value={m.id}>Módulo {m.orden} · {m.nombre}</option>
+              ))}
+            </Select>
+          </div>
 
-        {visibles.map((e) => (
-          <div key={e.id} className="zr-card flex items-center justify-between gap-3 p-4">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-zr-text">
-                {e.title}{' '}
-                <span className="text-xs font-normal text-zr-text-muted">
-                  · {e.kind === 'otro' && e.kindDetail ? `Otro: ${e.kindDetail}` : ETIQUETA_KIND[e.kind]}
-                </span>
-              </p>
-              <p className="text-xs text-zr-text-muted">
-                {cohortes.find((c) => c.programId === modulos.find((m) => m.id === e.moduleId)?.programId)?.nombre ?? '—'} ·{' '}
-                {e.moduloNombre} · {e.examDate} · Vale {e.pesoPct} % · Escala {e.scaleMax} · Mínimo {e.passingMin}
-              </p>
+          {visibles.length === 0 && (
+            <p className="text-sm text-zr-text-muted">No hay evaluaciones con ese filtro.</p>
+          )}
+
+          {visibles.map(tarjetaEval)}
+        </div>
+      )}
+
+      {/* Historial completo (modo direccion): todas las evaluaciones, filtrables
+          por programa y luego por módulo. */}
+      {historialAbierto && (
+        <div
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 backdrop-blur-md sm:items-center sm:p-5"
+          onClick={() => setHistorialAbierto(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            className="flex max-h-[85dvh] w-full max-w-lg flex-col gap-4 rounded-t-2xl border border-white/15 bg-zr-surface/95 p-6 pb-8 shadow-[0_16px_48px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:rounded-2xl sm:pb-6"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className="zr-display text-xl text-zr-text">Historial de evaluaciones</p>
+              <button
+                type="button"
+                onClick={() => setHistorialAbierto(false)}
+                className="shrink-0 text-zr-text-muted"
+                aria-label="Cerrar"
+              >
+                <IconoCerrar size={22} />
+              </button>
             </div>
-            <div className="flex shrink-0 flex-col items-end gap-1.5">
-              <button onClick={() => empezarEdicion(e)} className="text-xs font-bold text-zr-blue-mid">
-                Editar
-              </button>
-              <button onClick={() => borrar(e.id)} className="text-xs font-bold text-zr-error">
-                Quitar
-              </button>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Select
+                value={filtroCohorteId}
+                onChange={(e) => { setFiltroCohorteId(e.target.value); setFiltroModuloId('') }}
+                className={CAMPO}
+              >
+                <option value="">Todos los programas</option>
+                {cohortes.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nombre}</option>
+                ))}
+              </Select>
+              <Select
+                value={filtroModuloId}
+                onChange={(e) => setFiltroModuloId(e.target.value)}
+                disabled={!filtroCohorteId}
+                className={`${CAMPO} disabled:opacity-50`}
+              >
+                <option value="">Todos los módulos</option>
+                {modulosFiltro.map((m) => (
+                  <option key={m.id} value={m.id}>Módulo {m.orden} · {m.nombre}</option>
+                ))}
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-3 overflow-y-auto">
+              <p className="text-xs font-bold uppercase tracking-wide text-zr-text-muted">
+                {visibles.length} evaluación{visibles.length === 1 ? '' : 'es'}
+              </p>
+              {visibles.length === 0 ? (
+                <p className="text-sm text-zr-text-muted">No hay evaluaciones con ese filtro.</p>
+              ) : (
+                visibles.map(tarjetaEval)
+              )}
             </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

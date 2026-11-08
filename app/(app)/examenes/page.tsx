@@ -7,6 +7,7 @@ import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { Recorrido, Paso } from '@/components/ui/Recorrido'
 import { IconoExamen } from '@/components/ui/Iconos'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+import { BotonVolver } from '@/components/ui/BotonVolver'
 
 /**
  * T-305 · Lista de exámenes del estudiante.
@@ -225,6 +226,7 @@ export default function Examenes() {
         </div>
       )}
       <div className="space-y-11">
+        <BotonVolver href="/unidades" />
         <header className="animate-rise">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
             Evaluaciones

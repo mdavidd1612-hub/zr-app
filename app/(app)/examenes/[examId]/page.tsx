@@ -81,7 +81,7 @@ export default function ExamenPage() {
         .single()
 
       if (!examData) {
-        router.push('/examenes')
+        router.replace('/unidades')
         return
       }
 
@@ -250,7 +250,9 @@ export default function ExamenPage() {
       return
     }
 
-    router.replace('/examenes')
+    // Mismo motivo que el resto de las salidas de esta pantalla: /examenes no
+    // tiene acceso desde el menú del estudiante.
+    router.replace('/unidades')
   }
 
   async function handleSubmit() {
@@ -295,7 +297,10 @@ export default function ExamenPage() {
 
     if (data?.status === 'entregado' || data?.status === 'calificado') {
       submittingRef.current = false
-      router.push('/examenes')
+      // `replace`, no `push`: /examenes no tiene ningún acceso desde el menú
+      // del estudiante -- empujarlo ahí dejaba un callejón sin salida (bug
+      // real reportado en vivo, 8-nov-2026).
+      router.replace('/unidades')
       return
     }
 
@@ -310,10 +315,17 @@ export default function ExamenPage() {
         <p className="zr-display text-xl text-zr-text">No puedes presentar este examen ahora</p>
         <p className="max-w-sm text-sm leading-relaxed text-zr-text-muted">{bloqueado}</p>
         <button
-          onClick={() => router.push('/examenes')}
+          // Bug real reportado en vivo (8-nov-2026): "Volver" empujaba a
+          // /examenes, que no tiene ningún acceso desde el menú -- el
+          // estudiante quedaba en un callejón sin salida, y al tocar la
+          // flechita de atrás del teléfono volvía a caer en este mismo
+          // examen (que lo bloqueaba otra vez): un bucle. `replace` (no
+          // `push`) a /unidades corta el bucle -- también vuelve ahí la
+          // flechita de atrás del teléfono, no solo este botón.
+          onClick={() => router.replace('/unidades')}
           className="mt-2 min-h-12 rounded-lg bg-zr-blue px-6 text-sm font-bold text-white"
         >
-          Volver
+          Volver a mi aula
         </button>
       </div>
     )

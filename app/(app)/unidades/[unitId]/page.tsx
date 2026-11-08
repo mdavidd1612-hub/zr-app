@@ -142,11 +142,43 @@ export default function UnidadDetalle() {
         : { data: [] }
       const completos = new Set((progresos ?? []).filter((p) => p.completed_at).map((p) => p.content_item_id))
 
+      // Pedido explícito del coordinador (8-nov-2026): el check de
+      // "completado" solo se calculaba para material (material_progress).
+      // Un examen entregado/calificado o una tarea ya enviada se quedaban
+      // con el mismo color/ícono de siempre, sin ninguna marca -- fácil
+      // confundirse sobre qué ya se hizo. Dudas y lecturas (bloque de
+      // texto) a propósito NO llevan check: no son algo que se "complete".
+      const examIds = (filas ?? []).map((f) => f.exam_id).filter((x): x is string => !!x)
+      const { data: intentos } = examIds.length
+        ? await supabase
+            .from('exam_attempts')
+            .select('exam_id, status')
+            .eq('student_id', user.id)
+            .in('exam_id', examIds)
+            .in('status', ['entregado', 'calificado'])
+        : { data: [] }
+      const examenesCompletos = new Set((intentos ?? []).map((i) => i.exam_id))
+
+      const assignmentIds = (filas ?? []).map((f) => f.assignment_id).filter((x): x is string => !!x)
+      const { data: entregas } = assignmentIds.length
+        ? await supabase
+            .from('submissions')
+            .select('assignment_id')
+            .eq('student_id', user.id)
+            .in('assignment_id', assignmentIds)
+        : { data: [] }
+      const tareasCompletas = new Set((entregas ?? []).map((e) => e.assignment_id))
+
       setItems(
         (filas ?? []).map((f) => {
           const ci = f.content_items as unknown as { title: string; type: string; description: string | null } | null
           const ex = f.exams as unknown as { title: string; kind: string; opens_at: string | null } | null
           const ta = f.assignments as unknown as { title: string } | null
+          const completado =
+            f.type === 'material' ? (f.content_item_id ? completos.has(f.content_item_id) : false) :
+            f.type === 'quiz' ? (f.exam_id ? examenesCompletos.has(f.exam_id) : false) :
+            f.type === 'tarea' ? (f.assignment_id ? tareasCompletas.has(f.assignment_id) : false) :
+            false
           return {
             id: f.id,
             type: f.type,
@@ -155,7 +187,7 @@ export default function UnidadDetalle() {
             exam_id: f.exam_id,
             assignment_id: f.assignment_id,
             titulo: ci?.title ?? ex?.title ?? ta?.title ?? (f.type === 'dudas' ? 'Dudas de esta unidad' : 'Todavía no disponible'),
-            completado: f.content_item_id ? completos.has(f.content_item_id) : false,
+            completado,
             esCertificacion: f.type === 'quiz' && ex?.kind === 'certificacion',
             esTexto: ci?.type === 'texto',
             cuerpoTexto: ci?.type === 'texto' ? (ci.description ?? '') : null,

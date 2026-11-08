@@ -8,7 +8,7 @@ import { Encabezado, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { Recorrido, Paso, type EstadoPaso } from '@/components/ui/Recorrido'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
-import { IconoCalendario } from '@/components/ui/Iconos'
+import { IconoCalendario, IconoExamen } from '@/components/ui/Iconos'
 
 /**
  * Aula Virtual — las unidades del módulo como un recorrido, no una lista de
@@ -68,13 +68,25 @@ export default function Unidades() {
           titulo="Tu recorrido"
           descripcion="El material, los exámenes y las tareas de tu módulo, paso a paso."
           accion={
-            <Link
-              href="/calendario"
-              className="inline-flex items-center gap-2 rounded-full border border-zr-border px-4 py-2.5 text-xs font-bold text-zr-text transition-colors hover:border-zr-blue/40"
-            >
-              <IconoCalendario size={16} />
-              Calendario
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              {/* Sin esto, /examenes (notas, revisión, rehabilitación) no
+                  tenía ningún acceso desde el menú -- bug real reportado en
+                  vivo (8-nov-2026). */}
+              <Link
+                href="/examenes"
+                className="inline-flex items-center gap-2 rounded-full border border-zr-border px-4 py-2.5 text-xs font-bold text-zr-text transition-colors hover:border-zr-blue/40"
+              >
+                <IconoExamen size={16} />
+                Mis exámenes
+              </Link>
+              <Link
+                href="/calendario"
+                className="inline-flex items-center gap-2 rounded-full border border-zr-border px-4 py-2.5 text-xs font-bold text-zr-text transition-colors hover:border-zr-blue/40"
+              >
+                <IconoCalendario size={16} />
+                Calendario
+              </Link>
+            </div>
           }
         />
 

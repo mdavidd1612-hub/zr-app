@@ -252,8 +252,11 @@ function NuevoExamenInterno() {
         duration_minutes: duracion === '' ? null : duracion,
         kind: tipo,
         passing_score: tipo === 'certificacion' ? (notaMinima === '' ? 10 : notaMinima) : 10,
-        max_attempts: intentos === '' ? 2 : intentos,
-        cooldown_hours: enfriamiento === '' ? 24 : enfriamiento,
+        // Una certificación siempre es un solo intento, sin espera -- los
+        // campos ni se muestran cuando tipo==='certificacion' (arriba), pero
+        // se fuerza igual aquí por si el estado se quedó con otro valor.
+        max_attempts: tipo === 'certificacion' ? 1 : (intentos === '' ? 2 : intentos),
+        cooldown_hours: tipo === 'certificacion' ? 0 : (enfriamiento === '' ? 24 : enfriamiento),
         weight: peso === '' ? 0 : peso,
         opens_at: abreEl ? new Date(abreEl).toISOString() : null,
         closes_at: cierraEl ? new Date(cierraEl).toISOString() : null,
@@ -536,33 +539,41 @@ function NuevoExamenInterno() {
               </div>
             )}
 
-            <div>
-              <label htmlFor="intentos" className="mb-2 block text-sm font-semibold text-zr-text">
-                Intentos
-              </label>
-              <input
-                id="intentos"
-                type="number"
-                min={1}
-                value={intentos}
-                onChange={(e) => setIntentos(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
-              />
-            </div>
+            {/* Pedido explícito del coordinador (8-nov-2026): una certificación
+                siempre es un solo intento -- no tiene sentido preguntar
+                "cuántos intentos" ni "cuánto esperar entre intentos" cuando
+                nunca va a haber un segundo. Solo se piden para práctica. */}
+            {tipo !== 'certificacion' && (
+              <>
+                <div>
+                  <label htmlFor="intentos" className="mb-2 block text-sm font-semibold text-zr-text">
+                    Intentos
+                  </label>
+                  <input
+                    id="intentos"
+                    type="number"
+                    min={1}
+                    value={intentos}
+                    onChange={(e) => setIntentos(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+                  />
+                </div>
 
-            <div>
-              <label htmlFor="enfriamiento" className="mb-2 block text-sm font-semibold text-zr-text">
-                Espera entre intentos <span className="font-normal text-zr-text-muted">(h)</span>
-              </label>
-              <input
-                id="enfriamiento"
-                type="number"
-                min={0}
-                value={enfriamiento}
-                onChange={(e) => setEnfriamiento(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
-              />
-            </div>
+                <div>
+                  <label htmlFor="enfriamiento" className="mb-2 block text-sm font-semibold text-zr-text">
+                    Espera entre intentos <span className="font-normal text-zr-text-muted">(h)</span>
+                  </label>
+                  <input
+                    id="enfriamiento"
+                    type="number"
+                    min={0}
+                    value={enfriamiento}
+                    onChange={(e) => setEnfriamiento(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+                  />
+                </div>
+              </>
+            )}
 
             <div>
               <label htmlFor="peso" className="mb-2 block text-sm font-semibold text-zr-text">

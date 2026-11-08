@@ -106,7 +106,9 @@ export function Campanita() {
       case 'tarea_calificada':
         return '/unidades'
       case 'examen_habilitado':
-        return '/examenes'
+        // Sin exam_id en el payload (no debería pasar, pero por si acaso):
+        // /examenes (la lista) no tiene acceso desde el menú del estudiante.
+        return '/unidades'
       case 'modulo_cambiado':
         return '/clases'
       case 'hora_clase':

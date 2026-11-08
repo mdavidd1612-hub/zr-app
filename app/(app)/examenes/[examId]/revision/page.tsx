@@ -51,7 +51,7 @@ export default function RevisionExamen() {
         if (!res.ok) {
           const body = await res.json().catch(() => ({}))
           if (body.error === 'not_found') {
-            router.replace('/examenes')
+            router.replace('/unidades')
           } else {
             setError('No se pudo cargar la revisión.')
           }
@@ -84,7 +84,7 @@ export default function RevisionExamen() {
 
   return (
     <div className="space-y-11 px-5 pt-14 pb-24">
-      <BotonVolver href="/examenes" />
+      <BotonVolver href="/unidades" />
 
       <Encabezado
         sobretitulo="Revisión"

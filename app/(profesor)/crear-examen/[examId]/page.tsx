@@ -227,8 +227,8 @@ export default function EditarExamen() {
         closes_at: cierraEl ? new Date(cierraEl).toISOString() : null,
         kind: tipo,
         passing_score: tipo === 'certificacion' ? (notaMinima === '' ? 10 : notaMinima) : 10,
-        max_attempts: intentos === '' ? 2 : intentos,
-        cooldown_hours: enfriamiento === '' ? 24 : enfriamiento,
+        max_attempts: tipo === 'certificacion' ? 1 : (intentos === '' ? 2 : intentos),
+        cooldown_hours: tipo === 'certificacion' ? 0 : (enfriamiento === '' ? 24 : enfriamiento),
         weight: peso === '' ? 0 : peso,
       })
       .eq('id', examId)
@@ -427,24 +427,30 @@ export default function EditarExamen() {
                 />
               </div>
             )}
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-zr-text">Intentos</label>
-              <input
-                type="number" min={1} value={intentos}
-                onChange={(e) => setIntentos(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-zr-text">
-                Espera entre intentos <span className="font-normal text-zr-text-muted">(h)</span>
-              </label>
-              <input
-                type="number" min={0} value={enfriamiento}
-                onChange={(e) => setEnfriamiento(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
-              />
-            </div>
+            {/* Pedido explícito del coordinador (8-nov-2026): una certificación
+                siempre es un solo intento -- no se preguntan estos dos campos. */}
+            {tipo !== 'certificacion' && (
+              <>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-zr-text">Intentos</label>
+                  <input
+                    type="number" min={1} value={intentos}
+                    onChange={(e) => setIntentos(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-zr-text">
+                    Espera entre intentos <span className="font-normal text-zr-text-muted">(h)</span>
+                  </label>
+                  <input
+                    type="number" min={0} value={enfriamiento}
+                    onChange={(e) => setEnfriamiento(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+                  />
+                </div>
+              </>
+            )}
             <div>
               <label className="mb-2 block text-sm font-semibold text-zr-text">
                 % que vale en la nota del módulo

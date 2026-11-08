@@ -46,21 +46,11 @@ async function aBlob(canvas: HTMLCanvasElement, tipo: string, calidad?: number):
   return new Promise((resolve) => canvas.toBlob(resolve, tipo, calidad))
 }
 
-/** Reduce una imagen a `maxLado` y la devuelve como JPG o PNG según `tipoSalida`. */
-async function reducirImagen(
-  datos: Blob,
-  maxLado: number,
-  tipoSalida: 'image/jpeg' | 'image/png',
-): Promise<Blob | null> {
-  let bmp: ImageBitmap
-  try {
-    bmp = await createImageBitmap(datos)
-  } catch {
-    return null
-  }
-  const escala = Math.min(1, maxLado / Math.max(bmp.width, bmp.height))
-  const w = Math.max(1, Math.round(bmp.width * escala))
-  const h = Math.max(1, Math.round(bmp.height * escala))
+/**
+ * Dibuja `bmp` ya decodido en un canvas de `w`x`h` y lo devuelve, o `null`
+ * si el resultado salió sospechosamente negro (ver `reducirImagen`).
+ */
+function dibujarEnCanvas(bmp: ImageBitmap, w: number, h: number, tipoSalida: 'image/jpeg' | 'image/png'): CanvasRenderingContext2D | null {
   const canvas = document.createElement('canvas')
   canvas.width = w
   canvas.height = h
@@ -71,38 +61,73 @@ async function reducirImagen(
     ctx.fillRect(0, 0, w, h)
   }
   ctx.drawImage(bmp, 0, 0, w, h)
-  bmp.close()
+  return esSospechosamenteNegro(ctx, w, h) ? null : ctx
+}
 
-  // Bug real reportado en vivo (8-nov-2026): algunas fotos (gama de color
-  // ancha / HDR de cámaras de teléfono recientes, o un formato que el
-  // navegador no decodifica del todo) se dibujan negras en el canvas sin
-  // que createImageBitmap/drawImage avisen ningún error -- la "comprimida"
-  // se veía negra en vez de la foto. Se muestrean varios puntos antes de
-  // aceptar el resultado; si todos salen negros, es la señal de que el
-  // dibujo falló, y se usa el archivo original sin comprimir en su lugar.
-  if (esSospechosamenteNegro(ctx, w, h)) return null
+/** Reduce una imagen a `maxLado` y la devuelve como JPG o PNG según `tipoSalida`. */
+async function reducirImagen(
+  datos: Blob,
+  maxLado: number,
+  tipoSalida: 'image/jpeg' | 'image/png',
+): Promise<Blob | null> {
+  // Bug real reportado en vivo (8-nov-2026): las fotos tomadas directo con la
+  // cámara del teléfono (no capturas de pantalla ni imágenes descargadas) se
+  // dibujaban negras en el canvas -- createImageBitmap/drawImage no avisan
+  // ningún error. Es un problema conocido de algunos navegadores con el
+  // manejo de color de JPEGs de gama ancha/HDR que las cámaras recientes
+  // graban por defecto (p. ej. "Ultra HDR" de Android). `colorSpaceConversion:
+  // 'none'` evita el paso de conversión de color que falla en esos casos --
+  // se intenta primero con el comportamiento normal y, si sale negro, se
+  // reintenta sin esa conversión antes de rendirse.
+  let ctx: CanvasRenderingContext2D | null = null
+  let w = 0
+  let h = 0
+  for (const opciones of [undefined, { colorSpaceConversion: 'none' as const }]) {
+    let bmp: ImageBitmap
+    try {
+      bmp = opciones ? await createImageBitmap(datos, opciones) : await createImageBitmap(datos)
+    } catch {
+      continue
+    }
+    const escala = Math.min(1, maxLado / Math.max(bmp.width, bmp.height))
+    w = Math.max(1, Math.round(bmp.width * escala))
+    h = Math.max(1, Math.round(bmp.height * escala))
+    ctx = dibujarEnCanvas(bmp, w, h, tipoSalida)
+    bmp.close()
+    if (ctx) break
+  }
+  // Los dos intentos salieron negros (o no se pudo decodificar): se sube el
+  // archivo original sin comprimir en vez de una imagen rota.
+  if (!ctx) return null
 
-  return aBlob(canvas, tipoSalida, tipoSalida === 'image/jpeg' ? CALIDAD_JPG : undefined)
+  return aBlob(ctx.canvas, tipoSalida, tipoSalida === 'image/jpeg' ? CALIDAD_JPG : undefined)
 }
 
 function esSospechosamenteNegro(ctx: CanvasRenderingContext2D, w: number, h: number): boolean {
-  const puntos: Array<[number, number]> = [
-    [Math.floor(w / 2), Math.floor(h / 2)],
-    [Math.floor(w * 0.1), Math.floor(h * 0.1)],
-    [Math.floor(w * 0.9), Math.floor(h * 0.1)],
-    [Math.floor(w * 0.1), Math.floor(h * 0.9)],
-    [Math.floor(w * 0.9), Math.floor(h * 0.9)],
-  ]
+  // Cuadrícula de puntos (no solo centro + esquinas, para no fallar al
+  // detectar una franja negra que no toque esos 5 puntos) -- se compara el
+  // brillo PROMEDIO contra un umbral bajo, no "cada punto es RGB 0,0,0"
+  // literal: el bug reportado se veía negro a simple vista, no
+  // necesariamente negro puro pixel por pixel.
+  const pasos = 4
+  let suma = 0
+  let cuenta = 0
   try {
-    return puntos.every(([x, y]) => {
-      const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
-      return r < 4 && g < 4 && b < 4
-    })
+    for (let i = 1; i < pasos; i++) {
+      for (let j = 1; j < pasos; j++) {
+        const x = Math.min(w - 1, Math.floor((w * i) / pasos))
+        const y = Math.min(h - 1, Math.floor((h * j) / pasos))
+        const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
+        suma += (r + g + b) / 3
+        cuenta++
+      }
+    }
   } catch {
     // Canvas "contaminado" u otro fallo al leer -- no se puede verificar,
     // se asume que está bien para no bloquear la subida por esto.
     return false
   }
+  return cuenta > 0 && suma / cuenta < 8
 }
 
 async function comprimirImagen(archivo: File): Promise<File | null> {

@@ -491,10 +491,14 @@ export default function UnidadDocenteDetalle() {
     const a = items[idx]
     const b = items[vecino]
     const supabase = createClient()
-    await Promise.all([
-      supabase.from('unit_items').update({ order_index: b.orderIndex }).eq('id', a.id),
-      supabase.from('unit_items').update({ order_index: a.orderIndex }).eq('id', b.id),
-    ])
+    // Bug real reportado en vivo (8-nov-2026): unit_items tiene un UNIQUE
+    // (unit_id, order_index) -- intercambiar los dos valores en paralelo
+    // choca contra esa restricción (el valor destino todavía está ocupado
+    // por el otro) y las dos actualizaciones fallan en silencio. Se pasa
+    // por un valor temporal fuera de rango antes del intercambio real.
+    await supabase.from('unit_items').update({ order_index: -1 }).eq('id', a.id)
+    await supabase.from('unit_items').update({ order_index: a.orderIndex }).eq('id', b.id)
+    await supabase.from('unit_items').update({ order_index: b.orderIndex }).eq('id', a.id)
     await cargar()
   }
 

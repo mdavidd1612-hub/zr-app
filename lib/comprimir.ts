@@ -72,7 +72,37 @@ async function reducirImagen(
   }
   ctx.drawImage(bmp, 0, 0, w, h)
   bmp.close()
+
+  // Bug real reportado en vivo (8-nov-2026): algunas fotos (gama de color
+  // ancha / HDR de cámaras de teléfono recientes, o un formato que el
+  // navegador no decodifica del todo) se dibujan negras en el canvas sin
+  // que createImageBitmap/drawImage avisen ningún error -- la "comprimida"
+  // se veía negra en vez de la foto. Se muestrean varios puntos antes de
+  // aceptar el resultado; si todos salen negros, es la señal de que el
+  // dibujo falló, y se usa el archivo original sin comprimir en su lugar.
+  if (esSospechosamenteNegro(ctx, w, h)) return null
+
   return aBlob(canvas, tipoSalida, tipoSalida === 'image/jpeg' ? CALIDAD_JPG : undefined)
+}
+
+function esSospechosamenteNegro(ctx: CanvasRenderingContext2D, w: number, h: number): boolean {
+  const puntos: Array<[number, number]> = [
+    [Math.floor(w / 2), Math.floor(h / 2)],
+    [Math.floor(w * 0.1), Math.floor(h * 0.1)],
+    [Math.floor(w * 0.9), Math.floor(h * 0.1)],
+    [Math.floor(w * 0.1), Math.floor(h * 0.9)],
+    [Math.floor(w * 0.9), Math.floor(h * 0.9)],
+  ]
+  try {
+    return puntos.every(([x, y]) => {
+      const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
+      return r < 4 && g < 4 && b < 4
+    })
+  } catch {
+    // Canvas "contaminado" u otro fallo al leer -- no se puede verificar,
+    // se asume que está bien para no bloquear la subida por esto.
+    return false
+  }
 }
 
 async function comprimirImagen(archivo: File): Promise<File | null> {

@@ -95,8 +95,13 @@ interface EncabezadoProps {
 export function Encabezado({ sobretitulo, titulo, descripcion, accion, delay = 0 }: EncabezadoProps) {
   return (
     <header className="animate-rise" style={{ animationDelay: `${delay}ms` }}>
-      <div className="flex flex-wrap items-end justify-between gap-5">
-        <div className="min-w-0 flex-1">
+      {/* Bug real reportado en vivo (8-nov-2026): en móvil, `accion` (p. ej.
+          "Mis exámenes" + "Calendario") y el texto compartían la misma fila
+          flex -- el texto se quedaba con un ancho angosto y se partía
+          palabra por línea. Ahora `accion` baja debajo del texto en
+          pantallas chicas y vuelve a la misma fila desde `sm:`. */}
+      <div className="flex flex-col gap-5 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+        <div className="min-w-0 sm:flex-1">
           {sobretitulo && (
             <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
               {sobretitulo}

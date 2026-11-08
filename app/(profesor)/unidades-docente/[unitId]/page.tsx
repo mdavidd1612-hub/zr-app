@@ -662,10 +662,21 @@ export default function UnidadDocenteDetalle() {
                     href = `/dudas-docente?unidad=${unitId}`
                   }
 
+                  // Pedido explícito (8-nov-2026): el estado de aprobación
+                  // también se ve en la vista de lectura, no solo en editar.
                   const meta = (
                     <>
                       {item.required && <Etiqueta tono="aviso">Obligatorio</Etiqueta>}
                       {item.esCertificacion && <Etiqueta tono="info">Certificación</Etiqueta>}
+                      {item.type === 'material' && item.approvalStatus === 'aprobado' && (
+                        <Etiqueta tono="exito">Aprobado</Etiqueta>
+                      )}
+                      {item.type === 'material' && item.approvalStatus === 'pendiente' && (
+                        <Etiqueta tono="neutro">En espera de aprobación</Etiqueta>
+                      )}
+                      {item.type === 'material' && item.approvalStatus === 'rechazado' && (
+                        <Etiqueta tono="aviso">Rechazado</Etiqueta>
+                      )}
                     </>
                   )
 
@@ -676,7 +687,7 @@ export default function UnidadDocenteDetalle() {
                       icono={Icono}
                       eyebrow={eyebrow}
                       titulo={item.titulo}
-                      meta={item.required || item.esCertificacion ? meta : undefined}
+                      meta={item.required || item.esCertificacion || item.approvalStatus ? meta : undefined}
                       href={href === '#' ? undefined : href}
                       ultimo={ultimo}
                       delay={80 + idx * 50}

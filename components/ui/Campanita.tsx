@@ -105,6 +105,14 @@ export function Campanita() {
       }
       case 'tarea_calificada':
         return '/unidades'
+      case 'material_aprobado':
+      case 'material_rechazado': {
+        // Le llega al profesor que subió el material (el único destinatario
+        // de este tipo) -- lo manda a su propia Unidades, no a la del
+        // estudiante.
+        const unitId = p.unit_id as string | undefined
+        return unitId ? `/unidades-docente/${unitId}` : '/unidades-docente'
+      }
       case 'examen_habilitado':
         // Sin exam_id en el payload (no debería pasar, pero por si acaso):
         // /examenes (la lista) no tiene acceso desde el menú del estudiante.

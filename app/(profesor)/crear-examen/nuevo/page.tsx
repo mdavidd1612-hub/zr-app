@@ -88,6 +88,11 @@ function NuevoExamenInterno() {
   // lo que vale en la nota del módulo. Se fija aquí mismo, sin volver a
   // Notas a registrarlo aparte.
   const [peso, setPeso] = useState<number | ''>(0)
+  // Pedido explícito del coordinador (8-nov-2026): antes el examen SIEMPRE
+  // nacía oculto -- había que acordarse de ir a /crear-examen (que ni
+  // siquiera tenía acceso en el menú) a publicarlo. Ahora se elige aquí
+  // mismo, con "Publicar de una vez" como opción por defecto.
+  const [publicarDeUnaVez, setPublicarDeUnaVez] = useState(true)
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false)
   const [destinoTrasConfirmar, setDestinoTrasConfirmar] = useState<string | null>(null)
 
@@ -145,6 +150,13 @@ function NuevoExamenInterno() {
   const puntosAsignados = preguntas.reduce((s, q) => s + q.points, 0)
   const puntosCuadran = puntosAsignados === puntajeMaximo
   const sePuedeGuardar = titulo.trim() !== '' && moduloId !== '' && preguntas.length > 0
+
+  // Si deja de cuadrar (se agregó/quitó una pregunta) mientras "Publicar de
+  // una vez" estaba elegido, se cae sola a "Guardar como borrador" -- no se
+  // puede dejar seleccionada una opción que ya está deshabilitada.
+  useEffect(() => {
+    if (!puntosCuadran && publicarDeUnaVez) setPublicarDeUnaVez(false)
+  }, [puntosCuadran, publicarDeUnaVez])
 
   function agregarPregunta(datos: Omit<Pregunta, 'id'>) {
     if (editandoId) {
@@ -250,7 +262,10 @@ function NuevoExamenInterno() {
         // depende de este campo para decidir si el examen entra al calendario,
         // así que un examen con fecha pero sin unit_id nunca aparecía ahí.
         unit_id: unitId || null,
-        status: 'oculto',   // Nace como borrador. Publicar es un paso aparte.
+        // Nace oculto siempre (con o sin preguntas aún no hay nada que
+        // publicar). Si se eligió "Publicar de una vez", se publica más
+        // abajo, ya con las preguntas puestas.
+        status: 'oculto',
       })
       .select()
       .single()
@@ -278,6 +293,24 @@ function NuevoExamenInterno() {
       setError(falloPreguntas.message)
       setGuardando(false)
       return
+    }
+
+    // "Publicar de una vez" (pedido explícito, 8-nov-2026, elegido por
+    // defecto): recién AHORA que ya existen las preguntas, se publica --
+    // antes de esto el examen siempre nacía oculto y había que acordarse de
+    // ir a /crear-examen (que ni tenía acceso en el menú) a publicarlo. La
+    // garantía real sigue siendo trg_validate_exam_publish; si rechaza, el
+    // examen queda creado como borrador (nada se pierde) y se avisa.
+    if (publicarDeUnaVez) {
+      const { error: falloPublicar } = await supabase
+        .from('exams')
+        .update({ status: 'habilitado', published_at: new Date().toISOString() })
+        .eq('id', examen.id)
+      if (falloPublicar) {
+        setError(`El examen se creó como borrador -- no se pudo publicar solo: ${falloPublicar.message}`)
+        setGuardando(false)
+        return
+      }
     }
 
     // Viene de una unidad: se engancha solo (unit_items) y se vuelve ahí --
@@ -657,6 +690,42 @@ function NuevoExamenInterno() {
         )}
       </Seccion>
 
+      {/* ¿Publicar de una vez o guardar como borrador? -- pedido explícito
+          del coordinador (8-nov-2026), elegido por defecto "Publicar de
+          una vez". Si los puntos no cuadran, esa opción no se puede elegir
+          -- igual que ya impedía publicar desde la lista de exámenes. */}
+      <div className="zr-card space-y-3 p-5">
+        <p className="text-sm font-semibold text-zr-text">¿Qué quieres hacer con este examen?</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setPublicarDeUnaVez(true)}
+            disabled={!puntosCuadran}
+            className={`rounded-lg border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+              publicarDeUnaVez ? 'border-zr-blue bg-zr-blue/8' : 'border-zr-border bg-zr-bg'
+            }`}
+          >
+            <p className="text-sm font-bold text-zr-text">Publicar de una vez</p>
+            <p className="mt-1 text-xs text-zr-text-muted">Tus estudiantes lo ven apenas lo crees.</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPublicarDeUnaVez(false)}
+            className={`rounded-lg border p-4 text-left transition-colors ${
+              !publicarDeUnaVez ? 'border-zr-blue bg-zr-blue/8' : 'border-zr-border bg-zr-bg'
+            }`}
+          >
+            <p className="text-sm font-bold text-zr-text">Guardar como borrador</p>
+            <p className="mt-1 text-xs text-zr-text-muted">Nadie lo ve hasta que lo publiques desde «Exámenes».</p>
+          </button>
+        </div>
+        {!puntosCuadran && (
+          <p className="text-xs text-zr-warning">
+            Los puntos tienen que sumar el puntaje máximo para poder publicarlo de una vez.
+          </p>
+        )}
+      </div>
+
       {/* Guardar */}
       <div className="space-y-4">
         {error && (
@@ -677,12 +746,14 @@ function NuevoExamenInterno() {
             disabled={!sePuedeGuardar || guardando}
             className="flex-1 rounded-lg bg-zr-blue px-6 py-4 text-base font-bold text-white transition-colors hover:bg-zr-blue-deep disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {guardando ? 'Guardando…' : 'Guardar borrador'}
+            {guardando ? 'Guardando…' : publicarDeUnaVez ? 'Crear y publicar' : 'Guardar borrador'}
           </button>
         </div>
 
         <p className="text-center text-xs text-zr-text-muted">
-          El examen se guarda oculto. Para que los estudiantes lo vean, publícalo desde la lista.
+          {publicarDeUnaVez
+            ? 'Tus estudiantes podrán verlo apenas lo crees.'
+            : 'El examen se guarda oculto. Para que los estudiantes lo vean, publícalo desde «Exámenes».'}
         </p>
       </div>
 

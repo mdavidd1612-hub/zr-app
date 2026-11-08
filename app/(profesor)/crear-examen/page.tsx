@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
-import { BotonVolver } from '@/components/ui/BotonVolver'
 
 type EstadoExamen = 'oculto' | 'habilitado' | 'cerrado' | 'calificado'
 
@@ -336,24 +335,20 @@ export default function ExamenesProfesor() {
   }
 
   return (
-    <div className="space-y-11 px-5 pt-14">
-      {/* No existía forma de volver de donde se vino (bug real reportado
-          por el coordinador, oct. 2026) -- esta pantalla no es una pestaña
-          del menú, solo se llega desde Aula Virtual. */}
-      <BotonVolver href="/unidades-docente" />
-
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
+      {/* Bug real reportado en vivo (8-nov-2026): no había ningún acceso a
+          esta pantalla desde el menú -- un examen creado dentro de una
+          unidad se quedaba sin publicar porque no había forma de
+          encontrar dónde publicarlo. Ahora es una pestaña fija ("Exámenes"
+          en app/(profesor)/layout.tsx), así que ya no hace falta
+          BotonVolver (las pestañas principales no lo llevan).
+          Pedido explícito, mismo reporte: aquí SOLO se ve/edita/publica/
+          borra lo que ya existe -- crear un examen nuevo sigue siendo
+          solo desde dentro de una unidad, en Aula Virtual. */}
       <Encabezado
         sobretitulo="Docencia"
         titulo="Exámenes"
         descripcion={`${examenes.length} en total · ${borradores.length} sin publicar`}
-        accion={
-          <button
-            onClick={() => router.push('/crear-examen/nuevo')}
-            className="rounded-lg bg-zr-blue px-6 py-3.5 text-sm font-bold text-white transition-colors hover:bg-zr-blue-deep"
-          >
-            Crear examen
-          </button>
-        }
       />
 
       {/* Barra de selección masiva */}
@@ -392,14 +387,14 @@ export default function ExamenesProfesor() {
         <div className="zr-card animate-rise p-12 text-center" style={{ animationDelay: '120ms' }}>
           <p className="text-lg font-semibold text-zr-text">Todavía no has creado exámenes</p>
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-zr-text-muted">
-            Un examen se arma una vez y se duplica para cada programa. Las preguntas de opción
-            múltiple y verdadero/falso se califican solas; tú solo revisas las redacciones.
+            Un examen se crea desde dentro de una unidad, en Aula Virtual -- aquí aparece apenas
+            lo crees, para que lo publiques, lo edites o lo borres.
           </p>
           <button
-            onClick={() => router.push('/crear-examen/nuevo')}
+            onClick={() => router.push('/unidades-docente')}
             className="mt-8 rounded-lg bg-zr-blue px-6 py-3.5 text-sm font-bold text-white transition-colors hover:bg-zr-blue-deep"
           >
-            Crear el primero
+            Ir a Aula Virtual
           </button>
         </div>
       ) : (

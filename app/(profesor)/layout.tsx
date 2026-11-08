@@ -12,7 +12,7 @@ import { PASOS_POR_ROL } from '@/lib/tour-pasos'
 import { leerVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import { NAV_DIRECCION, TODAS_DIRECCION, TODAS_SUPER } from '@/lib/nav-direccion'
 import {
-  IconoPanel, IconoDuda, IconoProgreso, IconoVideo, IconoNotas, IconoPerfil,
+  IconoPanel, IconoDuda, IconoProgreso, IconoVideo, IconoNotas, IconoPerfil, IconoExamen,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -37,6 +37,16 @@ const NAV_BASE = [
   // llega siempre desde dentro de una unidad (botón "+ Subir material
   // nuevo"), nunca como pestaña aparte.
   { href: '/unidades-docente',   label: 'Unidades', Icono: IconoVideo },
+  // Bug real reportado en vivo (8-nov-2026): no había NINGÚN acceso al
+  // listado de exámenes (/crear-examen) desde el menú -- solo se llegaba
+  // escribiendo la URL a mano, o por accidente (el botón "Cancelar" de
+  // editar un examen manda ahí). Por eso exámenes creados desde una unidad
+  // se quedaban sin publicar: el profesor no tenía forma de encontrar dónde
+  // publicarlos. Ver la pantalla de /crear-examen para la regla de que ya
+  // NO se puede crear un examen nuevo desde ahí -- solo ver/editar/publicar/
+  // borrar los que ya existen; crear uno nuevo sigue siendo solo desde
+  // dentro de una unidad, en Aula Virtual.
+  { href: '/crear-examen',       label: 'Exámenes', Icono: IconoExamen },
   { href: '/notas-docente',      label: 'Notas',    Icono: IconoNotas },
   { href: '/perfil-docente',     label: 'Perfil',    Icono: IconoPerfil },
 ]

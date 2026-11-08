@@ -42,72 +42,19 @@ function ControlZoom({ zoom, onAcercar, onAlejar }: { zoom: number; onAcercar: (
 }
 
 /**
- * Pellizcar con dos dedos para acercar/alejar -- pedido explícito (8-nov-2026,
- * "o si no, en poder agrandar la pantalla con los dos dedos pellizcando").
- * El navegador tiene el pellizco nativo desactivado a propósito en TODA la
- * app (`app/layout.tsx`, `viewport.userScalable: false`), así que este gesto
- * se arma a mano, solo en el visor. `touchmove` tiene que registrarse manual
- * con `{ passive: false }` -- React lo adjunta pasivo por defecto, y ahí
- * `preventDefault()` no sirve de nada (el navegador seguiría haciendo scroll
- * con los dos dedos a la vez que se pellizca).
- *
- * Bug real reportado en vivo (8-nov-2026): el pellizco no hacía nada en el
- * teléfono, aunque los botones +/- sí funcionaban. Causa: el contenedor con
- * `overflow-auto` (para poder desplazarse con un dedo) no declaraba ningún
- * `touch-action` -- con el valor por defecto (`auto`), el navegador puede
- * quedarse con la interpretación del gesto de dos dedos antes de que el
- * `touchmove` de aquí llegue a correr, y entonces `preventDefault()` ya no
- * sirve de nada. `touch-pan-x touch-pan-y` (clases de Tailwind) le dice al
- * navegador "solo desplazamiento de un dedo es tuyo" -- el pellizco de dos
- * dedos queda libre para este hook, sin pelear por el gesto.
+ * El pellizco con dos dedos hecho a mano (addEventListener de touch, con
+ * `touch-action` ajustado) se probó dos rondas (8-nov-2026) y nunca terminó
+ * de sentirse bien en el teléfono real. En vez de seguir afinando un gesto
+ * reinventado, se optó por reactivar el zoom NATIVO del navegador -- el
+ * mismo que `app/layout.tsx` apaga en TODA la app a propósito
+ * (`userScalable: false`) -- pero solo en las pantallas que usan este
+ * visor: cada una tiene su propio `layout.tsx` con un `viewport` que
+ * reemplaza al de la raíz para esa rama (`app/(app)/unidades/[unitId]/
+ * material/[itemId]/layout.tsx` y los dos equivalentes del profesor). El
+ * pellizco de dos dedos ahora es el del propio navegador -- confiable,
+ * sin código propio que mantener -- y los botones +/- se quedan igual,
+ * como alternativa sin gestos (mouse, accesibilidad).
  */
-function usePinchZoom(min: number, max: number, zoom: number, setZoom: (z: number) => void) {
-  const ref = useRef<HTMLDivElement>(null)
-  const zoomRef = useRef(zoom)
-  useEffect(() => { zoomRef.current = zoom }, [zoom])
-  const distInicioRef = useRef<number | null>(null)
-  const zoomInicioRef = useRef(1)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-
-    const distancia = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY)
-
-    function onStart(e: TouchEvent) {
-      if (e.touches.length === 2) {
-        distInicioRef.current = distancia(e.touches)
-        zoomInicioRef.current = zoomRef.current
-      }
-    }
-    function onMove(e: TouchEvent) {
-      // `!== null`, no un simple truthy: si los dos dedos empiezan juntos
-      // (distancia 0), un `if (distInicioRef.current)` descartaba el gesto
-      // porque 0 es falsy.
-      if (e.touches.length === 2 && distInicioRef.current !== null) {
-        e.preventDefault()
-        const factor = distancia(e.touches) / distInicioRef.current
-        setZoom(Math.min(max, Math.max(min, zoomInicioRef.current * factor)))
-      }
-    }
-    function onEnd(e: TouchEvent) {
-      if (e.touches.length < 2) distInicioRef.current = null
-    }
-
-    el.addEventListener('touchstart', onStart, { passive: true })
-    el.addEventListener('touchmove', onMove, { passive: false })
-    el.addEventListener('touchend', onEnd)
-    el.addEventListener('touchcancel', onEnd)
-    return () => {
-      el.removeEventListener('touchstart', onStart)
-      el.removeEventListener('touchmove', onMove)
-      el.removeEventListener('touchend', onEnd)
-      el.removeEventListener('touchcancel', onEnd)
-    }
-  }, [min, max, setZoom])
-
-  return ref
-}
 
 /**
  * Visor incrustado DENTRO de la pantalla, sin iframe a un sitio externo.
@@ -175,7 +122,6 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
   const [zoom, setZoom] = useState(1)
   const ZOOM_MIN = 1
   const ZOOM_MAX = 3
-  const refPellizco = usePinchZoom(ZOOM_MIN, ZOOM_MAX, zoom, setZoom)
   const maxFraccionWord = useRef(0)
 
   async function guardarProgreso(percent: number) {
@@ -417,10 +363,7 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
 
   if (tipo === 'imagen') {
     return (
-      <div
-        ref={refPellizco}
-        className="relative max-h-[75vh] touch-pan-x touch-pan-y overflow-auto rounded-xl bg-zr-surface"
-      >
+      <div className="relative max-h-[75vh] overflow-auto rounded-xl bg-zr-surface">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={url}
@@ -436,11 +379,7 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
 
   if (tipo === 'pdf') {
     return (
-      <div
-        ref={refPellizco}
-        onScroll={alDesplazar}
-        className="max-h-[75vh] touch-pan-x touch-pan-y overflow-auto rounded-xl bg-zr-surface p-2"
-      >
+      <div onScroll={alDesplazar} className="max-h-[75vh] overflow-auto rounded-xl bg-zr-surface p-2">
         {numPaginas === 0 && <div className="zr-skel h-64 w-full rounded-xl" />}
         <div style={{ width: `${zoom * 100}%` }} className="space-y-3">
           {Array.from({ length: numPaginas }, (_, i) => i + 1).map((n) => (
@@ -459,11 +398,7 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
   if (tipo === 'documento' && esDocx(storagePath)) {
     if (!htmlWord) return <div className="zr-skel h-64 w-full rounded-xl" />
     return (
-      <div
-        ref={refPellizco}
-        onScroll={alDesplazarWord}
-        className="zr-card max-h-[75vh] touch-pan-x touch-pan-y overflow-auto p-6"
-      >
+      <div onScroll={alDesplazarWord} className="zr-card max-h-[75vh] overflow-auto p-6">
         <div
           style={{ width: `${zoom * 100}%` }}
           className="text-sm leading-relaxed text-zr-text [&_h1]:zr-display [&_h1]:text-xl [&_h2]:text-lg [&_h2]:font-bold [&_p]:my-2 [&_table]:w-full [&_td]:border [&_td]:border-zr-border [&_td]:p-2 [&_img]:max-w-full"

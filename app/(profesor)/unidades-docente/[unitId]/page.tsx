@@ -962,16 +962,6 @@ export default function UnidadDocenteDetalle() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
-                    {item.type === 'material' && (
-                      <button
-                        onClick={() => alternarObligatorio(item.id, item.required)}
-                        className="mt-1"
-                      >
-                        <Etiqueta tono={item.required ? 'aviso' : 'neutro'}>
-                          {item.required ? 'Obligatorio (toca para quitar)' : 'Opcional (toca para hacer obligatorio)'}
-                        </Etiqueta>
-                      </button>
-                    )}
                     {item.type === 'tarea' && item.assignmentId && (
                       <button
                         onClick={() => router.push(`/unidades-docente/tarea/${item.assignmentId}`)}
@@ -991,9 +981,35 @@ export default function UnidadDocenteDetalle() {
                       </button>
                     )}
                   </div>
-                  <button onClick={() => quitarItem(item.id)} className="shrink-0 text-xs font-bold text-zr-error">
-                    Quitar
-                  </button>
+                  {/* Pedido explícito del coordinador (8-nov-2026, sobre el
+                      fix anterior): la etiqueta larga ("Obligatorio (toca
+                      para quitar)") ya no se superponía con "Quitar", pero se
+                      veía grande y asimétrica -- se sacó de la columna del
+                      título y se puso chiquita, apilada debajo de "Quitar",
+                      con el texto completo en el `title` (tooltip) en vez de
+                      escrito -- el gesto de tocarla para alternar ya era
+                      conocido por quien usa la pantalla seguido. */}
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <button onClick={() => quitarItem(item.id)} className="text-xs font-bold text-zr-error">
+                      Quitar
+                    </button>
+                    {item.type === 'material' && (
+                      <button
+                        onClick={() => alternarObligatorio(item.id, item.required)}
+                        title={item.required ? 'Toca para quitar lo obligatorio' : 'Toca para hacerlo obligatorio'}
+                      >
+                        <span
+                          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                            item.required
+                              ? 'border-zr-warning/40 bg-zr-warning/15 text-zr-warning'
+                              : 'border-zr-border bg-zr-surface text-zr-text-muted'
+                          }`}
+                        >
+                          {item.required ? 'Obligatorio' : 'Opcional'}
+                        </span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Mini-chequeo (migración 177, spec §6.3): solo video/audio --

@@ -167,9 +167,15 @@ const TONO_ETIQUETA: Record<TonoEtiqueta, string> = {
 
 /** Píldora de estado. Un solo lugar decide cómo se ve «Publicado» o «Pendiente». */
 export function Etiqueta({ tono = 'neutro', children }: { tono?: TonoEtiqueta; children: React.ReactNode }) {
+  // Bug responsive real, reportado con captura (8-nov-2026): una etiqueta
+  // con texto largo ("Obligatorio (toca para quitar)") con `whitespace-nowrap`
+  // no se encoge -- se desborda por encima del contenido vecino en vez de
+  // partirse en dos líneas (se veía superpuesta con el botón "Quitar" en
+  // rojo). Sin `nowrap`, el texto se parte solo cuando el contenedor no le
+  // alcanza; las etiquetas cortas (la mayoría) no cambian en nada.
   return (
     <span
-      className={`inline-flex items-center whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-bold ${TONO_ETIQUETA[tono]}`}
+      className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-bold ${TONO_ETIQUETA[tono]}`}
     >
       {children}
     </span>

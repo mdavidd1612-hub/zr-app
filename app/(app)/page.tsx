@@ -66,6 +66,10 @@ export default function Inicio() {
   // todavía no lo respondió, se lo avisa aquí — si no, nunca se enteraría de
   // que existe.
   const [feedbackPendiente, setFeedbackPendiente] = useState<string | null>(null)
+  // Insignia de calendario (pendiente de la reunión 7-nov-2026, §8.12): un
+  // punto de color en "Calendario" y en "Revisar el material del módulo"
+  // cuando hay algo (examen, tarea) con fecha dentro de las próximas 48h.
+  const [hayPendienteCalendario, setHayPendienteCalendario] = useState(false)
 
   const hoy = new Date()
   const diaHoy = simulado ? 6 : diaSemanaISO(hoy)
@@ -234,6 +238,17 @@ export default function Inicio() {
         .lte('case_date', finSemana)
 
       setHechos(new Set((completados ?? []).map((c) => c.case_date)))
+
+      // Insignia de calendario: ¿hay algo (examen, tarea) con fecha en las
+      // próximas 48h? RLS ya acota a su propio módulo (my_module_id()).
+      const en48h = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+      const { data: proximoEvento } = await supabase
+        .from('calendar_events')
+        .select('id')
+        .gte('event_at', new Date().toISOString())
+        .lte('event_at', en48h)
+        .limit(1)
+      setHayPendienteCalendario((proximoEvento ?? []).length > 0)
 
       setCargando(false)
     }
@@ -475,10 +490,13 @@ export default function Inicio() {
                   se revisa desde Aula Virtual, organizado por unidad. */}
               <button
                 onClick={() => router.push('/unidades')}
-                className="flex min-h-14 w-full items-center justify-center gap-2 border-t border-zr-border text-sm font-bold text-zr-text active:bg-zr-border/30"
+                className="relative flex min-h-14 w-full items-center justify-center gap-2 border-t border-zr-border text-sm font-bold text-zr-text active:bg-zr-border/30"
               >
                 <IconoDocumento size={18} className="text-zr-blue-mid" />
                 Revisar el material del módulo
+                {hayPendienteCalendario && (
+                  <span aria-hidden className="h-2 w-2 rounded-full bg-zr-warning" />
+                )}
               </button>
             </div>
           ) : null}
@@ -532,16 +550,19 @@ export default function Inicio() {
                 Tiles livianos con icono, sin el borde de tarjeta. */}
             <div className="grid grid-cols-2 gap-2">
               {[
-                { href: '/calendario', titulo: 'Calendario', sub: 'Fechas y entregas', Icono: IconoCalendario },
-                { href: '/contenido',  titulo: 'Material',    sub: 'Guías y PDFs',      Icono: IconoDocumento },
-              ].map(({ href, titulo, sub, Icono }) => (
+                { href: '/calendario', titulo: 'Calendario', sub: 'Fechas y entregas', Icono: IconoCalendario, insignia: hayPendienteCalendario },
+                { href: '/contenido',  titulo: 'Material',    sub: 'Guías y PDFs',      Icono: IconoDocumento, insignia: false },
+              ].map(({ href, titulo, sub, Icono, insignia }) => (
                 <button
                   key={href}
                   onClick={() => router.push(href)}
                   className="flex items-start gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-zr-surface/60"
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue-mid">
+                  <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue-mid">
                     <Icono size={20} />
+                    {insignia && (
+                      <span aria-hidden className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-zr-bg bg-zr-warning" />
+                    )}
                   </span>
                   <span className="min-w-0">
                     <span className="block text-sm font-bold text-zr-text">{titulo}</span>

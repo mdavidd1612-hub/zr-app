@@ -217,7 +217,7 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
     return (
       <>
         {hayQueElegir && (
-          <div className="flex items-center justify-between gap-3 border-b border-zr-border bg-zr-surface px-5 pb-3 pt-12">
+          <div className="flex items-center justify-between gap-3 border-b border-zr-border bg-zr-surface px-5 pb-3 pt-[calc(3rem+env(safe-area-inset-top))]">
             <p className="min-w-0 truncate text-xs font-semibold text-zr-text-muted">
               {seleccion.cohorteNombre}{seleccion.sede ? ` · ${seleccion.sede}` : ''}
               {nivel === 'modulo' ? ` · Módulo ${seleccion.moduloOrden} · ${seleccion.moduloNombre}` : ''}

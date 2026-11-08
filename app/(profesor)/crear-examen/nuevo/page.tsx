@@ -10,6 +10,7 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import { ModalEvaluacionAgregada } from '@/components/ui/ModalEvaluacionAgregada'
+import { sumaPesoOcupado, mensajeSiExcedePeso } from '@/lib/peso-notas'
 
 type TipoPregunta = 'opcion_multiple' | 'verdadero_falso' | 'redaccion_abierta'
 
@@ -63,6 +64,14 @@ function NuevoExamenInterno() {
   const [cohortes, setCohortes] = useState<{ id: string; name: string }[]>([])
   const [puntajeMaximo, setPuntajeMaximo] = useState(20)
   const [duracion, setDuracion] = useState<number | ''>(10)
+
+  // Fecha propia del examen (pendiente de la reunión 7-nov-2026, §8.12): ya
+  // existía en la base (opens_at/closes_at, migración 176/179 -- alimenta el
+  // calendario solo) pero nunca se podía fijar desde la app ni bloqueaba
+  // nada. Ambas opcionales: sin opens_at, el examen está disponible en
+  // cuanto se publica (igual que siempre).
+  const [abreEl, setAbreEl] = useState('')
+  const [cierraEl, setCierraEl] = useState('')
 
   // Modelo de evaluación (migración 176). Antes solo se podía configurar por
   // SQL; ahora el profesor elige desde la app si el examen abre la siguiente
@@ -154,7 +163,27 @@ function NuevoExamenInterno() {
     if (!sePuedeGuardar) return
     setError(null)
 
+    const pesoNuevo = peso === '' ? 0 : peso
+
+    // Pedido explícito del coordinador (reunión 7-nov-2026): una certificación
+    // no tiene sentido que valga 0% -- si no vale nada, no tiene sentido que
+    // tenga intentos ni enfriamiento. Una práctica sí puede valer 0.
+    if (tipo === 'certificacion' && pesoNuevo <= 0) {
+      setError('Una certificación tiene que valer más de 0% en la nota del módulo.')
+      return
+    }
+
     const supabase = createClient()
+
+    // Bug real de la reunión: se podía crear un examen que hiciera pasar la
+    // suma de pesos de 100% sin avisar antes -- la única señal era la
+    // excepción SQL de fn_validar_suma_pesos al insertar. Se anticipa aquí,
+    // igual que ya hace RegistrarEvaluacion.tsx.
+    if (pesoNuevo > 0) {
+      const ocupado = await sumaPesoOcupado(supabase, moduloId, cohorteId || null)
+      const msg = mensajeSiExcedePeso(ocupado, pesoNuevo)
+      if (msg) { setError(msg); return }
+    }
 
     // Mismo caso que el material (reunión 31-oct-2026): crear dos veces un
     // examen con el mismo nombre en la misma unidad no debe duplicarlo.
@@ -195,6 +224,8 @@ function NuevoExamenInterno() {
         max_attempts: intentos === '' ? 2 : intentos,
         cooldown_hours: enfriamiento === '' ? 24 : enfriamiento,
         weight: peso === '' ? 0 : peso,
+        opens_at: abreEl ? new Date(abreEl).toISOString() : null,
+        closes_at: cierraEl ? new Date(cierraEl).toISOString() : null,
         status: 'oculto',   // Nace como borrador. Publicar es un paso aparte.
       })
       .select()
@@ -292,43 +323,53 @@ function NuevoExamenInterno() {
             />
           </div>
 
+          {/* Pedido explícito del coordinador (reunión 7-nov-2026): viniendo de
+              una unidad, el módulo y el programa ya quedaron elegidos antes de
+              entrar -- no tiene sentido volver a mostrarlos como si hubiera
+              algo que decidir aquí. Solo se informan en texto. */}
+          {unitId ? (
+            <p className="text-xs text-zr-text-muted">
+              Módulo: <span className="font-semibold text-zr-text">{tituloUnidad || '…'}</span>
+            </p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="modulo" className="mb-2 block text-sm font-semibold text-zr-text">
+                  Módulo
+                </label>
+                <Select
+                  id="modulo"
+                  value={moduloId}
+                  onChange={(e) => setModuloId(e.target.value)}
+                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+                >
+                  {modulos.length === 0 && <option value="">Sin módulos cargados</option>}
+                  {modulos.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </Select>
+              </div>
+
+              <div>
+                <label htmlFor="cohorte" className="mb-2 block text-sm font-semibold text-zr-text">
+                  Programa
+                </label>
+                <Select
+                  id="cohorte"
+                  value={cohorteId}
+                  onChange={(e) => setCohorteId(e.target.value)}
+                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+                >
+                  <option value="">Todos los programas</option>
+                  {cohortes.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="modulo" className="mb-2 block text-sm font-semibold text-zr-text">
-                Módulo
-              </label>
-              <Select
-                id="modulo"
-                value={moduloId}
-                onChange={(e) => setModuloId(e.target.value)}
-                disabled={!!unitId}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none disabled:opacity-60"
-              >
-                {modulos.length === 0 && <option value="">Sin módulos cargados</option>}
-                {modulos.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </Select>
-              {unitId && <p className="mt-1 text-xs text-zr-text-muted">El de esta unidad.</p>}
-            </div>
-
-            <div>
-              <label htmlFor="cohorte" className="mb-2 block text-sm font-semibold text-zr-text">
-                Programa
-              </label>
-              <Select
-                id="cohorte"
-                value={cohorteId}
-                onChange={(e) => setCohorteId(e.target.value)}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
-              >
-                <option value="">Todos los programas</option>
-                {cohortes.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </Select>
-            </div>
-
             <div>
               <label htmlFor="maximo" className="mb-2 block text-sm font-semibold text-zr-text">
                 Puntaje máximo
@@ -356,6 +397,39 @@ function NuevoExamenInterno() {
                 placeholder="Sin límite"
                 className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
               />
+            </div>
+          </div>
+
+          {/* Fecha propia del examen (pendiente de la reunión 7-nov-2026):
+              opcional -- sin "Se abre", el examen queda disponible en cuanto
+              se publica, igual que siempre. Con fecha, el servidor la valida
+              de verdad al empezar un intento (migración 200), no solo aquí. */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="abre-el" className="mb-2 block text-sm font-semibold text-zr-text">
+                Se abre <span className="font-normal text-zr-text-muted">(opcional)</span>
+              </label>
+              <input
+                id="abre-el"
+                type="datetime-local"
+                value={abreEl}
+                onChange={(e) => setAbreEl(e.target.value)}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+              />
+              <p className="mt-1.5 text-xs text-zr-text-muted">Antes de esta fecha, el examen se ve bloqueado.</p>
+            </div>
+            <div>
+              <label htmlFor="cierra-el" className="mb-2 block text-sm font-semibold text-zr-text">
+                Se cierra <span className="font-normal text-zr-text-muted">(opcional)</span>
+              </label>
+              <input
+                id="cierra-el"
+                type="datetime-local"
+                value={cierraEl}
+                onChange={(e) => setCierraEl(e.target.value)}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+              />
+              <p className="mt-1.5 text-xs text-zr-text-muted">Pasada esta fecha, ya no se puede empezar un intento.</p>
             </div>
           </div>
 

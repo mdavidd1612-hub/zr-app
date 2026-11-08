@@ -7,6 +7,7 @@ import { Seccion, Regla, Encabezado, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { IconoDescargar } from '@/components/ui/Iconos'
+import { VisorMaterial } from '@/components/ui/VisorMaterial'
 
 /**
  * Aula Virtual — el profesor ve la entrega más reciente de cada estudiante
@@ -43,6 +44,10 @@ export default function CalificarTarea() {
   const [notas, setNotas] = useState<Record<string, string>>({})
   const [guardandoId, setGuardandoId] = useState<string | null>(null)
   const [descargandoZip, setDescargandoZip] = useState(false)
+  // Pedido explícito del coordinador (reunión 7-nov-2026): ver la entrega
+  // dentro de la app (como el visor de material), con la calificación al
+  // final -- no forzar una descarga para poder revisarla.
+  const [viendoId, setViendoId] = useState<string | null>(null)
 
   async function cargar() {
     const supabase = createClient()
@@ -159,11 +164,17 @@ export default function CalificarTarea() {
                 {f.file_path && (
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => descargar(f.file_path!)}
+                      onClick={() => setViendoId(viendoId === f.submission_id ? null : f.submission_id)}
                       className="inline-flex items-center gap-2 rounded-full border border-zr-border px-4 py-2 text-xs font-bold text-zr-text transition-colors hover:border-zr-blue/40"
                     >
+                      {viendoId === f.submission_id ? 'Ocultar entrega' : 'Ver entrega'}
+                    </button>
+                    <button
+                      onClick={() => descargar(f.file_path!)}
+                      className="inline-flex items-center gap-2 text-xs font-bold text-zr-text-muted"
+                    >
                       <IconoDescargar size={14} />
-                      Descargar PDF
+                      Descargar
                     </button>
                     {f.submitted_at && (
                       <p className="text-xs text-zr-text-muted">
@@ -173,13 +184,23 @@ export default function CalificarTarea() {
                   </div>
                 )}
 
+                {viendoId === f.submission_id && f.file_path && (
+                  <VisorMaterial
+                    contentItemId=""
+                    tipo="pdf"
+                    storagePath={f.file_path}
+                    bucket="tareas"
+                    registrarProgreso={false}
+                  />
+                )}
+
                 {f.submission_id && (
                   <div className="flex gap-2">
                     <input
                       type="number"
                       min={0}
                       step="0.01"
-                      placeholder={f.grade !== null ? String(f.grade) : 'Nota'}
+                      placeholder={f.grade !== null ? Number(f.grade).toFixed(2) : 'Nota'}
                       value={notas[f.submission_id] ?? ''}
                       onChange={(e) => setNotas((n) => ({ ...n, [f.submission_id as string]: e.target.value }))}
                       className="min-h-11 w-24 rounded-lg border border-zr-border bg-zr-bg px-3 text-sm text-zr-text"

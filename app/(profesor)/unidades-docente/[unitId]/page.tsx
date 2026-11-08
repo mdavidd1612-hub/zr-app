@@ -7,15 +7,17 @@ import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Encabezado, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
-import { BannerUnidad, PALETA_BANNER, type ColorBanner } from '@/components/ui/BannerUnidad'
+import { BannerUnidad, PALETA_BANNER, HUES_BANNER, type ColorBanner } from '@/components/ui/BannerUnidad'
 import { acentoDe, hexARgba } from '@/lib/banner-unidad'
 import { prepararArchivo } from '@/lib/subida'
 import { PestanasUnidad, type PestanaUnidad } from '@/components/ui/PestanasUnidad'
 import { Recorrido, Paso } from '@/components/ui/Recorrido'
-import { IconoDocumento, IconoExamen, IconoDuda, IconoCheck, IconoLapiz } from '@/components/ui/Iconos'
+import { IconoDocumento, IconoExamen, IconoDuda, IconoCheck, IconoLapiz, IconoChevron } from '@/components/ui/Iconos'
 import { estadoUnidad } from '@/lib/estado-unidad'
 import { eyebrowMaterial } from '@/lib/material'
+import { iconoDeMaterial } from '@/components/ui/IconoMaterial'
 import { ModalEvaluacionAgregada } from '@/components/ui/ModalEvaluacionAgregada'
+import { sumaPesoOcupado, mensajeSiExcedePeso } from '@/lib/peso-notas'
 
 /**
  * Aula Virtual — el profesor administra el contenido de UNA unidad: fechas
@@ -47,6 +49,7 @@ interface Item {
   id: string
   type: 'material' | 'quiz' | 'tarea' | 'dudas'
   required: boolean
+  orderIndex: number
   titulo: string
   assignmentId: string | null
   contentItemId: string | null
@@ -75,7 +78,6 @@ export default function UnidadDocenteDetalle() {
   const [unidades, setUnidades] = useState<PestanaUnidad[]>([])
   const [items, setItems] = useState<Item[]>([])
   const [materialesDisponibles, setMaterialesDisponibles] = useState<Opcion[]>([])
-  const [examenesDisponibles, setExamenesDisponibles] = useState<Opcion[]>([])
   const [miniChequeosDisponibles, setMiniChequeosDisponibles] = useState<Opcion[]>([])
   const [asignandoChequeo, setAsignandoChequeo] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
@@ -87,7 +89,7 @@ export default function UnidadDocenteDetalle() {
   const [tareaFecha, setTareaFecha] = useState('')
   // Fusión con Notas (H.33, migración 193): % que vale en la nota del
   // módulo -- la tarea, al crearse, ya es una evaluación en Notas.
-  const [tareaPeso, setTareaPeso] = useState<number | ''>(0)
+  const [tareaPeso, setTareaPeso] = useState<number | ''>('')
   const [creandoTarea, setCreandoTarea] = useState(false)
   const [confirmandoTarea, setConfirmandoTarea] = useState(false)
   const [pesoTareaConfirmada, setPesoTareaConfirmada] = useState(0)
@@ -141,7 +143,7 @@ export default function UnidadDocenteDetalle() {
 
     const { data: filas } = await supabase
       .from('unit_items')
-      .select('id, type, required, assignment_id, content_item_id, exam_id, content_items(title, type, description, check_quiz_id, check_quiz:exams!content_items_check_quiz_id_fkey(title)), exams(title, kind), assignments(title)')
+      .select('id, type, required, order_index, assignment_id, content_item_id, exam_id, content_items(title, type, description, check_quiz_id, check_quiz:exams!content_items_check_quiz_id_fkey(title)), exams(title, kind), assignments(title)')
       .eq('unit_id', unitId)
       .order('order_index', { ascending: true })
 
@@ -154,7 +156,7 @@ export default function UnidadDocenteDetalle() {
         const ex = f.exams as unknown as { title: string; kind: string } | null
         const ta = f.assignments as unknown as { title: string } | null
         return {
-          id: f.id, type: f.type, required: f.required,
+          id: f.id, type: f.type, required: f.required, orderIndex: f.order_index,
           titulo: ci?.title ?? ex?.title ?? ta?.title ?? (f.type === 'dudas' ? 'Dudas de esta unidad' : ''),
           assignmentId: f.assignment_id,
           contentItemId: f.content_item_id,
@@ -182,7 +184,6 @@ export default function UnidadDocenteDetalle() {
       .from('exams').select('id, title, kind').eq('module_id', unidad.module_id).order('title')
 
     setMaterialesDisponibles((materiales ?? []) as Opcion[])
-    setExamenesDisponibles((examenes ?? []) as Opcion[])
     // Mini-chequeo (migración 177): solo exámenes formativos tiene sentido
     // ofrecer -- uno de certificación ya tiene su propio flujo (compuerta).
     setMiniChequeosDisponibles(
@@ -335,9 +336,22 @@ export default function UnidadDocenteDetalle() {
   async function crearTarea() {
     if (!tareaTitulo.trim()) return
     const pesoCreado = tareaPeso === '' ? 0 : tareaPeso
-    setCreandoTarea(true)
     setError(null)
+
+    // Bug real de la reunión 7-nov-2026: una tarea creada con 0% nunca suma
+    // en Notas aunque se califique (sale "0 de 0") -- se exige un % real.
+    if (pesoCreado <= 0) {
+      setError('La tarea tiene que valer más de 0% en la nota del módulo.')
+      return
+    }
+
     const supabase = createClient()
+
+    const ocupado = await sumaPesoOcupado(supabase, moduleId, cohortId)
+    const msgPeso = mensajeSiExcedePeso(ocupado, pesoCreado)
+    if (msgPeso) { setError(msgPeso); return }
+
+    setCreandoTarea(true)
     const { data: tarea, error: err } = await supabase
       .from('assignments')
       .insert({
@@ -359,7 +373,7 @@ export default function UnidadDocenteDetalle() {
     })
     setTareaTitulo('')
     setTareaFecha('')
-    setTareaPeso(0)
+    setTareaPeso('')
     setPesoTareaConfirmada(pesoCreado)
     setCreandoTarea(false)
     setConfirmandoTarea(true)
@@ -467,6 +481,23 @@ export default function UnidadDocenteDetalle() {
     await cargar()
   }
 
+  // Reordenar (pedido explícito del coordinador, reunión 7-nov-2026): se
+  // intercambia el order_index con el ítem vecino -- más simple y confiable
+  // que arrastrar, y resuelve el mismo problema ("el material queda primero,
+  // el bloque de texto siempre abajo").
+  async function moverItem(idx: number, direccion: -1 | 1) {
+    const vecino = idx + direccion
+    if (vecino < 0 || vecino >= items.length) return
+    const a = items[idx]
+    const b = items[vecino]
+    const supabase = createClient()
+    await Promise.all([
+      supabase.from('unit_items').update({ order_index: b.orderIndex }).eq('id', a.id),
+      supabase.from('unit_items').update({ order_index: a.orderIndex }).eq('id', b.id),
+    ])
+    await cargar()
+  }
+
   if (cargando) return <PantallaEsqueleto variante="lista" />
 
   // Color de acento de la unidad (migración 194/195): pedido explícito del
@@ -544,7 +575,7 @@ export default function UnidadDocenteDetalle() {
                   let eyebrow = 'Material'
                   let href = '#'
                   if (item.type === 'material') {
-                    Icono = IconoDocumento
+                    Icono = iconoDeMaterial(item.materialTipo)
                     eyebrow = eyebrowMaterial(item.materialTipo ?? '')
                     href = item.contentItemId ? `/unidades-docente/${unitId}/material/${item.contentItemId}` : '#'
                   } else if (item.type === 'quiz') {
@@ -699,19 +730,28 @@ export default function UnidadDocenteDetalle() {
           <label className="mb-2 block text-sm font-semibold text-zr-text">
             Color {bannerImagePath ? '(botones y contornos de la unidad)' : ''}
           </label>
-          <div className="flex gap-2">
-            {(Object.keys(PALETA_BANNER) as ColorBanner[]).map((c) => (
-              <button
-                key={c}
-                onClick={() => elegirColorBanner(c)}
-                title={PALETA_BANNER[c].etiqueta}
-                aria-label={PALETA_BANNER[c].etiqueta}
-                className="h-10 w-10 shrink-0 rounded-full"
-                style={{
-                  backgroundColor: PALETA_BANNER[c].muestra,
-                  boxShadow: (bannerColor ?? 'azul') === c ? `0 0 0 2px var(--zr-bg), 0 0 0 4px ${PALETA_BANNER[c].muestra}` : undefined,
-                }}
-              />
+          {/* 3 tonalidades por color (pedido explícito, reunión 7-nov-2026):
+              una fila por tonalidad, el mismo orden de tonos en cada una. */}
+          <div className="space-y-2">
+            {(['claro', 'medio', 'oscuro'] as const).map((tono) => (
+              <div key={tono} className="flex gap-2">
+                {HUES_BANNER.map((hue) => {
+                  const c = (tono === 'medio' ? hue : `${hue}_${tono}`) as ColorBanner
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => elegirColorBanner(c)}
+                      title={PALETA_BANNER[c].etiqueta}
+                      aria-label={PALETA_BANNER[c].etiqueta}
+                      className="h-9 w-9 shrink-0 rounded-full"
+                      style={{
+                        backgroundColor: PALETA_BANNER[c].muestra,
+                        boxShadow: (bannerColor ?? 'azul') === c ? `0 0 0 2px var(--zr-bg), 0 0 0 4px ${PALETA_BANNER[c].muestra}` : undefined,
+                      }}
+                    />
+                  )
+                })}
+              </div>
             ))}
           </div>
         </div>
@@ -757,8 +797,31 @@ export default function UnidadDocenteDetalle() {
 
       <Seccion numero={2} titulo="Contenido de la unidad" delay={180}>
         {items.length === 0 && <p className="text-sm text-zr-text-muted">Todavía no has agregado nada.</p>}
+        {items.length > 1 && (
+          <p className="text-xs text-zr-text-muted">Usa las flechitas para cambiar el orden en que aparece cada ítem.</p>
+        )}
         <div className="space-y-3">
-          {items.map((item) => {
+          {items.map((item, idx) => {
+            const controlesOrden = (
+              <div className="flex shrink-0 flex-col">
+                <button
+                  onClick={() => moverItem(idx, -1)}
+                  disabled={idx === 0}
+                  aria-label="Subir"
+                  className="flex h-6 w-6 items-center justify-center text-zr-text-muted disabled:opacity-25"
+                >
+                  <IconoChevron size={16} className="rotate-180" />
+                </button>
+                <button
+                  onClick={() => moverItem(idx, 1)}
+                  disabled={idx === items.length - 1}
+                  aria-label="Bajar"
+                  className="flex h-6 w-6 items-center justify-center text-zr-text-muted disabled:opacity-25"
+                >
+                  <IconoChevron size={16} />
+                </button>
+              </div>
+            )
             if (item.esTexto) {
               if (editandoTextoId === item.id) {
                 return (
@@ -800,7 +863,10 @@ export default function UnidadDocenteDetalle() {
                   className="space-y-2 rounded-r-lg border-l-4 py-4 pl-4 pr-5"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
+                    <div className="flex items-start gap-2">
+                      {controlesOrden}
+                      <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
+                    </div>
                     <div className="flex shrink-0 gap-3">
                       <button onClick={() => empezarEdicionTexto(item)} style={{ color: acento }} className="text-xs font-bold">
                         Editar
@@ -814,10 +880,11 @@ export default function UnidadDocenteDetalle() {
                 </div>
               )
             }
-            const Icono = item.type === 'material' ? IconoDocumento : item.type === 'quiz' ? IconoExamen : IconoDuda
+            const Icono = item.type === 'material' ? iconoDeMaterial(item.materialTipo) : item.type === 'quiz' ? IconoExamen : IconoDuda
             return (
               <div key={item.id} className="zr-card space-y-3 p-5">
                 <div className="flex items-center gap-4">
+                  {controlesOrden}
                   <div
                     style={{ backgroundColor: acentoSuave, color: acento }}
                     className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
@@ -945,36 +1012,18 @@ export default function UnidadDocenteDetalle() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Agregar examen ya creado</label>
-            <div className="flex gap-2">
-              <select
-                id="sel-examen"
-                className="min-h-12 flex-1 rounded-lg border border-zr-border bg-zr-bg px-3 text-sm text-zr-text"
-                defaultValue=""
-              >
-                <option value="" disabled>Elige un examen…</option>
-                {examenesDisponibles.map((e) => <option key={e.id} value={e.id}>{e.title}</option>)}
-              </select>
-              <button
-                onClick={() => {
-                  const sel = document.getElementById('sel-examen') as HTMLSelectElement
-                  if (sel.value) agregarItem('quiz', sel.value)
-                }}
-                disabled={agregando}
-                style={{ backgroundColor: acento }}
-                className="shrink-0 rounded-lg px-4 text-sm font-bold text-white disabled:opacity-50"
-              >
-                Agregar
-              </button>
-            </div>
-            {/* Pedido explícito del coordinador (reunión 31-oct-2026): el examen
-                se crea desde DENTRO de la unidad, no en una pantalla aparte que
-                luego hay que ir a buscar y enlazar. /crear-examen/nuevo ya sabe
-                preseleccionar el módulo y, al guardar, engancharse solo aquí. */}
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Examen</label>
+            {/* Pedido explícito del coordinador (reunión 7-nov-2026): se quitó
+                "agregar examen ya creado" -- confundía (quedaba un examen
+                borrado del aula pero seguía ocupando % en Notas, ver fix de
+                la migración 199) y en la práctica nunca se reusaba un examen
+                entre unidades. El examen se crea desde DENTRO de la unidad;
+                /crear-examen/nuevo ya sabe preseleccionar el módulo y, al
+                guardar, engancharse solo aquí. */}
             <Link
               href={`/crear-examen/nuevo?unitId=${unitId}`}
               style={{ color: acento }}
-              className="mt-1 inline-block text-xs font-bold"
+              className="inline-block text-xs font-bold"
             >
               + Crear examen nuevo para esta unidad ›
             </Link>
@@ -1024,7 +1073,7 @@ export default function UnidadDocenteDetalle() {
             />
             <input
               type="number"
-              min={0}
+              min={1}
               max={100}
               value={tareaPeso}
               onChange={(e) => setTareaPeso(e.target.value === '' ? '' : Number(e.target.value))}
@@ -1032,11 +1081,11 @@ export default function UnidadDocenteDetalle() {
               className="mb-1 min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm tabular-nums text-zr-text outline-none focus:border-zr-blue"
             />
             <p className="mb-2 text-xs text-zr-text-muted">
-              Esta tarea ya queda registrada como evaluación en Notas -- no hay que crearla ahí aparte.
+              Esta tarea ya queda registrada como evaluación en Notas -- no hay que crearla ahí aparte. Tiene que valer más de 0%.
             </p>
             <button
               onClick={crearTarea}
-              disabled={!tareaTitulo.trim() || creandoTarea}
+              disabled={!tareaTitulo.trim() || !tareaPeso || creandoTarea}
               style={{ backgroundColor: acento }}
               className="min-h-12 w-full rounded-lg text-sm font-bold text-white disabled:opacity-40"
             >

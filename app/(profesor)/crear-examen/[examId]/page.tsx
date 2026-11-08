@@ -9,6 +9,7 @@ import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import { ModalEvaluacionAgregada } from '@/components/ui/ModalEvaluacionAgregada'
+import { sumaPesoOcupado, mensajeSiExcedePeso } from '@/lib/peso-notas'
 
 type TipoPregunta = 'opcion_multiple' | 'verdadero_falso' | 'redaccion_abierta'
 
@@ -49,6 +50,9 @@ export default function EditarExamen() {
   const [cohortes, setCohortes] = useState<{ id: string; name: string }[]>([])
   const [puntajeMaximo, setPuntajeMaximo] = useState(20)
   const [duracion, setDuracion] = useState<number | ''>('')
+  // Fecha propia del examen (pendiente de la reunión 7-nov-2026, §8.12).
+  const [abreEl, setAbreEl] = useState('')
+  const [cierraEl, setCierraEl] = useState('')
   // Modelo de evaluación (migración 176) -- mismos campos que "Crear examen".
   const [tipo, setTipo] = useState<'formativo' | 'certificacion'>('formativo')
   const [notaMinima, setNotaMinima] = useState<number | ''>(10)
@@ -104,6 +108,8 @@ export default function EditarExamen() {
       setCohorteId(examen.cohort_id ?? '')
       setPuntajeMaximo(Number(examen.max_score) || 20)
       setDuracion(examen.duration_minutes ?? '')
+      setAbreEl(examen.opens_at ? examen.opens_at.slice(0, 16) : '')
+      setCierraEl(examen.closes_at ? examen.closes_at.slice(0, 16) : '')
       setTipo(examen.kind === 'certificacion' ? 'certificacion' : 'formativo')
       setNotaMinima(examen.passing_score != null ? Number(examen.passing_score) : 10)
       setIntentos(examen.max_attempts ?? 2)
@@ -162,10 +168,31 @@ export default function EditarExamen() {
 
   async function guardar() {
     if (!sePuedeGuardar) return
-    setGuardando(true)
     setError(null)
 
+    const pesoNuevo = peso === '' ? 0 : peso
+
+    // Pedido explícito del coordinador (reunión 7-nov-2026): una certificación
+    // no tiene sentido que valga 0% -- una práctica sí puede.
+    if (tipo === 'certificacion' && pesoNuevo <= 0) {
+      setError('Una certificación tiene que valer más de 0% en la nota del módulo.')
+      return
+    }
+
+    setGuardando(true)
+
     const supabase = createClient()
+
+    if (pesoNuevo > 0) {
+      const { data: definicion } = await supabase
+        .from('manual_exam_definitions')
+        .select('id')
+        .eq('source_exam_id', examId)
+        .maybeSingle()
+      const ocupado = await sumaPesoOcupado(supabase, moduloId, cohorteId || null, definicion?.id)
+      const msg = mensajeSiExcedePeso(ocupado, pesoNuevo)
+      if (msg) { setError(msg); setGuardando(false); return }
+    }
 
     // 1. Actualizar metadatos del examen
     const { error: falloExamen } = await supabase
@@ -177,6 +204,8 @@ export default function EditarExamen() {
         cohort_id: cohorteId || null,
         max_score: puntajeMaximo,
         duration_minutes: duracion === '' ? null : duracion,
+        opens_at: abreEl ? new Date(abreEl).toISOString() : null,
+        closes_at: cierraEl ? new Date(cierraEl).toISOString() : null,
         kind: tipo,
         passing_score: tipo === 'certificacion' ? (notaMinima === '' ? 10 : notaMinima) : 10,
         max_attempts: intentos === '' ? 2 : intentos,
@@ -310,6 +339,32 @@ export default function EditarExamen() {
                 placeholder="Sin límite"
                 className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
               />
+            </div>
+          </div>
+
+          {/* Fecha propia del examen (pendiente de la reunión 7-nov-2026). */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-zr-text">
+                Se abre <span className="font-normal text-zr-text-muted">(opcional)</span>
+              </label>
+              <input
+                type="datetime-local" value={abreEl}
+                onChange={(e) => setAbreEl(e.target.value)}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+              />
+              <p className="mt-1.5 text-xs text-zr-text-muted">Antes de esta fecha, el examen se ve bloqueado.</p>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-zr-text">
+                Se cierra <span className="font-normal text-zr-text-muted">(opcional)</span>
+              </label>
+              <input
+                type="datetime-local" value={cierraEl}
+                onChange={(e) => setCierraEl(e.target.value)}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+              />
+              <p className="mt-1.5 text-xs text-zr-text-muted">Pasada esta fecha, ya no se puede empezar un intento.</p>
             </div>
           </div>
 

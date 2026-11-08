@@ -9,11 +9,21 @@ import type { ColorBanner } from '@/components/ui/BannerUnidad'
  * cuando no hay imagen, acento de la interfaz siempre.
  */
 export const ACENTO_HEX: Record<ColorBanner, string> = {
+  azul_claro: '#5b8aff',
   azul: '#2f6bff',
+  azul_oscuro: '#1a3f8f',
+  verde_claro: '#34d399',
   verde: '#10b981',
+  verde_oscuro: '#047857',
+  morado_claro: '#c084fc',
   morado: '#a855f7',
+  morado_oscuro: '#7e22ce',
+  grafito_claro: '#d1d5db',
   grafito: '#9ca3af',
+  grafito_oscuro: '#4b5563',
+  vino_claro: '#fb7185',
   vino: '#f43f5e',
+  vino_oscuro: '#be123c',
 }
 
 export function acentoDe(color: ColorBanner | null | undefined): string {

@@ -16,14 +16,38 @@
  * exactamente como antes.
  */
 
-export type ColorBanner = 'azul' | 'verde' | 'morado' | 'grafito' | 'vino'
+// 5 tonos base x 3 tonalidades cada uno (claro/medio/oscuro) -- pedido
+// explícito del coordinador (reunión 7-nov-2026): "que le pique en oro azul
+// y cambie la tonalidad azul, un poquito más claro, un poquito más oscuro".
+// 'azul'/'verde'/'morado'/'grafito'/'vino' (sin sufijo) son los 5 de siempre
+// -- se mantienen como la tonalidad "medio" para no romper unidades ya
+// guardadas con esos valores (migración 194/199).
+export type ColorBanner =
+  | 'azul_claro' | 'azul' | 'azul_oscuro'
+  | 'verde_claro' | 'verde' | 'verde_oscuro'
+  | 'morado_claro' | 'morado' | 'morado_oscuro'
+  | 'grafito_claro' | 'grafito' | 'grafito_oscuro'
+  | 'vino_claro' | 'vino' | 'vino_oscuro'
+
+export const HUES_BANNER = ['azul', 'verde', 'morado', 'grafito', 'vino'] as const
+export type HueBanner = typeof HUES_BANNER[number]
 
 export const PALETA_BANNER: Record<ColorBanner, { etiqueta: string; clase: string; muestra: string }> = {
-  azul:    { etiqueta: 'Azul (por defecto)', clase: 'from-zr-blue-deep to-zr-blue',               muestra: '#1d3f8f' },
-  verde:   { etiqueta: 'Verde oscuro',       clase: 'from-emerald-950 to-emerald-800',             muestra: '#064e3b' },
-  morado:  { etiqueta: 'Morado oscuro',      clase: 'from-violet-950 to-violet-800',                muestra: '#4c1d95' },
-  grafito: { etiqueta: 'Grafito',            clase: 'from-neutral-900 to-neutral-700',              muestra: '#262626' },
-  vino:    { etiqueta: 'Vino tinto',         clase: 'from-rose-950 to-rose-800',                    muestra: '#5b1024' },
+  azul_claro:    { etiqueta: 'Azul claro',    clase: 'from-sky-700 to-sky-500',          muestra: '#4d7fe0' },
+  azul:          { etiqueta: 'Azul',          clase: 'from-zr-blue-deep to-zr-blue',     muestra: '#1d3f8f' },
+  azul_oscuro:   { etiqueta: 'Azul oscuro',   clase: 'from-blue-950 to-blue-900',        muestra: '#0e2258' },
+  verde_claro:   { etiqueta: 'Verde claro',   clase: 'from-emerald-700 to-emerald-500',  muestra: '#1f9d6f' },
+  verde:         { etiqueta: 'Verde',         clase: 'from-emerald-950 to-emerald-800',  muestra: '#064e3b' },
+  verde_oscuro:  { etiqueta: 'Verde oscuro',  clase: 'from-emerald-950 to-green-950',    muestra: '#022c1a' },
+  morado_claro:  { etiqueta: 'Morado claro',  clase: 'from-violet-700 to-violet-500',    muestra: '#8752e0' },
+  morado:        { etiqueta: 'Morado',        clase: 'from-violet-950 to-violet-800',    muestra: '#4c1d95' },
+  morado_oscuro: { etiqueta: 'Morado oscuro', clase: 'from-violet-950 to-purple-950',     muestra: '#2c0f57' },
+  grafito_claro: { etiqueta: 'Grafito claro', clase: 'from-neutral-700 to-neutral-500',  muestra: '#636363' },
+  grafito:       { etiqueta: 'Grafito',       clase: 'from-neutral-900 to-neutral-700',  muestra: '#262626' },
+  grafito_oscuro:{ etiqueta: 'Grafito oscuro',clase: 'from-neutral-950 to-black',        muestra: '#0a0a0a' },
+  vino_claro:    { etiqueta: 'Vino claro',    clase: 'from-rose-700 to-rose-500',        muestra: '#c23b56' },
+  vino:          { etiqueta: 'Vino tinto',    clase: 'from-rose-950 to-rose-800',        muestra: '#5b1024' },
+  vino_oscuro:   { etiqueta: 'Vino oscuro',   clase: 'from-rose-950 to-red-950',         muestra: '#390712' },
 }
 
 export function BannerUnidad({

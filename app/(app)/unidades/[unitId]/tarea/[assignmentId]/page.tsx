@@ -6,7 +6,9 @@ import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Encabezado, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
-import { IconoDocumento, IconoCheck, IconoReloj } from '@/components/ui/Iconos'
+import { IconoDocumento, IconoCheck, IconoReloj, IconoCalendario } from '@/components/ui/Iconos'
+import { prepararArchivo } from '@/lib/subida'
+import { descargarEventoICS } from '@/lib/ics'
 
 /**
  * Aula Virtual — entrega de una tarea en PDF. Reemplazar antes de la fecha
@@ -73,17 +75,25 @@ export default function TareaDeUnidad() {
 
   useEffect(() => { cargar() }, [assignmentId]) // eslint-disable-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
 
-  async function subirPDF(archivo: File) {
+  async function subirPDF(archivoOriginal: File) {
     setError(null)
-    if (archivo.type !== 'application/pdf') {
+    if (archivoOriginal.type !== 'application/pdf') {
       setError('Solo se aceptan archivos PDF.')
       return
     }
+    setSubiendo(true)
+
+    // Bug real de la reunión 7-nov-2026: la entrega de tareas subía el PDF
+    // tal cual, sin pasar por el mismo comprimidor que ya tiene el material
+    // del profesor -- un PDF pesado rechazaba con "excede el tamaño máximo"
+    // en vez de intentar reducirlo primero.
+    const { archivo } = await prepararArchivo(archivoOriginal)
+
     if (tarea && archivo.size > tarea.max_mb * 1024 * 1024) {
-      setError(`El archivo pesa más de ${tarea.max_mb} MB.`)
+      setError(`El archivo pesa más de ${tarea.max_mb} MB incluso comprimido.`)
+      setSubiendo(false)
       return
     }
-    setSubiendo(true)
     const supabase = createClient()
     const ruta = `${userId}/${assignmentId}-${crypto.randomUUID()}.pdf`
 
@@ -170,6 +180,21 @@ export default function TareaDeUnidad() {
           <Etiqueta tono="aviso">Ya pasó la fecha — tu primera entrega se acepta tardía; no podrás reemplazarla.</Etiqueta>
         )}
 
+        {tarea.due_at && !vencida && (
+          <button
+            onClick={() => descargarEventoICS({
+              titulo: `Entregar: ${tarea.title}`,
+              descripcion: tarea.instructions ?? undefined,
+              inicio: new Date(tarea.due_at as string),
+              nombreArchivo: `${tarea.title}.ics`,
+            })}
+            className="inline-flex items-center gap-2 rounded-full border border-zr-border px-4 py-2 text-xs font-bold text-zr-text transition-colors hover:border-zr-blue/40"
+          >
+            <IconoCalendario size={14} />
+            Agregar a mi calendario
+          </button>
+        )}
+
         <Regla delay={140} />
 
         <Seccion numero={1} titulo={ultima ? 'Reemplazar entrega' : 'Entregar'} delay={180}>
@@ -238,7 +263,7 @@ export default function TareaDeUnidad() {
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-bold text-zr-text">Versión {e.version}</p>
                       {e.grade !== null ? (
-                        <Etiqueta tono="exito">Calificada: {e.grade}</Etiqueta>
+                        <Etiqueta tono="exito">Calificada: {Number(e.grade).toFixed(2)}</Etiqueta>
                       ) : (
                         <Etiqueta tono="info">Entregada</Etiqueta>
                       )}

@@ -31,9 +31,16 @@ interface Props {
   tipo: TipoMaterial
   storagePath: string
   bucket?: string
+  /**
+   * false para visores que no son "material del estudiante" -- p. ej. el
+   * profesor viendo la entrega de una tarea (components/ui/VisorEntrega.tsx):
+   * ahí no hay content_item_id real que medir, y nunca debe escribirse en
+   * material_progress. Default true (comportamiento de siempre).
+   */
+  registrarProgreso?: boolean
 }
 
-export function VisorMaterial({ contentItemId, tipo, storagePath, bucket = 'contenido' }: Props) {
+export function VisorMaterial({ contentItemId, tipo, storagePath, bucket = 'contenido', registrarProgreso = true }: Props) {
   const [url, setUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [numPaginas, setNumPaginas] = useState(0)
@@ -44,6 +51,7 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, bucket = 'cont
   const videoRef = useRef<HTMLVideoElement>(null)
 
   async function guardarProgreso(percent: number) {
+    if (!registrarProgreso) return
     percentRef.current = percent
     if (Math.abs(percent - ultimaPercentGuardada.current) < 2) return
     ultimaPercentGuardada.current = percent

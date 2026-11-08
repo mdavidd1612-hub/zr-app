@@ -11,6 +11,8 @@ import { BannerUnidad, type ColorBanner } from '@/components/ui/BannerUnidad'
 import { acentoDe } from '@/lib/banner-unidad'
 import { PestanasUnidad, type PestanaUnidad } from '@/components/ui/PestanasUnidad'
 import { IconoDocumento, IconoExamen, IconoDuda, IconoLapiz, IconoCandado } from '@/components/ui/Iconos'
+import { iconoDeMaterial } from '@/components/ui/IconoMaterial'
+import { eyebrowMaterial } from '@/lib/material'
 
 /**
  * Aula Virtual — detalle de una unidad: sus elementos en orden (material,
@@ -35,20 +37,25 @@ interface ItemFila {
   esCertificacion: boolean
   esTexto: boolean
   cuerpoTexto: string | null
+  materialTipo: string | null
+  examAbreEl: string | null
 }
 
-const ICONO: Record<ItemFila['type'], typeof IconoDocumento> = {
-  material: IconoDocumento,
-  quiz: IconoExamen,
-  tarea: IconoLapiz,
-  dudas: IconoDuda,
+function iconoDe(item: ItemFila) {
+  if (item.type === 'quiz') return IconoExamen
+  if (item.type === 'tarea') return IconoLapiz
+  if (item.type === 'dudas') return IconoDuda
+  return iconoDeMaterial(item.materialTipo)
 }
 
+// Pedido explícito del coordinador (reunión 7-nov-2026): el rótulo debe
+// decir el tipo real del archivo ("Documento"/"Presentación"/"Imagen"/
+// "Video"/"Audio"), no "Material" genérico para todo.
 function eyebrowDe(item: ItemFila): string {
   if (item.type === 'quiz') return item.esCertificacion ? 'Certificación' : 'Examen'
   if (item.type === 'tarea') return 'Tarea'
   if (item.type === 'dudas') return 'Dudas'
-  return item.esTexto ? 'Lectura' : 'Material'
+  return item.esTexto ? 'Lectura' : eyebrowMaterial(item.materialTipo ?? '')
 }
 
 export default function UnidadDetalle() {
@@ -119,7 +126,7 @@ export default function UnidadDetalle() {
         .select(`
           id, type, required, content_item_id, exam_id, assignment_id, order_index,
           content_items ( title, type, description ),
-          exams ( title, kind ),
+          exams ( title, kind, opens_at ),
           assignments ( title )
         `)
         .eq('unit_id', unitId)
@@ -138,7 +145,7 @@ export default function UnidadDetalle() {
       setItems(
         (filas ?? []).map((f) => {
           const ci = f.content_items as unknown as { title: string; type: string; description: string | null } | null
-          const ex = f.exams as unknown as { title: string; kind: string } | null
+          const ex = f.exams as unknown as { title: string; kind: string; opens_at: string | null } | null
           const ta = f.assignments as unknown as { title: string } | null
           return {
             id: f.id,
@@ -147,11 +154,13 @@ export default function UnidadDetalle() {
             content_item_id: f.content_item_id,
             exam_id: f.exam_id,
             assignment_id: f.assignment_id,
-            titulo: ci?.title ?? ex?.title ?? ta?.title ?? (f.type === 'dudas' ? 'Dudas de esta unidad' : 'Sin título'),
+            titulo: ci?.title ?? ex?.title ?? ta?.title ?? (f.type === 'dudas' ? 'Dudas de esta unidad' : 'Todavía no disponible'),
             completado: f.content_item_id ? completos.has(f.content_item_id) : false,
             esCertificacion: f.type === 'quiz' && ex?.kind === 'certificacion',
             esTexto: ci?.type === 'texto',
             cuerpoTexto: ci?.type === 'texto' ? (ci.description ?? '') : null,
+            materialTipo: ci?.type ?? null,
+            examAbreEl: f.type === 'quiz' ? (ex?.opens_at ?? null) : null,
           }
         }),
       )
@@ -252,9 +261,14 @@ export default function UnidadDetalle() {
           ) : (
             <Recorrido>
               {items.map((item, idx) => {
-                const Icono = ICONO[item.type]
+                const Icono = iconoDe(item)
                 const ultimo = idx === items.length - 1
                 const trabada = item.esCertificacion && certificacionTrabada
+                // Pendiente de la reunión 7-nov-2026: examen con fecha de
+                // apertura propia (exams.opens_at) todavía no alcanzada. El
+                // servidor ya lo rechaza de verdad (migración 200) -- esto
+                // solo evita que el estudiante toque algo que va a fallar.
+                const examNoAbre = item.examAbreEl && new Date(item.examAbreEl) > new Date()
 
                 // Bloque de texto (migración 187): sin archivo que abrir, se
                 // muestra completo aquí mismo, como una lectura del camino.
@@ -292,6 +306,42 @@ export default function UnidadDetalle() {
                       eyebrow={eyebrowDe(item)}
                       titulo={item.titulo}
                       meta={<Etiqueta tono="neutro">Completa los materiales obligatorios</Etiqueta>}
+                      ultimo={ultimo}
+                      delay={80 + idx * 50}
+                    />
+                  )
+                }
+
+                if (examNoAbre) {
+                  const fecha = new Date(item.examAbreEl as string).toLocaleString('es-VE', { dateStyle: 'long', timeStyle: 'short' })
+                  return (
+                    <Paso
+                      key={item.id}
+                      estado="bloqueado"
+                      eyebrow={eyebrowDe(item)}
+                      titulo={item.titulo}
+                      meta={<Etiqueta tono="neutro">Se abre el {fecha}</Etiqueta>}
+                      ultimo={ultimo}
+                      delay={80 + idx * 50}
+                    />
+                  )
+                }
+
+                // Bug real de la reunión 7-nov-2026: si el join a content_items/
+                // exams/assignments no trae nada (RLS -- el material sigue
+                // pendiente de revisión, o la fecha/cohorte no coincide), el
+                // ítem se veía "Sin título" y, al tocarlo, devolvía en bucle a
+                // la unidad sin explicar nada. Ahora se muestra bloqueado con
+                // el motivo, en vez de navegar a algo que no va a cargar.
+                const sinResolver = item.type !== 'dudas' && item.titulo === 'Todavía no disponible'
+                if (sinResolver) {
+                  return (
+                    <Paso
+                      key={item.id}
+                      estado="bloqueado"
+                      eyebrow={eyebrowDe(item)}
+                      titulo={item.titulo}
+                      meta={<Etiqueta tono="neutro">Avisa a tu profesor si esto no cambia</Etiqueta>}
                       ultimo={ultimo}
                       delay={80 + idx * 50}
                     />

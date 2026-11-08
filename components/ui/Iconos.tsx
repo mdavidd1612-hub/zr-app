@@ -185,6 +185,26 @@ export function IconoVideo(p: IconoProps) {
   )
 }
 
+export function IconoImagen(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.5" />
+      <path d="m4 17 5-5 3 3 4-5 4 5" />
+    </Base>
+  )
+}
+
+export function IconoAudio(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <path d="M9 17V5l10-2v12" />
+      <circle cx="6.5" cy="17" r="2.5" />
+      <circle cx="16.5" cy="15" r="2.5" />
+    </Base>
+  )
+}
+
 export function IconoCarnet(p: IconoProps) {
   return (
     <Base {...p}>

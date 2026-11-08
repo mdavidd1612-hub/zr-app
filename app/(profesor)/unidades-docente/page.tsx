@@ -116,7 +116,14 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
   if (cargando) return <PantallaEsqueleto variante="lista" />
 
   return (
-    <div className="space-y-11">
+    <div className="space-y-11 px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
+      {/* Bug real reportado en la reunión del 7-nov-2026: esta pantalla no
+          tenía NINGÚN padding propio -- a diferencia de las otras pantallas
+          de docencia que también usan ContextoDocente (contenido-docente,
+          dudas-docente, feedback-modulo-docente, temario-docente), esta le
+          dejaba el margen entero a ContextoDocente, que no le da ninguno
+          cuando el programa/módulo ya está elegido. El texto quedaba pegado
+          a los bordes de la pantalla. */}
       {/* Pedido explícito del coordinador (reunión 31-oct-2026): examen y
           material se crean DENTRO de la unidad -- no hacen falta botones de
           crear/subir fuera de ella. (Los que estaban aquí, de la tarde

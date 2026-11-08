@@ -26,6 +26,7 @@ export default function MaterialDeUnidad() {
   const unitId = params.unitId as string
 
   const [material, setMaterial] = useState<Material | null>(null)
+  const [noDisponible, setNoDisponible] = useState(false)
   const [cargando, setCargando] = useState(true)
   const [chequeoTitulo, setChequeoTitulo] = useState<string | null>(null)
   const [completado, setCompletado] = useState(false)
@@ -49,7 +50,12 @@ export default function MaterialDeUnidad() {
         .maybeSingle()
 
       if (!data?.storage_path) {
-        router.back()
+        // Bug real reportado en la reunión del 7-nov-2026: esto devolvía en
+        // bucle a la unidad sin explicar nada (el material puede seguir
+        // pendiente de aprobación, fuera de su ventana de fechas, o de otra
+        // cohorte). Se avisa en vez de navegar a ciegas.
+        setNoDisponible(true)
+        setCargando(false)
         return
       }
 
@@ -95,7 +101,23 @@ export default function MaterialDeUnidad() {
     return () => clearInterval(id)
   }, [material?.check_quiz_id, completado, itemId])
 
-  if (cargando || !material) return <PantallaEsqueleto />
+  if (cargando) return <PantallaEsqueleto />
+
+  if (noDisponible || !material) {
+    return (
+      <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
+        <div className="space-y-8">
+          <BotonVolver href={`/unidades/${unitId}`} />
+          <div className="zr-card space-y-2 p-6 text-center">
+            <p className="text-base font-bold text-zr-text">Este material todavía no está disponible</p>
+            <p className="text-sm text-zr-text-muted">
+              Puede estar pendiente de aprobación, fuera de fecha o de otra cohorte. Avisa a tu profesor si crees que debería verse.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">

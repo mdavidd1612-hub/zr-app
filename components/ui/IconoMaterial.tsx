@@ -9,7 +9,7 @@ import { IconoDocumento, IconoImagen, IconoVideo, IconoAudio } from '@/component
  */
 export function iconoDeMaterial(tipo: string | null | undefined) {
   if (tipo === 'imagen') return IconoImagen
-  if (tipo === 'video') return IconoVideo
+  if (tipo === 'video' || tipo === 'enlace') return IconoVideo
   if (tipo === 'audio') return IconoAudio
   return IconoDocumento
 }

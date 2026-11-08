@@ -10,6 +10,8 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import { ModalEvaluacionAgregada } from '@/components/ui/ModalEvaluacionAgregada'
 import { sumaPesoOcupado, mensajeSiExcedePeso } from '@/lib/peso-notas'
+import { ImportarPreguntas } from '@/components/ui/ImportarPreguntas'
+import type { PreguntaImportada } from '@/lib/importar-preguntas'
 
 type TipoPregunta = 'opcion_multiple' | 'verdadero_falso' | 'redaccion_abierta'
 
@@ -65,6 +67,7 @@ export default function EditarExamen() {
   const [preguntas, setPreguntas] = useState<Pregunta[]>([])
   const [editorAbierto, setEditorAbierto] = useState<TipoPregunta | null>(null)
   const [eligiendoTipo, setEligiendoTipo] = useState(false)
+  const [importando, setImportando] = useState(false)
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -152,6 +155,22 @@ export default function EditarExamen() {
       setPreguntas((qs) => [...qs, { id: `q${Date.now()}`, ...datos }])
     }
     setEditorAbierto(null)
+  }
+
+  function importarPreguntas(leidas: PreguntaImportada[]) {
+    setPreguntas((qs) => [
+      ...qs,
+      ...leidas.map((p, i) => ({
+        id: `qimp${Date.now()}-${i}`,
+        type: p.type,
+        statement: p.statement,
+        points: p.points,
+        options: p.options,
+        correct_answer: p.correct_answer ?? undefined,
+        rubric: p.rubric,
+      })),
+    ])
+    setImportando(false)
   }
 
   function iniciarEdicion(pregunta: Pregunta) {
@@ -519,12 +538,20 @@ export default function EditarExamen() {
             </button>
           </div>
         ) : (
-          <button
-            onClick={() => setEligiendoTipo(true)}
-            className="w-full rounded-lg border border-dashed border-zr-border px-6 py-5 text-sm font-semibold text-zr-blue transition-colors hover:border-zr-blue/45 hover:bg-zr-blue/5"
-          >
-            + Agregar pregunta
-          </button>
+          <div className="space-y-3">
+            <button
+              onClick={() => setEligiendoTipo(true)}
+              className="w-full rounded-lg border border-dashed border-zr-border px-6 py-5 text-sm font-semibold text-zr-blue transition-colors hover:border-zr-blue/45 hover:bg-zr-blue/5"
+            >
+              + Agregar pregunta
+            </button>
+            <button
+              onClick={() => setImportando(true)}
+              className="w-full rounded-lg px-4 py-2 text-xs font-bold text-zr-text-muted"
+            >
+              Importar preguntas desde Word/Excel/CSV
+            </button>
+          </div>
         )}
       </Seccion>
 
@@ -557,6 +584,10 @@ export default function EditarExamen() {
           modo="actualizada"
           onCerrar={() => router.push('/crear-examen')}
         />
+      )}
+
+      {importando && (
+        <ImportarPreguntas onImportar={importarPreguntas} onCerrar={() => setImportando(false)} />
       )}
     </div>
   )

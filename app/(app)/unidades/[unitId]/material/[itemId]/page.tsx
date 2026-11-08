@@ -14,7 +14,8 @@ import type { TipoMaterial } from '@/lib/material'
 interface Material {
   title: string
   type: TipoMaterial
-  storage_path: string
+  storage_path: string | null
+  external_url: string | null
   description: string | null
   check_quiz_id: string | null
 }
@@ -45,11 +46,13 @@ export default function MaterialDeUnidad() {
 
       const { data } = await supabase
         .from('content_items')
-        .select('title, type, storage_path, description, check_quiz_id, check_quiz:exams!content_items_check_quiz_id_fkey(title)')
+        .select('title, type, storage_path, external_url, description, check_quiz_id, check_quiz:exams!content_items_check_quiz_id_fkey(title)')
         .eq('id', itemId)
         .maybeSingle()
 
-      if (!data?.storage_path) {
+      // Un video de YouTube (type='enlace') nunca tiene storage_path -- no
+      // hay archivo, solo el link. Solo los demás tipos dependen de él.
+      if (!data || (data.type !== 'enlace' && !data.storage_path)) {
         // Bug real reportado en la reunión del 7-nov-2026: esto devolvía en
         // bucle a la unidad sin explicar nada (el material puede seguir
         // pendiente de aprobación, fuera de su ventana de fechas, o de otra
@@ -129,7 +132,8 @@ export default function MaterialDeUnidad() {
         <VisorMaterial
           contentItemId={itemId}
           tipo={material.type}
-          storagePath={material.storage_path}
+          storagePath={material.storage_path ?? ''}
+          externalUrl={material.external_url}
         />
 
         {material.check_quiz_id && validado && (

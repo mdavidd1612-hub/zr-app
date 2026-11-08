@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { TipoMaterial } from '@/lib/material'
-import { urlDelVisor, visorDe } from '@/lib/material'
+import { urlDelVisor, visorDe, idDeYoutube, urlEmbedYoutube } from '@/lib/material'
 import { IconoDocumento } from '@/components/ui/Iconos'
 
 /**
@@ -29,7 +29,10 @@ import { IconoDocumento } from '@/components/ui/Iconos'
 interface Props {
   contentItemId: string
   tipo: TipoMaterial
+  /** Vacío para tipo='enlace' (video de YouTube) -- no hay archivo que firmar. */
   storagePath: string
+  /** Solo para tipo='enlace': el link que pegó el profesor. */
+  externalUrl?: string | null
   bucket?: string
   /**
    * false para visores que no son "material del estudiante" -- p. ej. el
@@ -40,7 +43,12 @@ interface Props {
   registrarProgreso?: boolean
 }
 
-export function VisorMaterial({ contentItemId, tipo, storagePath, bucket = 'contenido', registrarProgreso = true }: Props) {
+/** Solo .docx (Open XML) -- mammoth no sabe leer el .doc binario viejo. */
+function esDocx(storagePath: string): boolean {
+  return storagePath.toLowerCase().endsWith('.docx')
+}
+
+export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, bucket = 'contenido', registrarProgreso = true }: Props) {
   const [url, setUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [numPaginas, setNumPaginas] = useState(0)
@@ -49,6 +57,13 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, bucket = 'cont
   const percentRef = useRef(0)
   const ultimaPercentGuardada = useRef(-1)
   const videoRef = useRef<HTMLVideoElement>(null)
+  // Word (.docx) -- pedido explícito del coordinador (8-nov-2026): "todos los
+  // archivos se tienen que abrir directo en la aplicación". PDF/video/audio/
+  // imagen ya lo hacían; PowerPoint se queda en pestaña aparte (sin forma
+  // confiable de incrustarse gratis), pero Word sí -- se convierte a HTML en
+  // el navegador (mammoth) y se limpia con DOMPurify antes de mostrarlo.
+  const [htmlWord, setHtmlWord] = useState<string | null>(null)
+  const maxFraccionWord = useRef(0)
 
   async function guardarProgreso(percent: number) {
     if (!registrarProgreso) return
@@ -67,6 +82,7 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, bucket = 'cont
   // URL firmada: 1h para PDF (se pide por trozos mientras se lee, igual que
   // contenido/page.tsx), 10 min para lo demás.
   useEffect(() => {
+    if (tipo === 'enlace') return
     let cancelado = false
     async function cargar() {
       const supabase = createClient()
@@ -126,6 +142,35 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, bucket = 'cont
     return () => { cancelado = true }
   }, [tipo, url])
 
+  // ---- Word (.docx): mammoth -> HTML, limpiado con DOMPurify -------------
+  useEffect(() => {
+    if (tipo !== 'documento' || !esDocx(storagePath) || !url) return
+    let cancelado = false
+
+    async function render() {
+      const [{ default: mammoth }, { default: DOMPurify }] = await Promise.all([
+        import('mammoth'),
+        import('dompurify'),
+      ])
+      const datos = await fetch(url as string).then((r) => r.arrayBuffer())
+      const { value: html } = await mammoth.convertToHtml({ arrayBuffer: datos })
+      if (cancelado) return
+      setHtmlWord(DOMPurify.sanitize(html))
+    }
+
+    render().catch(() => { if (!cancelado) setError('No se pudo mostrar el documento. Intenta de nuevo.') })
+    return () => { cancelado = true }
+  }, [tipo, storagePath, url])
+
+  function alDesplazarWord(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget
+    const fraccion = el.scrollHeight <= el.clientHeight ? 1 : (el.scrollTop + el.clientHeight) / el.scrollHeight
+    if (fraccion > maxFraccionWord.current) {
+      maxFraccionWord.current = fraccion
+      void guardarProgreso(Math.round(fraccion * 100))
+    }
+  }
+
   // Qué tan abajo se ha desplazado el estudiante decide qué página
   // "alcanzó" -- el % de avance es paginaMaxVista / numPaginas.
   function alDesplazar(e: React.UIEvent<HTMLDivElement>) {
@@ -170,6 +215,35 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, bucket = 'cont
     }
     const totalVisto = fusionados.reduce((s, [i, f]) => s + (f - i), 0)
     void guardarProgreso(Math.min(100, Math.round((totalVisto / duracion) * 100)))
+  }
+
+  // Video de YouTube (pedido explícito del coordinador, 8-nov-2026): no hay
+  // archivo que firmar -- el embed va directo con el id extraído del link
+  // que pegó el profesor, en youtube-nocookie.com (sin cookies de rastreo).
+  // Único caso legítimo de iframe aquí: a diferencia del visor de Office que
+  // sí dio problemas en Android, el embed de YouTube está hecho para esto.
+  if (tipo === 'enlace') {
+    const videoId = externalUrl ? idDeYoutube(externalUrl) : null
+    if (!videoId) {
+      return (
+        <div className="zr-card flex flex-col items-center gap-3 p-8 text-center">
+          <IconoDocumento size={28} className="text-zr-text-muted" />
+          <p className="text-sm text-zr-text-muted">El link de YouTube no es válido.</p>
+        </div>
+      )
+    }
+    return (
+      <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
+        <iframe
+          src={urlEmbedYoutube(videoId)}
+          title="Video de YouTube"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          className="h-full w-full"
+          onLoad={() => void guardarProgreso(100)}
+        />
+      </div>
+    )
   }
 
   if (error) {
@@ -236,9 +310,20 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, bucket = 'cont
     )
   }
 
-  // Presentación (.pptx) y documentos de Office: sin forma segura de
-  // incrustarse -- mismo patrón ya probado en contenido/page.tsx, pestaña
-  // nueva al visor de Office. El progreso aquí es "lo abrió", no granular.
+  if (tipo === 'documento' && esDocx(storagePath)) {
+    if (!htmlWord) return <div className="zr-skel h-64 w-full rounded-xl" />
+    return (
+      <div
+        onScroll={alDesplazarWord}
+        className="zr-card max-h-[75vh] overflow-y-auto p-6 text-sm leading-relaxed text-zr-text [&_h1]:zr-display [&_h1]:text-xl [&_h2]:text-lg [&_h2]:font-bold [&_p]:my-2 [&_table]:w-full [&_td]:border [&_td]:border-zr-border [&_td]:p-2 [&_img]:max-w-full"
+        dangerouslySetInnerHTML={{ __html: htmlWord }}
+      />
+    )
+  }
+
+  // Presentación (.pptx): sin forma segura de incrustarse gratis -- mismo
+  // patrón ya probado en contenido/page.tsx, pestaña nueva al visor de
+  // Office. El progreso aquí es "lo abrió", no granular.
   const visor = visorDe(tipo, storagePath)
   return (
     <div className="zr-card flex flex-col items-center gap-4 p-8 text-center">

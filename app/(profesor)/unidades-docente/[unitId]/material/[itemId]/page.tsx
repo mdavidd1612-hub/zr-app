@@ -25,6 +25,7 @@ interface Material {
   title: string
   type: TipoMaterial
   storage_path: string | null
+  external_url: string | null
   description: string | null
 }
 
@@ -42,11 +43,12 @@ export default function MaterialDocente() {
       const supabase = createClient()
       const { data } = await supabase
         .from('content_items')
-        .select('title, type, storage_path, description')
+        .select('title, type, storage_path, external_url, description')
         .eq('id', itemId)
         .maybeSingle()
 
-      if (!data?.storage_path) {
+      // Un video de YouTube (type='enlace') nunca tiene storage_path.
+      if (!data || (data.type !== 'enlace' && !data.storage_path)) {
         router.replace(`/unidades-docente/${unitId}`)
         return
       }
@@ -72,7 +74,8 @@ export default function MaterialDocente() {
         <VisorMaterial
           contentItemId={itemId}
           tipo={material.type}
-          storagePath={material.storage_path as string}
+          storagePath={material.storage_path ?? ''}
+          externalUrl={material.external_url}
         />
       </div>
     </div>

@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/client'
  * la extensión.
  */
 
-export type TipoMaterial = 'pdf' | 'presentacion' | 'documento' | 'imagen' | 'video' | 'audio'
+export type TipoMaterial = 'pdf' | 'presentacion' | 'documento' | 'imagen' | 'video' | 'audio' | 'enlace'
 
 const POR_EXTENSION: Record<string, TipoMaterial> = {
   pdf: 'pdf',
@@ -51,7 +51,7 @@ export function tipoDeArchivo(archivo: File): TipoMaterial | null {
 }
 
 export const ETIQUETA_TIPO: Record<string, string> = {
-  pdf: 'PDF', presentacion: 'PPT', documento: 'DOC', imagen: 'IMG', video: 'VIDEO', audio: 'AUDIO',
+  pdf: 'PDF', presentacion: 'PPT', documento: 'DOC', imagen: 'IMG', video: 'VIDEO', audio: 'AUDIO', enlace: 'YOUTUBE',
 }
 
 /**
@@ -65,6 +65,7 @@ export const ACCION_VER_TIPO: Record<string, string> = {
   imagen: 'Ver imagen',
   video: 'Ver video',
   audio: 'Escuchar audio',
+  enlace: 'Ver video',
 }
 
 export function accionVerMaterial(tipo: string): string {
@@ -79,10 +80,30 @@ export const EYEBROW_TIPO: Record<string, string> = {
   imagen: 'Imagen',
   video: 'Video',
   audio: 'Audio',
+  enlace: 'Video (YouTube)',
 }
 
 export function eyebrowMaterial(tipo: string): string {
   return EYEBROW_TIPO[tipo] ?? 'Material'
+}
+
+/**
+ * YouTube embed (pedido explícito del coordinador, 8-nov-2026): como
+ * alternativa a subir el archivo de video, el profesor pega el link (puede
+ * ser "no listado" -- solo quien tiene el link lo ve). Se guarda en
+ * content_items.external_url con type='enlace' (columna y valor del enum que
+ * ya existían en la base, sin usarse). Se extrae el id del video para
+ * armar la URL de embed de youtube-nocookie.com (sin cookies de rastreo).
+ */
+export function idDeYoutube(url: string): string | null {
+  const m = url.match(
+    /(?:youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+  )
+  return m ? m[1] : null
+}
+
+export function urlEmbedYoutube(videoId: string): string {
+  return `https://www.youtube-nocookie.com/embed/${videoId}`
 }
 
 /** Ruta en Storage: el nombre se limpia SOLO para la ruta; el original va en la fila. */

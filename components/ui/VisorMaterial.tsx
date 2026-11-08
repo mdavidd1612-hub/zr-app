@@ -50,6 +50,16 @@ function ControlZoom({ zoom, onAcercar, onAlejar }: { zoom: number; onAcercar: (
  * con `{ passive: false }` -- React lo adjunta pasivo por defecto, y ahí
  * `preventDefault()` no sirve de nada (el navegador seguiría haciendo scroll
  * con los dos dedos a la vez que se pellizca).
+ *
+ * Bug real reportado en vivo (8-nov-2026): el pellizco no hacía nada en el
+ * teléfono, aunque los botones +/- sí funcionaban. Causa: el contenedor con
+ * `overflow-auto` (para poder desplazarse con un dedo) no declaraba ningún
+ * `touch-action` -- con el valor por defecto (`auto`), el navegador puede
+ * quedarse con la interpretación del gesto de dos dedos antes de que el
+ * `touchmove` de aquí llegue a correr, y entonces `preventDefault()` ya no
+ * sirve de nada. `touch-pan-x touch-pan-y` (clases de Tailwind) le dice al
+ * navegador "solo desplazamiento de un dedo es tuyo" -- el pellizco de dos
+ * dedos queda libre para este hook, sin pelear por el gesto.
  */
 function usePinchZoom(min: number, max: number, zoom: number, setZoom: (z: number) => void) {
   const ref = useRef<HTMLDivElement>(null)
@@ -71,7 +81,10 @@ function usePinchZoom(min: number, max: number, zoom: number, setZoom: (z: numbe
       }
     }
     function onMove(e: TouchEvent) {
-      if (e.touches.length === 2 && distInicioRef.current) {
+      // `!== null`, no un simple truthy: si los dos dedos empiezan juntos
+      // (distancia 0), un `if (distInicioRef.current)` descartaba el gesto
+      // porque 0 es falsy.
+      if (e.touches.length === 2 && distInicioRef.current !== null) {
         e.preventDefault()
         const factor = distancia(e.touches) / distInicioRef.current
         setZoom(Math.min(max, Math.max(min, zoomInicioRef.current * factor)))
@@ -404,7 +417,10 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
 
   if (tipo === 'imagen') {
     return (
-      <div ref={refPellizco} className="relative max-h-[75vh] overflow-auto rounded-xl bg-zr-surface">
+      <div
+        ref={refPellizco}
+        className="relative max-h-[75vh] touch-pan-x touch-pan-y overflow-auto rounded-xl bg-zr-surface"
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={url}
@@ -420,7 +436,11 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
 
   if (tipo === 'pdf') {
     return (
-      <div ref={refPellizco} onScroll={alDesplazar} className="max-h-[75vh] overflow-auto rounded-xl bg-zr-surface p-2">
+      <div
+        ref={refPellizco}
+        onScroll={alDesplazar}
+        className="max-h-[75vh] touch-pan-x touch-pan-y overflow-auto rounded-xl bg-zr-surface p-2"
+      >
         {numPaginas === 0 && <div className="zr-skel h-64 w-full rounded-xl" />}
         <div style={{ width: `${zoom * 100}%` }} className="space-y-3">
           {Array.from({ length: numPaginas }, (_, i) => i + 1).map((n) => (
@@ -442,7 +462,7 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
       <div
         ref={refPellizco}
         onScroll={alDesplazarWord}
-        className="zr-card max-h-[75vh] overflow-auto p-6"
+        className="zr-card max-h-[75vh] touch-pan-x touch-pan-y overflow-auto p-6"
       >
         <div
           style={{ width: `${zoom * 100}%` }}

@@ -6,10 +6,18 @@ import type { TipoMaterial } from '@/lib/material'
 import { urlDelVisor, visorDe, idDeYoutube, urlEmbedYoutube } from '@/lib/material'
 import { IconoDocumento } from '@/components/ui/Iconos'
 
-/** Botones flotantes de acercar/alejar (imagen y PDF) -- ver nota en `zoom`. */
+/**
+ * Botones flotantes de acercar/alejar -- en imagen, PDF y Word.
+ *
+ * Bug real reportado en vivo (8-nov-2026): con `position: absolute` dentro
+ * del contenedor con scroll, el botón quedaba al final de TODO el contenido
+ * (la última página de un PDF largo), no a la vista. `fixed` lo clava en un
+ * lugar fijo de la PANTALLA, sin importar cuánto se haya desplazado el
+ * documento -- "un botón flotante que esté siempre fijo", como se pidió.
+ */
 function ControlZoom({ zoom, onAcercar, onAlejar }: { zoom: number; onAcercar: () => void; onAlejar: () => void }) {
   return (
-    <div className="absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-full bg-black/70 p-1 text-white shadow-lg backdrop-blur">
+    <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-5 z-[65] flex items-center gap-1 rounded-full bg-black/70 p-1 text-white shadow-lg backdrop-blur">
       <button
         type="button"
         onClick={onAlejar}
@@ -31,6 +39,61 @@ function ControlZoom({ zoom, onAcercar, onAlejar }: { zoom: number; onAcercar: (
       </button>
     </div>
   )
+}
+
+/**
+ * Pellizcar con dos dedos para acercar/alejar -- pedido explícito (8-nov-2026,
+ * "o si no, en poder agrandar la pantalla con los dos dedos pellizcando").
+ * El navegador tiene el pellizco nativo desactivado a propósito en TODA la
+ * app (`app/layout.tsx`, `viewport.userScalable: false`), así que este gesto
+ * se arma a mano, solo en el visor. `touchmove` tiene que registrarse manual
+ * con `{ passive: false }` -- React lo adjunta pasivo por defecto, y ahí
+ * `preventDefault()` no sirve de nada (el navegador seguiría haciendo scroll
+ * con los dos dedos a la vez que se pellizca).
+ */
+function usePinchZoom(min: number, max: number, zoom: number, setZoom: (z: number) => void) {
+  const ref = useRef<HTMLDivElement>(null)
+  const zoomRef = useRef(zoom)
+  useEffect(() => { zoomRef.current = zoom }, [zoom])
+  const distInicioRef = useRef<number | null>(null)
+  const zoomInicioRef = useRef(1)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+
+    const distancia = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY)
+
+    function onStart(e: TouchEvent) {
+      if (e.touches.length === 2) {
+        distInicioRef.current = distancia(e.touches)
+        zoomInicioRef.current = zoomRef.current
+      }
+    }
+    function onMove(e: TouchEvent) {
+      if (e.touches.length === 2 && distInicioRef.current) {
+        e.preventDefault()
+        const factor = distancia(e.touches) / distInicioRef.current
+        setZoom(Math.min(max, Math.max(min, zoomInicioRef.current * factor)))
+      }
+    }
+    function onEnd(e: TouchEvent) {
+      if (e.touches.length < 2) distInicioRef.current = null
+    }
+
+    el.addEventListener('touchstart', onStart, { passive: true })
+    el.addEventListener('touchmove', onMove, { passive: false })
+    el.addEventListener('touchend', onEnd)
+    el.addEventListener('touchcancel', onEnd)
+    return () => {
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
+      el.removeEventListener('touchend', onEnd)
+      el.removeEventListener('touchcancel', onEnd)
+    }
+  }, [min, max, setZoom])
+
+  return ref
 }
 
 /**
@@ -99,6 +162,7 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
   const [zoom, setZoom] = useState(1)
   const ZOOM_MIN = 1
   const ZOOM_MAX = 3
+  const refPellizco = usePinchZoom(ZOOM_MIN, ZOOM_MAX, zoom, setZoom)
   const maxFraccionWord = useRef(0)
 
   async function guardarProgreso(percent: number) {
@@ -326,9 +390,21 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
     )
   }
 
+  // Pedido explícito (8-nov-2026): el acercar/alejar tiene que valer para
+  // TODOS los documentos que se ven dentro de la app, no solo imagen/PDF --
+  // se agregó también a Word. PowerPoint se queda sin zoom: se abre en una
+  // pestaña del navegador, fuera de nuestro control.
+  const controlZoomComun = (
+    <ControlZoom
+      zoom={zoom}
+      onAcercar={() => setZoom((z) => Math.min(ZOOM_MAX, z + 0.5))}
+      onAlejar={() => setZoom((z) => Math.max(ZOOM_MIN, z - 0.5))}
+    />
+  )
+
   if (tipo === 'imagen') {
     return (
-      <div className="relative max-h-[75vh] overflow-auto rounded-xl bg-zr-surface">
+      <div ref={refPellizco} className="relative max-h-[75vh] overflow-auto rounded-xl bg-zr-surface">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={url}
@@ -337,35 +413,25 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
           className="rounded-xl"
           onLoad={() => void guardarProgreso(100)}
         />
-        <ControlZoom
-          zoom={zoom}
-          onAcercar={() => setZoom((z) => Math.min(ZOOM_MAX, z + 0.5))}
-          onAlejar={() => setZoom((z) => Math.max(ZOOM_MIN, z - 0.5))}
-        />
+        {controlZoomComun}
       </div>
     )
   }
 
   if (tipo === 'pdf') {
     return (
-      <div className="relative">
-        <div onScroll={alDesplazar} className="max-h-[75vh] overflow-auto rounded-xl bg-zr-surface p-2">
-          {numPaginas === 0 && <div className="zr-skel h-64 w-full rounded-xl" />}
-          <div style={{ width: `${zoom * 100}%` }} className="space-y-3">
-            {Array.from({ length: numPaginas }, (_, i) => i + 1).map((n) => (
-              <canvas
-                key={n}
-                ref={(el) => { if (el) canvasRefs.current.set(n, el); else canvasRefs.current.delete(n) }}
-                className="mx-auto block w-full rounded-lg shadow"
-              />
-            ))}
-          </div>
+      <div ref={refPellizco} onScroll={alDesplazar} className="max-h-[75vh] overflow-auto rounded-xl bg-zr-surface p-2">
+        {numPaginas === 0 && <div className="zr-skel h-64 w-full rounded-xl" />}
+        <div style={{ width: `${zoom * 100}%` }} className="space-y-3">
+          {Array.from({ length: numPaginas }, (_, i) => i + 1).map((n) => (
+            <canvas
+              key={n}
+              ref={(el) => { if (el) canvasRefs.current.set(n, el); else canvasRefs.current.delete(n) }}
+              className="mx-auto block w-full rounded-lg shadow"
+            />
+          ))}
         </div>
-        <ControlZoom
-          zoom={zoom}
-          onAcercar={() => setZoom((z) => Math.min(ZOOM_MAX, z + 0.5))}
-          onAlejar={() => setZoom((z) => Math.max(ZOOM_MIN, z - 0.5))}
-        />
+        {controlZoomComun}
       </div>
     )
   }
@@ -374,10 +440,17 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
     if (!htmlWord) return <div className="zr-skel h-64 w-full rounded-xl" />
     return (
       <div
+        ref={refPellizco}
         onScroll={alDesplazarWord}
-        className="zr-card max-h-[75vh] overflow-y-auto p-6 text-sm leading-relaxed text-zr-text [&_h1]:zr-display [&_h1]:text-xl [&_h2]:text-lg [&_h2]:font-bold [&_p]:my-2 [&_table]:w-full [&_td]:border [&_td]:border-zr-border [&_td]:p-2 [&_img]:max-w-full"
-        dangerouslySetInnerHTML={{ __html: htmlWord }}
-      />
+        className="zr-card max-h-[75vh] overflow-auto p-6"
+      >
+        <div
+          style={{ width: `${zoom * 100}%` }}
+          className="text-sm leading-relaxed text-zr-text [&_h1]:zr-display [&_h1]:text-xl [&_h2]:text-lg [&_h2]:font-bold [&_p]:my-2 [&_table]:w-full [&_td]:border [&_td]:border-zr-border [&_td]:p-2 [&_img]:max-w-full"
+          dangerouslySetInnerHTML={{ __html: htmlWord }}
+        />
+        {controlZoomComun}
+      </div>
     )
   }
 

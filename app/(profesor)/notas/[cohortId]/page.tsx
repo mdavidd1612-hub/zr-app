@@ -129,6 +129,8 @@ export default function NotasCohorteProfesor() {
           .from('manual_exam_definitions')
           .select('id, title, exam_date, kind, scale_max, passing_min, weight_pct')
           .eq('module_id', modulo)
+          // Solo de esta cohorte, o compartidas (migr. 198).
+          .or(`cohort_id.is.null,cohort_id.eq.${cohortId}`)
           .order('exam_date'),
         supabase
           .from('grade_submissions')

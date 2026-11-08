@@ -82,6 +82,15 @@ export default function Contenido() {
   const [modulos, setModulos] = useState<ModuloVisible[]>([])
   const [moduloActual, setModuloActual] = useState<ModuloVisible | null>(null)
   const [modulosListos, setModulosListos] = useState(false)
+  // Cohorte a la que pertenece lo que se está viendo (la propia del
+  // estudiante, o la elegida en vista de recorrido). Bug real de producción
+  // (nov. 2026, reportado por Dirección Académica): como RLS de
+  // admin/dirección/super_admin ve TODO sin filtrar por cohorte (a
+  // diferencia de la de estudiante, que sí filtra), al usar vista de
+  // recorrido para revisar un módulo que ya cursó otra cohorte, aparecía
+  // también el material de esa otra cohorte. El filtro de abajo (mismo
+  // patrón que /material y /contenido-docente) protege sin importar el rol.
+  const [cohorteId, setCohorteId] = useState<string | null>(null)
   // 'No solvente' también bloquea Material (reunión de sept. 2026, migración
   // 128). La base ya no entrega nada; esto solo explica por qué.
   const [bloqueado, setBloqueado] = useState(false)
@@ -116,6 +125,7 @@ export default function Contenido() {
         : null
 
       if (cohorteElegida) {
+        setCohorteId(cohorteElegida)
         const moduloElegido = leerModuloVistaRecorridoCookie()
         const { data: coh } = await supabase
           .from('cohorts').select('program_id, current_module_id').eq('id', cohorteElegida).maybeSingle()
@@ -147,12 +157,14 @@ export default function Contenido() {
         return
       }
 
-      const [{ data: ids }, { data: items }, { data: carpetas }, { data: actual }] = await Promise.all([
+      const [{ data: ids }, { data: items }, { data: carpetas }, { data: actual }, { data: yoCohorte }] = await Promise.all([
         supabase.rpc('mis_modulos_cursados'),
         supabase.from('content_items').select('module_id'),
         supabase.from('content_folders').select('module_id'),
         supabase.rpc('my_module_id'),
+        supabase.from('students').select('cohort_id').eq('id', user?.id ?? '').maybeSingle(),
       ])
+      setCohorteId(yoCohorte?.cohort_id ?? null)
       const conMaterial = new Set([
         ...(items ?? []).map((i) => i.module_id),
         ...(carpetas ?? []).map((c) => c.module_id),
@@ -188,11 +200,18 @@ export default function Contenido() {
         return
       }
 
-      const consultaCarpetas = supabase.from('content_folders').select('id, name').eq('module_id', moduloActual.id)
+      // Solo lo de esta cohorte, o lo compartido (cohort_id null) -- RLS ya lo
+      // filtra para un estudiante real, pero admin/dirección/super_admin ven
+      // todo sin restricción de cohorte (necesario para su trabajo normal),
+      // así que este filtro explícito es el que de verdad protege cuando
+      // usan vista de recorrido para revisar un módulo de otra cohorte.
+      const filtroCohorte = cohorteId ? `cohort_id.is.null,cohort_id.eq.${cohorteId}` : 'cohort_id.is.null'
+      const consultaCarpetas = supabase.from('content_folders').select('id, name')
+        .eq('module_id', moduloActual.id).or(filtroCohorte)
       const consultaItems = supabase
         .from('content_items')
         .select('id, title, week_number, size_bytes, type, original_name, storage_path, created_at')
-        .eq('module_id', moduloActual.id)
+        .eq('module_id', moduloActual.id).or(filtroCohorte)
 
       const [{ data: subs }, { data: items }] = await Promise.all([
         (carpetaActual
@@ -226,7 +245,7 @@ export default function Contenido() {
 
     cargar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, carpetaActual, moduloActual, modulosListos])
+  }, [router, carpetaActual, moduloActual, modulosListos, cohorteId])
 
   function abrirCarpeta(c: Carpeta) {
     setCargando(true)

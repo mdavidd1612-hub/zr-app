@@ -2544,6 +2544,7 @@ export type Database = {
       }
       manual_exam_definitions: {
         Row: {
+          cohort_id: string | null
           created_at: string
           created_by: string | null
           exam_date: string
@@ -2560,6 +2561,7 @@ export type Database = {
           weight_pct: number
         }
         Insert: {
+          cohort_id?: string | null
           created_at?: string
           created_by?: string | null
           exam_date: string
@@ -2576,6 +2578,7 @@ export type Database = {
           weight_pct?: number
         }
         Update: {
+          cohort_id?: string | null
           created_at?: string
           created_by?: string | null
           exam_date?: string
@@ -2592,6 +2595,13 @@ export type Database = {
           weight_pct?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "manual_exam_definitions_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "manual_exam_definitions_created_by_fkey"
             columns: ["created_by"]

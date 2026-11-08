@@ -43,6 +43,11 @@ interface Modulo {
 interface Evaluacion {
   id: string
   moduleId: string
+  // Cohorte dueña de esta evaluación manual (migr. 198). Nunca null para lo
+  // creado desde este formulario -- null es solo para lo sincronizado de un
+  // examen/tarea digital compartido entre cohortes (migr. 193), que no se
+  // crea ni edita aquí.
+  cohortId: string | null
   moduloNombre: string
   examDate: string
   title: string
@@ -71,7 +76,7 @@ const CAMPO =
   'w-full rounded-lg border border-zr-border bg-zr-bg px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none'
 
 type ExamenCrudo = {
-  id: string; module_id: string; exam_date: string; title: string
+  id: string; module_id: string; cohort_id: string | null; exam_date: string; title: string
   scale_max: number; passing_min: number; weight_pct: number; kind: string; kind_detail: string | null
   modules: { name: string } | null
 }
@@ -80,6 +85,7 @@ function aEvaluacion(e: ExamenCrudo): Evaluacion {
   return {
     id: e.id,
     moduleId: e.module_id,
+    cohortId: e.cohort_id,
     moduloNombre: e.modules?.name ?? '—',
     examDate: e.exam_date,
     title: e.title,
@@ -91,7 +97,7 @@ function aEvaluacion(e: ExamenCrudo): Evaluacion {
   }
 }
 
-const COLUMNAS = 'id, module_id, exam_date, title, scale_max, passing_min, weight_pct, kind, kind_detail, modules(name)'
+const COLUMNAS = 'id, module_id, cohort_id, exam_date, title, scale_max, passing_min, weight_pct, kind, kind_detail, modules(name)'
 
 /**
  * `modo` 'direccion': Dirección Académica ve todos los programas y módulos.
@@ -233,10 +239,11 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
   }
 
   function empezarEdicion(e: Evaluacion) {
-    const modulo = modulos.find((m) => m.id === e.moduleId)
-    const cohorte = cohortes.find((c) => c.programId === modulo?.programId)
+    // Usa la cohorte REAL de la evaluación (migr. 198) -- antes se adivinaba
+    // por programId, y con dos cohortes activas del mismo programa (p. ej.
+    // PTMA-2026-II y PTMA-2026-III) podía escoger la equivocada.
     setEditandoId(e.id)
-    if (cohorte) setCohorteId(cohorte.id)
+    if (e.cohortId) setCohorteId(e.cohortId)
     setModuloId(e.moduleId)
     setTitulo(e.title)
     setKind(e.kind)
@@ -277,6 +284,10 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
     const supabase = createClient()
     const campos = {
       module_id: moduloId,
+      // Toda evaluación creada aquí es manual, de UNA cohorte (migr. 198) --
+      // nunca compartida (eso es solo para lo sincronizado de un examen/
+      // tarea digital, migr. 193, que no pasa por este formulario).
+      cohort_id: cohorteId,
       exam_date: fecha,
       title: titulo.trim(),
       scale_max: Number(escala.replace(',', '.')) || 20,

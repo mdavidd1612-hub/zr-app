@@ -142,6 +142,10 @@ export default function VerCalificacionesCohorte() {
           .from('manual_exam_definitions')
           .select('id, title, kind, kind_detail, scale_max, passing_min, weight_pct, exam_date, sort_order')
           .eq('module_id', moduleId as string)
+          // Solo las de ESTA cohorte, o las compartidas (examen/tarea digital,
+          // migr. 193). Antes salían las de cualquier cohorte que compartiera
+          // el módulo (migr. 198, bug reportado por Dirección Académica).
+          .or(`cohort_id.is.null,cohort_id.eq.${cohortId}`)
           // Orden manual primero (Dirección arrastra las columnas, migr. 191);
           // las que nunca se ordenaron a mano, por fecha como antes.
           .order('sort_order', { nullsFirst: false })
@@ -263,7 +267,8 @@ export default function VerCalificacionesCohorte() {
   async function contarSinPublicar() {
     if (!moduleId) return
     const supabase = createClient()
-    const { data: defs } = await supabase.from('manual_exam_definitions').select('id').eq('module_id', moduleId)
+    const { data: defs } = await supabase.from('manual_exam_definitions').select('id')
+      .eq('module_id', moduleId).or(`cohort_id.is.null,cohort_id.eq.${cohortId}`)
     const ids = (defs ?? []).map((d) => d.id)
     if (ids.length === 0) { setSinPublicar(0); return }
     const [{ data: validadas }, { data: conNota }] = await Promise.all([

@@ -315,6 +315,20 @@ export function IconoChevron(p: IconoProps) {
   )
 }
 
+/** Asa de arrastrar (6 puntos) -- pedido explícito del coordinador, 8-nov-2026. */
+export function IconoArrastrar(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <circle cx="9" cy="6" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="6" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="9" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="9" cy="18" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="18" r="1.4" fill="currentColor" stroke="none" />
+    </Base>
+  )
+}
+
 /** Taza — ZR Coffee, la cantina. */
 export function IconoTaza(p: IconoProps) {
   return (

@@ -18,6 +18,10 @@ import { eyebrowMaterial } from '@/lib/material'
 import { iconoDeMaterial } from '@/components/ui/IconoMaterial'
 import { ModalEvaluacionAgregada } from '@/components/ui/ModalEvaluacionAgregada'
 import { sumaPesoOcupado, mensajeSiExcedePeso } from '@/lib/peso-notas'
+import { DndContext, PointerSensor, KeyboardSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { IconoArrastrar } from '@/components/ui/Iconos'
 
 /**
  * Aula Virtual — el profesor administra el contenido de UNA unidad: fechas
@@ -64,6 +68,43 @@ interface Item {
 }
 
 interface Opcion { id: string; title: string }
+
+/**
+ * Arrastrar para reordenar (pedido explícito del coordinador, 8-nov-2026:
+ * "mantenerla presionada y moverla"). `useSortable` es un hook -- no se
+ * puede llamar dentro del `.map()` de la lista, por eso vive en su propio
+ * componente envolvente con render-prop. El `delay` del sensor (ver
+ * `sensores` más abajo) es justamente lo de "mantener presionado": sin eso,
+ * cualquier scroll normal del dedo se interpretaría como un arrastre.
+ */
+function FilaOrdenable({
+  id,
+  children,
+}: {
+  id: string
+  children: (ctx: { setNodeRef: (el: HTMLElement | null) => void; style: React.CSSProperties; asa: React.ReactNode }) => React.ReactElement
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 10 : undefined,
+    position: 'relative',
+  }
+  const asa = (
+    <button
+      type="button"
+      {...attributes}
+      {...listeners}
+      aria-label="Arrastrar para reordenar"
+      className="flex h-8 w-7 shrink-0 touch-none cursor-grab items-center justify-center text-zr-text-muted active:cursor-grabbing"
+    >
+      <IconoArrastrar size={18} />
+    </button>
+  )
+  return children({ setNodeRef, style, asa })
+}
 
 export default function UnidadDocenteDetalle() {
   const router = useRouter()
@@ -481,25 +522,39 @@ export default function UnidadDocenteDetalle() {
     await cargar()
   }
 
-  // Reordenar (pedido explícito del coordinador, reunión 7-nov-2026): se
-  // intercambia el order_index con el ítem vecino -- más simple y confiable
-  // que arrastrar, y resuelve el mismo problema ("el material queda primero,
-  // el bloque de texto siempre abajo").
-  async function moverItem(idx: number, direccion: -1 | 1) {
+  // Reordenar: arrastrar (pedido explícito del coordinador, 8-nov-2026) o las
+  // flechas subir/bajar (quedan como respaldo sin tacto/accesible). Las dos
+  // vías terminan en `guardarOrden` con la lista ya en el orden que debe
+  // quedar -- se reescriben TODOS los order_index en dos fases (primero
+  // temporales negativos únicos, después los finales 1..N) porque
+  // unit_items tiene UNIQUE (unit_id, order_index): escribir cualquier
+  // valor final de una que ya esté ocupado por otro ítem falla.
+  async function guardarOrden(nuevoOrden: Item[]) {
+    setItems(nuevoOrden) // optimista: se ve el nuevo orden de inmediato
+    const supabase = createClient()
+    await Promise.all(nuevoOrden.map((it, i) => supabase.from('unit_items').update({ order_index: -(i + 1) }).eq('id', it.id)))
+    await Promise.all(nuevoOrden.map((it, i) => supabase.from('unit_items').update({ order_index: i + 1 }).eq('id', it.id)))
+    await cargar()
+  }
+
+  function moverItem(idx: number, direccion: -1 | 1) {
     const vecino = idx + direccion
     if (vecino < 0 || vecino >= items.length) return
-    const a = items[idx]
-    const b = items[vecino]
-    const supabase = createClient()
-    // Bug real reportado en vivo (8-nov-2026): unit_items tiene un UNIQUE
-    // (unit_id, order_index) -- intercambiar los dos valores en paralelo
-    // choca contra esa restricción (el valor destino todavía está ocupado
-    // por el otro) y las dos actualizaciones fallan en silencio. Se pasa
-    // por un valor temporal fuera de rango antes del intercambio real.
-    await supabase.from('unit_items').update({ order_index: -1 }).eq('id', a.id)
-    await supabase.from('unit_items').update({ order_index: a.orderIndex }).eq('id', b.id)
-    await supabase.from('unit_items').update({ order_index: b.orderIndex }).eq('id', a.id)
-    await cargar()
+    void guardarOrden(arrayMove(items, idx, vecino))
+  }
+
+  const sensores = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  function alTerminarArrastre(e: DragEndEvent) {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const viejo = items.findIndex((i) => i.id === active.id)
+    const nuevo = items.findIndex((i) => i.id === over.id)
+    if (viejo === -1 || nuevo === -1) return
+    void guardarOrden(arrayMove(items, viejo, nuevo))
   }
 
   if (cargando) return <PantallaEsqueleto variante="lista" />
@@ -802,8 +857,10 @@ export default function UnidadDocenteDetalle() {
       <Seccion numero={2} titulo="Contenido de la unidad" delay={180}>
         {items.length === 0 && <p className="text-sm text-zr-text-muted">Todavía no has agregado nada.</p>}
         {items.length > 1 && (
-          <p className="text-xs text-zr-text-muted">Usa las flechitas para cambiar el orden en que aparece cada ítem.</p>
+          <p className="text-xs text-zr-text-muted">Mantén presionada la asa para arrastrar, o usa las flechitas.</p>
         )}
+        <DndContext sensors={sensores} collisionDetection={closestCenter} onDragEnd={alTerminarArrastre}>
+        <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
         <div className="space-y-3">
           {items.map((item, idx) => {
             const controlesOrden = (
@@ -861,33 +918,41 @@ export default function UnidadDocenteDetalle() {
                 )
               }
               return (
-                <div
-                  key={item.id}
-                  style={{ borderColor: acento, backgroundColor: acentoSuave }}
-                  className="space-y-2 rounded-r-lg border-l-4 py-4 pl-4 pr-5"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-2">
-                      {controlesOrden}
-                      <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
+                <FilaOrdenable key={item.id} id={item.id}>
+                  {({ setNodeRef, style, asa }) => (
+                    <div
+                      ref={setNodeRef}
+                      style={{ ...style, borderColor: acento, backgroundColor: acentoSuave }}
+                      className="space-y-2 rounded-r-lg border-l-4 py-4 pl-4 pr-5"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2">
+                          {asa}
+                          {controlesOrden}
+                          <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
+                        </div>
+                        <div className="flex shrink-0 gap-3">
+                          <button onClick={() => empezarEdicionTexto(item)} style={{ color: acento }} className="text-xs font-bold">
+                            Editar
+                          </button>
+                          <button onClick={() => quitarItem(item.id)} className="text-xs font-bold text-zr-error">
+                            Quitar
+                          </button>
+                        </div>
+                      </div>
+                      <p className="whitespace-pre-wrap break-words text-sm text-zr-text-muted">{item.cuerpoTexto}</p>
                     </div>
-                    <div className="flex shrink-0 gap-3">
-                      <button onClick={() => empezarEdicionTexto(item)} style={{ color: acento }} className="text-xs font-bold">
-                        Editar
-                      </button>
-                      <button onClick={() => quitarItem(item.id)} className="text-xs font-bold text-zr-error">
-                        Quitar
-                      </button>
-                    </div>
-                  </div>
-                  <p className="whitespace-pre-wrap break-words text-sm text-zr-text-muted">{item.cuerpoTexto}</p>
-                </div>
+                  )}
+                </FilaOrdenable>
               )
             }
             const Icono = item.type === 'material' ? iconoDeMaterial(item.materialTipo) : item.type === 'quiz' ? IconoExamen : IconoDuda
             return (
-              <div key={item.id} className="zr-card space-y-3 p-5">
+              <FilaOrdenable key={item.id} id={item.id}>
+                {({ setNodeRef, style, asa }) => (
+              <div ref={setNodeRef} style={style} className="zr-card space-y-3 p-5">
                 <div className="flex items-center gap-4">
+                  {asa}
                   {controlesOrden}
                   <div
                     style={{ backgroundColor: acentoSuave, color: acento }}
@@ -977,9 +1042,13 @@ export default function UnidadDocenteDetalle() {
                   )
                 )}
               </div>
+                )}
+              </FilaOrdenable>
             )
           })}
         </div>
+        </SortableContext>
+        </DndContext>
 
         <div className="zr-card space-y-5 p-5">
           {error && <p className="text-sm font-medium text-zr-error">{error}</p>}

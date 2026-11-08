@@ -47,10 +47,15 @@ async function aBlob(canvas: HTMLCanvasElement, tipo: string, calidad?: number):
 }
 
 /**
- * Dibuja `bmp` ya decodido en un canvas de `w`x`h` y lo devuelve, o `null`
- * si el resultado salió sospechosamente negro (ver `reducirImagen`).
+ * Dibuja `fuente` (ya decodida) en un canvas de `w`x`h` y lo devuelve, o
+ * `null` si el resultado salió sospechosamente negro (ver `reducirImagen`).
  */
-function dibujarEnCanvas(bmp: ImageBitmap, w: number, h: number, tipoSalida: 'image/jpeg' | 'image/png'): CanvasRenderingContext2D | null {
+function dibujarEnCanvas(
+  fuente: CanvasImageSource,
+  w: number,
+  h: number,
+  tipoSalida: 'image/jpeg' | 'image/png',
+): CanvasRenderingContext2D | null {
   const canvas = document.createElement('canvas')
   canvas.width = w
   canvas.height = h
@@ -60,8 +65,62 @@ function dibujarEnCanvas(bmp: ImageBitmap, w: number, h: number, tipoSalida: 'im
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, w, h)
   }
-  ctx.drawImage(bmp, 0, 0, w, h)
+  ctx.drawImage(fuente, 0, 0, w, h)
   return esSospechosamenteNegro(ctx, w, h) ? null : ctx
+}
+
+/**
+ * Quita el perfil ICC de color (segmento APP2 "ICC_PROFILE") de un JPEG, sin
+ * tocar el resto del archivo -- confirmado con una foto real (8-nov-2026):
+ * el perfil de la cámara es "Display P3 con transferencia sRGB" (lo que
+ * graban por defecto los Android recientes), y es justo el tipo de perfil
+ * de gama ancha que hace que algunos navegadores dibujen la imagen negra en
+ * canvas sin avisar ningún error. Sin el perfil, el navegador interpreta
+ * los valores de color directo como sRGB (la mayoría del tiempo es casi
+ * igual de cerca, nunca rota) -- se prefiere eso a una foto negra.
+ */
+function quitarPerfilICC_JPEG(buffer: ArrayBuffer): ArrayBuffer {
+  const bytes = new Uint8Array(buffer)
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return buffer // no es JPEG
+  const segmentos: Uint8Array[] = [bytes.subarray(0, 2)]
+  let i = 2
+  let huboICC = false
+  while (i + 1 < bytes.length) {
+    if (bytes[i] !== 0xff) { segmentos.push(bytes.subarray(i)); i = bytes.length; break }
+    const marker = bytes[i + 1]
+    if (marker === 0xd9) { segmentos.push(bytes.subarray(i, i + 2)); i += 2; continue } // EOI
+    if (marker === 0xda) { segmentos.push(bytes.subarray(i)); i = bytes.length; break } // SOS: resto son datos de imagen
+    if (marker >= 0xd0 && marker <= 0xd7) { segmentos.push(bytes.subarray(i, i + 2)); i += 2; continue } // RST, sin longitud
+    if (i + 3 >= bytes.length) break
+    const len = (bytes[i + 2] << 8) | bytes[i + 3]
+    const fin = i + 2 + len
+    const esICC = marker === 0xe2 && len > 14 &&
+      bytes[i + 4] === 0x49 && bytes[i + 5] === 0x43 && bytes[i + 6] === 0x43 && bytes[i + 7] === 0x5f // "ICC_"
+    if (esICC) huboICC = true
+    else segmentos.push(bytes.subarray(i, fin))
+    i = fin
+  }
+  if (!huboICC) return buffer
+  const total = segmentos.reduce((s, a) => s + a.length, 0)
+  const salida = new Uint8Array(total)
+  let pos = 0
+  for (const seg of segmentos) { salida.set(seg, pos); pos += seg.length }
+  return salida.buffer
+}
+
+/**
+ * Decodifica vía <img>, no createImageBitmap -- `<img>` es otra ruta de
+ * código del navegador y en la práctica es más compatible con perfiles de
+ * color poco comunes que `createImageBitmap`.
+ */
+function decodificarConImg(datos: Blob): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(datos)
+    const img = new Image()
+    img.onload = () => { resolve(img) }
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null) }
+    img.src = url
+  })
 }
 
 /** Reduce una imagen a `maxLado` y la devuelve como JPG o PNG según `tipoSalida`. */
@@ -70,33 +129,50 @@ async function reducirImagen(
   maxLado: number,
   tipoSalida: 'image/jpeg' | 'image/png',
 ): Promise<Blob | null> {
-  // Bug real reportado en vivo (8-nov-2026): las fotos tomadas directo con la
-  // cámara del teléfono (no capturas de pantalla ni imágenes descargadas) se
-  // dibujaban negras en el canvas -- createImageBitmap/drawImage no avisan
-  // ningún error. Es un problema conocido de algunos navegadores con el
-  // manejo de color de JPEGs de gama ancha/HDR que las cámaras recientes
-  // graban por defecto (p. ej. "Ultra HDR" de Android). `colorSpaceConversion:
-  // 'none'` evita el paso de conversión de color que falla en esos casos --
-  // se intenta primero con el comportamiento normal y, si sale negro, se
-  // reintenta sin esa conversión antes de rendirse.
   let ctx: CanvasRenderingContext2D | null = null
-  let w = 0
-  let h = 0
-  for (const opciones of [undefined, { colorSpaceConversion: 'none' as const }]) {
-    let bmp: ImageBitmap
-    try {
-      bmp = opciones ? await createImageBitmap(datos, opciones) : await createImageBitmap(datos)
-    } catch {
-      continue
-    }
-    const escala = Math.min(1, maxLado / Math.max(bmp.width, bmp.height))
-    w = Math.max(1, Math.round(bmp.width * escala))
-    h = Math.max(1, Math.round(bmp.height * escala))
-    ctx = dibujarEnCanvas(bmp, w, h, tipoSalida)
-    bmp.close()
-    if (ctx) break
+
+  // Si es un JPEG con perfil ICC de gama ancha (la causa confirmada con una
+  // foto real, 8-nov-2026), se quita antes de intentar nada -- ataca la
+  // causa en vez de solo probar rutas de decodificación distintas.
+  let fuente = datos
+  if (datos.type === 'image/jpeg' || datos.type === 'image/jpg') {
+    const original = await datos.arrayBuffer()
+    const limpio = quitarPerfilICC_JPEG(original)
+    if (limpio !== original) fuente = new Blob([limpio], { type: 'image/jpeg' })
   }
-  // Los dos intentos salieron negros (o no se pudo decodificar): se sube el
+
+  // Intento 1: <img> -- primero porque es el que de verdad arregló el caso
+  // confirmado con una foto real (perfil de color "Display P3").
+  const img = await decodificarConImg(fuente)
+  if (img && img.naturalWidth > 0) {
+    const escala = Math.min(1, maxLado / Math.max(img.naturalWidth, img.naturalHeight))
+    const w = Math.max(1, Math.round(img.naturalWidth * escala))
+    const h = Math.max(1, Math.round(img.naturalHeight * escala))
+    ctx = dibujarEnCanvas(img, w, h, tipoSalida)
+    URL.revokeObjectURL(img.src)
+  }
+
+  // Intento 2 y 3: createImageBitmap, con y sin colorSpaceConversion -- se
+  // dejan como respaldo por si <img> fallara por algún otro motivo distinto
+  // al de color (archivo roto, formato no soportado, etc.).
+  if (!ctx) {
+    for (const opciones of [undefined, { colorSpaceConversion: 'none' as const }]) {
+      let bmp: ImageBitmap
+      try {
+        bmp = opciones ? await createImageBitmap(fuente, opciones) : await createImageBitmap(fuente)
+      } catch {
+        continue
+      }
+      const escala = Math.min(1, maxLado / Math.max(bmp.width, bmp.height))
+      const w = Math.max(1, Math.round(bmp.width * escala))
+      const h = Math.max(1, Math.round(bmp.height * escala))
+      ctx = dibujarEnCanvas(bmp, w, h, tipoSalida)
+      bmp.close()
+      if (ctx) break
+    }
+  }
+
+  // Los tres intentos salieron negros (o no se pudo decodificar): se sube el
   // archivo original sin comprimir en vez de una imagen rota.
   if (!ctx) return null
 

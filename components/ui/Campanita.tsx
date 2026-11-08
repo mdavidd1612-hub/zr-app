@@ -95,7 +95,16 @@ export function Campanita() {
       case 'nota_publicada':
         return rol === 'estudiante' ? '/notas' : null
       case 'material_nuevo':
-        return '/contenido'
+        // Bug real reportado en vivo (8-nov-2026): llevaba a /contenido, el
+        // explorador viejo que se retiró del menú -- ahora todo vive en
+        // Aula Virtual.
+        return '/unidades'
+      case 'tarea_nueva': {
+        const unitId = p.unit_id as string | undefined
+        return unitId ? `/unidades/${unitId}` : '/unidades'
+      }
+      case 'tarea_calificada':
+        return '/unidades'
       case 'examen_habilitado':
         return '/examenes'
       case 'modulo_cambiado':

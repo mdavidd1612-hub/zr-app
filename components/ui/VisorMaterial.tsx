@@ -6,6 +6,33 @@ import type { TipoMaterial } from '@/lib/material'
 import { urlDelVisor, visorDe, idDeYoutube, urlEmbedYoutube } from '@/lib/material'
 import { IconoDocumento } from '@/components/ui/Iconos'
 
+/** Botones flotantes de acercar/alejar (imagen y PDF) -- ver nota en `zoom`. */
+function ControlZoom({ zoom, onAcercar, onAlejar }: { zoom: number; onAcercar: () => void; onAlejar: () => void }) {
+  return (
+    <div className="absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-full bg-black/70 p-1 text-white shadow-lg backdrop-blur">
+      <button
+        type="button"
+        onClick={onAlejar}
+        disabled={zoom <= 1}
+        aria-label="Alejar"
+        className="flex h-9 w-9 items-center justify-center rounded-full text-lg font-bold disabled:opacity-30"
+      >
+        −
+      </button>
+      <span className="min-w-10 text-center text-xs font-bold tabular-nums">{Math.round(zoom * 100)}%</span>
+      <button
+        type="button"
+        onClick={onAcercar}
+        disabled={zoom >= 3}
+        aria-label="Acercar"
+        className="flex h-9 w-9 items-center justify-center rounded-full text-lg font-bold disabled:opacity-30"
+      >
+        +
+      </button>
+    </div>
+  )
+}
+
 /**
  * Visor incrustado DENTRO de la pantalla, sin iframe a un sitio externo.
  *
@@ -63,6 +90,15 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
   // confiable de incrustarse gratis), pero Word sí -- se convierte a HTML en
   // el navegador (mammoth) y se limpia con DOMPurify antes de mostrarlo.
   const [htmlWord, setHtmlWord] = useState<string | null>(null)
+  // Acercar/alejar imagen y PDF (pedido real, 8-nov-2026): la app desactiva
+  // el pellizco nativo del navegador a propósito en toda la app
+  // (app/layout.tsx, viewport.userScalable=false, "para que se sienta como
+  // app") -- así que aquí, solo en el visor, se arma un acercamiento propio
+  // con botones. Cambiar el ANCHO (no un transform) para que el contenedor
+  // con overflow-auto genere scroll de verdad.
+  const [zoom, setZoom] = useState(1)
+  const ZOOM_MIN = 1
+  const ZOOM_MAX = 3
   const maxFraccionWord = useRef(0)
 
   async function guardarProgreso(percent: number) {
@@ -291,21 +327,45 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
   }
 
   if (tipo === 'imagen') {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt="" className="w-full rounded-xl" onLoad={() => void guardarProgreso(100)} />
+    return (
+      <div className="relative max-h-[75vh] overflow-auto rounded-xl bg-zr-surface">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt=""
+          style={{ width: `${zoom * 100}%`, maxWidth: 'none' }}
+          className="rounded-xl"
+          onLoad={() => void guardarProgreso(100)}
+        />
+        <ControlZoom
+          zoom={zoom}
+          onAcercar={() => setZoom((z) => Math.min(ZOOM_MAX, z + 0.5))}
+          onAlejar={() => setZoom((z) => Math.max(ZOOM_MIN, z - 0.5))}
+        />
+      </div>
+    )
   }
 
   if (tipo === 'pdf') {
     return (
-      <div onScroll={alDesplazar} className="max-h-[75vh] space-y-3 overflow-y-auto rounded-xl bg-zr-surface p-2">
-        {numPaginas === 0 && <div className="zr-skel h-64 w-full rounded-xl" />}
-        {Array.from({ length: numPaginas }, (_, i) => i + 1).map((n) => (
-          <canvas
-            key={n}
-            ref={(el) => { if (el) canvasRefs.current.set(n, el); else canvasRefs.current.delete(n) }}
-            className="mx-auto block w-full rounded-lg shadow"
-          />
-        ))}
+      <div className="relative">
+        <div onScroll={alDesplazar} className="max-h-[75vh] overflow-auto rounded-xl bg-zr-surface p-2">
+          {numPaginas === 0 && <div className="zr-skel h-64 w-full rounded-xl" />}
+          <div style={{ width: `${zoom * 100}%` }} className="space-y-3">
+            {Array.from({ length: numPaginas }, (_, i) => i + 1).map((n) => (
+              <canvas
+                key={n}
+                ref={(el) => { if (el) canvasRefs.current.set(n, el); else canvasRefs.current.delete(n) }}
+                className="mx-auto block w-full rounded-lg shadow"
+              />
+            ))}
+          </div>
+        </div>
+        <ControlZoom
+          zoom={zoom}
+          onAcercar={() => setZoom((z) => Math.min(ZOOM_MAX, z + 0.5))}
+          onAlejar={() => setZoom((z) => Math.max(ZOOM_MIN, z - 0.5))}
+        />
       </div>
     )
   }

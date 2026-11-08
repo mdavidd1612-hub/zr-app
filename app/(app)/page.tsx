@@ -551,7 +551,13 @@ export default function Inicio() {
             <div className="grid grid-cols-2 gap-2">
               {[
                 { href: '/calendario', titulo: 'Calendario', sub: 'Fechas y entregas', Icono: IconoCalendario, insignia: hayPendienteCalendario },
-                { href: '/contenido',  titulo: 'Material',    sub: 'Guías y PDFs',      Icono: IconoDocumento, insignia: false },
+                // Bug real reportado en vivo (8-nov-2026): este acceso seguía
+                // apuntando a /contenido (el explorador viejo, con material
+                // de antes de Aula Virtual) -- Material se retiró del menú
+                // en la reunión del 31-oct-2026 (§8.2); ahora todo vive en
+                // Unidades, igual que "Revisar el material del módulo" de
+                // arriba.
+                { href: '/unidades',  titulo: 'Material',    sub: 'Guías y PDFs',      Icono: IconoDocumento, insignia: false },
               ].map(({ href, titulo, sub, Icono, insignia }) => (
                 <button
                   key={href}

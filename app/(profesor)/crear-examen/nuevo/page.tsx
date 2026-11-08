@@ -245,6 +245,11 @@ function NuevoExamenInterno() {
         weight: peso === '' ? 0 : peso,
         opens_at: abreEl ? new Date(abreEl).toISOString() : null,
         closes_at: cierraEl ? new Date(cierraEl).toISOString() : null,
+        // Bug real reportado en vivo (8-nov-2026): exams.unit_id nunca se
+        // guardaba aquí (solo en la fila de unit_items) -- fn_calendar_sync_exam
+        // depende de este campo para decidir si el examen entra al calendario,
+        // así que un examen con fecha pero sin unit_id nunca aparecía ahí.
+        unit_id: unitId || null,
         status: 'oculto',   // Nace como borrador. Publicar es un paso aparte.
       })
       .select()

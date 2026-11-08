@@ -12,7 +12,7 @@ import { acentoDe, hexARgba } from '@/lib/banner-unidad'
 import { prepararArchivo } from '@/lib/subida'
 import { PestanasUnidad, type PestanaUnidad } from '@/components/ui/PestanasUnidad'
 import { Recorrido, Paso } from '@/components/ui/Recorrido'
-import { IconoDocumento, IconoExamen, IconoDuda, IconoCheck, IconoLapiz, IconoChevron } from '@/components/ui/Iconos'
+import { IconoDocumento, IconoExamen, IconoDuda, IconoCheck, IconoLapiz } from '@/components/ui/Iconos'
 import { estadoUnidad } from '@/lib/estado-unidad'
 import { eyebrowMaterial } from '@/lib/material'
 import { iconoDeMaterial } from '@/components/ui/IconoMaterial'
@@ -537,12 +537,6 @@ export default function UnidadDocenteDetalle() {
     await cargar()
   }
 
-  function moverItem(idx: number, direccion: -1 | 1) {
-    const vecino = idx + direccion
-    if (vecino < 0 || vecino >= items.length) return
-    void guardarOrden(arrayMove(items, idx, vecino))
-  }
-
   const sensores = useSensors(
     useSensor(PointerSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -857,32 +851,12 @@ export default function UnidadDocenteDetalle() {
       <Seccion numero={2} titulo="Contenido de la unidad" delay={180}>
         {items.length === 0 && <p className="text-sm text-zr-text-muted">Todavía no has agregado nada.</p>}
         {items.length > 1 && (
-          <p className="text-xs text-zr-text-muted">Mantén presionada la asa para arrastrar, o usa las flechitas.</p>
+          <p className="text-xs text-zr-text-muted">Mantén presionada la asa para arrastrar.</p>
         )}
         <DndContext sensors={sensores} collisionDetection={closestCenter} onDragEnd={alTerminarArrastre}>
         <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
         <div className="space-y-3">
-          {items.map((item, idx) => {
-            const controlesOrden = (
-              <div className="flex shrink-0 flex-col">
-                <button
-                  onClick={() => moverItem(idx, -1)}
-                  disabled={idx === 0}
-                  aria-label="Subir"
-                  className="flex h-6 w-6 items-center justify-center text-zr-text-muted disabled:opacity-25"
-                >
-                  <IconoChevron size={16} className="rotate-180" />
-                </button>
-                <button
-                  onClick={() => moverItem(idx, 1)}
-                  disabled={idx === items.length - 1}
-                  aria-label="Bajar"
-                  className="flex h-6 w-6 items-center justify-center text-zr-text-muted disabled:opacity-25"
-                >
-                  <IconoChevron size={16} />
-                </button>
-              </div>
-            )
+          {items.map((item) => {
             if (item.esTexto) {
               if (editandoTextoId === item.id) {
                 return (
@@ -928,7 +902,6 @@ export default function UnidadDocenteDetalle() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start gap-2">
                           {asa}
-                          {controlesOrden}
                           <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
                         </div>
                         <div className="flex shrink-0 gap-3">
@@ -950,66 +923,62 @@ export default function UnidadDocenteDetalle() {
             return (
               <FilaOrdenable key={item.id} id={item.id}>
                 {({ setNodeRef, style, asa }) => (
-              <div ref={setNodeRef} style={style} className="zr-card space-y-3 p-5">
-                <div className="flex items-center gap-4">
+              <div ref={setNodeRef} style={style} className="zr-card space-y-4 p-5">
+                {/* Pedido explícito del coordinador (8-nov-2026, segunda
+                    vuelta): icono arriba a la izquierda (junto a la asa, sin
+                    las flechitas de subir/bajar -- se mantiene presionada la
+                    asa para arrastrar), el título en su propia fila a todo
+                    el ancho de la tarjeta (antes compartía fila con el icono
+                    y los botones, y se partía feo en títulos largos en
+                    mayúsculas), y los botones (Quitar / Obligatorio-
+                    Opcional) en una fila propia abajo. */}
+                <div className="flex items-center gap-3">
                   {asa}
-                  {controlesOrden}
                   <div
                     style={{ backgroundColor: acentoSuave, color: acento }}
                     className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
                   >
                     <Icono size={20} />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
-                    {item.type === 'tarea' && item.assignmentId && (
-                      <button
-                        onClick={() => router.push(`/unidades-docente/tarea/${item.assignmentId}`)}
-                        style={{ color: acento }}
-                        className="mt-1 text-xs font-bold"
-                      >
-                        Ver entregas y calificar ›
-                      </button>
-                    )}
-                    {item.type === 'dudas' && (
-                      <button
-                        onClick={() => router.push(`/dudas-docente?unidad=${unitId}`)}
-                        style={{ color: acento }}
-                        className="mt-1 text-xs font-bold"
-                      >
-                        Ver y responder dudas ›
-                      </button>
-                    )}
-                  </div>
-                  {/* Pedido explícito del coordinador (8-nov-2026, sobre el
-                      fix anterior): la etiqueta larga ("Obligatorio (toca
-                      para quitar)") ya no se superponía con "Quitar", pero se
-                      veía grande y asimétrica -- se sacó de la columna del
-                      título y se puso chiquita, apilada debajo de "Quitar",
-                      con el texto completo en el `title` (tooltip) en vez de
-                      escrito -- el gesto de tocarla para alternar ya era
-                      conocido por quien usa la pantalla seguido. */}
-                  <div className="flex shrink-0 flex-col items-end gap-1.5">
-                    <button onClick={() => quitarItem(item.id)} className="text-xs font-bold text-zr-error">
-                      Quitar
+                </div>
+                <div>
+                  <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
+                  {item.type === 'tarea' && item.assignmentId && (
+                    <button
+                      onClick={() => router.push(`/unidades-docente/tarea/${item.assignmentId}`)}
+                      style={{ color: acento }}
+                      className="mt-1.5 text-xs font-bold"
+                    >
+                      Ver entregas y calificar ›
                     </button>
-                    {item.type === 'material' && (
-                      <button
-                        onClick={() => alternarObligatorio(item.id, item.required)}
-                        title={item.required ? 'Toca para quitar lo obligatorio' : 'Toca para hacerlo obligatorio'}
+                  )}
+                  {item.type === 'dudas' && (
+                    <button
+                      onClick={() => router.push(`/dudas-docente?unidad=${unitId}`)}
+                      style={{ color: acento }}
+                      className="mt-1.5 text-xs font-bold"
+                    >
+                      Ver y responder dudas ›
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-3 border-t border-zr-border/60 pt-3">
+                  <button onClick={() => quitarItem(item.id)} className="text-xs font-bold text-zr-error">
+                    Quitar
+                  </button>
+                  {item.type === 'material' && (
+                    <button onClick={() => alternarObligatorio(item.id, item.required)}>
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${
+                          item.required
+                            ? 'border-zr-warning/40 bg-zr-warning/15 text-zr-warning'
+                            : 'border-zr-border bg-zr-surface text-zr-text-muted'
+                        }`}
                       >
-                        <span
-                          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${
-                            item.required
-                              ? 'border-zr-warning/40 bg-zr-warning/15 text-zr-warning'
-                              : 'border-zr-border bg-zr-surface text-zr-text-muted'
-                          }`}
-                        >
-                          {item.required ? 'Obligatorio' : 'Opcional'}
-                        </span>
-                      </button>
-                    )}
-                  </div>
+                        {item.required ? 'Obligatorio (toca para quitar)' : 'Opcional (toca para hacer obligatorio)'}
+                      </span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Mini-chequeo (migración 177, spec §6.3): solo video/audio --
@@ -1033,7 +1002,7 @@ export default function UnidadDocenteDetalle() {
                     <div className="flex gap-2">
                       <select
                         id={`sel-chequeo-${item.id}`}
-                        className="min-h-10 flex-1 rounded-lg border border-zr-border bg-zr-bg px-3 text-xs text-zr-text"
+                        className="min-h-10 min-w-0 flex-1 rounded-lg border border-zr-border bg-zr-bg px-3 text-xs text-zr-text"
                         defaultValue=""
                       >
                         <option value="" disabled>Mini-chequeo al terminar (opcional)…</option>
@@ -1073,7 +1042,7 @@ export default function UnidadDocenteDetalle() {
             <div className="flex gap-2">
               <select
                 id="sel-material"
-                className="min-h-12 flex-1 rounded-lg border border-zr-border bg-zr-bg px-3 text-sm text-zr-text"
+                className="min-h-12 min-w-0 flex-1 rounded-lg border border-zr-border bg-zr-bg px-3 text-sm text-zr-text"
                 defaultValue=""
               >
                 <option value="" disabled>Elige un material…</option>

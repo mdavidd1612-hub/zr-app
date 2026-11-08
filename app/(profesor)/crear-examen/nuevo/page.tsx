@@ -206,11 +206,13 @@ function NuevoExamenInterno() {
 
     const supabase = createClient()
 
-    // Bug real de la reunión: se podía crear un examen que hiciera pasar la
-    // suma de pesos de 100% sin avisar antes -- la única señal era la
-    // excepción SQL de fn_validar_suma_pesos al insertar. Se anticipa aquí,
-    // igual que ya hace RegistrarEvaluacion.tsx.
-    if (pesoNuevo > 0) {
+    // Bug real reportado en vivo (8-nov-2026): guardar como BORRADOR fallaba
+    // con "ya hay 100% ocupado" aunque un borrador todavía no cuenta de
+    // verdad en Notas -- no tiene sentido bloquear guardar algo que ni
+    // siquiera se publicó. El tope de 100% solo tiene sentido cuando el
+    // examen SÍ va a pesar en la nota del módulo (al publicarlo de una vez,
+    // o después al editarlo desde /crear-examen/[examId]).
+    if (publicarDeUnaVez && pesoNuevo > 0) {
       const ocupado = await sumaPesoOcupado(supabase, moduloId, cohorteId || null)
       const msg = mensajeSiExcedePeso(ocupado, pesoNuevo)
       if (msg) { setError(msg); return }
@@ -257,7 +259,10 @@ function NuevoExamenInterno() {
         // se fuerza igual aquí por si el estado se quedó con otro valor.
         max_attempts: tipo === 'certificacion' ? 1 : (intentos === '' ? 2 : intentos),
         cooldown_hours: tipo === 'certificacion' ? 0 : (enfriamiento === '' ? 24 : enfriamiento),
-        weight: peso === '' ? 0 : peso,
+        // Si se guarda como borrador, el % no se registra todavía en Notas
+        // (0 -- no cuenta para el tope de 100% de nadie más) -- se aplica de
+        // verdad recién al publicar (aquí mismo o después, editando).
+        weight: publicarDeUnaVez ? pesoNuevo : 0,
         opens_at: abreEl ? new Date(abreEl).toISOString() : null,
         closes_at: cierraEl ? new Date(cierraEl).toISOString() : null,
         // Bug real reportado en vivo (8-nov-2026): exams.unit_id nunca se

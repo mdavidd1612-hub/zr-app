@@ -140,7 +140,7 @@ export default function VerCalificacionesCohorte() {
           .maybeSingle(),
         supabase
           .from('manual_exam_definitions')
-          .select('id, title, kind, kind_detail, scale_max, passing_min, weight_pct, exam_date, sort_order')
+          .select('id, title, kind, kind_detail, scale_max, passing_min, weight_pct, exam_date, sort_order, source_exam_id, exams:source_exam_id(status)')
           .eq('module_id', moduleId as string)
           // Solo las de ESTA cohorte, o las compartidas (examen/tarea digital,
           // migr. 193). Antes salían las de cualquier cohorte que compartiera
@@ -152,7 +152,14 @@ export default function VerCalificacionesCohorte() {
           .order('exam_date'),
       ])
 
-      const idsDefs = (defs ?? []).map((d) => d.id)
+      // Bug real reportado en vivo (8-nov-2026): un examen todavía en
+      // borrador (status='oculto') ya aparecía como columna en Notas, aunque
+      // nadie lo vio ni lo presentó -- un borrador no debería contar ni
+      // mostrarse hasta que se publique.
+      const defsVisibles = (defs ?? []).filter(
+        (d) => (d.exams as unknown as { status: string } | null)?.status !== 'oculto',
+      )
+      const idsDefs = defsVisibles.map((d) => d.id)
       const { data: scores } = idsDefs.length
         ? await supabase.from('manual_exam_scores').select('definition_id, student_id, score').in('definition_id', idsDefs)
         : { data: [] }
@@ -183,7 +190,7 @@ export default function VerCalificacionesCohorte() {
           })
           .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
       )
-      setEvaluaciones((defs ?? []).map((d) => ({
+      setEvaluaciones(defsVisibles.map((d) => ({
         id: d.id, titulo: d.title, kind: d.kind as Evaluacion['kind'], detalle: d.kind_detail, scaleMax: Number(d.scale_max),
         passingMin: Number(d.passing_min), pesoPct: Number(d.weight_pct),
         orden: d.sort_order === null || d.sort_order === undefined ? null : Number(d.sort_order),

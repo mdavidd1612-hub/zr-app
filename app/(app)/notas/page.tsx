@@ -84,7 +84,7 @@ export default function Notas() {
         supabase.from('modules').select('id, name, order_index').in('id', ids),
         supabase
           .from('manual_exam_definitions')
-          .select('id, module_id, title, kind, kind_detail, exam_date, scale_max, passing_min, weight_pct')
+          .select('id, module_id, title, kind, kind_detail, exam_date, scale_max, passing_min, weight_pct, exams:source_exam_id(status)')
           .in('module_id', ids)
           .order('exam_date'),
         supabase.from('manual_exam_scores').select('definition_id, score').eq('student_id', user.id),
@@ -107,7 +107,11 @@ export default function Notas() {
 
       const porDef = new Map((scores ?? []).map((x) => [x.definition_id, Number(x.score)]))
       const porModulo: Record<string, Detalle[]> = {}
+      // Bug real reportado en vivo (8-nov-2026): un examen todavía en
+      // borrador (status='oculto') ya aparecía en Notas -- un borrador no
+      // debería contar ni mostrarse hasta que se publique.
       for (const e of defs ?? []) {
+        if ((e.exams as unknown as { status: string } | null)?.status === 'oculto') continue
         ;(porModulo[e.module_id] ??= []).push({
           id: e.id,
           titulo: e.title,

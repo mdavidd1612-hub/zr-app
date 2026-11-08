@@ -717,6 +717,10 @@ Dos bugs reales reportados juntos. Solo código, sin migración, solo staging.
 - ✅ **Reportado al probar el fix de arriba: un examen en borrador ya aparecía como columna en Notas**, aunque nadie lo vio ni lo presentó. Las 3 pantallas que leen `manual_exam_definitions` para mostrar columnas (`/notas-academicas/[cohortId]` dirección, `/notas/[cohortId]` profesor, `/notas` estudiante) ahora traen también el `status` del examen de origen (`exams:source_exam_id(status)`) y descartan las definiciones cuyo examen sigue `oculto`. `RegistrarEvaluacion.tsx` (la pantalla de gestión/registro manual, no la de notas) no se tocó a propósito -- no es donde se reportó el bug.
 - **Limpieza de datos**: se encontró y borró a mano una fila huérfana real en `manual_exam_definitions`/`manual_exam_scores` ("PARCIAL INTRODUCTORIO", 25%, nota 13/20) -- quedó de una eliminación hecha ANTES de que el fix de borrado de arriba estuviera desplegado. Confirmado: `exams` ya no tenía esa fila, pero Notas sí.
 
+### 8.22 El profesor no veía si su material fue aprobado/rechazado, ni por qué (8-nov-2026)
+
+Reportado explícito: "al profesor no se le muestra nada, ni un mensaje, cuando dirección académica lo aprueba o lo rechaza". El dato ya existía (`content_items.approval_status`/`review_message`, de Fase 0) -- faltaba la UI. Se agregó una etiqueta junto a cada material en `unidades-docente/[unitId]` (modo edición, misma fila que "Quitar"/"Obligatorio"): **Aprobado** (verde), **En espera de aprobación** (gris), o **Rechazado -- toca para ver por qué** (rojo, tocable -- despliega `review_message` debajo de la tarjeta). Solo staging, sin migración.
+
 ---
 
 # PARTE IV — FLUJOGRAMAS POR ROL
@@ -1673,6 +1677,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-08 | **Chequeo masivo de `zr-staging`** (pedido explícito, antes de la reunión del lunes 9-nov con el profesor de inglés): 4 cuentas QA, responsive en 320/768/1440px con chequeo automatizado de desborde horizontal, funcional en estudiante/profesor/dirección/super_admin. Sin hallazgos nuevos más allá de los 3 ya corregidos esta misma noche (zoom, etiqueta Obligatorio, los 2 `<select>`). Contraseñas QA repuestas a aleatorias desconocidas al terminar. Ver §8.19. | `docs/reportes/chequeo_masivo_2026-11-08.md`, `docs/reportes/cambios_2026-11-06_a_2026-11-08.md` |
 | 2026-11-08 | **Subir un video grande fallaba** ("The object exceeded the maximum allowed size") -- el bucket `contenido` no tenía `file_size_limit` propio. Migración 204: subido a 500MB. El video no se comprime en el navegador (no es viable rápido); el límite de bucket era la parte real que bloqueaba. Ver §8.20. | — |
 | 2026-11-08 | **Guardar examen como borrador bloqueado por el tope de 100%** -- corregido guardando `weight:0` mientras sea borrador. **Borrar un examen no lo quitaba de Notas si ya tenía nota** -- corregido en `delete-exams`, ahora borra también `manual_exam_scores`/`manual_exam_definitions`. **Un borrador seguía apareciendo como columna en Notas** -- corregido en las 3 pantallas de Notas, filtrando por el estado real del examen de origen. Limpiada a mano una fila huérfana real que quedó de antes del fix de borrado. Ver §8.21. | — |
+| 2026-11-08 | **El profesor no veía si administración aprobó/rechazó su material, ni por qué** -- agregada etiqueta de estado (Aprobado/En espera/Rechazado, tocable para ver el motivo) junto a cada material en `unidades-docente/[unitId]`. Ver §8.22. | — |
 
 ---
 

@@ -65,6 +65,12 @@ interface Item {
   esCertificacion: boolean
   checkQuizId: string | null
   checkQuizTitulo: string | null
+  // Pedido explícito (8-nov-2026): el profesor no tenía ninguna forma de
+  // ver si administración ya aprobó/rechazó su material, ni por qué --
+  // solo para type==='material'; texto/enlace se publican solos (sin
+  // approval_status real que mostrar).
+  approvalStatus: string | null
+  reviewMessage: string | null
 }
 
 interface Opcion { id: string; title: string }
@@ -124,6 +130,10 @@ export default function UnidadDocenteDetalle() {
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Pedido explícito (8-nov-2026): al profesor no le llegaba ningún aviso
+  // (ni dónde ir a ver) cuando administración aprobaba o rechazaba su
+  // material -- toca la etiqueta de estado para ver el motivo si lo rechazaron.
+  const [verMotivoId, setVerMotivoId] = useState<string | null>(null)
 
   // Tarea nueva (sin pantalla propia todavía -- se crea aquí mismo).
   const [tareaTitulo, setTareaTitulo] = useState('')
@@ -184,7 +194,7 @@ export default function UnidadDocenteDetalle() {
 
     const { data: filas } = await supabase
       .from('unit_items')
-      .select('id, type, required, order_index, assignment_id, content_item_id, exam_id, content_items(title, type, description, check_quiz_id, check_quiz:exams!content_items_check_quiz_id_fkey(title)), exams(title, kind), assignments(title)')
+      .select('id, type, required, order_index, assignment_id, content_item_id, exam_id, content_items(title, type, description, check_quiz_id, check_quiz:exams!content_items_check_quiz_id_fkey(title), approval_status, review_message), exams(title, kind), assignments(title)')
       .eq('unit_id', unitId)
       .order('order_index', { ascending: true })
 
@@ -193,6 +203,7 @@ export default function UnidadDocenteDetalle() {
         const ci = f.content_items as unknown as {
           title: string; type: string; description: string | null
           check_quiz_id: string | null; check_quiz: { title: string } | null
+          approval_status: string | null; review_message: string | null
         } | null
         const ex = f.exams as unknown as { title: string; kind: string } | null
         const ta = f.assignments as unknown as { title: string } | null
@@ -209,6 +220,8 @@ export default function UnidadDocenteDetalle() {
           esCertificacion: f.type === 'quiz' && ex?.kind === 'certificacion',
           checkQuizId: ci?.check_quiz_id ?? null,
           checkQuizTitulo: ci?.check_quiz?.title ?? null,
+          approvalStatus: ci?.approval_status ?? null,
+          reviewMessage: ci?.review_message ?? null,
         }
       }),
     )
@@ -979,7 +992,37 @@ export default function UnidadDocenteDetalle() {
                       </span>
                     </button>
                   )}
+                  {/* Pedido explícito (8-nov-2026): el profesor no tenía
+                      ninguna forma de ver si administración ya aprobó/
+                      rechazó su material, ni por qué. */}
+                  {item.type === 'material' && item.approvalStatus && (
+                    <button
+                      type="button"
+                      onClick={() => item.approvalStatus === 'rechazado' && setVerMotivoId(verMotivoId === item.id ? null : item.id)}
+                    >
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${
+                          item.approvalStatus === 'aprobado'
+                            ? 'border-zr-success/40 bg-zr-success/15 text-zr-success'
+                            : item.approvalStatus === 'rechazado'
+                              ? 'border-zr-error/40 bg-zr-error/15 text-zr-error'
+                              : 'border-zr-border bg-zr-surface text-zr-text-muted'
+                        }`}
+                      >
+                        {item.approvalStatus === 'aprobado'
+                          ? 'Aprobado'
+                          : item.approvalStatus === 'rechazado'
+                            ? 'Rechazado -- toca para ver por qué'
+                            : 'En espera de aprobación'}
+                      </span>
+                    </button>
+                  )}
                 </div>
+                {item.type === 'material' && item.approvalStatus === 'rechazado' && verMotivoId === item.id && (
+                  <p className="rounded-lg border border-zr-error/30 bg-zr-error/10 p-3 text-sm text-zr-text">
+                    {item.reviewMessage?.trim() || 'Administración lo rechazó sin dejar un motivo escrito.'}
+                  </p>
+                )}
 
                 {/* Mini-chequeo (migración 177, spec §6.3): solo video/audio --
                     al terminarlo, el estudiante ve un examen cortico ya

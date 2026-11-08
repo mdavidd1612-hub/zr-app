@@ -703,6 +703,10 @@ Pedido explícito del coordinador: después de las correcciones de responsive/zo
 
 **Documentos generados**: `docs/reportes/chequeo_masivo_2026-11-08.md` (este chequeo, detallado) y `docs/reportes/cambios_2026-11-06_a_2026-11-08.md` (lista completa de todo lo hecho desde el viernes, para pasarle a Pedro).
 
+### 8.20 Bug real: subir un video grande fallaba con "The object exceeded the maximum allowed size" (8-nov-2026)
+
+Reportado con captura: un video de ~150MB no subía. Causa: el bucket `contenido` no tenía `file_size_limit` propio, así que usaba el límite global del proyecto (más bajo que un video de clase típico) -- `comprimirSiPesa` (`lib/comprimir.ts`) solo sabe comprimir imagen/PDF/Office, nunca tocó video (no hay forma liviana de transcodificar video en el navegador), así que un video pesado siempre se sube tal cual y topaba con ese límite. **Migración 204**: `file_size_limit` del bucket `contenido` subido a 500MB -- suficiente para un video de clase típico, sin intentar comprimirlo. Solo en staging.
+
 ---
 
 # PARTE IV — FLUJOGRAMAS POR ROL
@@ -1657,6 +1661,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-08 | **El fix de `touch-action` del pellizco NO bastó (confirmado en vivo por el coordinador) -- cambio de estrategia: zoom NATIVO del navegador, solo en las 3 rutas del visor de material** (un `layout.tsx` propio por ruta con su propio `export const viewport`, reemplazando al de la raíz solo ahí), en vez de seguir afinando el gesto hecho a mano (que se retiró). Verificado con el `<meta viewport>` real en cada ruta. De paso, la etiqueta "Obligatorio (toca para quitar)" se superponía con "Quitar" (`Etiqueta` con `whitespace-nowrap`) -- corregido y, en una segunda vuelta pedida por el coordinador, reducido a una etiqueta chiquita apilada debajo de "Quitar" en vez de una fila ancha. Ver §8.18. | — |
 | 2026-11-08 | **Rediseño completo de la tarjeta de cada ítem de unidad** (3ª vuelta sobre el mismo punto: icono+asa arriba, título a todo el ancho en su propia fila, botones "Quitar"/"Obligatorio-Opcional" (con el texto completo de vuelta) al final; flechitas de subir/bajar eliminadas -- `moverItem()` y su ícono, código muerto, se borraron). **Bug real encontrado con un chequeo automatizado de desborde horizontal a 320px** (ancho de un iPhone viejo): dos `<select>` en fila `flex` sin `min-w-0` desbordaban la pantalla -- un `<select>` nativo no se encoge por su opción más larga sin esa clase, a diferencia de un `<div>`. Corregidos los 2 encontrados; revisados los otros 13 `<select>` de la app, ninguno más en riesgo. Ver §8.18. | — |
 | 2026-11-08 | **Chequeo masivo de `zr-staging`** (pedido explícito, antes de la reunión del lunes 9-nov con el profesor de inglés): 4 cuentas QA, responsive en 320/768/1440px con chequeo automatizado de desborde horizontal, funcional en estudiante/profesor/dirección/super_admin. Sin hallazgos nuevos más allá de los 3 ya corregidos esta misma noche (zoom, etiqueta Obligatorio, los 2 `<select>`). Contraseñas QA repuestas a aleatorias desconocidas al terminar. Ver §8.19. | `docs/reportes/chequeo_masivo_2026-11-08.md`, `docs/reportes/cambios_2026-11-06_a_2026-11-08.md` |
+| 2026-11-08 | **Subir un video grande fallaba** ("The object exceeded the maximum allowed size") -- el bucket `contenido` no tenía `file_size_limit` propio. Migración 204: subido a 500MB. El video no se comprime en el navegador (no es viable rápido); el límite de bucket era la parte real que bloqueaba. Ver §8.20. | — |
 
 ---
 

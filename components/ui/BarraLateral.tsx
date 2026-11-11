@@ -72,7 +72,7 @@ export function BarraLateral({ items, alTocarBloqueado }: { items: ItemBarra[]; 
       }`}
     >
       <div className={`flex items-center pb-4 ${colapsada ? 'justify-center' : 'justify-between px-3'}`}>
-        {!colapsada && <p className="zr-display text-xl text-zr-text">ZR App</p>}
+        {!colapsada && <p className="zr-display text-xl text-zr-text">ZR App V 1.48</p>}
         <button
           onClick={alternar}
           title={colapsada ? 'Expandir menú' : 'Recoger menú'}

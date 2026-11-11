@@ -7,8 +7,9 @@ import { Seccion, Regla } from '@/components/ui/Editorial'
 import { CASOS, diaSemanaISO, lunesDeLaSemana, fechaISO } from '@/lib/casos-fase0'
 import { leerSimulacionSabado } from '@/lib/demo-sabado'
 import { CASOS_HABILITADO } from '@/lib/flags'
-import { IconoCarnet, IconoCheck, IconoTaza, IconoCalendario, IconoDocumento } from '@/components/ui/Iconos'
+import { IconoCarnet, IconoCheck, IconoTaza, IconoCalendario, IconoDocumento, IconoElectude } from '@/components/ui/Iconos'
 import { esAdmin } from '@/lib/auth-helpers'
+import { ElectudeSimulador } from '@/\(app\)/electude'
 import { leerCohorteVistaRecorridoCookie, leerModuloVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import type { UserRole } from '@/lib/types'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
@@ -590,6 +591,11 @@ export default function Inicio() {
           </p>
         </div>
       )}
+      <Seccion title="Simulador Electude">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+          <ElectudeSimulador />
+        </div>
+      </Seccion>
     </div>
   )
 }

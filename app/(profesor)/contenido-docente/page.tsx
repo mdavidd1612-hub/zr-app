@@ -14,7 +14,7 @@ import {
   ACCEPT_MATERIAL, MENSAJE_FORMATOS, nombreDescarga, rutaDeStorage, tipoDeArchivo, embedDeEnlace,
 } from '@/lib/material'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
-import { ContextoDocente, AvisoModuloBloqueado, moduloVigente, type ContextoSel } from '@/components/ui/ContextoDocente'
+import { ContextoDocente, type ContextoSel } from '@/components/ui/ContextoDocente'
 import { IconoCerrar, IconoDescargar, IconoChevron, IconoDocumento } from '@/components/ui/Iconos'
 
 /**
@@ -364,7 +364,7 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
         sobretitulo={`${ctx.cohorteNombre}${ctx.sede ? ` · ${ctx.sede}` : ''} · Módulo ${ctx.moduloOrden}`}
         titulo="Material de estudio"
         descripcion={`${materiales.length} archivo${materiales.length === 1 ? '' : 's'} subido${materiales.length === 1 ? '' : 's'}`}
-        accion={!moduloVigente(ctx.estado) ? undefined : (
+        accion={(
           <button
             onClick={() => setFormAbierto((f) => !f)}
             className="inline-flex items-center gap-2 rounded-full bg-zr-blue px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-zr-blue-deep"
@@ -374,8 +374,6 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
           </button>
         )}
       />
-
-      <AvisoModuloBloqueado estado={ctx.estado} />
 
       {/* Aula Virtual: organizar este material (y exámenes y tareas) en
           unidades. Enlace desde aquí en vez de un botón nuevo en la barra

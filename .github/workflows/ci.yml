@@ -14,20 +14,6 @@ jobs:
   ci:
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: supabase/postgres:15.1.0.147
-        env:
-          POSTGRES_HOST_AUTH_METHOD: trust
-          POSTGRES_INITDB_ARGS: -c search_path=public
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
     steps:
       - uses: actions/checkout@v4
 
@@ -45,9 +31,6 @@ jobs:
           npm install -g supabase@latest
           supabase start --no-seed
           supabase db reset --no-seed
-
-      - name: Apply migrations
-        run: supabase db reset --no-seed
 
       - name: Type check
         run: npm run typecheck

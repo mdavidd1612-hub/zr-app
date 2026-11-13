@@ -736,7 +736,7 @@ Informe completo en `docs/reportes/revision_masiva_2026-11-13.md`. Resumen:
 ### 8.24 Módulos nuevos y profesor en módulos futuros (13-nov-2026)
 
 - ✅ **Dirección Académica y super_admin pueden agregar módulos nuevos a un programa** (`/modulos`, sección "Agregar un módulo nuevo"): eligen un programa (o todos), nombre, resumen corto y duración; se agrega al final del orden de ese programa. La RLS (`is_academico()`, migr. 066) ya lo permitía; solo faltaba la pantalla.
-- 🟡 **El profesor puede preparar material y exámenes de módulos que aún no empiezan** (decisión de Pedro): migración 206 (`profesor_dicta`/`profesor_ve_material` sin la condición de estado) y se quitó el bloqueo en `contenido-docente`. **La 206 está escrita pero NO aplicada a `zr-staging`** (el conector de Supabase falló); aplicarla y probar una subida como profesor en un módulo futuro. Notas/Feedback/Temario siguen bloqueados para módulos futuros.
+- 🟡 **El profesor puede preparar material y exámenes de módulos que aún no empiezan** (decisión de Pedro): migración 206 (`profesor_dicta`/`profesor_ve_material` sin la condición de estado) y se quitó el bloqueo en `contenido-docente`. La 206 la aplicó el coordinador a mano en el editor SQL de `zr-staging` (13-nov-2026; el conector y el CLI no podían). Falta probar una subida como profesor en un módulo futuro. Notas/Feedback/Temario siguen bloqueados para módulos futuros.
 
 ---
 
@@ -1696,7 +1696,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-08 | **Guardar examen como borrador bloqueado por el tope de 100%** -- corregido guardando `weight:0` mientras sea borrador. **Borrar un examen no lo quitaba de Notas si ya tenía nota** -- corregido en `delete-exams`, ahora borra también `manual_exam_scores`/`manual_exam_definitions`. **Un borrador seguía apareciendo como columna en Notas** -- corregido en las 3 pantallas de Notas, filtrando por el estado real del examen de origen. Limpiada a mano una fila huérfana real que quedó de antes del fix de borrado. Ver §8.21. | — |
 | 2026-11-08 | **El profesor no veía si administración aprobó/rechazó su material, ni por qué** -- agregada etiqueta de estado (Aprobado/En espera/Rechazado, tocable para ver el motivo) junto a cada material en `unidades-docente/[unitId]` (editar y lectura) + notificación push real al aprobar/rechazar (migración 205). Ver §8.22. | — |
 | 2026-11-13 | **Revisión masiva + reunión del 9-nov.** Causa de "solo funciona en PTMA-II módulo 2": subida desde unidad fallaba en silencio (orden por conteo + cohorte/módulo del selector) y regla de producto del profesor (migr. 158). Corregidos `/examenes-academicos`, `/crear-examen`, `delete-exams`, tope de nota de tarea, aviso de cohorte sin módulo; Google Drive para video/audio; estudiante de prueba V-90000004; `develop` reparado (Electude) y CI en verde (build). Ver §8.23. | `docs/reportes/revision_masiva_2026-11-13.md` |
-| 2026-11-13 | Agregar módulos nuevos desde `/modulos` (dirección/super_admin) y profesor puede preparar módulos futuros (migr. 206 pendiente de aplicar). Ver §8.24. | `supabase/migrations/206_profesor_prepara_modulos_futuros.sql` |
+| 2026-11-13 | Agregar módulos nuevos desde `/modulos` (dirección/super_admin) y profesor puede preparar módulos futuros (migr. 206 aplicada a mano en staging). Ver §8.24. | `supabase/migrations/206_profesor_prepara_modulos_futuros.sql` |
 
 ---
 

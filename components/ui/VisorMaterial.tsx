@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { TipoMaterial } from '@/lib/material'
-import { urlDelVisor, visorDe, idDeYoutube, urlEmbedYoutube } from '@/lib/material'
+import { urlDelVisor, visorDe, embedDeEnlace } from '@/lib/material'
 import { IconoDocumento } from '@/components/ui/Iconos'
 
 /**
@@ -282,20 +282,20 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
   // Único caso legítimo de iframe aquí: a diferencia del visor de Office que
   // sí dio problemas en Android, el embed de YouTube está hecho para esto.
   if (tipo === 'enlace') {
-    const videoId = externalUrl ? idDeYoutube(externalUrl) : null
-    if (!videoId) {
+    const embed = externalUrl ? embedDeEnlace(externalUrl) : null
+    if (!embed) {
       return (
         <div className="zr-card flex flex-col items-center gap-3 p-8 text-center">
           <IconoDocumento size={28} className="text-zr-text-muted" />
-          <p className="text-sm text-zr-text-muted">El link de YouTube no es válido.</p>
+          <p className="text-sm text-zr-text-muted">El link del video no es válido (debe ser de YouTube o Google Drive).</p>
         </div>
       )
     }
     return (
       <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
         <iframe
-          src={urlEmbedYoutube(videoId)}
-          title="Video de YouTube"
+          src={embed.src}
+          title={embed.proveedor === 'drive' ? 'Video de Google Drive' : 'Video de YouTube'}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
           className="h-full w-full"

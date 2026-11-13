@@ -96,7 +96,7 @@ const PROFESOR: PasoTour[] = [
     texto: 'Aquí armas el orden de la semana: 1) "+ Agregar unidad" y ponle nombre. 2) Entra a la unidad y agrégale material o examen nuevo (se crean ahí mismo, dentro de la unidad) o una tarea. 3) Ponle fecha de apertura — sin fecha queda en borrador, nadie la ve.' },
   { id: 'profesor-aula-crear', ruta: '/unidades-docente', targetId: null,
     titulo: 'Crear examen o material nuevo',
-    texto: 'Dentro de una unidad: "+ Crear examen nuevo" o "+ Subir material nuevo" lo arman ahí mismo y se enganchan solos a esa unidad. Para un video también puedes pegar un link de YouTube, en vez de subir el archivo.' },
+    texto: 'Dentro de una unidad: "+ Crear examen nuevo" o "+ Subir material nuevo" lo arman ahí mismo y se enganchan solos a esa unidad. Para un video o audio también puedes pegar un link de YouTube o de Google Drive (compartido con "cualquier persona con el enlace"), en vez de subir el archivo.' },
   { id: 'profesor-aula-importar-preguntas', ruta: '/crear-examen/nuevo', targetId: null,
     titulo: 'Importar preguntas',
     texto: 'En vez de agregarlas una por una, puedes importarlas desde un Word, Excel o CSV -- siempre te deja revisarlas antes de agregarlas de verdad al examen.' },

@@ -51,7 +51,7 @@ export function tipoDeArchivo(archivo: File): TipoMaterial | null {
 }
 
 export const ETIQUETA_TIPO: Record<string, string> = {
-  pdf: 'PDF', presentacion: 'PPT', documento: 'DOC', imagen: 'IMG', video: 'VIDEO', audio: 'AUDIO', enlace: 'YOUTUBE',
+  pdf: 'PDF', presentacion: 'PPT', documento: 'DOC', imagen: 'IMG', video: 'VIDEO', audio: 'AUDIO', enlace: 'VIDEO',
 }
 
 /**
@@ -80,7 +80,7 @@ export const EYEBROW_TIPO: Record<string, string> = {
   imagen: 'Imagen',
   video: 'Video',
   audio: 'Audio',
-  enlace: 'Video (YouTube)',
+  enlace: 'Video (enlace)',
 }
 
 export function eyebrowMaterial(tipo: string): string {
@@ -104,6 +104,32 @@ export function idDeYoutube(url: string): string | null {
 
 export function urlEmbedYoutube(videoId: string): string {
   return `https://www.youtube-nocookie.com/embed/${videoId}`
+}
+
+/**
+ * Google Drive (acuerdo de la reunión del 9-nov-2026): los videos y audios pesan
+ * demasiado para subirlos directo, así que además de YouTube se acepta un link de
+ * Drive. El archivo debe estar compartido como "cualquier persona con el enlace";
+ * se reproduce con el visor de Drive (/preview) dentro de la app.
+ */
+export function idDeDrive(url: string): string | null {
+  const m =
+    url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]{10,})/) ??
+    url.match(/drive\.google\.com\/(?:open|uc)\?(?:[^#]*&)?id=([a-zA-Z0-9_-]{10,})/)
+  return m ? m[1] : null
+}
+
+export function urlEmbedDrive(fileId: string): string {
+  return `https://drive.google.com/file/d/${fileId}/preview`
+}
+
+/** Link de video/audio que el profesor pega: YouTube o Google Drive. */
+export function embedDeEnlace(url: string): { proveedor: 'youtube' | 'drive'; src: string } | null {
+  const yt = idDeYoutube(url)
+  if (yt) return { proveedor: 'youtube', src: urlEmbedYoutube(yt) }
+  const dr = idDeDrive(url)
+  if (dr) return { proveedor: 'drive', src: urlEmbedDrive(dr) }
+  return null
 }
 
 /** Ruta en Storage: el nombre se limpia SOLO para la ruta; el original va en la fila. */

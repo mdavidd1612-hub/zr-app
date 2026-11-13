@@ -20,12 +20,15 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'ids_required' }, { status: 400 })
   }
 
-  // Verify all exams belong to this professor before using admin client
-  const { data: propios, error: checkErr } = await supabase
-    .from('exams')
-    .select('id')
-    .eq('teacher_id', user.id)
-    .in('id', ids)
+  // El rol se lee en el servidor, nunca viene del cliente. Dirección Académica y
+  // super_admin pueden borrar cualquier examen; el profesor, solo los suyos.
+  const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+  const esAcademico = perfil?.role === 'direccion_academica' || perfil?.role === 'super_admin'
+
+  // Verify all exams are the caller's (or the caller is academic) before using admin client
+  let consulta = supabase.from('exams').select('id').in('id', ids)
+  if (!esAcademico) consulta = consulta.eq('teacher_id', user.id)
+  const { data: propios, error: checkErr } = await consulta
 
   if (checkErr) return NextResponse.json({ error: checkErr.message }, { status: 500 })
   if ((propios ?? []).length !== ids.length) {

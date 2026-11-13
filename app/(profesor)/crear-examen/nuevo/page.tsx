@@ -401,7 +401,7 @@ function NuevoExamenInterno() {
               algo que decidir aquí. Solo se informan en texto. */}
           {unitId ? (
             <p className="text-xs text-zr-text-muted">
-              Módulo: <span className="font-semibold text-zr-text">{tituloUnidad || '…'}</span>
+              Unidad: <span className="font-semibold text-zr-text">{tituloUnidad || '…'}</span>
             </p>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">

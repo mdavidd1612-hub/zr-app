@@ -61,11 +61,16 @@ export default function ExamenesProfesor() {
         return
       }
 
-      const { data } = await supabase
+      // Dirección Académica y super_admin ven los de todos (la RLS ya se lo
+      // permite); el profesor, solo los suyos.
+      const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      const veTodos = perfil?.role === 'direccion_academica' || perfil?.role === 'super_admin' || perfil?.role === 'admin'
+      let consulta = supabase
         .from('exams')
         .select('id, title, status, max_score, module_id, modules(name), exam_questions(points)')
-        .eq('teacher_id', user.id)
         .order('created_at', { ascending: false })
+      if (!veTodos) consulta = consulta.eq('teacher_id', user.id)
+      const { data } = await consulta
 
       if (!vigente) return
 

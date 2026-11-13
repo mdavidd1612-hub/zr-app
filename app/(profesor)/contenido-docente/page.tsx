@@ -11,7 +11,7 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 import { prepararArchivo, subirAlBucket } from '@/lib/subida'
 import { EtiquetaTipoArchivo } from '@/components/ui/EtiquetaTipoArchivo'
 import {
-  ACCEPT_MATERIAL, MENSAJE_FORMATOS, nombreDescarga, rutaDeStorage, tipoDeArchivo, idDeYoutube,
+  ACCEPT_MATERIAL, MENSAJE_FORMATOS, nombreDescarga, rutaDeStorage, tipoDeArchivo, embedDeEnlace,
 } from '@/lib/material'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { ContextoDocente, AvisoModuloBloqueado, moduloVigente, type ContextoSel } from '@/components/ui/ContextoDocente'
@@ -264,9 +264,9 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
 
   async function subirYoutube() {
     if (!titulo.trim() || !moduloId) return
-    const videoId = idDeYoutube(linkYoutube.trim())
-    if (!videoId) {
-      setError('No reconozco ese link de YouTube. Copia la URL completa del video.')
+    const enlaceValido = embedDeEnlace(linkYoutube.trim())
+    if (!enlaceValido) {
+      setError('No reconozco ese link. Pega la URL completa de un video de YouTube o de Google Drive.')
       return
     }
     setSubiendoYoutube(true)
@@ -442,7 +442,7 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
               onClick={() => { setModoYoutube(true); setError(null) }}
               className={`flex-1 rounded-lg py-2 text-sm font-bold ${modoYoutube ? 'bg-zr-blue text-white' : 'text-zr-text-muted'}`}
             >
-              Video de YouTube
+              Video por enlace
             </button>
           </div>
 
@@ -452,10 +452,12 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
               <input
                 value={linkYoutube}
                 onChange={(e) => setLinkYoutube(e.target.value)}
-                placeholder="https://youtube.com/watch?v=..."
+                placeholder="https://youtube.com/watch?v=... o https://drive.google.com/file/d/..."
                 className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
               />
-              <p className="mt-1.5 text-xs text-zr-text-muted">Puede ser un video &quot;no listado&quot; -- solo quien tiene el link lo ve.</p>
+              <p className="mt-1.5 text-xs text-zr-text-muted">
+                YouTube (puede ser &quot;no listado&quot;) o Google Drive. En Drive, compártelo como &quot;cualquier persona con el enlace&quot; para que tus estudiantes puedan verlo. También sirve para audios.
+              </p>
             </div>
           ) : (
             <div>
@@ -503,7 +505,7 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
 
           {modoYoutube ? (
             <p className="rounded-lg border border-zr-blue/25 bg-zr-blue/10 p-4 text-sm leading-relaxed text-zr-text">
-              Un video de YouTube se publica directo -- no hay archivo que administración tenga que revisar.
+              Un video por enlace se publica directo -- no hay archivo que administración tenga que revisar.
             </p>
           ) : (
             <p className="rounded-lg border border-zr-blue/25 bg-zr-blue/10 p-4 text-sm leading-relaxed text-zr-text">

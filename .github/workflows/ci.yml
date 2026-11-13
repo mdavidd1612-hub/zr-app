@@ -29,8 +29,8 @@ jobs:
       - name: Setup Supabase
         run: |
           npm install -g supabase@latest
-          supabase start --no-seed
-          supabase db reset --no-seed
+          supabase start
+          supabase db reset
 
       - name: Type check
         run: npm run typecheck

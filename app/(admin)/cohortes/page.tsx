@@ -404,6 +404,11 @@ export default function Cohortes() {
                       <p className="mt-1 text-sm font-medium text-zr-text">{c.estudiantes}</p>
                     </div>
                   </div>
+                  {c.estado === 'activa' && !c.moduloId && (
+                    <p className="mt-4 rounded-lg border border-zr-warning/40 bg-zr-warning/10 px-3 py-2 text-xs font-semibold text-zr-text">
+                      Esta cohorte está activa pero no tiene módulo actual: no habrá clase de hoy ni aparecerá en el QR hasta que le inicies un módulo.
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-3 border-t border-zr-border bg-zr-bg/40 p-4">

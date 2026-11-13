@@ -43,6 +43,7 @@ export default function CalificarTarea() {
   const [cargando, setCargando] = useState(true)
   const [notas, setNotas] = useState<Record<string, string>>({})
   const [guardandoId, setGuardandoId] = useState<string | null>(null)
+  const [errorNota, setErrorNota] = useState<string | null>(null)
   const [descargandoZip, setDescargandoZip] = useState(false)
   // Pedido explícito del coordinador (reunión 7-nov-2026): ver la entrega
   // dentro de la app (como el visor de material), con la calificación al
@@ -115,10 +116,18 @@ export default function CalificarTarea() {
   async function calificar(submissionId: string) {
     const valor = notas[submissionId]
     if (valor === undefined || valor === '') return
+    const nota = Number(valor)
+    // Las tareas se califican sobre 20 (misma escala con la que entran a Notas).
+    if (!Number.isFinite(nota) || nota < 0 || nota > 20) {
+      setErrorNota('La nota debe estar entre 0 y 20.')
+      return
+    }
+    setErrorNota(null)
     setGuardandoId(submissionId)
     const supabase = createClient()
-    await supabase.from('submissions').update({ grade: Number(valor) }).eq('id', submissionId)
+    const { error } = await supabase.from('submissions').update({ grade: nota }).eq('id', submissionId)
     setGuardandoId(null)
+    if (error) { setErrorNota(`No se pudo guardar la nota: ${error.message}`); return }
     await cargar()
   }
 
@@ -199,6 +208,7 @@ export default function CalificarTarea() {
                     <input
                       type="number"
                       min={0}
+                      max={20}
                       step="0.01"
                       placeholder={f.grade !== null ? Number(f.grade).toFixed(2) : 'Nota'}
                       value={notas[f.submission_id] ?? ''}
@@ -217,6 +227,7 @@ export default function CalificarTarea() {
               </div>
             )
           })}
+          {errorNota && <p className="text-sm font-semibold text-zr-error">{errorNota}</p>}
         </div>
       </Seccion>
     </div>

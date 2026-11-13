@@ -4,6 +4,8 @@ import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { siguienteOrdenUnidad } from '@/lib/unidad-orden'
+import { cohorteParaModulo } from '@/lib/cohorte-unidad'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { prepararArchivo, subirAlBucket } from '@/lib/subida'
@@ -126,6 +128,29 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
     return () => { vigente = false }
   }, [router, version, ctx.cohortId, ctx.moduleId])
 
+  // Desde una unidad manda el módulo de la unidad (no el del selector, que puede
+  // ser otro) y la cohorte se saca de las asignaciones reales de quien sube.
+  async function destinoDeSubida(supabase: ReturnType<typeof createClient>): Promise<[string, string] | null> {
+    if (!unitId) {
+      const [c, m] = moduloId.split('|')
+      return [c, m]
+    }
+    const { data: unidad } = await supabase.from('units').select('module_id').eq('id', unitId).maybeSingle()
+    if (!unidad) { setError('No se encontró la unidad.'); return null }
+    const cohorte = await cohorteParaModulo(supabase, unidad.module_id)
+    if (!cohorte) {
+      setError('No tienes este módulo asignado en ninguna cohorte, así que no puedes subir material aquí. Avisa a Dirección Académica.')
+      return null
+    }
+    return [cohorte, unidad.module_id]
+  }
+
+  function mensajeDeError(mensaje: string): string {
+    return /row-level security/i.test(mensaje)
+      ? 'No tienes permiso para subir material en este módulo todavía: se habilita solo cuando el módulo empieza según el calendario de tu cohorte, y debe estar asignado a ti.'
+      : mensaje
+  }
+
   async function subir() {
     if (!archivo || !titulo.trim() || !moduloId) return
     const tipo = tipoDeArchivo(archivo)
@@ -170,13 +195,15 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
       return
     }
 
-    const [cohorteSel, moduloSel] = moduloId.split('|')
+    const destino = await destinoDeSubida(supabase)
+    if (!destino) { setSubiendo(false); return }
+    const [cohorteSel, moduloSel] = destino
     const ruta = rutaDeStorage(moduloSel, aSubir.name)
 
     const { error: falloSubida } = await subirAlBucket(ruta, aSubir)
 
     if (falloSubida) {
-      setError(`No se pudo subir el archivo: ${falloSubida.message}`)
+      setError(`No se pudo subir el archivo: ${mensajeDeError(falloSubida.message)}`)
       setSubiendo(false)
       return
     }
@@ -202,7 +229,7 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
     if (falloRegistro || !nuevoItem) {
       // El archivo ya se subió; se limpia para no dejar huérfanos en el bucket.
       await supabase.storage.from('contenido').remove([ruta])
-      setError(falloRegistro?.message ?? 'No se pudo registrar el material.')
+      setError(falloRegistro ? mensajeDeError(falloRegistro.message) : 'No se pudo registrar el material.')
       setSubiendo(false)
       return
     }
@@ -211,14 +238,17 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
     // unidad (Aula Virtual) -- se engancha solo y se vuelve ahí, sin tener
     // que ir a buscarlo después en "Agregar material ya subido".
     if (unitId) {
-      const { count } = await supabase
-        .from('unit_items').select('id', { count: 'exact', head: true }).eq('unit_id', unitId)
-      await supabase.from('unit_items').insert({
+      const { error: falloEnlace } = await supabase.from('unit_items').insert({
         unit_id: unitId,
         type: 'material',
-        order_index: (count ?? 0) + 1,
+        order_index: await siguienteOrdenUnidad(supabase, unitId),
         content_item_id: nuevoItem.id,
       })
+      if (falloEnlace) {
+        setError(`El archivo se subió pero no se pudo agregar a la unidad: ${falloEnlace.message}`)
+        setSubiendo(false)
+        return
+      }
       router.push(`/unidades-docente/${unitId}`)
       return
     }
@@ -246,7 +276,9 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setSubiendoYoutube(false); return }
 
-    const [cohorteSel, moduloSel] = moduloId.split('|')
+    const destino = await destinoDeSubida(supabase)
+    if (!destino) { setSubiendoYoutube(false); return }
+    const [cohorteSel, moduloSel] = destino
 
     // Sin archivo que revisar (ningún riesgo de contenido subido): se publica
     // directo, igual que el bloque de texto (migración 187).
@@ -263,20 +295,23 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
     }).select('id').single()
 
     if (falloRegistro || !nuevoItem) {
-      setError(falloRegistro?.message ?? 'No se pudo registrar el video.')
+      setError(falloRegistro ? mensajeDeError(falloRegistro.message) : 'No se pudo registrar el video.')
       setSubiendoYoutube(false)
       return
     }
 
     if (unitId) {
-      const { count } = await supabase
-        .from('unit_items').select('id', { count: 'exact', head: true }).eq('unit_id', unitId)
-      await supabase.from('unit_items').insert({
+      const { error: falloEnlace } = await supabase.from('unit_items').insert({
         unit_id: unitId,
         type: 'material',
-        order_index: (count ?? 0) + 1,
+        order_index: await siguienteOrdenUnidad(supabase, unitId),
         content_item_id: nuevoItem.id,
       })
+      if (falloEnlace) {
+        setError(`El video se registró pero no se pudo agregar a la unidad: ${falloEnlace.message}`)
+        setSubiendoYoutube(false)
+        return
+      }
       router.push(`/unidades-docente/${unitId}`)
       return
     }

@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { siguienteOrdenUnidad } from '@/lib/unidad-orden'
+import { cohorteParaModulo } from '@/lib/cohorte-unidad'
 import { Seccion, Regla, Encabezado, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
@@ -188,9 +190,7 @@ export default function UnidadDocenteDetalle() {
     // El bloque de texto se guarda como content_items (RLS exige cohort_id +
     // module_id que el profesor realmente dicta -- mismo requisito que el
     // material subido por archivo, policy "profesor: escribir contenido").
-    const { data: asignaciones } = await supabase.rpc('mis_asignaciones_docente')
-    const asignacion = (asignaciones ?? []).find((a: { module_id: string }) => a.module_id === unidad.module_id)
-    setCohortId(asignacion?.cohort_id ?? null)
+    setCohortId(await cohorteParaModulo(supabase, unidad.module_id))
 
     const { data: filas } = await supabase
       .from('unit_items')
@@ -374,11 +374,10 @@ export default function UnidadDocenteDetalle() {
 
     setAgregando(true)
     const supabase = createClient()
-    const siguienteOrden = items.length > 0 ? items.length + 1 : 1
     const { error: err } = await supabase.from('unit_items').insert({
       unit_id: unitId,
       type: tipo,
-      order_index: siguienteOrden,
+      order_index: await siguienteOrdenUnidad(supabase, unitId),
       content_item_id: tipo === 'material' ? refId : null,
       exam_id: tipo === 'quiz' ? refId : null,
     })
@@ -421,10 +420,14 @@ export default function UnidadDocenteDetalle() {
       setCreandoTarea(false)
       return
     }
-    const siguienteOrden = items.length > 0 ? items.length + 1 : 1
-    await supabase.from('unit_items').insert({
-      unit_id: unitId, type: 'tarea', order_index: siguienteOrden, assignment_id: tarea.id,
+    const { error: falloEnlace } = await supabase.from('unit_items').insert({
+      unit_id: unitId, type: 'tarea', order_index: await siguienteOrdenUnidad(supabase, unitId), assignment_id: tarea.id,
     })
+    if (falloEnlace) {
+      setError(`La tarea se creó pero no se pudo agregar a la unidad: ${falloEnlace.message}`)
+      setCreandoTarea(false)
+      return
+    }
     setTareaTitulo('')
     setTareaFecha('')
     setTareaPeso('')
@@ -467,10 +470,14 @@ export default function UnidadDocenteDetalle() {
       setCreandoTexto(false)
       return
     }
-    const siguienteOrden = items.length > 0 ? items.length + 1 : 1
-    await supabase.from('unit_items').insert({
-      unit_id: unitId, type: 'material', order_index: siguienteOrden, content_item_id: contenido.id,
+    const { error: falloEnlace } = await supabase.from('unit_items').insert({
+      unit_id: unitId, type: 'material', order_index: await siguienteOrdenUnidad(supabase, unitId), content_item_id: contenido.id,
     })
+    if (falloEnlace) {
+      setError(`El bloque se creó pero no se pudo agregar a la unidad: ${falloEnlace.message}`)
+      setCreandoTexto(false)
+      return
+    }
     setTextoTitulo('')
     setTextoCuerpo('')
     setCreandoTexto(false)

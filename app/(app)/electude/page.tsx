@@ -1,14 +1,8 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { Boton } from '@/components/ui/Boton'
 import { Aviso } from '@/components/ui/Aviso'
-import { BarraLateral } from '@/components/ui/BarraLateral'
 
 export default function ElectudeSimulador() {
-  const router = useRouter()
 
   return (
     <div className="wrap">
@@ -18,11 +12,11 @@ export default function ElectudeSimulador() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
 
-        {/* Opción 1: Entrar al simulador -->
+        {/* Opción 1: Entrar al simulador */}
         <Aviso tipo="exito">
           <div className="flex items-start gap-3">
             <div className="h-12 w-12 rounded-lg bg-zr-blue flex items-center justify-center shrink-0">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="3" width="7" height="7"/>
                 <rect x="14" y="3" width="7" height="7"/>
                 <rect x="14" y="14" width="7" height="7"/>
@@ -40,11 +34,11 @@ export default function ElectudeSimulador() {
           </div>
         </Aviso>
 
-        {/* Opción 2: Guía rápida -->
+        {/* Opción 2: Guía rápida */}
         <Aviso tipo="advertencia">
           <div className="flex items-start gap-3">
             <div className="h-12 w-12 rounded-lg bg-zr-orange flex items-center justify-center shrink-0">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="10"/>
                 <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
                 <line x1="9" y1="9" x2="9.01" y2="9"/>
@@ -66,7 +60,7 @@ export default function ElectudeSimulador() {
         <Aviso tipo="error">
           <div className="flex items-start gap-3">
             <div className="h-12 w-12 rounded-lg bg-zr-error flex items-center justify-center shrink-0">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="10"/>
                 <line x1="15" y1="9" x2="9" y2="15"/>
                 <line x1="9" y1="15" x2="15" y2="9"/>

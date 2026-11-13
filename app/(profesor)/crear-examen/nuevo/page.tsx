@@ -4,6 +4,8 @@ import { Select } from '@/components/ui/Select'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { siguienteOrdenUnidad } from '@/lib/unidad-orden'
+import { cohorteParaModulo } from '@/lib/cohorte-unidad'
 import { QuestionEditor } from '@/components/QuestionEditor'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
@@ -140,6 +142,8 @@ function NuevoExamenInterno() {
         if (unidad) {
           setTituloUnidad(unidad.title)
           setModuloId(unidad.module_id)
+          const cohorteDeLaUnidad = await cohorteParaModulo(supabase, unidad.module_id)
+          if (cohorteDeLaUnidad) setCohorteId(cohorteDeLaUnidad)
         }
       }
     }
@@ -324,14 +328,17 @@ function NuevoExamenInterno() {
     // Viene de una unidad: se engancha solo (unit_items) y se vuelve ahí --
     // el profesor no tiene que ir a buscarlo a la lista para agregarlo.
     if (unitId) {
-      const { count } = await supabase
-        .from('unit_items').select('id', { count: 'exact', head: true }).eq('unit_id', unitId)
-      await supabase.from('unit_items').insert({
+      const { error: falloEnlace } = await supabase.from('unit_items').insert({
         unit_id: unitId,
         type: 'quiz',
-        order_index: (count ?? 0) + 1,
+        order_index: await siguienteOrdenUnidad(supabase, unitId),
         exam_id: examen.id,
       })
+      if (falloEnlace) {
+        setError(`El examen se creó pero no se pudo agregar a la unidad: ${falloEnlace.message}`)
+        setGuardando(false)
+        return
+      }
       setGuardando(false)
       setDestinoTrasConfirmar(`/unidades-docente/${unitId}`)
       setMostrarConfirmacion(true)

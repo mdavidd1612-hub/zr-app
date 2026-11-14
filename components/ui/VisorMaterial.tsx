@@ -146,6 +146,10 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map())
   const percentRef = useRef(0)
   const marcoEnlaceRef = useRef<HTMLDivElement>(null)
+  // Videos por enlace: por defecto el marco ocupa casi toda la pantalla (un video
+  // vertical del celular se extiende; uno horizontal queda centrado). Se puede
+  // pasar a marco horizontal 16:9.
+  const [marcoVertical, setMarcoVertical] = useState(true)
   const ultimaPercentGuardada = useRef(-1)
   const videoRef = useRef<HTMLVideoElement>(null)
   // Word (.docx) -- pedido explícito del coordinador (8-nov-2026): "todos los
@@ -357,7 +361,10 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
     }
     return (
       <div className="space-y-2">
-      <div ref={marcoEnlaceRef} className="aspect-video max-h-[80dvh] w-full overflow-hidden rounded-xl bg-black">
+      <div
+        ref={marcoEnlaceRef}
+        className={`w-full overflow-hidden rounded-xl bg-black ${marcoVertical ? 'h-[78dvh]' : 'aspect-video max-h-[80dvh]'}`}
+      >
         <iframe
           src={embed.src}
           title={embed.proveedor === 'drive' ? 'Video de Google Drive' : 'Video de YouTube'}
@@ -373,6 +380,12 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
           className="rounded-full border border-zr-border px-4 py-2 font-semibold text-zr-text"
         >
           Pantalla completa
+        </button>
+        <button
+          onClick={() => setMarcoVertical((v) => !v)}
+          className="rounded-full border border-zr-border px-4 py-2 font-semibold text-zr-text"
+        >
+          {marcoVertical ? 'Marco horizontal' : 'Marco vertical'}
         </button>
         {externalUrl && (
           <a href={externalUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-zr-blue">

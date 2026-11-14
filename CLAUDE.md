@@ -757,6 +757,14 @@ Salió de 4 audios transcritos en local (`faster-whisper`). Hecho:
 - ✅ **Descripción opcional** al subir material (se ve bajo el título).
 - Sin cambio a propósito: eliminar una unidad deja en Notas la evaluación ya calificada (§8.10).
 
+### 8.27 El estudiante ve los módulos que ya cursó + el actual (14-nov-2026)
+
+Bug visto con captura: un estudiante de PTMA-2026-II, con el módulo actual en Inglés Técnico (#14), veía todo el material de la unidad como "Todavía no disponible". Dos causas:
+1. `mis_modulos_cursados()` (migración 209) usaba solo el calendario cuando la cohorte lo tenía; el calendario de PTMA-II llega hasta el #12 aunque `current_module_id` = #14. Ahora se suman las dos reglas: módulos cuyo calendario ya empezó **y** todos los del programa hasta el módulo actual (inclusive). Los posteriores siguen ocultos.
+2. El material de la unidad estaba subido con la cohorte PTMA-III, y las unidades son del módulo (compartidas entre cohortes). Migración 208: el material enlazado a una unidad se ve aunque lo haya subido otra cohorte del mismo módulo; además `units`/`unit_items`/`assignments`/`exams` para el estudiante ahora usan `mis_modulos_cursados()` en vez de `my_module_id()` (un solo módulo).
+- ✅ `/unidades` del estudiante: selector de módulos (cursados + actual, marcado "(actual)"); al elegir uno salen sus unidades. Verificado en la base como estudiante de PTMA-II: 14 módulos, 8 ítems de la unidad 1, material visible. No verificado en pantalla.
+- Pendiente de fondo: `units` sigue sin `cohort_id` (§8.23). Los exámenes siguen atados a la cohorte (un estudiante no ve el examen de otra cohorte).
+
 ---
 
 # PARTE IV — FLUJOGRAMAS POR ROL
@@ -1718,6 +1726,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-13 | Agregar módulos nuevos desde `/modulos` (dirección/super_admin) y profesor puede preparar módulos futuros (migr. 206 aplicada a mano en staging). Ver §8.24. | `supabase/migrations/206_profesor_prepara_modulos_futuros.sql` |
 | 2026-11-14 | Reunión del 14-nov sobre Unidades (4 audios): botón flotante Guardar cambios, enlaces cualquiera + pantalla completa, video vertical, borrar desde Notas borra en Unidades, examen sin % libre → borrador. Ver §8.25. | — |
 | 2026-11-14 | Segunda ronda de la reunión: plantillas de unidad y examen (migr. 207), `/modulos` tipo→programa, fotos por enlace (Google Fotos), descripción en material. Ver §8.26. | `supabase/migrations/207_plantillas_unidad_examen.sql` |
+| 2026-11-14 | Estudiante veía todo bloqueado en el módulo actual (calendario vs módulo actual, material de otra cohorte en unidad compartida) y selector de módulos cursados en /unidades. Migr. 208 y 209. Ver §8.27. | `supabase/migrations/208_estudiante_ve_modulos_cursados.sql`, `209_modulos_cursados_incluye_actual.sql` |
 
 ---
 

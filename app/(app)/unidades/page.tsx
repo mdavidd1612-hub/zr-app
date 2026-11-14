@@ -18,6 +18,7 @@ import { IconoCalendario, IconoExamen } from '@/components/ui/Iconos'
 
 interface UnidadFila {
   id: string
+  module_id: string
   title: string
   effective_status: string
   prerequisite_met: boolean
@@ -27,6 +28,10 @@ export default function Unidades() {
   const router = useRouter()
   const [unidades, setUnidades] = useState<UnidadFila[]>([])
   const [cargando, setCargando] = useState(true)
+  // Módulos que ya cursó + el actual (los futuros no aparecen). Reunión 14-nov-2026.
+  const [modulos, setModulos] = useState<{ id: string; name: string; order_index: number }[]>([])
+  const [actualId, setActualId] = useState<string | null>(null)
+  const [moduloSel, setModuloSel] = useState<string | null>(null)
 
   useEffect(() => {
     async function cargar() {
@@ -39,8 +44,20 @@ export default function Unidades() {
 
       const { data } = await supabase
         .from('v_units_status')
-        .select('id, title, effective_status, order_index, prerequisite_met')
+        .select('id, module_id, title, effective_status, order_index, prerequisite_met')
         .order('order_index', { ascending: true })
+
+      const { data: idsCursados } = await supabase.rpc('mis_modulos_cursados' as never) as { data: string[] | null }
+      const { data: miActual } = await supabase.rpc('my_module_id' as never) as { data: string | null }
+      const ids = (idsCursados ?? []) as string[]
+      const { data: mods } = ids.length
+        ? await supabase.from('modules').select('id, name, order_index').in('id', ids).order('order_index')
+        : { data: [] as { id: string; name: string; order_index: number }[] }
+      setModulos(mods ?? [])
+      setActualId(miActual ?? null)
+      setModuloSel(
+        (miActual && ids.includes(miActual) ? miActual : null) ?? (mods && mods.length ? mods[mods.length - 1].id : null),
+      )
 
       // Casteo: v_units_status gana la columna prerequisite_met en la
       // migración 185; los tipos generados se regeneran en el próximo barrido.
@@ -54,7 +71,8 @@ export default function Unidades() {
 
   // "Dónde vas": la primera unidad abierta y no bloqueada se marca como activa
   // (nodo resaltado), para que el recorrido tenga un punto de atención claro.
-  const indiceActiva = unidades.findIndex(
+  const unidadesDelModulo = moduloSel ? unidades.filter((u) => u.module_id === moduloSel) : unidades
+  const indiceActiva = unidadesDelModulo.findIndex(
     (u) => u.effective_status === 'abierta' && u.prerequisite_met !== false,
   )
 
@@ -92,13 +110,34 @@ export default function Unidades() {
 
         <Regla delay={60} />
 
-        {unidades.length === 0 ? (
+        {modulos.length > 1 && (
+          <div className="-mx-5 overflow-x-auto px-5">
+            <div className="flex gap-2 pb-1">
+              {modulos.map((m) => {
+                const activo = m.id === moduloSel
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setModuloSel(m.id)}
+                    className={`shrink-0 rounded-full border px-4 py-2 text-xs font-bold ${
+                      activo ? 'border-zr-blue bg-zr-blue/15 text-zr-text' : 'border-zr-border text-zr-text-muted'
+                    }`}
+                  >
+                    Módulo {m.order_index} · {m.name}{m.id === actualId ? ' (actual)' : ''}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {unidadesDelModulo.length === 0 ? (
           <p className="text-sm text-zr-text-muted">
-            Todavía no hay unidades abiertas para tu módulo. Cuando tu profesor publique una, aparece aquí sola.
+            Todavía no hay unidades abiertas en este módulo. Cuando tu profesor publique una, aparece aquí sola.
           </p>
         ) : (
           <Recorrido>
-            {unidades.map((u, i) => {
+            {unidadesDelModulo.map((u, i) => {
               const bloqueada = u.prerequisite_met === false
               const cerrada = u.effective_status === 'cerrada'
               const activa = i === indiceActiva
@@ -128,7 +167,7 @@ export default function Unidades() {
                   titulo={u.title}
                   meta={meta}
                   href={bloqueada ? undefined : `/unidades/${u.id}`}
-                  ultimo={i === unidades.length - 1}
+                  ultimo={i === unidadesDelModulo.length - 1}
                   delay={80 + i * 50}
                 />
               )

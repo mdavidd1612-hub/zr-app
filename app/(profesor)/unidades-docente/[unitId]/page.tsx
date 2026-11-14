@@ -120,6 +120,8 @@ export default function UnidadDocenteDetalle() {
   const unitId = params.unitId as string
 
   const [modoEdicion, setModoEdicion] = useState(false)
+  const [panel, setPanel] = useState<'material' | 'texto' | 'tarea' | null>(null)
+  const [verApariencia, setVerApariencia] = useState(false)
   const [titulo, setTitulo] = useState('')
   const [openAt, setOpenAt] = useState('')
   const [closeAt, setCloseAt] = useState('')
@@ -737,152 +739,15 @@ export default function UnidadDocenteDetalle() {
 
       <Encabezado sobretitulo="Unidad · Editando" titulo={titulo} />
 
-      {/* Banner personalizable (migración 194/195, pedido #4 del
-          coordinador): imagen (con control de posición) o color. El mismo
-          color tiñe el fondo del banner (sin imagen) o los botones y
-          contornos de la unidad (con imagen) -- pedido explícito. Lo ve
-          igual cualquier perfil que entre. Cada control se guarda solo al
-          tocarlo, sin un botón "Guardar" aparte. */}
-      <div className="zr-card space-y-5 p-5">
-        <p className="zr-eyebrow">Banner de la unidad</p>
-
-        <BannerUnidad
-          sobretitulo="Vista previa"
-          titulo={titulo}
-          imagenUrl={urlBanner}
-          posicionImagen={bannerPosicion}
-          color={bannerColor}
-        />
-
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-zr-text">Imagen propia (opcional)</label>
-          <div className="flex gap-2">
-            <label
-              style={{ borderColor: acento, color: acento }}
-              className="flex min-h-12 flex-1 cursor-pointer items-center justify-center rounded-lg border border-dashed text-sm font-bold"
-            >
-              {subiendoBanner ? 'Subiendo…' : bannerImagePath ? 'Cambiar imagen' : '+ Subir imagen'}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                disabled={subiendoBanner}
-                onChange={(e) => {
-                  const archivo = e.target.files?.[0]
-                  if (archivo) subirImagenBanner(archivo)
-                  e.target.value = ''
-                }}
-              />
-            </label>
-            {bannerImagePath && (
-              <button
-                onClick={quitarImagenBanner}
-                disabled={subiendoBanner}
-                style={{ borderColor: acento, color: acento }}
-                className="min-h-12 rounded-lg border px-4 text-sm font-bold"
-              >
-                Quitar
-              </button>
-            )}
-          </div>
-          <p className="mt-1.5 text-xs text-zr-text-muted">
-            Se comprime sola si pesa mucho, igual que al subir material.
-          </p>
-        </div>
-
-        {bannerImagePath && (
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Posición de la imagen</label>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={bannerPosicion}
-              onChange={(e) => moverPosicionBanner(Number(e.target.value))}
-              onMouseUp={guardarPosicionBanner}
-              onTouchEnd={guardarPosicionBanner}
-              style={{ accentColor: acento }}
-              className="w-full"
-            />
-            <p className="mt-1 flex justify-between text-xs text-zr-text-muted">
-              <span>Arriba</span><span>Abajo</span>
-            </p>
+      <Seccion numero={1} titulo="Contenido de la unidad" delay={100}>
+        {items.length === 0 && (
+          <div className="rounded-xl border border-dashed border-zr-border p-5 text-center">
+            <p className="text-base font-bold text-zr-text">Esta unidad está vacía</p>
+            <p className="mt-1 text-sm text-zr-text-muted">Elige abajo qué quieres poner primero.</p>
           </div>
         )}
-
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-zr-text">
-            Color {bannerImagePath ? '(botones y contornos de la unidad)' : ''}
-          </label>
-          {/* 3 tonalidades por color (pedido explícito, reunión 7-nov-2026):
-              una fila por tonalidad, el mismo orden de tonos en cada una. */}
-          <div className="space-y-2">
-            {(['claro', 'medio', 'oscuro'] as const).map((tono) => (
-              <div key={tono} className="flex gap-2">
-                {HUES_BANNER.map((hue) => {
-                  const c = (tono === 'medio' ? hue : `${hue}_${tono}`) as ColorBanner
-                  return (
-                    <button
-                      key={c}
-                      onClick={() => elegirColorBanner(c)}
-                      title={PALETA_BANNER[c].etiqueta}
-                      aria-label={PALETA_BANNER[c].etiqueta}
-                      className="h-9 w-9 shrink-0 rounded-full"
-                      style={{
-                        backgroundColor: PALETA_BANNER[c].muestra,
-                        boxShadow: (bannerColor ?? 'azul') === c ? `0 0 0 2px var(--zr-bg), 0 0 0 4px ${PALETA_BANNER[c].muestra}` : undefined,
-                      }}
-                    />
-                  )
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <Regla delay={60} />
-
-      <Seccion numero={1} titulo="Apertura y cierre" delay={100}>
-        <div className="zr-card space-y-4 p-5">
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Se abre</label>
-            <input
-              type="datetime-local"
-              value={openAt}
-              onChange={(e) => setOpenAt(e.target.value)}
-              className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
-            />
-            <p className="mt-1 text-xs text-zr-text-muted">Vacío = sigue como borrador, nadie la ve.</p>
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Se cierra (opcional)</label>
-            <input
-              type="datetime-local"
-              value={closeAt}
-              onChange={(e) => setCloseAt(e.target.value)}
-              className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
-            />
-            <p className="mt-1 text-xs text-zr-text-muted">Pasada esta fecha, el estudiante la sigue viendo como repaso.</p>
-          </div>
-          {error && <p className="text-sm text-zr-error">{error}</p>}
-          <button
-            onClick={guardarFechas}
-            disabled={guardando}
-            style={{ backgroundColor: acento }}
-            className="min-h-12 w-full rounded-lg text-sm font-bold text-white disabled:opacity-50"
-          >
-            {guardando ? 'Guardando…' : 'Guardar fechas'}
-          </button>
-        </div>
-      </Seccion>
-
-      <Regla delay={140} />
-
-      <Seccion numero={2} titulo="Contenido de la unidad" delay={180}>
-        {items.length === 0 && <p className="text-sm text-zr-text-muted">Todavía no has agregado nada.</p>}
         {items.length > 1 && (
-          <p className="text-xs text-zr-text-muted">Mantén presionada la asa para arrastrar.</p>
+          <p className="text-xs text-zr-text-muted">Para cambiar el orden, mantén presionados los puntitos de una tarjeta y arrástrala.</p>
         )}
         <DndContext sensors={sensores} collisionDetection={closestCenter} onDragEnd={alTerminarArrastre}>
         <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
@@ -1096,121 +961,160 @@ export default function UnidadDocenteDetalle() {
         </SortableContext>
         </DndContext>
 
-        <div className="zr-card space-y-5 p-5">
+        <div className="zr-card space-y-4 p-5">
           {error && <p className="text-sm font-medium text-zr-error">{error}</p>}
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Agregar material ya subido</label>
-            <div className="flex gap-2">
-              <select
-                id="sel-material"
-                className="min-h-12 min-w-0 flex-1 rounded-lg border border-zr-border bg-zr-bg px-3 text-sm text-zr-text"
-                defaultValue=""
-              >
-                <option value="" disabled>Elige un material…</option>
-                {materialesDisponibles.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
-              </select>
-              <button
-                onClick={() => {
-                  const sel = document.getElementById('sel-material') as HTMLSelectElement
-                  if (sel.value) agregarItem('material', sel.value)
-                }}
-                disabled={agregando}
-                style={{ backgroundColor: acento }}
-                className="shrink-0 rounded-lg px-4 text-sm font-bold text-white disabled:opacity-50"
-              >
-                Agregar
-              </button>
-            </div>
-            <Link
-              href={`/contenido-docente?unitId=${unitId}`}
-              style={{ color: acento }}
-              className="mt-1 inline-block text-xs font-bold"
+          <p className="text-base font-bold text-zr-text">¿Qué quieres agregar?</p>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setPanel(panel === 'material' ? null : 'material')}
+              style={panel === 'material' ? { borderColor: acento, backgroundColor: acentoSuave } : undefined}
+              className="flex min-h-[88px] flex-col items-start gap-1.5 rounded-xl border border-zr-border bg-zr-bg p-3.5 text-left"
             >
-              + Subir material nuevo para esta unidad ›
-            </Link>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Examen</label>
-            {/* Pedido explícito del coordinador (reunión 7-nov-2026): se quitó
-                "agregar examen ya creado" -- confundía (quedaba un examen
-                borrado del aula pero seguía ocupando % en Notas, ver fix de
-                la migración 199) y en la práctica nunca se reusaba un examen
-                entre unidades. El examen se crea desde DENTRO de la unidad;
-                /crear-examen/nuevo ya sabe preseleccionar el módulo y, al
-                guardar, engancharse solo aquí. */}
+              <span style={{ color: acento }}><IconoDocumento size={22} /></span>
+              <span className="text-sm font-bold text-zr-text">Material</span>
+              <span className="text-xs leading-snug text-zr-text-muted">PDF, imagen, video, audio o link de YouTube</span>
+            </button>
             <Link
               href={`/crear-examen/nuevo?unitId=${unitId}`}
-              style={{ color: acento }}
-              className="inline-block text-xs font-bold"
+              className="flex min-h-[88px] flex-col items-start gap-1.5 rounded-xl border border-zr-border bg-zr-bg p-3.5 text-left"
             >
-              + Crear examen nuevo para esta unidad ›
+              <span style={{ color: acento }}><IconoExamen size={22} /></span>
+              <span className="text-sm font-bold text-zr-text">Examen</span>
+              <span className="text-xs leading-snug text-zr-text-muted">Preguntas con nota</span>
             </Link>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Nuevo bloque de texto</label>
-            <p className="mb-2 text-xs text-zr-text-muted">
-              Título y párrafo escritos directo aquí, sin subir ningún archivo.
-            </p>
-            <input
-              value={textoTitulo}
-              onChange={(e) => setTextoTitulo(e.target.value)}
-              placeholder="Título del bloque"
-              className="mb-2 min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
-            />
-            <textarea
-              value={textoCuerpo}
-              onChange={(e) => setTextoCuerpo(e.target.value)}
-              placeholder="Escribe el párrafo…"
-              rows={4}
-              className="mb-2 w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3 text-sm text-zr-text outline-none focus:border-zr-blue"
-            />
             <button
-              onClick={crearBloqueTexto}
-              disabled={!textoTitulo.trim() || !textoCuerpo.trim() || creandoTexto}
-              style={{ backgroundColor: acento }}
-              className="min-h-12 w-full rounded-lg text-sm font-bold text-white disabled:opacity-40"
+              type="button"
+              onClick={() => setPanel(panel === 'tarea' ? null : 'tarea')}
+              style={panel === 'tarea' ? { borderColor: acento, backgroundColor: acentoSuave } : undefined}
+              className="flex min-h-[88px] flex-col items-start gap-1.5 rounded-xl border border-zr-border bg-zr-bg p-3.5 text-left"
             >
-              {creandoTexto ? 'Creando…' : 'Agregar bloque de texto'}
+              <span style={{ color: acento }}><IconoLapiz size={22} /></span>
+              <span className="text-sm font-bold text-zr-text">Tarea</span>
+              <span className="text-xs leading-snug text-zr-text-muted">Los estudiantes suben un PDF</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPanel(panel === 'texto' ? null : 'texto')}
+              style={panel === 'texto' ? { borderColor: acento, backgroundColor: acentoSuave } : undefined}
+              className="flex min-h-[88px] flex-col items-start gap-1.5 rounded-xl border border-zr-border bg-zr-bg p-3.5 text-left"
+            >
+              <span style={{ color: acento }}><IconoDocumento size={22} /></span>
+              <span className="text-sm font-bold text-zr-text">Texto</span>
+              <span className="text-xs leading-snug text-zr-text-muted">Escribe una explicación aquí mismo</span>
             </button>
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Nueva tarea en PDF</label>
-            <input
-              value={tareaTitulo}
-              onChange={(e) => setTareaTitulo(e.target.value)}
-              placeholder="Título de la tarea"
-              className="mb-2 min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
-            />
-            <input
-              type="datetime-local"
-              value={tareaFecha}
-              onChange={(e) => setTareaFecha(e.target.value)}
-              className="mb-2 min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
-            />
-            <input
-              type="number"
-              min={1}
-              max={100}
-              value={tareaPeso}
-              onChange={(e) => setTareaPeso(e.target.value === '' ? '' : Number(e.target.value))}
-              placeholder="% que vale en la nota del módulo"
-              className="mb-1 min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm tabular-nums text-zr-text outline-none focus:border-zr-blue"
-            />
-            <p className="mb-2 text-xs text-zr-text-muted">
-              Esta tarea ya queda registrada como evaluación en Notas -- no hay que crearla ahí aparte. Tiene que valer más de 0%.
-            </p>
-            <button
-              onClick={crearTarea}
-              disabled={!tareaTitulo.trim() || !tareaPeso || creandoTarea}
-              style={{ backgroundColor: acento }}
-              className="min-h-12 w-full rounded-lg text-sm font-bold text-white disabled:opacity-40"
-            >
-              {creandoTarea ? 'Creando…' : 'Crear tarea'}
-            </button>
-          </div>
+          {panel === 'material' && (
+            <div className="space-y-3 rounded-xl border border-zr-border bg-zr-bg p-4">
+              <p className="text-sm font-bold text-zr-text">Material</p>
+              <Link
+                href={`/contenido-docente?unitId=${unitId}`}
+                style={{ backgroundColor: acento }}
+                className="flex min-h-12 w-full items-center justify-center rounded-lg text-sm font-bold text-white"
+              >
+                Subir material nuevo
+              </Link>
+              {materialesDisponibles.length > 0 && (
+                <div>
+                  <p className="mb-2 text-xs text-zr-text-muted">O usa uno que ya subiste antes:</p>
+                  <div className="flex gap-2">
+                    <select
+                      id="sel-material"
+                      className="min-h-12 min-w-0 flex-1 rounded-lg border border-zr-border bg-zr-surface px-3 text-sm text-zr-text"
+                      defaultValue=""
+                    >
+                      <option value="" disabled>Elige un material…</option>
+                      {materialesDisponibles.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
+                    </select>
+                    <button
+                      onClick={() => {
+                        const sel = document.getElementById('sel-material') as HTMLSelectElement
+                        if (sel.value) { agregarItem('material', sel.value); setPanel(null) }
+                      }}
+                      disabled={agregando}
+                      style={{ backgroundColor: acento }}
+                      className="shrink-0 rounded-lg px-4 text-sm font-bold text-white disabled:opacity-50"
+                    >
+                      Agregar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {panel === 'texto' && (
+            <div className="space-y-2 rounded-xl border border-zr-border bg-zr-bg p-4">
+              <p className="text-sm font-bold text-zr-text">Texto</p>
+              <input
+                value={textoTitulo}
+                onChange={(e) => setTextoTitulo(e.target.value)}
+                placeholder="Título (ej. Antes de empezar)"
+                className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-surface px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
+              />
+              <textarea
+                value={textoCuerpo}
+                onChange={(e) => setTextoCuerpo(e.target.value)}
+                placeholder="Escribe aquí lo que quieres que lean"
+                rows={4}
+                className="w-full rounded-lg border border-zr-border bg-zr-surface px-4 py-3 text-sm text-zr-text outline-none focus:border-zr-blue"
+              />
+              <button
+                onClick={async () => { await crearBloqueTexto(); setPanel(null) }}
+                disabled={!textoTitulo.trim() || !textoCuerpo.trim() || creandoTexto}
+                style={{ backgroundColor: acento }}
+                className="min-h-12 w-full rounded-lg text-sm font-bold text-white disabled:opacity-40"
+              >
+                {creandoTexto ? 'Guardando…' : 'Guardar texto'}
+              </button>
+            </div>
+          )}
+
+          {panel === 'tarea' && (
+            <div className="space-y-2 rounded-xl border border-zr-border bg-zr-bg p-4">
+              <p className="text-sm font-bold text-zr-text">Tarea</p>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-zr-text">Nombre de la tarea</label>
+                <input
+                  value={tareaTitulo}
+                  onChange={(e) => setTareaTitulo(e.target.value)}
+                  placeholder="Ej. Informe de la práctica"
+                  className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-surface px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-zr-text">Fecha límite (opcional)</label>
+                <input
+                  type="datetime-local"
+                  value={tareaFecha}
+                  onChange={(e) => setTareaFecha(e.target.value)}
+                  className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-surface px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-zr-text">¿Cuánto vale en la nota? (%)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={tareaPeso}
+                  onChange={(e) => setTareaPeso(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="Ej. 20"
+                  className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-surface px-4 text-sm tabular-nums text-zr-text outline-none focus:border-zr-blue"
+                />
+                <p className="mt-1 text-xs text-zr-text-muted">Entra sola a Notas. Tiene que ser más de 0.</p>
+              </div>
+              <button
+                onClick={async () => { await crearTarea(); setPanel(null) }}
+                disabled={!tareaTitulo.trim() || !tareaPeso || creandoTarea}
+                style={{ backgroundColor: acento }}
+                className="min-h-12 w-full rounded-lg text-sm font-bold text-white disabled:opacity-40"
+              >
+                {creandoTarea ? 'Creando…' : 'Crear tarea'}
+              </button>
+            </div>
+          )}
 
           {!tieneDudas && (
             <button
@@ -1218,10 +1122,160 @@ export default function UnidadDocenteDetalle() {
               style={{ borderColor: acento, color: acento }}
               className="min-h-12 w-full rounded-lg border border-dashed text-sm font-bold"
             >
-              + Agregar sección de Dudas a esta unidad
+              + Dejar que los estudiantes hagan preguntas (Dudas)
             </button>
           )}
         </div>
+      </Seccion>
+
+      <Regla delay={140} />
+
+      <Seccion numero={2} titulo="¿Cuándo la ven los estudiantes?" delay={140}>
+        <div className="zr-card space-y-4 p-5">
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Se abre</label>
+            <input
+              type="datetime-local"
+              value={openAt}
+              onChange={(e) => setOpenAt(e.target.value)}
+              className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
+            />
+            <p className="mt-1 text-xs text-zr-text-muted">Si lo dejas vacío, la unidad queda oculta (borrador).</p>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Se cierra (opcional)</label>
+            <input
+              type="datetime-local"
+              value={closeAt}
+              onChange={(e) => setCloseAt(e.target.value)}
+              className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
+            />
+            <p className="mt-1 text-xs text-zr-text-muted">Después de esta fecha la siguen viendo, solo para repasar.</p>
+          </div>
+          <button
+            onClick={guardarFechas}
+            disabled={guardando}
+            style={{ backgroundColor: acento }}
+            className="min-h-12 w-full rounded-lg text-sm font-bold text-white disabled:opacity-50"
+          >
+            {guardando ? 'Guardando…' : 'Guardar fechas'}
+          </button>
+        </div>
+      </Seccion>
+
+      <Regla delay={200} />
+
+      <Seccion numero={3} titulo="Apariencia (opcional)" delay={220}>
+        <button
+          type="button"
+          onClick={() => setVerApariencia(!verApariencia)}
+          className="zr-card flex min-h-14 w-full items-center justify-between gap-3 p-4 text-left"
+        >
+          <span>
+            <span className="block text-sm font-bold text-zr-text">Imagen y color de la unidad</span>
+            <span className="block text-xs text-zr-text-muted">Si no tocas nada, se ve bien así.</span>
+          </span>
+          <span style={{ color: acento }} className="text-sm font-bold">{verApariencia ? 'Cerrar' : 'Cambiar'}</span>
+        </button>
+        {verApariencia && (
+
+      <div className="zr-card space-y-5 p-5">
+
+        <BannerUnidad
+          sobretitulo="Vista previa"
+          titulo={titulo}
+          imagenUrl={urlBanner}
+          posicionImagen={bannerPosicion}
+          color={bannerColor}
+        />
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-zr-text">Imagen propia (opcional)</label>
+          <div className="flex gap-2">
+            <label
+              style={{ borderColor: acento, color: acento }}
+              className="flex min-h-12 flex-1 cursor-pointer items-center justify-center rounded-lg border border-dashed text-sm font-bold"
+            >
+              {subiendoBanner ? 'Subiendo…' : bannerImagePath ? 'Cambiar imagen' : '+ Subir imagen'}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={subiendoBanner}
+                onChange={(e) => {
+                  const archivo = e.target.files?.[0]
+                  if (archivo) subirImagenBanner(archivo)
+                  e.target.value = ''
+                }}
+              />
+            </label>
+            {bannerImagePath && (
+              <button
+                onClick={quitarImagenBanner}
+                disabled={subiendoBanner}
+                style={{ borderColor: acento, color: acento }}
+                className="min-h-12 rounded-lg border px-4 text-sm font-bold"
+              >
+                Quitar
+              </button>
+            )}
+          </div>
+          <p className="mt-1.5 text-xs text-zr-text-muted">
+            Se comprime sola si pesa mucho, igual que al subir material.
+          </p>
+        </div>
+
+        {bannerImagePath && (
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Posición de la imagen</label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={bannerPosicion}
+              onChange={(e) => moverPosicionBanner(Number(e.target.value))}
+              onMouseUp={guardarPosicionBanner}
+              onTouchEnd={guardarPosicionBanner}
+              style={{ accentColor: acento }}
+              className="w-full"
+            />
+            <p className="mt-1 flex justify-between text-xs text-zr-text-muted">
+              <span>Arriba</span><span>Abajo</span>
+            </p>
+          </div>
+        )}
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-zr-text">
+            Color {bannerImagePath ? '(botones y contornos de la unidad)' : ''}
+          </label>
+          {/* 3 tonalidades por color (pedido explícito, reunión 7-nov-2026):
+              una fila por tonalidad, el mismo orden de tonos en cada una. */}
+          <div className="space-y-2">
+            {(['claro', 'medio', 'oscuro'] as const).map((tono) => (
+              <div key={tono} className="flex gap-2">
+                {HUES_BANNER.map((hue) => {
+                  const c = (tono === 'medio' ? hue : `${hue}_${tono}`) as ColorBanner
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => elegirColorBanner(c)}
+                      title={PALETA_BANNER[c].etiqueta}
+                      aria-label={PALETA_BANNER[c].etiqueta}
+                      className="h-9 w-9 shrink-0 rounded-full"
+                      style={{
+                        backgroundColor: PALETA_BANNER[c].muestra,
+                        boxShadow: (bannerColor ?? 'azul') === c ? `0 0 0 2px var(--zr-bg), 0 0 0 4px ${PALETA_BANNER[c].muestra}` : undefined,
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+        )}
       </Seccion>
 
       {confirmandoTarea && (

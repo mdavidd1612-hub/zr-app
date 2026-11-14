@@ -1,79 +1,59 @@
 'use client'
 
-import { Aviso } from '@/components/ui/Aviso'
+import { Encabezado } from '@/components/ui/Editorial'
+import { BotonVolver } from '@/components/ui/BotonVolver'
+
+const URL_SIMULADOR = 'https://simulator.electude.com/'
+
+const PASOS = [
+  { t: 'Entra sin cuenta', d: 'Abre el simulador y toca "Prueba el simulador de Electude". Entras directo al modo libre.' },
+  { t: 'Mira los videos de adentro', d: 'En el menú (ícono de la llave) abre "Demo": introducción, navegación, osciloscopio y más.' },
+  { t: 'Lee la orden de trabajo', d: 'Ahí está la queja del cliente. Es tu punto de partida, igual que en el taller.' },
+  { t: 'Mide y diagnostica', d: 'Usa multímetro, osciloscopio y sistema de diagnóstico. Compara con el esquema eléctrico.' },
+  { t: 'Repara y cierra', d: 'Reemplaza la pieza dañada, vuelve a probar y marca la avería como resuelta.' },
+  { t: 'Trae tu resultado', d: 'Lleva tu diagnóstico y tus dudas a la clase del sábado para defenderlo.' },
+]
 
 export default function ElectudeSimulador() {
-
   return (
-    <div className="wrap">
-      <h1 className="mb-8 text-3xl font-bold">
-        Simulador Electude ZR
-      </h1>
+    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
+      <div className="mx-auto max-w-2xl space-y-8">
+        <BotonVolver href="/" />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+        <Encabezado
+          sobretitulo="Práctica de diagnóstico"
+          titulo="Simulador Electude"
+          descripcion="Un taller virtual gratis, en español y desde el teléfono, para diagnosticar antes de tocar el carro."
+        />
 
-        {/* Opción 1: Entrar al simulador */}
-        <Aviso tipo="exito">
-          <div className="flex items-start gap-3">
-            <div className="h-12 w-12 rounded-lg bg-zr-blue flex items-center justify-center shrink-0">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="7" height="7"/>
-                <rect x="14" y="3" width="7" height="7"/>
-                <rect x="14" y="14" width="7" height="7"/>
-                <rect x="3" y="14" width="7" height="7"/>
-                <path d="M3 3v18h18"/>
-                <path d="M3 9h18"/>
-              </svg>
-            </div>
-            <div>
-              <h3 className="font-semibold">Entrar al Simulador</h3>
-              <p className="text-sm text-muted-foreground">
-                Practica diagnóstico virtual desde tu teléfono, en español y gratis.
-              </p>
-            </div>
-          </div>
-        </Aviso>
+        <a
+          href={URL_SIMULADOR}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex min-h-14 w-full items-center justify-center rounded-full bg-zr-blue text-base font-bold text-white"
+        >
+          Abrir el simulador
+        </a>
 
-        {/* Opción 2: Guía rápida */}
-        <Aviso tipo="advertencia">
-          <div className="flex items-start gap-3">
-            <div className="h-12 w-12 rounded-lg bg-zr-orange flex items-center justify-center shrink-0">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
-                <line x1="9" y1="9" x2="9.01" y2="9"/>
-                <line x1="15" y1="9" x2="15.01" y2="9"/>
-              </svg>
-            </div>
-            <div>
-              <h3 className="font-semibold">Guía Rápida</h3>
-              <p className="text-sm text-muted-foreground">
-                6 pasos para diagnosticar: entra, mira videos, lee la orden, mide y repara.
-              </p>
-            </div>
-          </div>
-        </Aviso>
+        <section className="space-y-4">
+          <p className="zr-eyebrow">Cómo se usa</p>
+          <ol className="space-y-3">
+            {PASOS.map((p, i) => (
+              <li key={p.t} className="zr-card flex gap-4 p-4">
+                <span className="text-xl font-bold text-zr-blue">{i + 1}</span>
+                <div>
+                  <p className="text-sm font-bold text-zr-text">{p.t}</p>
+                  <p className="mt-0.5 text-sm text-zr-text-muted">{p.d}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
 
-      </div>
-
-      <div className="mt-8 pt-8 border-t border-line">
-        <Aviso tipo="error">
-          <div className="flex items-start gap-3">
-            <div className="h-12 w-12 rounded-lg bg-zr-error flex items-center justify-center shrink-0">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="15" y1="9" x2="9" y2="15"/>
-                <line x1="9" y1="15" x2="15" y2="9"/>
-              </svg>
-            </div>
-            <div>
-              <h3 className="font-semibold">Conexión con ZR Iagnosis</h3>
-              <p className="text-sm text-muted-foreground">
-                Después de practicar en el simulador, el diagnóstico se sincroniza con tu ficha en ZR App. El profesor marca la competencia al cerrar el ciclo.
-              </p>
-            </div>
-          </div>
-        </Aviso>
+        <p className="text-xs text-zr-text-muted">
+          Es gratis. Asignar averías por estudiante y calificar automáticamente es de pago en Electude;
+          el seguimiento lo lleva el profesor en la ZR App.
+        </p>
       </div>
     </div>
   )

@@ -51,6 +51,7 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
   const [comprimiendo, setComprimiendo] = useState(false)
   const [archivo, setArchivo] = useState<File | null>(null)
   const [titulo, setTitulo] = useState('')
+  const [descripcionMat, setDescripcionMat] = useState('')
   const [moduloId, setModuloId] = useState('')
   const [semana, setSemana] = useState<number | ''>('')
   const [error, setError] = useState<string | null>(null)
@@ -216,6 +217,7 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
       cohort_id: cohorteSel,
       week_number: semana === '' ? null : semana,
       title: titulo.trim(),
+      description: descripcionMat.trim() || null,
       type: tipo,
       storage_path: ruta,
       original_name: archivo.name,
@@ -255,6 +257,7 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
 
     setArchivo(null)
     setTitulo('')
+    setDescripcionMat('')
     setSemana('')
     setAvisoSubida(prep.mensaje)
     setFormAbierto(false)
@@ -287,6 +290,7 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
       cohort_id: cohorteSel,
       week_number: semana === '' ? null : semana,
       title: titulo.trim(),
+      description: descripcionMat.trim() || null,
       type: 'enlace',
       external_url: linkYoutube.trim(),
       uploaded_by: user.id,
@@ -317,6 +321,7 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
     }
 
     setTitulo('')
+    setDescripcionMat('')
     setSemana('')
     setLinkYoutube('')
     setModoYoutube(false)
@@ -475,6 +480,17 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
               placeholder="Ej: Guía de Ley de Ohm aplicada"
+              className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Descripción (opcional)</label>
+            <textarea
+              value={descripcionMat}
+              onChange={(e) => setDescripcionMat(e.target.value)}
+              rows={3}
+              placeholder="Un texto que el estudiante verá debajo del título."
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
             />
           </div>

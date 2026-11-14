@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { TipoMaterial } from '@/lib/material'
-import { urlDelVisor, visorDe, embedDeEnlace, enlaceWebValido } from '@/lib/material'
+import { urlDelVisor, visorDe, embedDeEnlace, enlaceWebValido, esImagenDirecta, esGoogleFotos } from '@/lib/material'
 import { IconoDocumento } from '@/components/ui/Iconos'
 
 /**
@@ -96,6 +96,46 @@ interface Props {
 /** Solo .docx (Open XML) -- mammoth no sabe leer el .doc binario viejo. */
 function esDocx(storagePath: string): boolean {
   return storagePath.toLowerCase().endsWith('.docx')
+}
+
+/** Imagen que viene de un link (foto directa o Google Fotos), mostrada dentro de la app. */
+function ImagenDeEnlace({ url, alCargar }: { url: string; alCargar: () => void }) {
+  const [src, setSrc] = useState<string | null>(esImagenDirecta(url) ? url : null)
+  const [fallo, setFallo] = useState(false)
+
+  useEffect(() => {
+    if (esImagenDirecta(url)) return
+    let vigente = true
+    fetch(`/api/enlace-imagen?url=${encodeURIComponent(url)}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { src?: string }) => { if (vigente) { if (d.src) setSrc(d.src); else setFallo(true) } })
+      .catch(() => { if (vigente) setFallo(true) })
+    return () => { vigente = false }
+  }, [url])
+
+  if (fallo) {
+    return (
+      <div className="zr-card flex flex-col items-center gap-3 p-8 text-center">
+        <IconoDocumento size={28} className="text-zr-text-muted" />
+        <p className="text-sm text-zr-text-muted">No se pudo mostrar la foto dentro de la app (revisa que el álbum o la foto esté compartida con enlace).</p>
+        <a href={url} target="_blank" rel="noopener noreferrer" className="rounded-full bg-zr-blue px-5 py-3 text-sm font-bold text-white">
+          Abrir enlace
+        </a>
+      </div>
+    )
+  }
+  if (!src) return <div className="zr-skel h-64 w-full rounded-xl" />
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt="Imagen del material"
+      referrerPolicy="no-referrer"
+      onLoad={alCargar}
+      onError={() => setFallo(true)}
+      className="mx-auto max-h-[85dvh] w-full rounded-xl bg-zr-surface object-contain"
+    />
+  )
 }
 
 export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, bucket = 'contenido', registrarProgreso = true }: Props) {
@@ -284,6 +324,9 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
   // sí dio problemas en Android, el embed de YouTube está hecho para esto.
   if (tipo === 'enlace') {
     const embed = externalUrl ? embedDeEnlace(externalUrl) : null
+    if (!embed && externalUrl && (esImagenDirecta(externalUrl) || esGoogleFotos(externalUrl))) {
+      return <ImagenDeEnlace url={externalUrl} alCargar={() => void guardarProgreso(100)} />
+    }
     if (!embed) {
       // Reunión 14-nov-2026: cualquier otro link (Google Fotos, una página...)
       // se abre en su propia pestaña en vez de dar "no válido".

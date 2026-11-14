@@ -18,6 +18,19 @@ import type { PreguntaImportada } from '@/lib/importar-preguntas'
 
 type TipoPregunta = 'opcion_multiple' | 'verdadero_falso' | 'redaccion_abierta'
 
+interface PlantillaExamen {
+  titulo: string
+  instrucciones: string
+  puntajeMaximo: number
+  duracion: number | ''
+  tipo: 'formativo' | 'certificacion'
+  notaMinima: number | ''
+  intentos: number | ''
+  enfriamiento: number | ''
+  peso: number | ''
+  preguntas: Pregunta[]
+}
+
 interface Pregunta {
   id: string
   type: TipoPregunta
@@ -107,6 +120,35 @@ function NuevoExamenInterno() {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tituloUnidad, setTituloUnidad] = useState('')
+
+  // Plantillas de examen (reunión 14-nov-2026): cada examen que el profesor
+  // guarda (borrador o publicado) queda como plantilla suya; al crear otro
+  // puede traer una ya hecha ("Usar examen ya creado") y ajustarla.
+  const [plantillas, setPlantillas] = useState<{ id: string; title: string; payload: PlantillaExamen }[]>([])
+  const [plantillasAbierto, setPlantillasAbierto] = useState(false)
+
+  useEffect(() => {
+    createClient()
+      .from('exam_templates' as never)
+      .select('id, title, payload')
+      .order('updated_at', { ascending: false })
+      .then(({ data }) => setPlantillas((data ?? []) as unknown as { id: string; title: string; payload: PlantillaExamen }[]))
+  }, [])
+
+  function usarPlantilla(t: { title: string; payload: PlantillaExamen }) {
+    const d = t.payload
+    setTitulo(d.titulo ?? t.title)
+    setInstrucciones(d.instrucciones ?? '')
+    setPuntajeMaximo(d.puntajeMaximo ?? 20)
+    setDuracion(d.duracion ?? '')
+    setTipo(d.tipo ?? 'formativo')
+    setNotaMinima(d.notaMinima ?? 10)
+    setIntentos(d.intentos ?? 2)
+    setEnfriamiento(d.enfriamiento ?? 24)
+    setPeso(d.peso ?? 0)
+    setPreguntas((d.preguntas ?? []).map((q, i) => ({ ...q, id: `qtpl${Date.now()}-${i}` })))
+    setPlantillasAbierto(false)
+  }
 
 
   useEffect(() => {
@@ -311,6 +353,27 @@ function NuevoExamenInterno() {
       return
     }
 
+    // Plantilla del examen (reunión 14-nov-2026): queda guardada en el perfil del
+    // profesor, publicado o en borrador. Si ya había una con el mismo nombre, se actualiza.
+    const payloadPlantilla: PlantillaExamen = {
+      titulo: titulo.trim(), instrucciones, puntajeMaximo, duracion, tipo, notaMinima, intentos,
+      enfriamiento, peso: pesoNuevo, preguntas,
+    }
+    const { data: yaPlantilla } = await supabase
+      .from('exam_templates' as never)
+      .select('id')
+      .eq('owner_id', user.id)
+      .ilike('title', titulo.trim())
+      .maybeSingle() as { data: { id: string } | null }
+    if (yaPlantilla) {
+      await supabase.from('exam_templates' as never)
+        .update({ payload: payloadPlantilla, updated_at: new Date().toISOString() } as never)
+        .eq('id', yaPlantilla.id)
+    } else {
+      await supabase.from('exam_templates' as never)
+        .insert({ owner_id: user.id, title: titulo.trim(), payload: payloadPlantilla } as never)
+    }
+
     // "Publicar de una vez" (pedido explícito, 8-nov-2026, elegido por
     // defecto): recién AHORA que ya existen las preguntas, se publica --
     // antes de esto el examen siempre nacía oculto y había que acordarse de
@@ -374,6 +437,33 @@ function NuevoExamenInterno() {
 
       {/* 01 — DATOS */}
       <Seccion numero={1} titulo="Datos del examen" delay={120}>
+        {plantillas.length > 0 && (
+          <div className="mb-4 space-y-2">
+            <button
+              type="button"
+              onClick={() => setPlantillasAbierto((v) => !v)}
+              className="min-h-12 w-full rounded-lg border border-dashed border-zr-border text-sm font-bold text-zr-text-muted"
+            >
+              Usar examen ya creado
+            </button>
+            {plantillasAbierto && (
+              <div className="zr-card space-y-2 p-4">
+                {plantillas.map((t) => (
+                  <div key={t.id} className="flex items-center justify-between gap-3 border-b border-zr-border pb-2 last:border-0 last:pb-0">
+                    <p className="min-w-0 break-words text-sm font-semibold text-zr-text">{t.title}</p>
+                    <button
+                      type="button"
+                      onClick={() => usarPlantilla(t)}
+                      className="shrink-0 rounded-lg bg-zr-blue px-4 py-2 text-xs font-bold text-white"
+                    >
+                      Usar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <div className="zr-card space-y-5 p-6">
           <div>
             <label htmlFor="titulo" className="mb-2 block text-sm font-semibold text-zr-text">

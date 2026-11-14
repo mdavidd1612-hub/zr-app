@@ -43,6 +43,45 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
   const [guardandoAccion, setGuardandoAccion] = useState(false)
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
 
+  // Plantillas de unidad (reunión 14-nov-2026): guardar una unidad como
+  // plantilla propia y traerla a otro programa/módulo con todo su contenido.
+  const [plantillas, setPlantillas] = useState<{ id: string; title: string; created_at: string }[]>([])
+  const [plantillasAbierto, setPlantillasAbierto] = useState(false)
+  const [importandoId, setImportandoId] = useState<string | null>(null)
+  const [guardandoPlantillaId, setGuardandoPlantillaId] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
+
+  async function cargarPlantillas() {
+    const { data } = await createClient()
+      .from('unit_templates' as never)
+      .select('id, title, created_at')
+      .order('created_at', { ascending: false }) as { data: { id: string; title: string; created_at: string }[] | null }
+    setPlantillas(data ?? [])
+  }
+
+  async function guardarPlantilla(u: UnidadFila) {
+    setGuardandoPlantillaId(u.id)
+    setAviso(null)
+    const { error: err } = await createClient().rpc('fn_guardar_plantilla_unidad' as never, { p_unit: u.id } as never)
+    setGuardandoPlantillaId(null)
+    if (err) { setAviso(`No se pudo guardar la plantilla: ${err.message}`); return }
+    setAviso(`Plantilla de "${u.title}" guardada en tu perfil.`)
+    await cargarPlantillas()
+  }
+
+  async function importarPlantilla(id: string) {
+    setImportandoId(id)
+    setError(null)
+    const { error: err } = await createClient().rpc('fn_importar_plantilla_unidad' as never, {
+      p_template: id, p_module: ctx.moduleId, p_cohort: ctx.cohortId,
+    } as never)
+    setImportandoId(null)
+    if (err) { setError(err.message); return }
+    setPlantillasAbierto(false)
+    setAviso('Unidad agregada desde tu plantilla. Los exámenes llegan sin publicar y las tareas con 0 %: ajústalos antes de abrirla.')
+    await cargar()
+  }
+
   function limpiarAcciones() {
     setEditandoId(null)
     setBorrandoId(null)
@@ -90,6 +129,7 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
     setCargando(false)
   }
 
+  useEffect(() => { cargarPlantillas() }, []) // eslint-disable-line react-hooks/set-state-in-effect
   useEffect(() => { cargar() }, [ctx.moduleId]) // eslint-disable-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
 
   async function crearUnidad() {
@@ -129,13 +169,43 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
           crear/subir fuera de ella. (Los que estaban aquí, de la tarde
           anterior, se quitan.) */}
       <Seccion numero={1} titulo="Nueva unidad" delay={60}>
+        {aviso && <p className="mb-3 rounded-lg border border-zr-border bg-zr-surface p-3 text-sm text-zr-text">{aviso}</p>}
         {!formAbierto ? (
+          <div className="space-y-3">
           <button
             onClick={() => setFormAbierto(true)}
             className="min-h-14 w-full rounded-lg border border-dashed border-zr-border text-sm font-bold text-zr-text-muted"
           >
             + Agregar unidad
           </button>
+          <button
+            onClick={() => setPlantillasAbierto((v) => !v)}
+            className="min-h-14 w-full rounded-lg border border-dashed border-zr-border text-sm font-bold text-zr-text-muted"
+          >
+            + Agregar unidad ya creada (mis plantillas)
+          </button>
+          {plantillasAbierto && (
+            <div className="zr-card space-y-2 p-4">
+              {plantillas.length === 0 ? (
+                <p className="text-sm text-zr-text-muted">
+                  Aún no tienes plantillas. En cualquier unidad toca &quot;Guardar plantilla&quot; y aparecerá aquí.
+                </p>
+              ) : plantillas.map((t) => (
+                <div key={t.id} className="flex items-center justify-between gap-3 border-b border-zr-border pb-2 last:border-0 last:pb-0">
+                  <p className="min-w-0 break-words text-sm font-semibold text-zr-text">{t.title}</p>
+                  <button
+                    onClick={() => importarPlantilla(t.id)}
+                    disabled={importandoId !== null}
+                    className="shrink-0 rounded-lg bg-zr-blue px-4 py-2 text-xs font-bold text-white disabled:opacity-40"
+                  >
+                    {importandoId === t.id ? 'Agregando…' : 'Agregar'}
+                  </button>
+                </div>
+              ))}
+              {error && <p className="text-sm text-zr-error">{error}</p>}
+            </div>
+          )}
+          </div>
         ) : (
           <div className="zr-card space-y-4 p-5">
             <div>
@@ -196,12 +266,19 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
                   </div>
 
                   {!editandoEsta && !borrandoEsta && (
-                    <div className="flex gap-3 border-t border-zr-border pt-3">
+                    <div className="flex flex-wrap gap-3 border-t border-zr-border pt-3">
                       <button
                         onClick={() => { limpiarAcciones(); setEditandoId(u.id); setTituloEdicion(u.title) }}
                         className="min-h-10 flex-1 rounded-lg border border-zr-border text-sm font-semibold text-zr-text"
                       >
                         Corregir nombre
+                      </button>
+                      <button
+                        onClick={() => guardarPlantilla(u)}
+                        disabled={guardandoPlantillaId !== null}
+                        className="min-h-10 flex-1 rounded-lg border border-zr-border text-sm font-semibold text-zr-text disabled:opacity-40"
+                      >
+                        {guardandoPlantillaId === u.id ? 'Guardando…' : 'Guardar plantilla'}
                       </button>
                       <button
                         onClick={() => abrirBorrado(u)}

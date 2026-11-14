@@ -748,6 +748,15 @@ Salió de 4 audios transcritos en local (`faster-whisper`). Hecho:
 - 🟡 **Texto con formato:** otra sesión lo construyó en paralelo (`components/ui/TextoRico.tsx`, con marcas visibles + vista previa). La reunión pidió que el profesor no vea códigos (editor visual); queda por decidir si se cambia a un editor visual.
 - 🟡 **Pendiente:** (1) en `/modulos`, elegir primero el tipo (PTMA/PFTA) y luego el corte: hoy los módulos son por programa, no por corte; falta definir qué significa. (2) Eliminar una unidad deja en Notas la evaluación de tareas ya calificadas (§8.10); la reunión pide que se borre -- requiere migración sobre `fn_eliminar_unidad`. (3) El video de Drive que se ve negro en un Tecno no se pudo reproducir aquí. (4) Google Fotos no tiene embed público: queda como "Abrir enlace".
 
+### 8.26 Plantillas, tipo→programa y fotos por enlace (14-nov-2026, segunda ronda de la reunión)
+
+- ✅ **Plantillas de unidad** (migración 207, aplicada a staging y probada con rollback sobre una unidad real de 8 ítems: copió 8 ítems, 1 examen con 4 preguntas y 1 tarea): botón "Guardar plantilla" junto a "Corregir nombre"/"Eliminar" en `/unidades-docente` y "Agregar unidad ya creada (mis plantillas)" al crear. Solo las ve su dueño (`unit_templates`, RLS por `owner_id`). RPC `fn_guardar_plantilla_unidad` / `fn_importar_plantilla_unidad` (`security definer`, validan rol y `profesor_dicta`). Al importar: material, enlaces y bloques de texto se copian (mismo archivo de Storage), los **exámenes llegan ocultos con 0 %** y las **tareas con 0 %** para no pasarse del 100 % del módulo nuevo. Riesgo conocido: el archivo de Storage se comparte entre la copia y el original; borrar el original borra el archivo de la copia.
+- ✅ **Plantillas de examen** (`exam_templates`): cada examen que se crea (borrador o publicado) se guarda solo como plantilla del profesor (si ya hay una con el mismo nombre, se actualiza); en `crear-examen/nuevo`, "Usar examen ya creado" trae sus datos y preguntas al formulario.
+- ✅ **`/modulos`:** "Tipo de programa" (PTMA/PFTA) y luego "Programa" (los cortes de ese tipo). Los módulos siguen siendo del tipo, no del corte (la base no tiene módulos por corte); elegir el corte hoy no cambia dónde se crea.
+- ✅ **Fotos por enlace:** un link de imagen directa o de Google Fotos se muestra dentro de la app (`/api/enlace-imagen` lee el `og:image` de la página compartida; solo con sesión y solo dominios de Google Fotos). No verificado con un álbum real de Google Fotos.
+- ✅ **Descripción opcional** al subir material (se ve bajo el título).
+- Sin cambio a propósito: eliminar una unidad deja en Notas la evaluación ya calificada (§8.10).
+
 ---
 
 # PARTE IV — FLUJOGRAMAS POR ROL
@@ -1708,6 +1717,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-13 | **Revisión masiva + reunión del 9-nov.** Causa de "solo funciona en PTMA-II módulo 2": subida desde unidad fallaba en silencio (orden por conteo + cohorte/módulo del selector) y regla de producto del profesor (migr. 158). Corregidos `/examenes-academicos`, `/crear-examen`, `delete-exams`, tope de nota de tarea, aviso de cohorte sin módulo; Google Drive para video/audio; estudiante de prueba V-90000004; `develop` reparado (Electude) y CI en verde (build). Ver §8.23. | `docs/reportes/revision_masiva_2026-11-13.md` |
 | 2026-11-13 | Agregar módulos nuevos desde `/modulos` (dirección/super_admin) y profesor puede preparar módulos futuros (migr. 206 aplicada a mano en staging). Ver §8.24. | `supabase/migrations/206_profesor_prepara_modulos_futuros.sql` |
 | 2026-11-14 | Reunión del 14-nov sobre Unidades (4 audios): botón flotante Guardar cambios, enlaces cualquiera + pantalla completa, video vertical, borrar desde Notas borra en Unidades, examen sin % libre → borrador. Ver §8.25. | — |
+| 2026-11-14 | Segunda ronda de la reunión: plantillas de unidad y examen (migr. 207), `/modulos` tipo→programa, fotos por enlace (Google Fotos), descripción en material. Ver §8.26. | `supabase/migrations/207_plantillas_unidad_examen.sql` |
 
 ---
 

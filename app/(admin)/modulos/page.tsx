@@ -58,6 +58,8 @@ export default function EditarModulos() {
   const [programas, setProgramas] = useState<{ id: string; name: string; siglas: string | null }[]>([])
   const [nuevoAbierto, setNuevoAbierto] = useState(false)
   const [nuevoPrograma, setNuevoPrograma] = useState('todos')
+  const [nuevoCorte, setNuevoCorte] = useState('todos')
+  const [cortes, setCortes] = useState<{ id: string; name: string; program_id: string }[]>([])
   const [nuevoNombre, setNuevoNombre] = useState('')
   const [nuevoCorto, setNuevoCorto] = useState('')
   const [nuevoSemanas, setNuevoSemanas] = useState(4)
@@ -88,6 +90,8 @@ export default function EditarModulos() {
 
       const { data: progs } = await supabase.from('programs').select('id, name, siglas').order('name')
       if (vigente) setProgramas((progs ?? []) as { id: string; name: string; siglas: string | null }[])
+      const { data: cos } = await supabase.from('cohorts').select('id, name, program_id').order('name')
+      if (vigente) setCortes((cos ?? []) as { id: string; name: string; program_id: string }[])
 
       const [{ data: mods }, { data: config }] = await Promise.all([
         supabase
@@ -246,18 +250,35 @@ export default function EditarModulos() {
         ) : (
           <div className="zr-card space-y-4 p-5">
             <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zr-text-muted">Programa</label>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zr-text-muted">Tipo de programa</label>
               <select
                 value={nuevoPrograma}
-                onChange={(e) => setNuevoPrograma(e.target.value)}
+                onChange={(e) => { setNuevoPrograma(e.target.value); setNuevoCorte('todos') }}
                 className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
               >
-                <option value="todos">Todos los programas</option>
+                <option value="todos">Todos los tipos</option>
                 {programas.map((p) => (
                   <option key={p.id} value={p.id}>{p.siglas ? `${p.siglas} · ` : ''}{p.name}</option>
                 ))}
               </select>
-              <p className="mt-1.5 text-xs text-zr-text-muted">Se agrega al final del programa elegido.</p>
+              {nuevoPrograma !== 'todos' && (
+                <div className="mt-3">
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zr-text-muted">Programa</label>
+                  <select
+                    value={nuevoCorte}
+                    onChange={(e) => setNuevoCorte(e.target.value)}
+                    className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+                  >
+                    <option value="todos">Todos los programas de este tipo</option>
+                    {cortes.filter((c) => c.program_id === nuevoPrograma).map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <p className="mt-1.5 text-xs text-zr-text-muted">
+                El módulo se agrega al final del tipo elegido. Los módulos son del tipo (PTMA o PFTA), así que lo ven todos sus programas.
+              </p>
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zr-text-muted">Nombre del módulo</label>

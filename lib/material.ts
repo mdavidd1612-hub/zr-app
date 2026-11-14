@@ -208,3 +208,23 @@ export function enlaceWebValido(url: string): string | null {
     return null
   }
 }
+
+/** Link directo a una imagen (.jpg, .png, ... o un servidor de imágenes de Google). */
+export function esImagenDirecta(url: string): boolean {
+  try {
+    const u = new URL(url.trim())
+    return /\.(jpe?g|png|gif|webp|avif|bmp)$/i.test(u.pathname) || u.hostname.endsWith('googleusercontent.com')
+  } catch {
+    return false
+  }
+}
+
+/** Link compartido de Google Fotos (se resuelve a la imagen en el servidor). */
+export function esGoogleFotos(url: string): boolean {
+  try {
+    const h = new URL(url.trim()).hostname
+    return h === 'photos.app.goo.gl' || h === 'photos.google.com'
+  } catch {
+    return false
+  }
+}

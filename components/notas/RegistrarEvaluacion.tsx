@@ -318,8 +318,26 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
   async function borrar(id: string) {
     if (!confirm('¿Quitar esta evaluación? También se borran las notas que ya tenga cargadas.')) return
     const supabase = createClient()
+    // Reunión 14-nov-2026: si la evaluación viene de Unidades (examen o tarea),
+    // borrarla aquí también la borra allá -- todo es una sola conexión.
+    const { data: origen } = await supabase
+      .from('manual_exam_definitions' as never)
+      .select('source_exam_id, source_assignment_id')
+      .eq('id', id)
+      .maybeSingle() as { data: { source_exam_id: string | null; source_assignment_id: string | null } | null }
+    if (origen?.source_exam_id) {
+      const r = await fetch('/api/delete-exams', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [origen.source_exam_id] }),
+      })
+      if (!r.ok) { setError('No se pudo borrar el examen de Unidades. Intenta de nuevo.'); return }
+    } else if (origen?.source_assignment_id) {
+      const { error: fa } = await supabase.from('assignments').delete().eq('id', origen.source_assignment_id)
+      if (fa) { setError('No se pudo borrar la tarea de Unidades. Intenta de nuevo.'); return }
+    }
     const { error: fallo } = await supabase.from('manual_exam_definitions').delete().eq('id', id)
-    if (!fallo) {
+    if (!fallo || origen?.source_exam_id) {
       setEvaluaciones((ex) => ex.filter((e) => e.id !== id))
       setTocadas((prev) => { const s = new Set(prev); s.delete(id); return s })
     }

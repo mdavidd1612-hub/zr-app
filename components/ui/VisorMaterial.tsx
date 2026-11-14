@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { TipoMaterial } from '@/lib/material'
-import { urlDelVisor, visorDe, embedDeEnlace } from '@/lib/material'
+import { urlDelVisor, visorDe, embedDeEnlace, enlaceWebValido } from '@/lib/material'
 import { IconoDocumento } from '@/components/ui/Iconos'
 
 /**
@@ -105,6 +105,7 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
   const [paginaMaxVista, setPaginaMaxVista] = useState(0)
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map())
   const percentRef = useRef(0)
+  const marcoEnlaceRef = useRef<HTMLDivElement>(null)
   const ultimaPercentGuardada = useRef(-1)
   const videoRef = useRef<HTMLVideoElement>(null)
   // Word (.docx) -- pedido explícito del coordinador (8-nov-2026): "todos los
@@ -284,15 +285,36 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
   if (tipo === 'enlace') {
     const embed = externalUrl ? embedDeEnlace(externalUrl) : null
     if (!embed) {
+      // Reunión 14-nov-2026: cualquier otro link (Google Fotos, una página...)
+      // se abre en su propia pestaña en vez de dar "no válido".
+      const web = externalUrl ? enlaceWebValido(externalUrl) : null
+      if (web) {
+        return (
+          <div className="zr-card flex flex-col items-center gap-3 p-8 text-center">
+            <IconoDocumento size={28} className="text-zr-text-muted" />
+            <p className="text-sm text-zr-text-muted">Este material es un enlace externo.</p>
+            <a
+              href={web}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => void guardarProgreso(100)}
+              className="rounded-full bg-zr-blue px-5 py-3 text-sm font-bold text-white"
+            >
+              Abrir enlace
+            </a>
+          </div>
+        )
+      }
       return (
         <div className="zr-card flex flex-col items-center gap-3 p-8 text-center">
           <IconoDocumento size={28} className="text-zr-text-muted" />
-          <p className="text-sm text-zr-text-muted">El link del video no es válido (debe ser de YouTube o Google Drive).</p>
+          <p className="text-sm text-zr-text-muted">El enlace no es válido.</p>
         </div>
       )
     }
     return (
-      <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
+      <div className="space-y-2">
+      <div ref={marcoEnlaceRef} className="aspect-video max-h-[80dvh] w-full overflow-hidden rounded-xl bg-black">
         <iframe
           src={embed.src}
           title={embed.proveedor === 'drive' ? 'Video de Google Drive' : 'Video de YouTube'}
@@ -301,6 +323,20 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
           className="h-full w-full"
           onLoad={() => void guardarProgreso(100)}
         />
+      </div>
+      <div className="flex flex-wrap items-center gap-3 text-xs">
+        <button
+          onClick={() => void marcoEnlaceRef.current?.requestFullscreen?.()}
+          className="rounded-full border border-zr-border px-4 py-2 font-semibold text-zr-text"
+        >
+          Pantalla completa
+        </button>
+        {externalUrl && (
+          <a href={externalUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-zr-blue">
+            ¿No se ve? Abrir en otra pestaña
+          </a>
+        )}
+      </div>
       </div>
     )
   }
@@ -325,7 +361,7 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
         src={url}
         controls
         playsInline
-        className="w-full rounded-xl bg-black"
+        className="mx-auto max-h-[85dvh] w-full rounded-xl bg-black object-contain"
         onPlay={alReproducir}
         onPause={alPausarOFin}
         onEnded={alPausarOFin}

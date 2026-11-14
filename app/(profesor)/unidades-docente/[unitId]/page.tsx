@@ -772,6 +772,17 @@ export default function UnidadDocenteDetalle() {
 
       <Encabezado sobretitulo="Unidad · Editando" titulo={titulo} />
 
+      {/* Reunión 14-nov-2026: el "Listo" de arriba quedaba escondido; botón
+          flotante abajo que cierra la edición (cada control ya guarda solo). */}
+      <button
+        onClick={() => setModoEdicion(false)}
+        style={{ backgroundColor: acento }}
+        className="fixed bottom-[calc(7rem+env(safe-area-inset-bottom))] left-1/2 z-[60] flex min-h-14 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 items-center justify-center gap-2 rounded-full text-base font-bold text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)] lg:bottom-8"
+      >
+        <IconoCheck size={18} />
+        Guardar cambios
+      </button>
+
       <BannerUnidad
         sobretitulo="Aula Virtual"
         titulo={titulo}

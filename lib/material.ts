@@ -198,3 +198,13 @@ export async function registrarEvento(e: {
     // las métricas jamás bloquean al estudiante
   }
 }
+
+/** Cualquier link http(s) (Google Fotos, una página, etc.): se muestra como tarjeta "Abrir enlace". */
+export function enlaceWebValido(url: string): string | null {
+  try {
+    const u = new URL(url.trim())
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u.toString() : null
+  } catch {
+    return null
+  }
+}

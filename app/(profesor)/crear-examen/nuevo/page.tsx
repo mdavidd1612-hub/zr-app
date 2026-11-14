@@ -216,10 +216,14 @@ function NuevoExamenInterno() {
     // siquiera se publicó. El tope de 100% solo tiene sentido cuando el
     // examen SÍ va a pesar en la nota del módulo (al publicarlo de una vez,
     // o después al editarlo desde /crear-examen/[examId]).
-    if (publicarDeUnaVez && pesoNuevo > 0) {
+    // Reunión 14-nov-2026: si el % ya no cabe, no se bloquea -- se guarda como
+    // borrador (sin peso) para no perder el trabajo; se publica luego al ajustar.
+    let publicar = publicarDeUnaVez
+    let avisoPeso: string | null = null
+    if (publicar && pesoNuevo > 0) {
       const ocupado = await sumaPesoOcupado(supabase, moduloId, cohorteId || null)
       const msg = mensajeSiExcedePeso(ocupado, pesoNuevo)
-      if (msg) { setError(msg); return }
+      if (msg) { publicar = false; avisoPeso = msg }
     }
 
     // Mismo caso que el material (reunión 31-oct-2026): crear dos veces un
@@ -266,7 +270,7 @@ function NuevoExamenInterno() {
         // Si se guarda como borrador, el % no se registra todavía en Notas
         // (0 -- no cuenta para el tope de 100% de nadie más) -- se aplica de
         // verdad recién al publicar (aquí mismo o después, editando).
-        weight: publicarDeUnaVez ? pesoNuevo : 0,
+        weight: publicar ? pesoNuevo : 0,
         opens_at: abreEl ? new Date(abreEl).toISOString() : null,
         closes_at: cierraEl ? new Date(cierraEl).toISOString() : null,
         // Bug real reportado en vivo (8-nov-2026): exams.unit_id nunca se
@@ -313,7 +317,7 @@ function NuevoExamenInterno() {
     // ir a /crear-examen (que ni tenía acceso en el menú) a publicarlo. La
     // garantía real sigue siendo trg_validate_exam_publish; si rechaza, el
     // examen queda creado como borrador (nada se pierde) y se avisa.
-    if (publicarDeUnaVez) {
+    if (publicar) {
       const { error: falloPublicar } = await supabase
         .from('exams')
         .update({ status: 'habilitado', published_at: new Date().toISOString() })
@@ -324,6 +328,8 @@ function NuevoExamenInterno() {
         return
       }
     }
+
+    if (avisoPeso) window.alert(`Se guardó como borrador (sin publicar). ${avisoPeso}`)
 
     // Viene de una unidad: se engancha solo (unit_items) y se vuelve ahí --
     // el profesor no tiene que ir a buscarlo a la lista para agregarlo.

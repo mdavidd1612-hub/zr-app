@@ -738,6 +738,16 @@ Informe completo en `docs/reportes/revision_masiva_2026-11-13.md`. Resumen:
 - ✅ **Dirección Académica y super_admin pueden agregar módulos nuevos a un programa** (`/modulos`, sección "Agregar un módulo nuevo"): eligen un programa (o todos), nombre, resumen corto y duración; se agrega al final del orden de ese programa. La RLS (`is_academico()`, migr. 066) ya lo permitía; solo faltaba la pantalla.
 - 🟡 **El profesor puede preparar material y exámenes de módulos que aún no empiezan** (decisión de Pedro): migración 206 (`profesor_dicta`/`profesor_ve_material` sin la condición de estado) y se quitó el bloqueo en `contenido-docente`. La 206 la aplicó el coordinador a mano en el editor SQL de `zr-staging` (13-nov-2026; el conector y el CLI no podían). Falta probar una subida como profesor en un módulo futuro. Notas/Feedback/Temario siguen bloqueados para módulos futuros.
 
+### 8.25 Reunión del 14-nov-2026 — cambios a Unidades (staging)
+
+Salió de 4 audios transcritos en local (`faster-whisper`). Hecho:
+- ✅ **Botón flotante "Guardar cambios"** abajo en el modo edición de la unidad (el "Listo" de arriba quedaba escondido).
+- ✅ **Enlaces:** "Video por enlace" acepta cualquier link http(s). YouTube/Drive se ven dentro de la app (con botón "Pantalla completa" y "¿No se ve? Abrir en otra pestaña", por el Drive negro en Tecno); cualquier otro (Google Fotos, una página) sale como tarjeta "Abrir enlace".
+- ✅ **Video subido:** `max-h-[85dvh]` + `object-contain` (vertical se ve completo, horizontal sin cortarse).
+- ✅ **Notas ↔ Unidades:** borrar una evaluación desde Notas (`RegistrarEvaluacion`) borra también el examen (`/api/delete-exams`) o la tarea de origen. Crear un examen cuyo % ya no cabe lo guarda como borrador (con aviso) en vez de bloquear.
+- 🟡 **Texto con formato:** otra sesión lo construyó en paralelo (`components/ui/TextoRico.tsx`, con marcas visibles + vista previa). La reunión pidió que el profesor no vea códigos (editor visual); queda por decidir si se cambia a un editor visual.
+- 🟡 **Pendiente:** (1) en `/modulos`, elegir primero el tipo (PTMA/PFTA) y luego el corte: hoy los módulos son por programa, no por corte; falta definir qué significa. (2) Eliminar una unidad deja en Notas la evaluación de tareas ya calificadas (§8.10); la reunión pide que se borre -- requiere migración sobre `fn_eliminar_unidad`. (3) El video de Drive que se ve negro en un Tecno no se pudo reproducir aquí. (4) Google Fotos no tiene embed público: queda como "Abrir enlace".
+
 ---
 
 # PARTE IV — FLUJOGRAMAS POR ROL
@@ -1697,6 +1707,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-08 | **El profesor no veía si administración aprobó/rechazó su material, ni por qué** -- agregada etiqueta de estado (Aprobado/En espera/Rechazado, tocable para ver el motivo) junto a cada material en `unidades-docente/[unitId]` (editar y lectura) + notificación push real al aprobar/rechazar (migración 205). Ver §8.22. | — |
 | 2026-11-13 | **Revisión masiva + reunión del 9-nov.** Causa de "solo funciona en PTMA-II módulo 2": subida desde unidad fallaba en silencio (orden por conteo + cohorte/módulo del selector) y regla de producto del profesor (migr. 158). Corregidos `/examenes-academicos`, `/crear-examen`, `delete-exams`, tope de nota de tarea, aviso de cohorte sin módulo; Google Drive para video/audio; estudiante de prueba V-90000004; `develop` reparado (Electude) y CI en verde (build). Ver §8.23. | `docs/reportes/revision_masiva_2026-11-13.md` |
 | 2026-11-13 | Agregar módulos nuevos desde `/modulos` (dirección/super_admin) y profesor puede preparar módulos futuros (migr. 206 aplicada a mano en staging). Ver §8.24. | `supabase/migrations/206_profesor_prepara_modulos_futuros.sql` |
+| 2026-11-14 | Reunión del 14-nov sobre Unidades (4 audios): botón flotante Guardar cambios, enlaces cualquiera + pantalla completa, video vertical, borrar desde Notas borra en Unidades, examen sin % libre → borrador. Ver §8.25. | — |
 
 ---
 

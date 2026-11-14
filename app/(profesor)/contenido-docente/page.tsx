@@ -11,7 +11,7 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 import { prepararArchivo, subirAlBucket } from '@/lib/subida'
 import { EtiquetaTipoArchivo } from '@/components/ui/EtiquetaTipoArchivo'
 import {
-  ACCEPT_MATERIAL, MENSAJE_FORMATOS, nombreDescarga, rutaDeStorage, tipoDeArchivo, embedDeEnlace,
+  ACCEPT_MATERIAL, MENSAJE_FORMATOS, nombreDescarga, rutaDeStorage, tipoDeArchivo, enlaceWebValido,
 } from '@/lib/material'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { ContextoDocente, type ContextoSel } from '@/components/ui/ContextoDocente'
@@ -264,9 +264,9 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
 
   async function subirYoutube() {
     if (!titulo.trim() || !moduloId) return
-    const enlaceValido = embedDeEnlace(linkYoutube.trim())
+    const enlaceValido = enlaceWebValido(linkYoutube.trim())
     if (!enlaceValido) {
-      setError('No reconozco ese link. Pega la URL completa de un video de YouTube o de Google Drive.')
+      setError('Ese link no es válido. Pega la URL completa (YouTube, Google Drive, Google Fotos u otra página).')
       return
     }
     setSubiendoYoutube(true)
@@ -454,7 +454,7 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
                 className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
               />
               <p className="mt-1.5 text-xs text-zr-text-muted">
-                YouTube (puede ser &quot;no listado&quot;) o Google Drive. En Drive, compártelo como &quot;cualquier persona con el enlace&quot; para que tus estudiantes puedan verlo. También sirve para audios.
+                YouTube (puede ser &quot;no listado&quot;), Google Drive o cualquier otro enlace (Google Fotos, una página...). Los de YouTube y Drive se ven dentro de la app; los demás se abren en su propia pestaña. En Drive, compártelo como &quot;cualquier persona con el enlace&quot; para que tus estudiantes puedan verlo. También sirve para audios.
               </p>
             </div>
           ) : (

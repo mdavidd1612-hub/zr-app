@@ -363,7 +363,7 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
       <div className="space-y-2">
       <div
         ref={marcoEnlaceRef}
-        className={`w-full overflow-hidden rounded-xl bg-black ${marcoVertical ? 'h-[78dvh]' : 'aspect-video max-h-[80dvh]'}`}
+        className={`w-full overflow-hidden rounded-xl bg-black ${marcoVertical ? 'h-[68dvh]' : 'aspect-video max-h-[80dvh]'}`}
       >
         <iframe
           src={embed.src}

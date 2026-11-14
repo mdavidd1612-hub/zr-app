@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Etiqueta } from '@/components/ui/Editorial'
 import { Recorrido, Paso, type EstadoPaso } from '@/components/ui/Recorrido'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { TextoRico } from '@/components/ui/TextoRico'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { BannerUnidad, type ColorBanner } from '@/components/ui/BannerUnidad'
 import { acentoDe } from '@/lib/banner-unidad'
@@ -261,11 +262,11 @@ export default function UnidadDetalle() {
 
         {/* Avance de obligatorios, tejido sin cuadro: un rótulo, una línea fina
             y el texto de lo que falta. */}
-        {hayCertificacion && obligatorios.length > 0 && (
+        {obligatorios.length > 0 && (
           <div className="space-y-2.5">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">
-                {certificacionTrabada ? 'Para la certificación' : 'Materiales obligatorios listos'}
+                {hayCertificacion ? (certificacionTrabada ? 'Para la certificación' : 'Materiales obligatorios listos') : 'Tu avance en la unidad'}
               </p>
               <span className="cifra text-sm text-zr-blue-mid">
                 {obligatoriosCompletos}/{obligatorios.length}
@@ -279,8 +280,8 @@ export default function UnidadDetalle() {
             </div>
             <p className="text-xs text-zr-text-muted">
               {certificacionTrabada
-                ? `Te falta${faltanObligatorios === 1 ? '' : 'n'} ${faltanObligatorios} material${faltanObligatorios === 1 ? '' : 'es'} obligatorio${faltanObligatorios === 1 ? '' : 's'} para presentar la certificación.`
-                : 'Ya puedes presentar la certificación de esta unidad.'}
+                ? `Te falta${faltanObligatorios === 1 ? '' : 'n'} ${faltanObligatorios} material${faltanObligatorios === 1 ? '' : 'es'} obligatorio${faltanObligatorios === 1 ? '' : 's'}${hayCertificacion ? ' para presentar la certificación.' : '.'}`
+                : hayCertificacion ? 'Ya puedes presentar la certificación de esta unidad.' : 'Ya viste todo lo obligatorio.'}
             </p>
           </div>
         )}
@@ -321,9 +322,7 @@ export default function UnidadDetalle() {
                       delay={80 + idx * 50}
                       acento={acentoDe(bannerColor)}
                     >
-                      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zr-text-muted">
-                        {item.cuerpoTexto}
-                      </p>
+                      <TextoRico texto={item.cuerpoTexto ?? ''} />
                     </Paso>
                   )
                 }

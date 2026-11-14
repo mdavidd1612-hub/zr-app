@@ -21,9 +21,10 @@ import { iconoDeMaterial } from '@/components/ui/IconoMaterial'
 import { ModalEvaluacionAgregada } from '@/components/ui/ModalEvaluacionAgregada'
 import { sumaPesoOcupado, mensajeSiExcedePeso } from '@/lib/peso-notas'
 import { DndContext, PointerSensor, KeyboardSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
+import { SortableContext, rectSortingStrategy, useSortable, arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { IconoArrastrar } from '@/components/ui/Iconos'
+import { TextoRico, EditorTextoRico } from '@/components/ui/TextoRico'
 
 /**
  * Aula Virtual — el profesor administra el contenido de UNA unidad: fechas
@@ -122,6 +123,7 @@ export default function UnidadDocenteDetalle() {
   const [modoEdicion, setModoEdicion] = useState(false)
   const [panel, setPanel] = useState<'material' | 'texto' | 'tarea' | null>(null)
   const [verApariencia, setVerApariencia] = useState(false)
+  const [ladoALado, setLadoALado] = useState(true)
   const [titulo, setTitulo] = useState('')
   const [openAt, setOpenAt] = useState('')
   const [closeAt, setCloseAt] = useState('')
@@ -588,32 +590,8 @@ export default function UnidadDocenteDetalle() {
   // profesor sí necesita saber en qué estado está lo que está viendo.
   const estado = estadoUnidad(openAt, closeAt, manualStatus)
 
-  if (!modoEdicion) {
-    return (
-      <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
-        <div className="space-y-7">
-          <BotonVolver href="/unidades-docente" />
-
-          <PestanasUnidad unidades={unidades} activaId={unitId} hrefBase="/unidades-docente" />
-        </div>
-
-        <div className="mt-7 space-y-9">
-          <BannerUnidad
-            sobretitulo="Aula Virtual · Vista del estudiante"
-            titulo={titulo}
-            imagenUrl={urlBanner}
-            posicionImagen={bannerPosicion}
-            color={bannerColor}
-            accion={
-              <span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white">
-                {estado.texto}
-              </span>
-            }
-          />
-
-          <section className="animate-rise space-y-6">
-            <p className="zr-eyebrow">01 — CONTENIDO DE LA UNIDAD</p>
-
+  const contenidoRecorrido = (
+    <>
             {items.length === 0 ? (
               <p className="text-sm text-zr-text-muted">Todavía no has agregado nada. Toca &quot;Editar unidad&quot; para empezar.</p>
             ) : (
@@ -636,9 +614,7 @@ export default function UnidadDocenteDetalle() {
                         delay={80 + idx * 50}
                         acento={acento}
                       >
-                        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zr-text-muted">
-                          {item.cuerpoTexto}
-                        </p>
+                        <TextoRico texto={item.cuerpoTexto ?? ''} />
                       </Paso>
                     )
                   }
@@ -706,6 +682,52 @@ export default function UnidadDocenteDetalle() {
                 })}
               </Recorrido>
             )}
+    </>
+  )
+
+  const obligatoriosPrevia = items.filter((i) => i.type === 'material' && i.required && !i.esTexto).length
+  const barraAvance = obligatoriosPrevia > 0 ? (
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">Avance del estudiante en la unidad</p>
+        <span className="cifra text-sm" style={{ color: acento }}>0/{obligatoriosPrevia}</span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-zr-border/60">
+        <div className="h-full w-0 rounded-full" style={{ backgroundColor: acento }} />
+      </div>
+      <p className="text-xs text-zr-text-muted">Cada estudiante ve aquí cuántos materiales obligatorios lleva.</p>
+    </div>
+  ) : null
+
+  if (!modoEdicion) {
+    return (
+      <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
+        <div className="space-y-7">
+          <BotonVolver href="/unidades-docente" />
+
+          <PestanasUnidad unidades={unidades} activaId={unitId} hrefBase="/unidades-docente" />
+        </div>
+
+        <div className="mt-7 space-y-9">
+          <BannerUnidad
+            sobretitulo="Aula Virtual · Vista del estudiante"
+            titulo={titulo}
+            imagenUrl={urlBanner}
+            posicionImagen={bannerPosicion}
+            color={bannerColor}
+            accion={
+              <span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white">
+                {estado.texto}
+              </span>
+            }
+          />
+
+          {barraAvance}
+
+          <section className="animate-rise space-y-6">
+            <p className="zr-eyebrow">01 — CONTENIDO DE LA UNIDAD</p>
+
+            {contenidoRecorrido}
           </section>
         </div>
 
@@ -724,22 +746,82 @@ export default function UnidadDocenteDetalle() {
   }
 
   return (
-    <div className="min-h-dvh space-y-11 bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
+    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
+     <div className="mx-auto max-w-[1600px] space-y-8">
       <div className="flex items-center justify-between gap-3">
         <BotonVolver href="/unidades-docente" />
-        <button
-          onClick={() => setModoEdicion(false)}
-          style={{ color: acento }}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold"
-        >
-          <IconoCheck size={16} />
-          Listo
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setLadoALado(!ladoALado)}
+            style={{ borderColor: acento, color: acento }}
+            className="hidden rounded-lg border px-3 py-2 text-xs font-bold xl:block"
+          >
+            {ladoALado ? 'Quitar vista lado a lado' : 'Ver lado a lado'}
+          </button>
+          <button
+            onClick={() => setModoEdicion(false)}
+            style={{ color: acento }}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold"
+          >
+            <IconoCheck size={16} />
+            Listo
+          </button>
+        </div>
       </div>
 
       <Encabezado sobretitulo="Unidad · Editando" titulo={titulo} />
 
-      <Seccion numero={1} titulo="Contenido de la unidad" delay={100}>
+      <BannerUnidad
+        sobretitulo="Aula Virtual"
+        titulo={titulo}
+        imagenUrl={urlBanner}
+        posicionImagen={bannerPosicion}
+        color={bannerColor}
+        accion={
+          <span className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white">{estado.texto}</span>
+        }
+      />
+
+      <div className={ladoALado ? 'grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_400px]' : ''}>
+        <div className="min-w-0 space-y-11">
+      <Seccion numero={1} titulo="Cuándo se abre y se cierra" delay={60}>
+        <div className="zr-card space-y-4 p-5">
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Se abre</label>
+            <input
+              type="datetime-local"
+              value={openAt}
+              onChange={(e) => setOpenAt(e.target.value)}
+              className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
+            />
+            <p className="mt-1 text-xs text-zr-text-muted">Si lo dejas vacío, la unidad queda oculta (borrador).</p>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Se cierra (opcional)</label>
+            <input
+              type="datetime-local"
+              value={closeAt}
+              onChange={(e) => setCloseAt(e.target.value)}
+              className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
+            />
+            <p className="mt-1 text-xs text-zr-text-muted">Después de esta fecha la siguen viendo, solo para repasar.</p>
+          </div>
+          <button
+            onClick={guardarFechas}
+            disabled={guardando}
+            style={{ backgroundColor: acento }}
+            className="min-h-12 w-full rounded-lg text-sm font-bold text-white disabled:opacity-50"
+          >
+            {guardando ? 'Guardando…' : 'Guardar fechas'}
+          </button>
+        </div>
+      </Seccion>
+
+
+      <Regla delay={100} />
+
+      <Seccion numero={2} titulo="Contenido de la unidad" delay={100}>
         {items.length === 0 && (
           <div className="rounded-xl border border-dashed border-zr-border p-5 text-center">
             <p className="text-base font-bold text-zr-text">Esta unidad está vacía</p>
@@ -750,24 +832,19 @@ export default function UnidadDocenteDetalle() {
           <p className="text-xs text-zr-text-muted">Para cambiar el orden, mantén presionados los puntitos de una tarjeta y arrástrala.</p>
         )}
         <DndContext sensors={sensores} collisionDetection={closestCenter} onDragEnd={alTerminarArrastre}>
-        <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-        <div className="space-y-3">
+        <SortableContext items={items.map((i) => i.id)} strategy={rectSortingStrategy}>
+        <div className={`grid gap-3 ${ladoALado ? 'md:grid-cols-2' : 'md:grid-cols-2 2xl:grid-cols-3'}`}>
           {items.map((item) => {
             if (item.esTexto) {
               if (editandoTextoId === item.id) {
                 return (
-                  <div key={item.id} className="zr-card space-y-3 p-5">
+                  <div key={item.id} className="zr-card col-span-full space-y-3 p-5">
                     <input
                       value={editTextoTitulo}
                       onChange={(e) => setEditTextoTitulo(e.target.value)}
                       className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm font-bold text-zr-text outline-none focus:border-zr-blue"
                     />
-                    <textarea
-                      value={editTextoCuerpo}
-                      onChange={(e) => setEditTextoCuerpo(e.target.value)}
-                      rows={4}
-                      className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3 text-sm text-zr-text outline-none focus:border-zr-blue"
-                    />
+                    <EditorTextoRico value={editTextoCuerpo} onChange={setEditTextoCuerpo} acento={acento} rows={6} />
                     <div className="flex gap-2">
                       <button
                         onClick={() => setEditandoTextoId(null)}
@@ -809,7 +886,7 @@ export default function UnidadDocenteDetalle() {
                           </button>
                         </div>
                       </div>
-                      <p className="whitespace-pre-wrap break-words text-sm text-zr-text-muted">{item.cuerpoTexto}</p>
+                      <TextoRico texto={item.cuerpoTexto ?? ''} />
                     </div>
                   )}
                 </FilaOrdenable>
@@ -1053,13 +1130,7 @@ export default function UnidadDocenteDetalle() {
                 placeholder="Título (ej. Antes de empezar)"
                 className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-surface px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
               />
-              <textarea
-                value={textoCuerpo}
-                onChange={(e) => setTextoCuerpo(e.target.value)}
-                placeholder="Escribe aquí lo que quieres que lean"
-                rows={4}
-                className="w-full rounded-lg border border-zr-border bg-zr-surface px-4 py-3 text-sm text-zr-text outline-none focus:border-zr-blue"
-              />
+              <EditorTextoRico value={textoCuerpo} onChange={setTextoCuerpo} placeholder="Escribe aquí lo que quieres que lean" acento={acento} rows={6} />
               <button
                 onClick={async () => { await crearBloqueTexto(); setPanel(null) }}
                 disabled={!textoTitulo.trim() || !textoCuerpo.trim() || creandoTexto}
@@ -1128,44 +1199,10 @@ export default function UnidadDocenteDetalle() {
         </div>
       </Seccion>
 
-      <Regla delay={140} />
 
-      <Seccion numero={2} titulo="¿Cuándo la ven los estudiantes?" delay={140}>
-        <div className="zr-card space-y-4 p-5">
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Se abre</label>
-            <input
-              type="datetime-local"
-              value={openAt}
-              onChange={(e) => setOpenAt(e.target.value)}
-              className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
-            />
-            <p className="mt-1 text-xs text-zr-text-muted">Si lo dejas vacío, la unidad queda oculta (borrador).</p>
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Se cierra (opcional)</label>
-            <input
-              type="datetime-local"
-              value={closeAt}
-              onChange={(e) => setCloseAt(e.target.value)}
-              className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
-            />
-            <p className="mt-1 text-xs text-zr-text-muted">Después de esta fecha la siguen viendo, solo para repasar.</p>
-          </div>
-          <button
-            onClick={guardarFechas}
-            disabled={guardando}
-            style={{ backgroundColor: acento }}
-            className="min-h-12 w-full rounded-lg text-sm font-bold text-white disabled:opacity-50"
-          >
-            {guardando ? 'Guardando…' : 'Guardar fechas'}
-          </button>
-        </div>
-      </Seccion>
+      <Regla delay={160} />
 
-      <Regla delay={200} />
-
-      <Seccion numero={3} titulo="Apariencia (opcional)" delay={220}>
+      <Seccion numero={3} titulo="Apariencia (opcional)" delay={180}>
         <button
           type="button"
           onClick={() => setVerApariencia(!verApariencia)}
@@ -1277,6 +1314,19 @@ export default function UnidadDocenteDetalle() {
       </div>
         )}
       </Seccion>
+
+
+        </div>
+
+        {ladoALado && (
+          <aside className="sticky top-6 hidden max-h-[calc(100dvh-3rem)] space-y-5 overflow-y-auto rounded-2xl border border-zr-border bg-zr-surface/40 p-5 xl:block">
+            <p className="zr-eyebrow">Así lo ve el estudiante</p>
+            {barraAvance}
+            {contenidoRecorrido}
+          </aside>
+        )}
+      </div>
+     </div>
 
       {confirmandoTarea && (
         <ModalEvaluacionAgregada

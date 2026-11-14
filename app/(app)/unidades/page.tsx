@@ -32,6 +32,7 @@ export default function Unidades() {
   const [modulos, setModulos] = useState<{ id: string; name: string; order_index: number }[]>([])
   const [actualId, setActualId] = useState<string | null>(null)
   const [moduloSel, setModuloSel] = useState<string | null>(null)
+  const [menuModulos, setMenuModulos] = useState(false)
 
   useEffect(() => {
     async function cargar() {
@@ -71,6 +72,7 @@ export default function Unidades() {
 
   // "Dónde vas": la primera unidad abierta y no bloqueada se marca como activa
   // (nodo resaltado), para que el recorrido tenga un punto de atención claro.
+  const moduloActualSel = modulos.find((m) => m.id === moduloSel) ?? null
   const unidadesDelModulo = moduloSel ? unidades.filter((u) => u.module_id === moduloSel) : unidades
   const indiceActiva = unidadesDelModulo.findIndex(
     (u) => u.effective_status === 'abierta' && u.prerequisite_met !== false,
@@ -111,22 +113,45 @@ export default function Unidades() {
         <Regla delay={60} />
 
         {modulos.length > 1 && (
-          <div className="-mx-5 overflow-x-auto px-5">
-            <div className="flex gap-2 pb-1">
-              {modulos.map((m) => {
-                const activo = m.id === moduloSel
-                return (
-                  <button
-                    key={m.id}
-                    onClick={() => setModuloSel(m.id)}
-                    className={`shrink-0 rounded-full border px-4 py-2 text-xs font-bold ${
-                      activo ? 'border-zr-blue bg-zr-blue/15 text-zr-text' : 'border-zr-border text-zr-text-muted'
-                    }`}
-                  >
-                    Módulo {m.order_index} · {m.name}{m.id === actualId ? ' (actual)' : ''}
-                  </button>
-                )
-              })}
+          <button
+            onClick={() => setMenuModulos(true)}
+            className="flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border border-zr-border bg-zr-surface px-5 text-left"
+          >
+            <span className="min-w-0">
+              <span className="block text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">Módulo</span>
+              <span className="block truncate text-sm font-bold text-zr-text">
+                {moduloActualSel ? `${moduloActualSel.order_index}. ${moduloActualSel.name}` : 'Elegir módulo'}
+                {moduloSel && moduloSel === actualId ? ' (actual)' : ''}
+              </span>
+            </span>
+            <span className="shrink-0 text-xs font-bold text-zr-blue">Cambiar</span>
+          </button>
+        )}
+
+        {menuModulos && (
+          <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60" onClick={() => setMenuModulos(false)}>
+            <div
+              className="max-h-[75dvh] w-full max-w-md overflow-y-auto rounded-t-3xl border border-zr-border bg-zr-bg p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="mb-3 text-sm font-bold text-zr-text">Elige un módulo</p>
+              <div className="space-y-2">
+                {modulos.map((m) => {
+                  const activo = m.id === moduloSel
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => { setModuloSel(m.id); setMenuModulos(false) }}
+                      className={`flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border px-4 text-left text-sm font-semibold ${
+                        activo ? 'border-zr-blue bg-zr-blue/15 text-zr-text' : 'border-zr-border text-zr-text'
+                      }`}
+                    >
+                      <span className="min-w-0 break-words">{m.order_index}. {m.name}</span>
+                      {m.id === actualId && <span className="shrink-0 text-xs font-bold text-zr-blue">Actual</span>}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           </div>
         )}

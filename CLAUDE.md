@@ -765,6 +765,13 @@ Bug visto con captura: un estudiante de PTMA-2026-II, con el módulo actual en I
 - ✅ `/unidades` del estudiante: selector de módulos (cursados + actual, marcado "(actual)"); al elegir uno salen sus unidades. Verificado en la base como estudiante de PTMA-II: 14 módulos, 8 ítems de la unidad 1, material visible. No verificado en pantalla.
 - Pendiente de fondo: `units` sigue sin `cohort_id` (§8.23). Los exámenes siguen atados a la cohorte (un estudiante no ve el examen de otra cohorte).
 
+### 8.28 Cambios del coordinador por audio (15-nov-2026)
+
+- ✅ **Remedial en certificación** (revierte lo de §8.18 "certificación = 1 intento fijo"): en `crear-examen/nuevo` y `[examId]`, una certificación ahora también pide "Intentos (el 2.º es el remedial)" y "Espera entre intentos"; el 2.º intento queda con el tope de nota de `aula.intento_cap_2` (80). Mensajes (migración 210): sin remedial "Ya has presentado este examen."; con remedial usado "Ya usaste tu intento y tu remedial en esta certificación."
+- ✅ **Corrección automática:** ya existía -- opción múltiple y verdadero/falso se califican solas al entregar (`submit-attempt`), el intento pasa a `calificado` y la nota entra sola a Notas (H.33). No se cambió.
+- ✅ **Aviso al profesor cuando hay respuestas abiertas** (migración 210, trigger `fn_notify_examen_por_corregir`, tipo nuevo `examen_por_corregir`): al entregarse un examen que queda `entregado` (con redacción pendiente), el creador del examen recibe una notificación que abre `/calificar/<examId>/<attemptId>` (`Campanita.tsx`). Probado con rollback en staging (1 notificación).
+- 🟡 El coordinador dijo que probó más cosas que no recordaba; quedan por llegar.
+
 ---
 
 # PARTE IV — FLUJOGRAMAS POR ROL
@@ -1727,6 +1734,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-14 | Reunión del 14-nov sobre Unidades (4 audios): botón flotante Guardar cambios, enlaces cualquiera + pantalla completa, video vertical, borrar desde Notas borra en Unidades, examen sin % libre → borrador. Ver §8.25. | — |
 | 2026-11-14 | Segunda ronda de la reunión: plantillas de unidad y examen (migr. 207), `/modulos` tipo→programa, fotos por enlace (Google Fotos), descripción en material. Ver §8.26. | `supabase/migrations/207_plantillas_unidad_examen.sql` |
 | 2026-11-14 | Estudiante veía todo bloqueado en el módulo actual (calendario vs módulo actual, material de otra cohorte en unidad compartida) y selector de módulos cursados en /unidades. Migr. 208 y 209. Ver §8.27. | `supabase/migrations/208_estudiante_ve_modulos_cursados.sql`, `209_modulos_cursados_incluye_actual.sql` |
+| 2026-11-15 | Cambios del coordinador por audio: remedial en certificación, aviso al profesor de exámenes por corregir (migr. 210). Ver §8.28. | `supabase/migrations/210_remedial_certificacion_y_aviso_correccion.sql` |
 
 ---
 

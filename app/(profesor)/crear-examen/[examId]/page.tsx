@@ -227,8 +227,8 @@ export default function EditarExamen() {
         closes_at: cierraEl ? new Date(cierraEl).toISOString() : null,
         kind: tipo,
         passing_score: tipo === 'certificacion' ? (notaMinima === '' ? 10 : notaMinima) : 10,
-        max_attempts: tipo === 'certificacion' ? 1 : (intentos === '' ? 2 : intentos),
-        cooldown_hours: tipo === 'certificacion' ? 0 : (enfriamiento === '' ? 24 : enfriamiento),
+        max_attempts: intentos === '' ? (tipo === 'certificacion' ? 1 : 2) : intentos,
+        cooldown_hours: enfriamiento === '' ? 24 : enfriamiento,
         weight: peso === '' ? 0 : peso,
       })
       .eq('id', examId)
@@ -429,10 +429,10 @@ export default function EditarExamen() {
             )}
             {/* Pedido explícito del coordinador (8-nov-2026): una certificación
                 siempre es un solo intento -- no se preguntan estos dos campos. */}
-            {tipo !== 'certificacion' && (
+            {(
               <>
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-zr-text">Intentos</label>
+                  <label className="mb-2 block text-sm font-semibold text-zr-text">{tipo === 'certificacion' ? 'Intentos (el 2.º es el remedial)' : 'Intentos'}</label>
                   <input
                     type="number" min={1} value={intentos}
                     onChange={(e) => setIntentos(e.target.value === '' ? '' : Number(e.target.value))}

@@ -105,6 +105,13 @@ export function Campanita() {
       }
       case 'tarea_calificada':
         return '/unidades'
+      case 'examen_por_corregir': {
+        // Le llega al profesor: un estudiante entregó un examen con respuestas
+        // abiertas que esperan su corrección.
+        const examId = p.exam_id as string | undefined
+        const attemptId = p.attempt_id as string | undefined
+        return examId && attemptId ? `/calificar/${examId}/${attemptId}` : examId ? `/calificar/${examId}` : '/crear-examen'
+      }
       case 'material_aprobado':
       case 'material_rechazado': {
         // Le llega al profesor que subió el material (el único destinatario

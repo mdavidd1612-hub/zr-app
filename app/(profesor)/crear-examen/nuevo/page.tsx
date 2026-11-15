@@ -307,8 +307,8 @@ function NuevoExamenInterno() {
         // Una certificación siempre es un solo intento, sin espera -- los
         // campos ni se muestran cuando tipo==='certificacion' (arriba), pero
         // se fuerza igual aquí por si el estado se quedó con otro valor.
-        max_attempts: tipo === 'certificacion' ? 1 : (intentos === '' ? 2 : intentos),
-        cooldown_hours: tipo === 'certificacion' ? 0 : (enfriamiento === '' ? 24 : enfriamiento),
+        max_attempts: intentos === '' ? (tipo === 'certificacion' ? 1 : 2) : intentos,
+        cooldown_hours: enfriamiento === '' ? 24 : enfriamiento,
         // Si se guarda como borrador, el % no se registra todavía en Notas
         // (0 -- no cuenta para el tope de 100% de nadie más) -- se aplica de
         // verdad recién al publicar (aquí mismo o después, editando).
@@ -651,11 +651,11 @@ function NuevoExamenInterno() {
                 siempre es un solo intento -- no tiene sentido preguntar
                 "cuántos intentos" ni "cuánto esperar entre intentos" cuando
                 nunca va a haber un segundo. Solo se piden para práctica. */}
-            {tipo !== 'certificacion' && (
+            {(
               <>
                 <div>
                   <label htmlFor="intentos" className="mb-2 block text-sm font-semibold text-zr-text">
-                    Intentos
+                    {tipo === 'certificacion' ? 'Intentos (el 2.º es el remedial)' : 'Intentos'}
                   </label>
                   <input
                     id="intentos"

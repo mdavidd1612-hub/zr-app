@@ -64,6 +64,8 @@ export default function ExamenPage() {
   // obligatorios sin completar (177) -- y si no, devuelve un mensaje de
   // error real que se muestra tal cual, no un genérico de "revisa tu conexión".
   const [bloqueado, setBloqueado] = useState<string | null>(null)
+  // Pantalla de resultado base al entregar (pedido del coordinador, 15-nov-2026).
+  const [resultado, setResultado] = useState<{ obtenidos: number; pendientes: number } | null>(null)
 
   useEffect(() => {
     async function initExam() {
@@ -300,13 +302,49 @@ export default function ExamenPage() {
       // `replace`, no `push`: /examenes no tiene ningún acceso desde el menú
       // del estudiante -- empujarlo ahí dejaba un callejón sin salida (bug
       // real reportado en vivo, 8-nov-2026).
-      router.replace('/unidades')
+      // Nota base al instante: lo objetivo ya está calificado por el servidor
+      // (nunca se calcula aquí); se muestra lo que devolvió y lo que falta.
+      setConfirmando(false)
+      setSubmitting(false)
+      setResultado({
+        obtenidos: Number(data?.autoGradedPoints ?? 0),
+        pendientes: Number(data?.pendingManualQuestions ?? 0),
+      })
       return
     }
 
     setConfirmando(false)
     submittingRef.current = false
     setSubmitting(false)
+  }
+
+  if (resultado) {
+    const total = questions.reduce((s, q) => s + q.points, 0)
+    const puntosAbiertas = questions
+      .filter((q) => q.type === 'redaccion_abierta')
+      .reduce((s, q) => s + q.points, 0)
+    const hayPendientes = resultado.pendientes > 0
+    const fmt = (n: number) => n.toFixed(2).replace(/\.00$/, '')
+    return (
+      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-zr-background px-6 text-center">
+        <p className="zr-display text-xl text-zr-text">Examen entregado</p>
+        <p className="text-5xl font-bold text-zr-text">
+          {fmt(resultado.obtenidos)}
+          <span className="text-2xl text-zr-text-muted"> / {fmt(total)}</span>
+        </p>
+        <p className="max-w-sm text-sm leading-relaxed text-zr-text-muted">
+          {hayPendientes
+            ? `Esta es tu nota base de las preguntas de selección y verdadero/falso. Los ${fmt(puntosAbiertas)} puntos de las ${resultado.pendientes} pregunta${resultado.pendientes > 1 ? 's' : ''} de redacción los evalúa tu profesor; cuando los califique, tu nota se completa.`
+            : 'Tu examen ya quedó calificado por completo.'}
+        </p>
+        <button
+          onClick={() => router.replace('/unidades')}
+          className="mt-2 min-h-12 rounded-lg bg-zr-blue px-6 text-sm font-bold text-white"
+        >
+          Volver a mi aula
+        </button>
+      </div>
+    )
   }
 
   if (bloqueado) {

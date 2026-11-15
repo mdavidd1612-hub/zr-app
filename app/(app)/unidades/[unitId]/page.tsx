@@ -86,7 +86,7 @@ export default function UnidadDetalle() {
 
       const { data: unidad } = await supabase
         .from('units')
-        .select('title, banner_image_path, banner_color, banner_image_position')
+        .select('title, module_id, banner_image_path, banner_color, banner_image_position')
         .eq('id', unitId).maybeSingle()
       if (!unidad) {
         router.replace('/unidades')
@@ -105,7 +105,7 @@ export default function UnidadDetalle() {
       // o cerrada) a este estudiante, en su módulo -- v_units_status aplica
       // la misma política que la lista de /unidades, no hace falta repetirla.
       const { data: todasRaw } = await supabase
-        .from('v_units_status').select('id, title, order_index, prerequisite_met').order('order_index', { ascending: true })
+        .from('v_units_status').select('id, title, order_index, prerequisite_met').eq('module_id', unidad.module_id).order('order_index', { ascending: true })
       // Casteo: prerequisite_met entra en la vista en la migración 185.
       const todas = (todasRaw ?? []) as unknown as { id: string; title: string; order_index: number; prerequisite_met: boolean }[]
       setUnidades(

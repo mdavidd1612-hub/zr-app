@@ -772,6 +772,7 @@ Bug visto con captura: un estudiante de PTMA-2026-II, con el módulo actual en I
 - ✅ **Aviso al profesor cuando hay respuestas abiertas** (migración 210, trigger `fn_notify_examen_por_corregir`, tipo nuevo `examen_por_corregir`): al entregarse un examen que queda `entregado` (con redacción pendiente), el creador del examen recibe una notificación que abre `/calificar/<examId>/<attemptId>` (`Campanita.tsx`). Probado con rollback en staging (1 notificación).
 - ✅ **Nota base al entregar (mismo día, aclaración del coordinador):** antes el estudiante, al entregar, volvía a `/unidades` sin ver nada aunque el servidor ya había calificado lo objetivo. Ahora `examenes/[examId]` muestra una pantalla de resultado con los puntos obtenidos / total (lo devuelve `submit-attempt`, nada se calcula en el navegador) y, si hay redacciones, el aviso "los N puntos de redacción los evalúa tu profesor". No se aplica aún el tope del 2.º intento en esa pantalla (muestra puntos brutos).
 - ✅ **Bug: pestañas de otras unidades de otros módulos** dentro de una unidad del estudiante (`unidades/[unitId]`): la fila de pestañas ahora filtra por el `module_id` de la unidad abierta (antes traía todas las que RLS dejaba ver, ahora que ve varios módulos).
+- ✅ **Salir de un examen:** ya no vuelve en silencio a la unidad; muestra "Saliste del examen", "Has sacado cero" y el botón "Apelar nota" (lleva a `/examenes`, donde ya existía la solicitud de rehabilitación al profesor).
 - 🟡 El coordinador dijo que probó más cosas que no recordaba; quedan por llegar.
 
 ---

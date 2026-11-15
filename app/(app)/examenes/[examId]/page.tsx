@@ -65,7 +65,7 @@ export default function ExamenPage() {
   // error real que se muestra tal cual, no un genérico de "revisa tu conexión".
   const [bloqueado, setBloqueado] = useState<string | null>(null)
   // Pantalla de resultado base al entregar (pedido del coordinador, 15-nov-2026).
-  const [resultado, setResultado] = useState<{ obtenidos: number; pendientes: number } | null>(null)
+  const [resultado, setResultado] = useState<{ obtenidos: number; pendientes: number; abandonado?: boolean } | null>(null)
 
   useEffect(() => {
     async function initExam() {
@@ -252,9 +252,10 @@ export default function ExamenPage() {
       return
     }
 
-    // Mismo motivo que el resto de las salidas de esta pantalla: /examenes no
-    // tiene acceso desde el menú del estudiante.
-    router.replace('/unidades')
+    // En vez de salir en silencio: se muestra la nota (cero) y la opción de apelar.
+    setConfirmandoSalir(false)
+    setAbandonando(false)
+    setResultado({ obtenidos: 0, pendientes: 0, abandonado: true })
   }
 
   async function handleSubmit() {
@@ -327,19 +328,29 @@ export default function ExamenPage() {
     const fmt = (n: number) => n.toFixed(2).replace(/\.00$/, '')
     return (
       <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-zr-background px-6 text-center">
-        <p className="zr-display text-xl text-zr-text">Examen entregado</p>
+        <p className="zr-display text-xl text-zr-text">{resultado.abandonado ? 'Saliste del examen' : 'Examen entregado'}</p>
         <p className="text-5xl font-bold text-zr-text">
           {fmt(resultado.obtenidos)}
           <span className="text-2xl text-zr-text-muted"> / {fmt(total)}</span>
         </p>
         <p className="max-w-sm text-sm leading-relaxed text-zr-text-muted">
-          {hayPendientes
+          {resultado.abandonado
+            ? 'Has sacado cero porque saliste antes de entregar. Si fue por un problema real (se fue la luz, falló el internet, etc.), puedes apelar tu nota y tu profesor decide si te deja presentarlo de nuevo.'
+            : hayPendientes
             ? `Esta es tu nota base de las preguntas de selección y verdadero/falso. Los ${fmt(puntosAbiertas)} puntos de las ${resultado.pendientes} pregunta${resultado.pendientes > 1 ? 's' : ''} de redacción los evalúa tu profesor; cuando los califique, tu nota se completa.`
             : 'Tu examen ya quedó calificado por completo.'}
         </p>
+        {resultado.abandonado && (
+          <button
+            onClick={() => router.replace('/examenes')}
+            className="mt-2 min-h-12 rounded-lg bg-zr-blue px-6 text-sm font-bold text-white"
+          >
+            Apelar nota
+          </button>
+        )}
         <button
           onClick={() => router.replace('/unidades')}
-          className="mt-2 min-h-12 rounded-lg bg-zr-blue px-6 text-sm font-bold text-white"
+          className={`min-h-12 rounded-lg px-6 text-sm font-bold ${resultado.abandonado ? 'text-zr-text-muted' : 'mt-2 bg-zr-blue text-white'}`}
         >
           Volver a mi aula
         </button>

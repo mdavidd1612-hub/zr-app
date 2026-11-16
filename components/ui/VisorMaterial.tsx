@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { TipoMaterial } from '@/lib/material'
 import { urlDelVisor, visorDe, embedDeEnlace, enlaceWebValido, esImagenDirecta, esGoogleFotos } from '@/lib/material'
-import { IconoDocumento } from '@/components/ui/Iconos'
+import { IconoDocumento, IconoCheck } from '@/components/ui/Iconos'
 
 /**
  * Botones flotantes de acercar/alejar -- en imagen, PDF y Word.
@@ -93,6 +94,52 @@ interface Props {
   registrarProgreso?: boolean
 }
 
+interface PropsBase extends Props {
+  /** Avance real (0-100) y si ya cumplió lo que se le exige a ese tipo de material. */
+  onMedido?: (real: number, cumplido: boolean) => void
+  /** Ya lo había completado antes: no hace falta volver a medir. */
+  yaCompleto?: boolean
+}
+
+const SEGUNDOS_IMAGEN = 30
+const SEGUNDOS_CONFIRMAR = 30
+
+/**
+ * Para lo que no se puede medir desde la app (video de Google Drive, un enlace
+ * a una página, una presentación que se abre en otra pestaña): se exige
+ * quedarse al menos 30 s con la pantalla visible y confirmar a mano.
+ */
+function ConfirmacionManual({ onTick, onConfirmar }: { onTick: (seg: number) => void; onConfirmar: () => void }) {
+  const [seg, setSeg] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.hidden) return
+      setSeg((v) => {
+        const n = Math.min(SEGUNDOS_CONFIRMAR, v + 1)
+        return n
+      })
+    }, 1000)
+    return () => clearInterval(id)
+  }, [])
+  useEffect(() => { onTick(seg) }, [seg, onTick])
+  const listo = seg >= SEGUNDOS_CONFIRMAR
+  return (
+    <div className="space-y-2 rounded-xl border border-zr-border bg-zr-surface/60 p-4 text-center">
+      <p className="text-sm text-zr-text-muted">
+        Esto no se puede medir solo. Cuando termines de verlo completo, confírmalo aquí.
+      </p>
+      <button
+        type="button"
+        disabled={!listo}
+        onClick={onConfirmar}
+        className="min-h-12 w-full rounded-lg bg-zr-blue px-6 text-sm font-bold text-white disabled:opacity-40"
+      >
+        {listo ? 'Ya lo vi completo' : `Disponible en ${SEGUNDOS_CONFIRMAR - seg} s`}
+      </button>
+    </div>
+  )
+}
+
 /** Solo .docx (Open XML) -- mammoth no sabe leer el .doc binario viejo. */
 function esDocx(storagePath: string): boolean {
   return storagePath.toLowerCase().endsWith('.docx')
@@ -138,7 +185,7 @@ function ImagenDeEnlace({ url, alCargar }: { url: string; alCargar: () => void }
   )
 }
 
-export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, bucket = 'contenido', registrarProgreso = true }: Props) {
+function VisorBase({ contentItemId, tipo, storagePath, externalUrl, bucket = 'contenido', registrarProgreso = true, onMedido, yaCompleto = false }: PropsBase) {
   const [url, setUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [numPaginas, setNumPaginas] = useState(0)
@@ -168,6 +215,14 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
   const ZOOM_MIN = 1
   const ZOOM_MAX = 3
   const maxFraccionWord = useRef(0)
+  const maxFraccionPdf = useRef(0)
+  const wordRef = useRef<HTMLDivElement>(null)
+  const pdfRef = useRef<HTMLDivElement>(null)
+  const [imagenLista, setImagenLista] = useState(false)
+  const [enlaceAbierto, setEnlaceAbierto] = useState(false)
+  const iframeYtRef = useRef<HTMLIFrameElement>(null)
+  const segundosYt = useRef<Set<number>>(new Set())
+  const duracionYt = useRef(0)
 
   async function guardarProgreso(percent: number) {
     if (!registrarProgreso) return
@@ -182,6 +237,56 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
       { onConflict: 'student_id,content_item_id' },
     )
   }
+
+  // Avance real + si ya cumplió. Hasta cumplir, lo que se guarda en la base
+  // nunca llega al umbral de "completado" (90 %): entrar y salir no cambia nada.
+  function medir(real: number, cumplido: boolean) {
+    if (!registrarProgreso || yaCompleto) return
+    const r = Math.max(0, Math.min(100, Math.round(real)))
+    onMedido?.(cumplido ? 100 : r, cumplido)
+    void guardarProgreso(cumplido ? 100 : Math.min(r, 89))
+  }
+  const medirRef = useRef(medir)
+  medirRef.current = medir
+  const medirEstable = useCallback((real: number, cumplido: boolean) => medirRef.current(real, cumplido), [])
+
+  // Imagen: tiene que estar a la vista 30 segundos (solo cuenta con la
+  // pantalla visible).
+  useEffect(() => {
+    if (!imagenLista || yaCompleto || !registrarProgreso) return
+    let seg = 0
+    const id = setInterval(() => {
+      if (document.hidden) return
+      seg += 1
+      medirEstable((seg / SEGUNDOS_IMAGEN) * 100, seg >= SEGUNDOS_IMAGEN)
+      if (seg >= SEGUNDOS_IMAGEN) clearInterval(id)
+    }, 1000)
+    return () => clearInterval(id)
+  }, [imagenLista, yaCompleto, registrarProgreso, medirEstable])
+
+  // YouTube: el reproductor avisa por postMessage dónde va; se cuentan los
+  // segundos realmente reproducidos (adelantar no suma).
+  useEffect(() => {
+    if (tipo !== 'enlace' || !externalUrl || yaCompleto || !registrarProgreso) return
+    const emb = embedDeEnlace(externalUrl)
+    if (!emb || emb.proveedor !== 'youtube') return
+    function alMensaje(ev: MessageEvent) {
+      if (ev.source !== iframeYtRef.current?.contentWindow) return
+      let d: unknown = ev.data
+      if (typeof d === 'string') { try { d = JSON.parse(d) } catch { return } }
+      const info = (d as { info?: { currentTime?: number; duration?: number; playerState?: number } })?.info
+      if (!info) return
+      if (info.duration && info.duration > 0) duracionYt.current = info.duration
+      if (info.playerState === 1 && typeof info.currentTime === 'number') segundosYt.current.add(Math.floor(info.currentTime))
+      if (info.playerState === 0 && duracionYt.current) segundosYt.current.add(Math.floor(duracionYt.current) - 1)
+      if (duracionYt.current > 0) {
+        const pct = (segundosYt.current.size / Math.ceil(duracionYt.current)) * 100
+        medirEstable(pct, pct >= 95)
+      }
+    }
+    window.addEventListener('message', alMensaje)
+    return () => window.removeEventListener('message', alMensaje)
+  }, [tipo, externalUrl, yaCompleto, registrarProgreso, medirEstable])
 
   // URL firmada: 1h para PDF (se pide por trozos mientras se lee, igual que
   // contenido/page.tsx), 10 min para lo demás.
@@ -266,14 +371,31 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
     return () => { cancelado = true }
   }, [tipo, storagePath, url])
 
-  function alDesplazarWord(e: React.UIEvent<HTMLDivElement>) {
-    const el = e.currentTarget
-    const fraccion = el.scrollHeight <= el.clientHeight ? 1 : (el.scrollTop + el.clientHeight) / el.scrollHeight
-    if (fraccion > maxFraccionWord.current) {
-      maxFraccionWord.current = fraccion
-      void guardarProgreso(Math.round(fraccion * 100))
-    }
+  // Documento: solo cuenta como visto al llegar al FINAL (97 %).
+  function medirDesplazamiento(el: HTMLDivElement, maxRef: { current: number }) {
+    const fraccion = el.scrollHeight <= el.clientHeight + 4 ? 1 : (el.scrollTop + el.clientHeight) / el.scrollHeight
+    if (fraccion > maxRef.current) maxRef.current = fraccion
+    medir(maxRef.current * 100, maxRef.current >= 0.97)
   }
+
+  function alDesplazarWord(e: React.UIEvent<HTMLDivElement>) {
+    medirDesplazamiento(e.currentTarget, maxFraccionWord)
+  }
+
+  // Un documento corto que cabe entero en la pantalla ya se vio completo.
+  useEffect(() => {
+    if (!htmlWord) return
+    const t = setTimeout(() => { if (wordRef.current) medirDesplazamiento(wordRef.current, maxFraccionWord) }, 800)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [htmlWord])
+
+  useEffect(() => {
+    if (tipo !== 'pdf' || numPaginas === 0) return
+    const t = setTimeout(() => { if (pdfRef.current) medirDesplazamiento(pdfRef.current, maxFraccionPdf) }, 2500)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipo, numPaginas])
 
   // Qué tan abajo se ha desplazado el estudiante decide qué página
   // "alcanzó" -- el % de avance es paginaMaxVista / numPaginas.
@@ -282,10 +404,8 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
     const el = e.currentTarget
     const fraccion = (el.scrollTop + el.clientHeight) / el.scrollHeight
     const pagina = Math.min(numPaginas, Math.max(1, Math.ceil(fraccion * numPaginas)))
-    if (pagina > paginaMaxVista) {
-      setPaginaMaxVista(pagina)
-      void guardarProgreso(Math.round((pagina / numPaginas) * 100))
-    }
+    if (pagina > paginaMaxVista) setPaginaMaxVista(pagina)
+    medirDesplazamiento(el, maxFraccionPdf)
   }
 
   // ---- Video/audio: elemento nativo, segmentos realmente vistos --------
@@ -318,7 +438,8 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
       else fusionados.push([ini, fin])
     }
     const totalVisto = fusionados.reduce((s, [i, f]) => s + (f - i), 0)
-    void guardarProgreso(Math.min(100, Math.round((totalVisto / duracion) * 100)))
+    const pct = Math.min(100, (totalVisto / duracion) * 100)
+    medir(pct, pct >= 97)
   }
 
   // Video de YouTube (pedido explícito del coordinador, 8-nov-2026): no hay
@@ -329,7 +450,7 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
   if (tipo === 'enlace') {
     const embed = externalUrl ? embedDeEnlace(externalUrl) : null
     if (!embed && externalUrl && (esImagenDirecta(externalUrl) || esGoogleFotos(externalUrl))) {
-      return <ImagenDeEnlace url={externalUrl} alCargar={() => void guardarProgreso(100)} />
+      return <ImagenDeEnlace url={externalUrl} alCargar={() => setImagenLista(true)} />
     }
     if (!embed) {
       // Reunión 14-nov-2026: cualquier otro link (Google Fotos, una página...)
@@ -337,18 +458,26 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
       const web = externalUrl ? enlaceWebValido(externalUrl) : null
       if (web) {
         return (
-          <div className="zr-card flex flex-col items-center gap-3 p-8 text-center">
-            <IconoDocumento size={28} className="text-zr-text-muted" />
-            <p className="text-sm text-zr-text-muted">Este material es un enlace externo.</p>
-            <a
-              href={web}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => void guardarProgreso(100)}
-              className="rounded-full bg-zr-blue px-5 py-3 text-sm font-bold text-white"
-            >
-              Abrir enlace
-            </a>
+          <div className="space-y-3">
+            <div className="zr-card flex flex-col items-center gap-3 p-8 text-center">
+              <IconoDocumento size={28} className="text-zr-text-muted" />
+              <p className="text-sm text-zr-text-muted">Este material es un enlace externo.</p>
+              <a
+                href={web}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setEnlaceAbierto(true)}
+                className="rounded-full bg-zr-blue px-5 py-3 text-sm font-bold text-white"
+              >
+                Abrir enlace
+              </a>
+            </div>
+            {enlaceAbierto && registrarProgreso && !yaCompleto && (
+              <ConfirmacionManual
+                onTick={(seg) => medirEstable((seg / SEGUNDOS_CONFIRMAR) * 90, false)}
+                onConfirmar={() => medirEstable(100, true)}
+              />
+            )}
           </div>
         )
       }
@@ -366,14 +495,26 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
         className={`w-full overflow-hidden rounded-xl bg-black ${marcoVertical ? 'h-[68dvh]' : 'aspect-video max-h-[80dvh]'}`}
       >
         <iframe
-          src={embed.src}
+          ref={iframeYtRef}
+          src={embed.proveedor === 'youtube' ? `${embed.src}${embed.src.includes('?') ? '&' : '?'}enablejsapi=1` : embed.src}
           title={embed.proveedor === 'drive' ? 'Video de Google Drive' : 'Video de YouTube'}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
           className="h-full w-full"
-          onLoad={() => void guardarProgreso(100)}
+          onLoad={() => {
+            if (embed.proveedor === 'youtube') {
+              // Pide al reproductor que avise dónde va (currentTime, estado).
+              iframeYtRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*')
+            }
+          }}
         />
       </div>
+      {embed.proveedor === 'drive' && registrarProgreso && !yaCompleto && (
+        <ConfirmacionManual
+          onTick={(seg) => medirEstable((seg / SEGUNDOS_CONFIRMAR) * 90, false)}
+          onConfirmar={() => medirEstable(100, true)}
+        />
+      )}
       <div className="flex flex-wrap items-center gap-3 text-xs">
         <button
           onClick={() => void marcoEnlaceRef.current?.requestFullscreen?.()}
@@ -462,7 +603,7 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
           alt=""
           style={{ width: `${zoom * 100}%`, maxWidth: 'none' }}
           className="rounded-xl"
-          onLoad={() => void guardarProgreso(100)}
+          onLoad={() => setImagenLista(true)}
         />
         {controlZoomComun}
       </div>
@@ -471,7 +612,7 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
 
   if (tipo === 'pdf') {
     return (
-      <div onScroll={alDesplazar} className="max-h-[75vh] overflow-auto rounded-xl bg-zr-surface p-2">
+      <div ref={pdfRef} onScroll={alDesplazar} className="max-h-[75vh] overflow-auto rounded-xl bg-zr-surface p-2">
         {numPaginas === 0 && <div className="zr-skel h-64 w-full rounded-xl" />}
         <div style={{ width: `${zoom * 100}%` }} className="space-y-3">
           {Array.from({ length: numPaginas }, (_, i) => i + 1).map((n) => (
@@ -490,7 +631,7 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
   if (tipo === 'documento' && esDocx(storagePath)) {
     if (!htmlWord) return <div className="zr-skel h-64 w-full rounded-xl" />
     return (
-      <div onScroll={alDesplazarWord} className="zr-card max-h-[75vh] overflow-auto p-6">
+      <div ref={wordRef} onScroll={alDesplazarWord} className="zr-card max-h-[75vh] overflow-auto p-6">
         <div
           style={{ width: `${zoom * 100}%` }}
           className="text-sm leading-relaxed text-zr-text [&_h1]:zr-display [&_h1]:text-xl [&_h2]:text-lg [&_h2]:font-bold [&_p]:my-2 [&_table]:w-full [&_td]:border [&_td]:border-zr-border [&_td]:p-2 [&_img]:max-w-full"
@@ -506,20 +647,144 @@ export function VisorMaterial({ contentItemId, tipo, storagePath, externalUrl, b
   // Office. El progreso aquí es "lo abrió", no granular.
   const visor = visorDe(tipo, storagePath)
   return (
-    <div className="zr-card flex flex-col items-center gap-4 p-8 text-center">
-      <IconoDocumento size={28} className="text-zr-text-muted" />
-      <p className="text-sm text-zr-text-muted">
-        Este tipo de archivo se abre en una pestaña aparte.
-      </p>
-      <button
-        onClick={() => {
-          window.open(urlDelVisor(visor, url), '_blank', 'noopener,noreferrer')
-          void guardarProgreso(100)
-        }}
-        className="min-h-12 rounded-lg bg-zr-blue px-6 text-sm font-bold text-white"
-      >
-        Abrir material
-      </button>
+    <div className="space-y-3">
+      <div className="zr-card flex flex-col items-center gap-4 p-8 text-center">
+        <IconoDocumento size={28} className="text-zr-text-muted" />
+        <p className="text-sm text-zr-text-muted">
+          Este tipo de archivo se abre en una pestaña aparte.
+        </p>
+        <button
+          onClick={() => {
+            window.open(urlDelVisor(visor, url), '_blank', 'noopener,noreferrer')
+            setEnlaceAbierto(true)
+          }}
+          className="min-h-12 rounded-lg bg-zr-blue px-6 text-sm font-bold text-white"
+        >
+          Abrir material
+        </button>
+      </div>
+      {enlaceAbierto && registrarProgreso && !yaCompleto && (
+        <ConfirmacionManual
+          onTick={(seg) => medirEstable((seg / SEGUNDOS_CONFIRMAR) * 90, false)}
+          onConfirmar={() => medirEstable(100, true)}
+        />
+      )}
+    </div>
+  )
+}
+
+function textoDeExigencia(tipo: TipoMaterial, externalUrl?: string | null): string {
+  if (tipo === 'video' || tipo === 'audio') return tipo === 'audio' ? 'Escúchalo completo, hasta el final.' : 'Míralo completo, hasta el final.'
+  if (tipo === 'imagen') return `Quédate mirándola ${SEGUNDOS_IMAGEN} segundos.`
+  if (tipo === 'pdf' || tipo === 'documento') return 'Llega hasta el final del documento.'
+  if (tipo === 'enlace' && externalUrl && embedDeEnlace(externalUrl)) return 'Míralo completo, hasta el final.'
+  return `Revísalo y confírmalo después de ${SEGUNDOS_CONFIRMAR} segundos.`
+}
+
+/**
+ * Envoltura con la barra de avance y el aviso de "material visto".
+ * Pedido del coordinador (16-nov-2026): un material no se marca como visto
+ * hasta que de verdad se vea completo -- documento hasta el final, video y
+ * audio completos, imagen 30 s -- sea precargado o por enlace. Entrar y salir
+ * no cambia nada. Al cumplirlo sale un aviso y la barra llega al 100 %.
+ */
+export function VisorMaterial(props: Props) {
+  const router = useRouter()
+  const { contentItemId, tipo, externalUrl, registrarProgreso = true } = props
+  const [listo, setListo] = useState(!registrarProgreso)
+  const [completo, setCompleto] = useState(false)
+  const [pct, setPct] = useState(0)
+  const [aviso, setAviso] = useState(false)
+  const [previo, setPrevio] = useState(false)
+  const completoRef = useRef(false)
+
+  useEffect(() => {
+    if (!registrarProgreso) return
+    let vigente = true
+    async function leer() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { if (vigente) setListo(true); return }
+      const { data } = await supabase
+        .from('material_progress')
+        .select('percent, completed_at')
+        .eq('student_id', user.id)
+        .eq('content_item_id', contentItemId)
+        .maybeSingle()
+      if (!vigente) return
+      if (data?.completed_at) { completoRef.current = true; setCompleto(true); setPrevio(true); setPct(100) }
+      else setPct(Math.min(89, Number(data?.percent ?? 0)))
+      setListo(true)
+    }
+    void leer()
+    return () => { vigente = false }
+  }, [contentItemId, registrarProgreso])
+
+  const alMedir = useCallback((real: number, cumplido: boolean) => {
+    setPct((p) => Math.max(p, real))
+    if (cumplido && !completoRef.current) {
+      completoRef.current = true
+      setCompleto(true)
+      setAviso(true)
+    }
+  }, [])
+
+  if (!registrarProgreso) return <VisorBase {...props} />
+  if (!listo) return <div className="zr-skel h-64 w-full rounded-xl" />
+
+  return (
+    <div className="space-y-3">
+      <div className="sticky top-2 z-30 rounded-xl border border-zr-border bg-zr-surface/95 p-3 backdrop-blur">
+        <div className="flex items-center justify-between gap-3">
+          <p className="min-w-0 text-xs font-semibold text-zr-text">
+            {completo ? 'Material visto ✓' : textoDeExigencia(tipo, externalUrl)}
+          </p>
+          <span className={`shrink-0 text-sm font-bold tabular-nums ${completo ? 'text-zr-success' : 'text-zr-blue'}`}>{Math.round(completo ? 100 : pct)}%</span>
+        </div>
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-zr-border/60">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${completo ? 'bg-zr-success' : 'bg-zr-blue'}`}
+            style={{ width: `${completo ? 100 : pct}%` }}
+          />
+        </div>
+        {!completo && (
+          <p className="mt-1.5 text-[11px] text-zr-text-muted">Si sales antes de terminar, no cuenta como visto.</p>
+        )}
+      </div>
+
+      <VisorBase {...props} onMedido={alMedir} yaCompleto={previo} />
+
+      {aviso && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-5" role="dialog" aria-modal="true">
+          <div className="w-full max-w-sm space-y-4 rounded-2xl border border-zr-border bg-zr-surface p-6 text-center shadow-2xl">
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-zr-success/15 text-zr-success">
+              <IconoCheck size={28} />
+            </span>
+            <div>
+              <p className="text-lg font-bold text-zr-text">¡Material visto!</p>
+              <p className="mt-1.5 text-sm text-zr-text-muted">
+                Completaste este material. Tu avance en la unidad ya se actualizó.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="min-h-12 w-full rounded-lg bg-zr-blue text-sm font-bold text-white"
+              >
+                Volver a la unidad
+              </button>
+              <button
+                type="button"
+                onClick={() => setAviso(false)}
+                className="min-h-11 w-full rounded-lg text-sm font-semibold text-zr-text-muted"
+              >
+                Seguir viéndolo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

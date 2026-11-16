@@ -54,6 +54,34 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
   const [descripcionMat, setDescripcionMat] = useState('')
   const [moduloId, setModuloId] = useState('')
   const [semana, setSemana] = useState<number | ''>('')
+  // Pedido del coordinador (16-nov-2026): marcarlo obligatorio desde aquí mismo
+  // y guardar los datos como plantilla para reusarlos.
+  const [obligatorio, setObligatorio] = useState(false)
+  const [guardarPlantilla, setGuardarPlantilla] = useState(false)
+  const [plantillasMat, setPlantillasMat] = useState<{ id: string; title: string; payload: { titulo?: string; descripcion?: string; obligatorio?: boolean } }[]>([])
+  const [esAcademico, setEsAcademico] = useState(false)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.from('material_templates' as never).select('id, title, payload').order('updated_at', { ascending: false })
+      .then(({ data }) => setPlantillasMat((data ?? []) as never))
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      const { data: pf } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      setEsAcademico(pf?.role === 'direccion_academica' || pf?.role === 'super_admin')
+    })
+  }, [])
+
+  async function guardarComoPlantilla() {
+    if (!guardarPlantilla || !titulo.trim()) return
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const payload = { titulo: titulo.trim(), descripcion: descripcionMat.trim(), obligatorio }
+    const { data: ya } = await supabase.from('material_templates' as never).select('id').eq('owner_id', user.id).ilike('title', titulo.trim()).maybeSingle() as { data: { id: string } | null }
+    if (ya) await supabase.from('material_templates' as never).update({ payload, updated_at: new Date().toISOString() } as never).eq('id', ya.id)
+    else await supabase.from('material_templates' as never).insert({ owner_id: user.id, title: titulo.trim(), payload } as never)
+  }
   const [error, setError] = useState<string | null>(null)
   // Video de YouTube (pedido explícito del coordinador, 8-nov-2026): alternativa
   // a subir un archivo -- para videos muy largos/pesados. No pasa por revisión
@@ -250,12 +278,14 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
         type: 'material',
         order_index: await siguienteOrdenUnidad(supabase, unitId),
         content_item_id: nuevoItem.id,
-      })
+        required: obligatorio,
+      } as never)
       if (falloEnlace) {
         setError(`El archivo se subió pero no se pudo agregar a la unidad: ${falloEnlace.message}`)
         setSubiendo(false)
         return
       }
+      await guardarComoPlantilla()
       router.push(`/unidades-docente/${unitId}`)
       return
     }
@@ -266,6 +296,7 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
     setSemana('')
     setAvisoSubida(prep.mensaje)
     setFormAbierto(false)
+    await guardarComoPlantilla()
     setSubiendo(false)
     setVersion((v) => v + 1)
   }
@@ -315,12 +346,14 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
         type: 'material',
         order_index: await siguienteOrdenUnidad(supabase, unitId),
         content_item_id: nuevoItem.id,
-      })
+        required: obligatorio,
+      } as never)
       if (falloEnlace) {
         setError(`El video se registró pero no se pudo agregar a la unidad: ${falloEnlace.message}`)
         setSubiendoYoutube(false)
         return
       }
+      await guardarComoPlantilla()
       router.push(`/unidades-docente/${unitId}`)
       return
     }
@@ -331,6 +364,7 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
     setLinkYoutube('')
     setModoYoutube(false)
     setFormAbierto(false)
+    await guardarComoPlantilla()
     setSubiendoYoutube(false)
     setVersion((v) => v + 1)
   }
@@ -479,6 +513,26 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
             </div>
           )}
 
+          {plantillasMat.length > 0 && (
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-zr-text">Empezar desde una plantilla</label>
+              <select
+                defaultValue=""
+                onChange={(e) => {
+                  const t = plantillasMat.find((x) => x.id === e.target.value)
+                  if (!t) return
+                  setTitulo(t.payload.titulo ?? t.title)
+                  setDescripcionMat(t.payload.descripcion ?? '')
+                  setObligatorio(!!t.payload.obligatorio)
+                }}
+                className="min-h-12 w-full min-w-0 rounded-lg border border-zr-border bg-zr-bg px-3 text-sm text-zr-text"
+              >
+                <option value="" disabled>Elige una plantilla…</option>
+                {plantillasMat.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+              </select>
+            </div>
+          )}
+
           <div>
             <label className="mb-2 block text-sm font-semibold text-zr-text">Título</label>
             <input
@@ -500,14 +554,52 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-zr-text">Módulo</label>
-              <p className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text">
-                {ctx.cohorteNombre}{ctx.sede ? ` · ${ctx.sede}` : ''} · Módulo {ctx.moduloOrden} · {ctx.moduloNombre}
-              </p>
-            </div>
-            <div>
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Módulo</label>
+            <p className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text">
+              {ctx.cohorteNombre}{ctx.sede ? ` · ${ctx.sede}` : ''} · Módulo {ctx.moduloOrden} · {ctx.moduloNombre}
+            </p>
+          </div>
+
+          {unitId && (
+            <button
+              type="button"
+              onClick={() => setObligatorio((v) => !v)}
+              aria-pressed={obligatorio}
+              className={`flex w-full items-center justify-between gap-3 rounded-lg border p-4 text-left ${obligatorio ? 'border-zr-warning/50 bg-zr-warning/10' : 'border-zr-border bg-zr-bg'}`}
+            >
+              <span>
+                <span className="block text-sm font-bold text-zr-text">Material obligatorio</span>
+                <span className="block text-xs text-zr-text-muted">
+                  {obligatorio
+                    ? 'Los estudiantes tienen que verlo completo antes de presentar la certificación.'
+                    : 'Opcional: pueden verlo, pero no es requisito.'}
+                </span>
+              </span>
+              <span className={`flex h-7 w-12 shrink-0 items-center rounded-full p-0.5 transition-colors ${obligatorio ? 'bg-zr-warning' : 'bg-zr-border'}`}>
+                <span className={`h-6 w-6 rounded-full bg-white transition-transform ${obligatorio ? 'translate-x-5' : ''}`} />
+              </span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setGuardarPlantilla((v) => !v)}
+            aria-pressed={guardarPlantilla}
+            className={`flex w-full items-center justify-between gap-3 rounded-lg border p-4 text-left ${guardarPlantilla ? 'border-zr-blue bg-zr-blue/10' : 'border-zr-border bg-zr-bg'}`}
+          >
+            <span>
+              <span className="block text-sm font-bold text-zr-text">Guardar como plantilla</span>
+              <span className="block text-xs text-zr-text-muted">Guarda el título y la descripción para usarlos de base en otros materiales.</span>
+            </span>
+            <span className={`flex h-7 w-12 shrink-0 items-center rounded-full p-0.5 transition-colors ${guardarPlantilla ? 'bg-zr-blue' : 'bg-zr-border'}`}>
+              <span className={`h-6 w-6 rounded-full bg-white transition-transform ${guardarPlantilla ? 'translate-x-5' : ''}`} />
+            </span>
+          </button>
+
+          <details className="rounded-lg border border-zr-border bg-zr-bg p-4">
+            <summary className="cursor-pointer select-none text-sm font-semibold text-zr-text">Más opciones</summary>
+            <div className="mt-3">
               <label className="mb-2 block text-sm font-semibold text-zr-text">
                 Semana <span className="font-normal text-zr-text-muted">(opcional)</span>
               </label>
@@ -517,10 +609,10 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
                 value={semana}
                 onChange={(e) => setSemana(e.target.value === '' ? '' : Number(e.target.value))}
                 placeholder="1"
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
+                className="w-full rounded-lg border border-zr-border bg-zr-surface px-4 py-3.5 text-base tabular-nums text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
               />
             </div>
-          </div>
+          </details>
 
           {modoYoutube ? (
             <p className="rounded-lg border border-zr-blue/25 bg-zr-blue/10 p-4 text-sm leading-relaxed text-zr-text">
@@ -528,8 +620,9 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
             </p>
           ) : (
             <p className="rounded-lg border border-zr-blue/25 bg-zr-blue/10 p-4 text-sm leading-relaxed text-zr-text">
-              Administración revisa lo que subas antes de publicarlo. Te avisa aquí mismo cuando lo
-              apruebe o si necesita algún cambio.
+              {esAcademico
+                ? 'Como Dirección Académica, lo que subas se publica directo: no necesita aprobación.'
+                : 'Administración revisa lo que subas antes de publicarlo. Te avisa aquí mismo cuando lo apruebe o si necesita algún cambio.'}
             </p>
           )}
 

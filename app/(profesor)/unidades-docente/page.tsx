@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { SelectorBloqueo } from '@/components/ui/SelectorBloqueo'
+import { certificacionesDelModulo, valorAColumnas, type OpcionCertificacion } from '@/lib/bloqueo-unidad'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
@@ -31,6 +33,8 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
   const [creando, setCreando] = useState(false)
   const [titulo, setTitulo] = useState('')
   const [formAbierto, setFormAbierto] = useState(false)
+  const [certs, setCerts] = useState<OpcionCertificacion[]>([])
+  const [bloqueo, setBloqueo] = useState('none')
   const [error, setError] = useState<string | null>(null)
 
   // Renombrar/eliminar unidad (pedido explícito del coordinador, 7-nov-2026:
@@ -126,6 +130,11 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
       .eq('module_id', ctx.moduleId)
       .order('order_index', { ascending: true })
     setUnidades((data ?? []) as UnidadFila[])
+    // Certificaciones ya existentes en el módulo: la nueva unidad puede
+    // depender de una (la última por defecto) o abrirse libre.
+    const cs = await certificacionesDelModulo(supabase, ctx.moduleId)
+    setCerts(cs)
+    setBloqueo(cs.length > 0 ? cs[cs.length - 1].id : 'none')
     setCargando(false)
   }
 
@@ -142,7 +151,8 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
       module_id: ctx.moduleId,
       title: titulo.trim(),
       order_index: siguienteOrden,
-    })
+      ...(certs.length > 0 ? valorAColumnas(bloqueo) : {}),
+    } as never)
     if (err) {
       setError(err.message)
     } else {
@@ -217,6 +227,14 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
                 className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
               />
             </div>
+            {certs.length > 0 && (
+              <div className="rounded-xl border border-zr-border bg-zr-surface/40 p-4">
+                <p className="mb-3 text-sm text-zr-text">
+                  Este módulo ya tiene {certs.length === 1 ? 'una certificación' : `${certs.length} certificaciones`}. ¿Cómo la enlazamos con esta unidad nueva?
+                </p>
+                <SelectorBloqueo opciones={certs} valor={bloqueo} onChange={setBloqueo} />
+              </div>
+            )}
             <p className="text-xs text-zr-text-muted">
               Se crea como borrador (no la ve ningún estudiante). Entra a la unidad para agregar
               material, examen o tarea, y para programar cuándo se abre.

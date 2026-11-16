@@ -25,6 +25,8 @@ import { SortableContext, rectSortingStrategy, useSortable, arrayMove, sortableK
 import { CSS } from '@dnd-kit/utilities'
 import { IconoArrastrar } from '@/components/ui/Iconos'
 import { TextoRico, EditorTextoRico } from '@/components/ui/TextoRico'
+import { SelectorBloqueo } from '@/components/ui/SelectorBloqueo'
+import { certificacionesDelModulo, valorAColumnas, columnasAValor, type OpcionCertificacion } from '@/lib/bloqueo-unidad'
 
 /**
  * Aula Virtual — el profesor administra el contenido de UNA unidad: fechas
@@ -154,6 +156,9 @@ export default function UnidadDocenteDetalle() {
   // Bloque de texto (migración 187): título + párrafo escritos directo aquí,
   // sin archivo -- se guarda como content_items tipo 'texto'.
   const [moduleId, setModuleId] = useState('')
+  const [bloqueo, setBloqueo] = useState('auto')
+  const [certsPrevias, setCertsPrevias] = useState<OpcionCertificacion[]>([])
+  const [guardandoBloqueo, setGuardandoBloqueo] = useState(false)
   const [cohortId, setCohortId] = useState<string | null>(null)
   const [textoTitulo, setTextoTitulo] = useState('')
   const [textoCuerpo, setTextoCuerpo] = useState('')
@@ -187,6 +192,15 @@ export default function UnidadDocenteDetalle() {
     setCloseAt(unidad.close_at ? unidad.close_at.slice(0, 16) : '')
     setManualStatus(unidad.manual_status)
     setModuleId(unidad.module_id)
+    {
+      const { data: g } = await supabase
+        .from('units').select('order_index, gate_mode, gate_exam_id' as never).eq('id', unitId).maybeSingle()
+      const fila = g as unknown as { order_index: number; gate_mode: string; gate_exam_id: string | null } | null
+      if (fila) {
+        setBloqueo(columnasAValor(fila.gate_mode, fila.gate_exam_id))
+        setCertsPrevias(await certificacionesDelModulo(supabase, unidad.module_id, fila.order_index))
+      }
+    }
     setBannerImagePath(unidad.banner_image_path)
     setBannerColor(unidad.banner_color as ColorBanner | null)
     setBannerPosicion(unidad.banner_image_position ?? 50)
@@ -534,6 +548,15 @@ export default function UnidadDocenteDetalle() {
     setAsignandoChequeo(null)
   }
 
+  async function cambiarBloqueo(valor: string) {
+    setBloqueo(valor)
+    setGuardandoBloqueo(true)
+    const supabase = createClient()
+    const { error: err } = await supabase.from('units').update(valorAColumnas(valor) as never).eq('id', unitId)
+    if (err) setError(err.message)
+    setGuardandoBloqueo(false)
+  }
+
   async function alternarObligatorio(itemId: string, actual: boolean) {
     const supabase = createClient()
     await supabase.from('unit_items').update({ required: !actual }).eq('id', itemId)
@@ -817,6 +840,15 @@ export default function UnidadDocenteDetalle() {
               className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
             />
             <p className="mt-1 text-xs text-zr-text-muted">Después de esta fecha la siguen viendo, solo para repasar.</p>
+          </div>
+          <div className="border-t border-zr-border pt-4">
+            <SelectorBloqueo
+              opciones={certsPrevias}
+              valor={bloqueo}
+              onChange={cambiarBloqueo}
+              mostrarAuto
+              disabled={guardandoBloqueo}
+            />
           </div>
           <button
             onClick={guardarFechas}

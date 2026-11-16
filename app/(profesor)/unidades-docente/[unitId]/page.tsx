@@ -27,6 +27,7 @@ import { IconoArrastrar } from '@/components/ui/Iconos'
 import { TextoRico, EditorTextoRico } from '@/components/ui/TextoRico'
 import { SelectorBloqueo } from '@/components/ui/SelectorBloqueo'
 import { certificacionesDelModulo, valorAColumnas, columnasAValor, type OpcionCertificacion } from '@/lib/bloqueo-unidad'
+import { InputNota } from '@/components/ui/InputNota'
 
 /**
  * Aula Virtual — el profesor administra el contenido de UNA unidad: fechas
@@ -148,7 +149,7 @@ export default function UnidadDocenteDetalle() {
   const [tareaFecha, setTareaFecha] = useState('')
   // Fusión con Notas (H.33, migración 193): % que vale en la nota del
   // módulo -- la tarea, al crearse, ya es una evaluación en Notas.
-  const [tareaPeso, setTareaPeso] = useState<number | ''>('')
+  const [tareaPeso, setTareaPeso] = useState<number | ''>(0)
   const [creandoTarea, setCreandoTarea] = useState(false)
   const [confirmandoTarea, setConfirmandoTarea] = useState(false)
   const [pesoTareaConfirmada, setPesoTareaConfirmada] = useState(0)
@@ -451,7 +452,7 @@ export default function UnidadDocenteDetalle() {
     setTareaTitulo('')
     setTareaInstr('')
     setTareaFecha('')
-    setTareaPeso('')
+    setTareaPeso(0)
     setPesoTareaConfirmada(pesoCreado)
     setCreandoTarea(false)
     setConfirmandoTarea(true)
@@ -1215,15 +1216,7 @@ export default function UnidadDocenteDetalle() {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold text-zr-text">¿Cuánto vale en la nota? (%)</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={tareaPeso}
-                  onChange={(e) => setTareaPeso(e.target.value === '' ? '' : Number(e.target.value))}
-                  placeholder="Ej. 20"
-                  className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-surface px-4 text-sm tabular-nums text-zr-text outline-none focus:border-zr-blue"
-                />
+                <InputNota value={tareaPeso} onChange={setTareaPeso} min={1} max={100} className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-surface px-4 text-sm tabular-nums text-zr-text outline-none focus:border-zr-blue" />
                 <p className="mt-1 text-xs text-zr-text-muted">Entra sola a Notas. Tiene que ser más de 0.</p>
               </div>
               <button

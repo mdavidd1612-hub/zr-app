@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { InputNota } from '@/components/ui/InputNota'
 
 interface Option {
   key: string
@@ -133,13 +134,7 @@ export function QuestionEditor({ type, onSave, onCancel, initialData, modoEdicio
       {/* Puntos */}
       <div>
         <label className="block text-sm font-semibold text-zr-text mb-2">Puntos</label>
-        <input
-          type="number"
-          value={points}
-          onChange={(e) => setPoints(Math.max(1, parseInt(e.target.value) || 1))}
-          min="1"
-          className="w-full px-4 py-3 bg-zr-background border border-zr-border rounded-lg text-zr-text focus:border-zr-blue focus:outline-none"
-        />
+        <InputNota value={points} onChange={(v) => setPoints(v === '' ? 1 : Math.max(0.01, v))} min={0.01} className="w-full px-4 py-3 bg-zr-background border border-zr-border rounded-lg text-zr-text focus:border-zr-blue focus:outline-none" />
       </div>
 
       {/* Opción Múltiple */}

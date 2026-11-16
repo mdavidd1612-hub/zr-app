@@ -8,6 +8,7 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { IconoDescargar } from '@/components/ui/Iconos'
 import { VisorMaterial } from '@/components/ui/VisorMaterial'
+import { InputNota } from '@/components/ui/InputNota'
 
 /**
  * Aula Virtual — el profesor ve la entrega más reciente de cada estudiante
@@ -205,15 +206,14 @@ export default function CalificarTarea() {
 
                 {f.submission_id && (
                   <div className="flex gap-2">
-                    <input
-                      type="number"
+                    <InputNota
                       min={0}
                       max={20}
-                      step="0.01"
-                      placeholder={f.grade !== null ? Number(f.grade).toFixed(2) : 'Nota'}
-                      value={notas[f.submission_id] ?? ''}
-                      onChange={(e) => setNotas((n) => ({ ...n, [f.submission_id as string]: e.target.value }))}
-                      className="min-h-11 w-24 rounded-lg border border-zr-border bg-zr-bg px-3 text-sm text-zr-text"
+                      permitirVacio
+                      placeholder={f.grade !== null ? Number(f.grade).toFixed(2) : '0.00'}
+                      value={notas[f.submission_id] === undefined || notas[f.submission_id] === '' ? '' : Number(notas[f.submission_id])}
+                      onChange={(v) => setNotas((n) => ({ ...n, [f.submission_id as string]: v === '' ? '' : String(v) }))}
+                      className="min-h-11 w-24 rounded-lg border border-zr-border bg-zr-bg px-3 text-sm tabular-nums text-zr-text"
                     />
                     <button
                       onClick={() => calificar(f.submission_id as string)}

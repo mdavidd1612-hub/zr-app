@@ -13,6 +13,7 @@ import { ModalEvaluacionAgregada } from '@/components/ui/ModalEvaluacionAgregada
 import { sumaPesoOcupado, mensajeSiExcedePeso } from '@/lib/peso-notas'
 import { ImportarPreguntas } from '@/components/ui/ImportarPreguntas'
 import type { PreguntaImportada } from '@/lib/importar-preguntas'
+import { InputNota } from '@/components/ui/InputNota'
 
 type TipoPregunta = 'opcion_multiple' | 'verdadero_falso' | 'redaccion_abierta'
 
@@ -348,11 +349,7 @@ export default function EditarExamen() {
 
             <div>
               <label className="mb-2 block text-sm font-semibold text-zr-text">Puntaje máximo</label>
-              <input
-                type="number" min={1} value={puntajeMaximo}
-                onChange={(e) => setPuntajeMaximo(Number(e.target.value) || 0)}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
-              />
+              <InputNota value={puntajeMaximo} onChange={(v) => setPuntajeMaximo(v === '' ? 0 : v)} min={1} className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none" />
             </div>
 
             <div>
@@ -427,11 +424,7 @@ export default function EditarExamen() {
                 <label className="mb-2 block text-sm font-semibold text-zr-text">
                   Nota mínima <span className="font-normal text-zr-text-muted">(sobre {puntajeMaximo})</span>
                 </label>
-                <input
-                  type="number" min={1} max={puntajeMaximo} value={notaMinima}
-                  onChange={(e) => setNotaMinima(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
-                />
+                <InputNota value={notaMinima} onChange={setNotaMinima} min={1} max={puntajeMaximo} className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none" />
               </div>
             )}
             {/* Pedido explícito del coordinador (8-nov-2026): una certificación
@@ -470,11 +463,7 @@ export default function EditarExamen() {
               <label className="mb-2 block text-sm font-semibold text-zr-text">
                 % que vale en la nota del módulo
               </label>
-              <input
-                type="number" min={0} max={100} value={peso}
-                onChange={(e) => setPeso(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
-              />
+              <InputNota value={peso} onChange={setPeso} min={0} max={100} className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none" />
               <p className="mt-1.5 text-xs text-zr-text-muted">
                 Este examen ya es una evaluación en Notas -- no hay que crearla ahí aparte.
               </p>

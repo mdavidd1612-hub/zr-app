@@ -1,5 +1,7 @@
 'use client'
 
+import { InputNota } from '@/components/ui/InputNota'
+
 export type PoliticaRemedial = 'mejor' | 'ultimo' | 'promedio'
 
 const OPCIONES: { id: PoliticaRemedial; titulo: string; texto: string; recomendada?: boolean }[] = [
@@ -55,15 +57,7 @@ export function PoliticaRemedialCampos({
           Lo máximo que puede sacar en el remedial
         </label>
         <div className="flex items-center gap-2">
-          <input
-            id="tope-remedial"
-            type="number"
-            min={1}
-            max={100}
-            value={tope}
-            onChange={(e) => onTope(e.target.value === '' ? '' : Number(e.target.value))}
-            className="min-h-12 w-28 rounded-lg border border-zr-border bg-zr-bg px-4 text-base tabular-nums text-zr-text outline-none focus:border-zr-blue"
-          />
+          <InputNota id="tope-remedial" value={tope} onChange={onTope} min={1} max={100} className="min-h-12 w-28 rounded-lg border border-zr-border bg-zr-bg px-4 text-base tabular-nums text-zr-text outline-none focus:border-zr-blue" />
           <span className="text-sm font-semibold text-zr-text-muted">% de la nota</span>
         </div>
         <p className="mt-1.5 text-xs text-zr-text-muted">

@@ -5,148 +5,15 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { esAdmin, esDireccionAcademica } from '@/lib/auth-helpers'
 import { salirDeVistaRecorrido } from '@/lib/vista-recorrido'
-import { type ItemBarra } from '@/components/ui/BarraFlotante'
 import { Marco } from '@/components/ui/Marco'
 import { Tour } from '@/components/ui/Tour'
 import { useTour } from '@/lib/useTour'
 import { rolDeTour, PASOS_POR_ROL, SIN_PASOS_DE_TOUR } from '@/lib/tour-pasos'
-import {
-  IconoPanel, IconoEstudiantes, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoProgreso, IconoDuda, IconoCalificar, IconoVideo, IconoAjustes,
-} from '@/components/ui/Iconos'
+import { NAV, TODAS, NAV_DIRECCION, NAV_SUPER, TODAS_DIRECCION, TODAS_SUPER } from '@/lib/nav-direccion'
 import type { UserRole } from '@/lib/types'
 
-// Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, ajuste): las secciones principales
-// del día a día van fijas en la barra — Panel, Asistencia, QR y Perfil.
-// Estudiantes se usa menos seguido y queda en el menú ☰.
-//
-// "Consentimientos" se quitó del todo (pedido del coordinador): el bloqueo
-// real por LOPNNA ya se había quitado de la base desde la migración 051 —
-// esta pantalla solo quedaba mostrando una cola y un aviso de bloqueo que ya
-// no era cierto.
-//
-const NAV: ItemBarra[] = [
-  { href: '/panel',        label: 'Panel',      Icono: IconoPanel },
-  { href: '/asistencias',  label: 'Asistencia', Icono: IconoCalendario },
-  { href: '/qr',           label: 'QR',         Icono: IconoCarnet },
-  { href: '/perfil-admin', label: 'Perfil',     Icono: IconoPerfil },
-]
-
-// "Material" (pedido explícito del coordinador, sept. 2026): exclusivo de
-// Dirección Académica y super_admin. El propio /material redirige a quien no
-// sea de esos dos roles, por si entra por URL directa.
-//
-// Pedido explícito del coordinador (nov 2026): en el día a día de Dirección
-// Académica el primer botón NO puede seguir siendo "Material" -- es Aula
-// Virtual (/unidades-docente) la que centraliza todo desde la reunión del
-// 31-oct (§8.2 de docs/26_...), y hoy Dirección solo llegaba ahí por un
-// atajo escondido dentro de Material. "Unidades" pasa a ser el primero;
-// Material sigue existiendo (es el explorador tipo Classroom, no se quita),
-// pero baja al menú completo, grupo "Dirección académica".
-const UNIDADES: ItemBarra = { href: '/unidades-docente', label: 'Unidades', Icono: IconoVideo }
-const MATERIAL: ItemBarra = { href: '/material', label: 'Material', Icono: IconoDocumento }
-
-const NAV_DIRECCION: ItemBarra[] = [NAV[0], NAV[1], UNIDADES, NAV[2], NAV[3]]
-
-// super_admin (pedido explícito del coordinador, nov 2026): lo suyo -- Programas
-// y Configuración -- solo estaba dentro del menú ☰ y casi nadie lo encontraba
-// en el teléfono. Su píldora lleva lo que más usa; Asistencia y QR siguen en el
-// panel de inicio y en ☰.
-const NAV_SUPER: ItemBarra[] = [
-  NAV[0],
-  UNIDADES,
-  { href: '/cohortes',      label: 'Programas', Icono: IconoProgreso },
-  { href: '/configuracion', label: 'Ajustes',   Icono: IconoAjustes },
-  NAV[3],
-]
-
-// Reportes se retira del menú (código intacto, se retoma en la fase
-// siguiente — mismo criterio que Exámenes/Notas/Progreso en Fase 0
-// estudiante). Cohortes SÍ vuelve a aparecer (ver TODAS_DIRECCION/TODAS_SUPER,
-// 4-nov-2026): Dirección Académica y super_admin necesitan poder abrir un
-// programa nuevo sin depender de que haya un vendedor disponible.
-//
-// División de trabajo reafirmada por el coordinador: administración lleva
-// estudiantes, asistencia y refrigerios, y valida quién ya firmó su planilla
-// en persona; Dirección Académica lleva profesores, material, notas y
-// evaluaciones. "Personal" ahora SÍ tiene una entrada de admin normal —
-// puede dar de alta y ver otras cuentas de Administración (nada más; ni
-// profesores, ni roles, ni sedes de terceros — eso sigue siendo de
-// Dirección Académica/super_admin, filtrado dentro de la propia pantalla).
-// "Inscribir" (R-17, docs/19_PLAN_CAMBIOS_POST_DIRECTIVA.md): el mismo
-// formulario de ventas, como respaldo — admin, Dirección Académica y
-// super_admin ya podían llamar a create-student, solo faltaba el enlace.
-//
-// Cada entrada lleva `grupo` — a pedido explícito del coordinador: once
-// botones seguidos sin agrupar en el menú de super_admin "no se explica
-// para qué". La hoja ☰ y la barra de escritorio ya saben pintar el
-// encabezado de grupo cuando cambia respecto al anterior.
-// Finanzas -- excepción explícita de Fase 1 aprobada por el coordinador
-// (sept. 2026, mismo mecanismo que ZR Coffee). Solo admin y super_admin --
-// pedido explícito de que Dirección Académica no entra aquí, por eso no
-// aparece en TODAS_DIRECCION.
-const FINANZAS: ItemBarra = { href: '/finanzas', label: 'Finanzas', Icono: IconoCalificar, grupo: 'Administración' }
-
-const TODAS: ItemBarra[] = [
-  { ...NAV[0], grupo: 'General' },
-  { href: '/inscribir',       label: 'Inscribir',       Icono: IconoEstudiantes, grupo: 'Estudiantes' },
-  { href: '/estudiantes',     label: 'Estudiantes',     Icono: IconoEstudiantes, grupo: 'Estudiantes' },
-  { ...NAV[1], grupo: 'Clase de hoy' },
-  { ...NAV[2], grupo: 'Clase de hoy' },
-  { href: '/personal',        label: 'Personal',        Icono: IconoPersonal,    grupo: 'Administración' },
-  FINANZAS,
-  { ...NAV[3], grupo: 'Cuenta' },
-]
-
-// Dirección Académica: profesores, notas de cualquier cohorte, exámenes,
-// Aula Virtual/Material (exclusivo de estos dos roles y super_admin) — pero
-// no Configuración (exclusiva de super_admin).
-const TODAS_DIRECCION: ItemBarra[] = [
-  TODAS[0], TODAS[1], TODAS[2],
-  { ...UNIDADES, grupo: 'Clase de hoy' },
-  TODAS[3], TODAS[4],
-  { href: '/personal',             label: 'Personal',     Icono: IconoPersonal, grupo: 'Dirección académica' },
-  { ...MATERIAL, grupo: 'Dirección académica' },
-  // Pedido explícito del coordinador (4-nov-2026, chequeo multi-programa):
-  // abrir un programa (cohorte) nuevo de PTMA/PFTA no puede depender solo de
-  // que haya un vendedor disponible -- Dirección Académica y super_admin
-  // necesitan su propia entrada, sin tener que simular el perfil de ventas.
-  // La pantalla (/cohortes) ya existía con el mismo CRUD, código intacto
-  // desde una fase anterior -- aquí solo se re-expone en el menú.
-  { href: '/cohortes',             label: 'Programas',    Icono: IconoProgreso, grupo: 'Dirección académica' },
-  { href: '/cobertura-modulos',    label: 'Cobertura',    Icono: IconoProgreso, grupo: 'Dirección académica' },
-  { href: '/notas-academicas',     label: 'Notas',        Icono: IconoNotas,    grupo: 'Dirección académica' },
-  { href: '/examenes-academicos',  label: 'Exámenes',     Icono: IconoExamen,   grupo: 'Dirección académica' },
-  // Resúmenes de "Mi módulo" (estático, a pedido explícito) — is_academico()
-  // ya deja escribir 'modules' a dirección académica y super_admin por igual.
-  { href: '/modulos',              label: 'Módulos',      Icono: IconoProgreso, grupo: 'Dirección académica' },
-  // Feedback de módulo (pedido explícito del coordinador, sept. 2026):
-  // completa feedback_macro (migración 008), que existía en la base pero
-  // nunca se había conectado a ninguna pantalla.
-  { href: '/feedback-modulos',     label: 'Feedback',     Icono: IconoDuda,     grupo: 'Dirección académica' },
-  TODAS[TODAS.length - 1],
-]
-
-const TODAS_SUPER: ItemBarra[] = [
-  TODAS[0], TODAS[1], TODAS[2],
-  { ...UNIDADES, grupo: 'Clase de hoy' },
-  TODAS[3], TODAS[4],
-  { href: '/personal',             label: 'Personal',      Icono: IconoPersonal, grupo: 'Dirección académica' },
-  { ...MATERIAL, grupo: 'Dirección académica' },
-  // Mismo pedido que en TODAS_DIRECCION (ver comentario ahí): super_admin
-  // también necesita poder abrir un programa nuevo sin depender de ventas.
-  { href: '/cohortes',             label: 'Programas',     Icono: IconoProgreso, grupo: 'Dirección académica' },
-  { href: '/cobertura-modulos',    label: 'Cobertura',     Icono: IconoProgreso, grupo: 'Dirección académica' },
-  { href: '/notas-academicas',     label: 'Notas',         Icono: IconoNotas,    grupo: 'Dirección académica' },
-  { href: '/examenes-academicos',  label: 'Exámenes',      Icono: IconoExamen,   grupo: 'Dirección académica' },
-  { href: '/modulos',              label: 'Módulos',       Icono: IconoProgreso, grupo: 'Dirección académica' },
-  { href: '/feedback-modulos',     label: 'Feedback',      Icono: IconoDuda,     grupo: 'Dirección académica' },
-  FINANZAS,
-  // R-20/R-21: crear programas y sedes es exclusivo de super_admin
-  // (migración 066) — el enlace solo aparece en este menú.
-  { href: '/catalogo',             label: 'Catálogo',      Icono: IconoDocumento, grupo: 'Solo super admin' },
-  { href: '/configuracion',        label: 'Configuración', Icono: IconoAjustes,   grupo: 'Solo super admin' },
-  TODAS[TODAS.length - 1],
-]
+// Los menús viven en lib/nav-direccion.ts (fuente única, compartida con el
+// layout de Unidades) -- no se redefinen aquí.
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()

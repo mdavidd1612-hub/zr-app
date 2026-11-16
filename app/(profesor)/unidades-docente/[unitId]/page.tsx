@@ -157,6 +157,7 @@ export default function UnidadDocenteDetalle() {
   // sin archivo -- se guarda como content_items tipo 'texto'.
   const [moduleId, setModuleId] = useState('')
   const [bloqueo, setBloqueo] = useState('auto')
+  const [tareaInstr, setTareaInstr] = useState('')
   const [certsPrevias, setCertsPrevias] = useState<OpcionCertificacion[]>([])
   const [guardandoBloqueo, setGuardandoBloqueo] = useState(false)
   const [cohortId, setCohortId] = useState<string | null>(null)
@@ -430,6 +431,7 @@ export default function UnidadDocenteDetalle() {
         title: tareaTitulo.trim(),
         due_at: tareaFecha ? new Date(tareaFecha).toISOString() : null,
         weight: pesoCreado,
+        instructions: tareaInstr.trim() || null,
       })
       .select('id')
       .single()
@@ -447,6 +449,7 @@ export default function UnidadDocenteDetalle() {
       return
     }
     setTareaTitulo('')
+    setTareaInstr('')
     setTareaFecha('')
     setTareaPeso('')
     setPesoTareaConfirmada(pesoCreado)
@@ -1196,6 +1199,10 @@ export default function UnidadDocenteDetalle() {
                   placeholder="Ej. Informe de la práctica"
                   className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-surface px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
                 />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-zr-text">Instrucciones para el estudiante (opcional)</label>
+                <EditorTextoRico value={tareaInstr} onChange={setTareaInstr} placeholder="Qué tiene que hacer, cómo entregarlo, qué se evalúa…" acento={acento} rows={4} />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold text-zr-text">Fecha límite (opcional)</label>

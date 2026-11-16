@@ -1,7 +1,7 @@
 import { type ItemBarra } from '@/components/ui/BarraFlotante'
 import {
   IconoPanel, IconoEstudiantes, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen,
-  IconoDocumento, IconoCalendario, IconoCarnet, IconoProgreso, IconoDuda, IconoCalificar, IconoVideo,
+  IconoDocumento, IconoCalendario, IconoCarnet, IconoProgreso, IconoDuda, IconoCalificar, IconoVideo, IconoAjustes,
 } from '@/components/ui/Iconos'
 
 /**
@@ -22,13 +22,13 @@ import {
  * sin simular al profesor -- así conservan TODO su menú, con "Unidades"
  * resaltado, en vez de perderlo.
  *
- * IMPORTANTE: si el menú de Dirección cambia en `app/(admin)/layout.tsx`
- * (nueva pantalla, reordenar, renombrar), replicar el mismo cambio aquí. No
- * se importa directo de `app/(admin)/layout.tsx` porque un layout.tsx de una
- * ruta no es un módulo pensado para ser importado desde otro grupo de rutas.
+ * FUENTE ÚNICA (16-nov-2026): `app/(admin)/layout.tsx` y `app/(profesor)/
+ * layout.tsx` importan los menús de aquí. Antes eran dos copias y se
+ * desincronizaron: la barra de abajo cambiaba sola al pasar de Panel a
+ * Unidades. Cualquier cambio de menú se hace SOLO en este archivo.
  */
 
-const NAV: ItemBarra[] = [
+export const NAV: ItemBarra[] = [
   { href: '/panel',        label: 'Panel',      Icono: IconoPanel },
   { href: '/asistencias',  label: 'Asistencia', Icono: IconoCalendario },
   { href: '/qr',           label: 'QR',         Icono: IconoCarnet },
@@ -41,9 +41,21 @@ const MATERIAL: ItemBarra = { href: '/material', label: 'Material', Icono: Icono
 /** Píldora flotante del teléfono (máximo 5 secciones). */
 export const NAV_DIRECCION: ItemBarra[] = [NAV[0], NAV[1], UNIDADES, NAV[2], NAV[3]]
 
+/**
+ * Píldora de super_admin: lo que más usa -- Programas y Ajustes -- a la vista.
+ * Asistencia y QR siguen en el panel de inicio y en el menú ☰.
+ */
+export const NAV_SUPER: ItemBarra[] = [
+  NAV[0],
+  UNIDADES,
+  { href: '/cohortes',      label: 'Programas', Icono: IconoProgreso },
+  { href: '/configuracion', label: 'Ajustes',   Icono: IconoAjustes },
+  NAV[3],
+]
+
 const FINANZAS: ItemBarra = { href: '/finanzas', label: 'Finanzas', Icono: IconoCalificar, grupo: 'Administración' }
 
-const TODAS: ItemBarra[] = [
+export const TODAS: ItemBarra[] = [
   { ...NAV[0], grupo: 'General' },
   { href: '/inscribir',       label: 'Inscribir',       Icono: IconoEstudiantes, grupo: 'Estudiantes' },
   { href: '/estudiantes',     label: 'Estudiantes',     Icono: IconoEstudiantes, grupo: 'Estudiantes' },
@@ -85,6 +97,6 @@ export const TODAS_SUPER: ItemBarra[] = [
   { href: '/feedback-modulos',     label: 'Feedback',      Icono: IconoDuda,     grupo: 'Dirección académica' },
   FINANZAS,
   { href: '/catalogo',             label: 'Catálogo',      Icono: IconoDocumento, grupo: 'Solo super admin' },
-  { href: '/configuracion',        label: 'Configuración', Icono: IconoPanel,     grupo: 'Solo super admin' },
+  { href: '/configuracion',        label: 'Configuración', Icono: IconoAjustes,   grupo: 'Solo super admin' },
   TODAS[TODAS.length - 1],
 ]

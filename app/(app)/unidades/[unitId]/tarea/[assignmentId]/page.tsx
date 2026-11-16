@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Encabezado, Etiqueta } from '@/components/ui/Editorial'
+import { TextoRico } from '@/components/ui/TextoRico'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { IconoDocumento, IconoCheck, IconoReloj, IconoCalendario } from '@/components/ui/Iconos'
@@ -162,7 +163,13 @@ export default function TareaDeUnidad() {
       <div className="space-y-11">
         <BotonVolver href={`/unidades/${params.unitId}`} />
 
-        <Encabezado sobretitulo="Tarea" titulo={tarea.title} descripcion={tarea.instructions ?? undefined} />
+        <Encabezado sobretitulo="Tarea" titulo={tarea.title} />
+        {tarea.instructions && (
+          <div className="zr-card space-y-2 p-5">
+            <p className="zr-eyebrow">Instrucciones</p>
+            <TextoRico texto={tarea.instructions} />
+          </div>
+        )}
 
         <Regla delay={60} />
 

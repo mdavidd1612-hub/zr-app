@@ -10,7 +10,7 @@ import { Tour } from '@/components/ui/Tour'
 import { useTour } from '@/lib/useTour'
 import { PASOS_POR_ROL } from '@/lib/tour-pasos'
 import { leerVistaRecorridoCookie } from '@/lib/vista-recorrido'
-import { NAV_DIRECCION, TODAS_DIRECCION, TODAS_SUPER } from '@/lib/nav-direccion'
+import { NAV_DIRECCION, NAV_SUPER, TODAS_DIRECCION, TODAS_SUPER } from '@/lib/nav-direccion'
 import {
   IconoPanel, IconoDuda, IconoProgreso, IconoVideo, IconoNotas, IconoPerfil, IconoExamen,
 } from '@/components/ui/Iconos'
@@ -163,7 +163,7 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
   // (7-nov-2026): el fix anterior solo quitó el banner de simulación, pero
   // la barra lateral seguía siendo la reducida del profesor.
   const propioMenu = esStaff && !enRecorrido
-  const itemsBarra = propioMenu ? NAV_DIRECCION : NAV
+  const itemsBarra = propioMenu ? (rolStaff === 'super_admin' ? NAV_SUPER : NAV_DIRECCION) : NAV
   const todasLasSecciones = propioMenu
     ? (rolStaff === 'super_admin' ? TODAS_SUPER : TODAS_DIRECCION)
     : undefined

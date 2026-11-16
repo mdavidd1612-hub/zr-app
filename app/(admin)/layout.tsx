@@ -11,7 +11,7 @@ import { Tour } from '@/components/ui/Tour'
 import { useTour } from '@/lib/useTour'
 import { rolDeTour, PASOS_POR_ROL, SIN_PASOS_DE_TOUR } from '@/lib/tour-pasos'
 import {
-  IconoPanel, IconoEstudiantes, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoProgreso, IconoDuda, IconoCalificar, IconoVideo,
+  IconoPanel, IconoEstudiantes, IconoPerfil, IconoNotas, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoProgreso, IconoDuda, IconoCalificar, IconoVideo, IconoAjustes,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -46,6 +46,18 @@ const UNIDADES: ItemBarra = { href: '/unidades-docente', label: 'Unidades', Icon
 const MATERIAL: ItemBarra = { href: '/material', label: 'Material', Icono: IconoDocumento }
 
 const NAV_DIRECCION: ItemBarra[] = [NAV[0], NAV[1], UNIDADES, NAV[2], NAV[3]]
+
+// super_admin (pedido explícito del coordinador, nov 2026): lo suyo -- Programas
+// y Configuración -- solo estaba dentro del menú ☰ y casi nadie lo encontraba
+// en el teléfono. Su píldora lleva lo que más usa; Asistencia y QR siguen en el
+// panel de inicio y en ☰.
+const NAV_SUPER: ItemBarra[] = [
+  NAV[0],
+  UNIDADES,
+  { href: '/cohortes',      label: 'Programas', Icono: IconoProgreso },
+  { href: '/configuracion', label: 'Ajustes',   Icono: IconoAjustes },
+  NAV[3],
+]
 
 // Reportes se retira del menú (código intacto, se retoma en la fase
 // siguiente — mismo criterio que Exámenes/Notas/Progreso en Fase 0
@@ -132,7 +144,7 @@ const TODAS_SUPER: ItemBarra[] = [
   // R-20/R-21: crear programas y sedes es exclusivo de super_admin
   // (migración 066) — el enlace solo aparece en este menú.
   { href: '/catalogo',             label: 'Catálogo',      Icono: IconoDocumento, grupo: 'Solo super admin' },
-  { href: '/configuracion',        label: 'Configuración', Icono: IconoPanel,     grupo: 'Solo super admin' },
+  { href: '/configuracion',        label: 'Configuración', Icono: IconoAjustes,   grupo: 'Solo super admin' },
   TODAS[TODAS.length - 1],
 ]
 
@@ -202,7 +214,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <AdminLayoutConTour rol={rol}>
       <Marco
-        items={esDireccionAcademica(rol) ? NAV_DIRECCION : NAV}
+        items={rol === 'super_admin' ? NAV_SUPER : esDireccionAcademica(rol) ? NAV_DIRECCION : NAV}
         todasLasSecciones={secciones}
         // Bug real de producción (sept. 2026): `deslizable` viene en `true`
         // por defecto (pensado para la barra del estudiante, donde deslizar

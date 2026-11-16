@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, SeccionColegable, Regla, Dato } from '@/components/ui/Editorial'
-import { IconoEstudiantes, IconoNotas, IconoPanel, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoCalificar, IconoVideo } from '@/components/ui/Iconos'
+import { IconoEstudiantes, IconoNotas, IconoPanel, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoCalificar, IconoVideo, IconoProgreso, IconoDuda, IconoAjustes } from '@/components/ui/Iconos'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { leerSimulacionSabado } from '@/lib/demo-sabado'
 import { activarVistaRecorrido, type VistaRecorrido } from '@/lib/vista-recorrido'
@@ -45,6 +45,7 @@ const ACCESOS = [
   { href: '/estudiantes',     titulo: 'Estudiantes',      sub: 'Ver y gestionar registros',  Icono: IconoEstudiantes },
   { href: '/asistencias',     titulo: 'Asistencia',       sub: 'Por programa, en vivo',        Icono: IconoCalendario },
   { href: '/qr',              titulo: 'QR de asistencia', sub: 'Mostrar en pantalla',          Icono: IconoCarnet },
+  { href: '/inscribir',       titulo: 'Inscribir',        sub: 'Registrar un estudiante nuevo', Icono: IconoEstudiantes },
 ]
 
 // Exclusivo de Dirección Académica y super_admin: profesores, notas y
@@ -72,7 +73,19 @@ const ACCESOS_FINANZAS = [
   { href: '/finanzas', titulo: 'Finanzas', sub: 'Inscripción y mensualidad por estudiante', Icono: IconoCalificar },
 ]
 
-const ACCESO_CONFIG = { href: '/configuracion', titulo: 'Configuración', sub: 'Umbrales y reglas de negocio', Icono: IconoPanel }
+// Programas, módulos y seguimiento (pedido del coordinador, nov 2026): antes solo
+// se llegaba a estas pantallas por el menú ☰, que en el teléfono casi nadie abre.
+const ACCESOS_PROGRAMAS = [
+  { href: '/cohortes',          titulo: 'Programas',  sub: 'Abrir un corte nuevo, avanzar de módulo', Icono: IconoProgreso },
+  { href: '/modulos',           titulo: 'Módulos',    sub: 'Resúmenes y módulos nuevos',              Icono: IconoProgreso },
+  { href: '/cobertura-modulos', titulo: 'Cobertura',  sub: 'Qué módulos tienen profesor y contenido', Icono: IconoProgreso },
+  { href: '/feedback-modulos',  titulo: 'Feedback',   sub: 'Abrir y revisar el feedback de módulo',   Icono: IconoDuda },
+]
+
+const ACCESOS_SUPER = [
+  { href: '/configuracion', titulo: 'Configuración', sub: 'Horarios, notas mínimas, textos y reglas de la academia', Icono: IconoAjustes },
+  { href: '/catalogo',      titulo: 'Catálogo',      sub: 'Crear sedes y programas nuevos',                          Icono: IconoDocumento },
+]
 
 // A pedido explícito del coordinador: entrar a recorrer la app como la ve
 // cada rol, sin crear cuentas de prueba aparte. Quién ve cuál (reafirmado en
@@ -193,6 +206,7 @@ export default function Panel() {
         const nEstudiantes = ++n
         const nFinanzas = (rol === 'admin' || rol === 'super_admin') ? ++n : 0
         const nDireccion = esDireccionAcademica(rol) ? ++n : 0
+        const nProgramas = esDireccionAcademica(rol) ? ++n : 0
         const nSuper = rol === 'super_admin' ? ++n : 0
         // "Vista de recorrido" ya no aparece para administración normal
         // (pedido explícito del coordinador, sept. 2026) -- se queda solo
@@ -237,8 +251,12 @@ export default function Panel() {
               <GrupoAccesos numero={nDireccion} titulo="Dirección académica" accesos={ACCESOS_DIRECCION} delay={240} />
             )}
 
+            {esDireccionAcademica(rol) && (
+              <GrupoAccesos numero={nProgramas} titulo="Programas y seguimiento" accesos={ACCESOS_PROGRAMAS} delay={260} />
+            )}
+
             {rol === 'super_admin' && (
-              <GrupoAccesos numero={nSuper} titulo="Solo super admin" accesos={[ACCESO_CONFIG]} delay={280} />
+              <GrupoAccesos numero={nSuper} titulo="Solo super admin" accesos={ACCESOS_SUPER} delay={280} />
             )}
 
             {/* Vista de recorrido: quién ve cuál, reafirmado explícitamente
@@ -452,7 +470,7 @@ function GrupoAccesos({
   return (
     <ContenedorSeccion numero={numero} titulo={titulo} delay={delay}>
       {descripcion && <p className="text-sm text-zr-text-muted">{descripcion}</p>}
-      <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {accesos.map((a) => (
           <button
             key={a.href}

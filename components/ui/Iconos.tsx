@@ -140,6 +140,17 @@ export function IconoPanel(p: IconoProps) {
   )
 }
 
+export function IconoAjustes(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="4" y1="17" x2="20" y2="17" />
+      <circle cx="9" cy="7" r="2.5" fill="var(--zr-bg, #0b1220)" />
+      <circle cx="15" cy="17" r="2.5" fill="var(--zr-bg, #0b1220)" />
+    </Base>
+  )
+}
+
 export function IconoEstudiantes(p: IconoProps) {
   return (
     <Base {...p}>

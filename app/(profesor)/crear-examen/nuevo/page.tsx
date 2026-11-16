@@ -4,6 +4,7 @@ import { Select } from '@/components/ui/Select'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { PoliticaRemedialCampos, type PoliticaRemedial } from '@/components/ui/PoliticaRemedial'
 import { siguienteOrdenUnidad } from '@/lib/unidad-orden'
 import { cohorteParaModulo } from '@/lib/cohorte-unidad'
 import { QuestionEditor } from '@/components/QuestionEditor'
@@ -28,6 +29,8 @@ interface PlantillaExamen {
   intentos: number | ''
   enfriamiento: number | ''
   peso: number | ''
+  politicaRemedial?: PoliticaRemedial
+  topeRemedial?: number | ''
   preguntas: Pregunta[]
 }
 
@@ -97,6 +100,8 @@ function NuevoExamenInterno() {
   const [notaMinima, setNotaMinima] = useState<number | ''>(10)
   const [intentos, setIntentos] = useState<number | ''>(2)
   const [enfriamiento, setEnfriamiento] = useState<number | ''>(24)
+  const [politicaRemedial, setPoliticaRemedial] = useState<PoliticaRemedial>('mejor')
+  const [topeRemedial, setTopeRemedial] = useState<number | ''>(80)
 
   // Fusión con Notas (H.33, pedido del coordinador 7-nov-2026): el examen,
   // al crearse, YA es una evaluación de Notas (migración 193) -- este % es
@@ -145,6 +150,8 @@ function NuevoExamenInterno() {
     setNotaMinima(d.notaMinima ?? 10)
     setIntentos(d.intentos ?? 2)
     setEnfriamiento(d.enfriamiento ?? 24)
+    setPoliticaRemedial(d.politicaRemedial ?? 'mejor')
+    setTopeRemedial(d.topeRemedial ?? 80)
     setPeso(d.peso ?? 0)
     setPreguntas((d.preguntas ?? []).map((q, i) => ({ ...q, id: `qtpl${Date.now()}-${i}` })))
     setPlantillasAbierto(false)
@@ -309,6 +316,8 @@ function NuevoExamenInterno() {
         // se fuerza igual aquí por si el estado se quedó con otro valor.
         max_attempts: intentos === '' ? (tipo === 'certificacion' ? 1 : 2) : intentos,
         cooldown_hours: enfriamiento === '' ? 24 : enfriamiento,
+        retake_policy: politicaRemedial as never,
+        retake_cap_pct: (topeRemedial === '' ? null : topeRemedial) as never,
         // Si se guarda como borrador, el % no se registra todavía en Notas
         // (0 -- no cuenta para el tope de 100% de nadie más) -- se aplica de
         // verdad recién al publicar (aquí mismo o después, editando).
@@ -357,7 +366,7 @@ function NuevoExamenInterno() {
     // profesor, publicado o en borrador. Si ya había una con el mismo nombre, se actualiza.
     const payloadPlantilla: PlantillaExamen = {
       titulo: titulo.trim(), instrucciones, puntajeMaximo, duracion, tipo, notaMinima, intentos,
-      enfriamiento, peso: pesoNuevo, preguntas,
+      enfriamiento, peso: pesoNuevo, politicaRemedial, topeRemedial, preguntas,
     }
     const { data: yaPlantilla } = await supabase
       .from('exam_templates' as never)
@@ -437,16 +446,21 @@ function NuevoExamenInterno() {
 
       {/* 01 — DATOS */}
       <Seccion numero={1} titulo="Datos del examen" delay={120}>
-        {plantillas.length > 0 && (
+        {(
           <div className="mb-4 space-y-2">
             <button
               type="button"
               onClick={() => setPlantillasAbierto((v) => !v)}
               className="min-h-12 w-full rounded-lg border border-dashed border-zr-border text-sm font-bold text-zr-text-muted"
             >
-              Usar examen ya creado
+              Empezar desde una plantilla ({plantillas.length})
             </button>
-            {plantillasAbierto && (
+            {plantillasAbierto && plantillas.length === 0 && (
+              <p className="zr-card p-4 text-sm text-zr-text-muted">
+                Todavía no hay plantillas. Cada examen que guardes queda aquí como plantilla para reusarlo en otras unidades.
+              </p>
+            )}
+            {plantillasAbierto && plantillas.length > 0 && (
               <div className="zr-card space-y-2 p-4">
                 {plantillas.map((t) => (
                   <div key={t.id} className="flex items-center justify-between gap-3 border-b border-zr-border pb-2 last:border-0 last:pb-0">
@@ -681,6 +695,15 @@ function NuevoExamenInterno() {
                   />
                 </div>
               </>
+            )}
+
+            {(intentos === '' || Number(intentos) > 1) && (
+              <PoliticaRemedialCampos
+                politica={politicaRemedial}
+                onPolitica={setPoliticaRemedial}
+                tope={topeRemedial}
+                onTope={setTopeRemedial}
+              />
             )}
 
             <div>

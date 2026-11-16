@@ -4,6 +4,7 @@ import { Select } from '@/components/ui/Select'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { PoliticaRemedialCampos, type PoliticaRemedial } from '@/components/ui/PoliticaRemedial'
 import { QuestionEditor } from '@/components/QuestionEditor'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
@@ -60,6 +61,8 @@ export default function EditarExamen() {
   const [notaMinima, setNotaMinima] = useState<number | ''>(10)
   const [intentos, setIntentos] = useState<number | ''>(2)
   const [enfriamiento, setEnfriamiento] = useState<number | ''>(24)
+  const [politicaRemedial, setPoliticaRemedial] = useState<PoliticaRemedial>('mejor')
+  const [topeRemedial, setTopeRemedial] = useState<number | ''>(80)
   // Fusión con Notas (H.33, migración 193): este % es lo que vale en la nota
   // del módulo -- se guarda junto con el resto del examen.
   const [peso, setPeso] = useState<number | ''>(0)
@@ -117,6 +120,8 @@ export default function EditarExamen() {
       setNotaMinima(examen.passing_score != null ? Number(examen.passing_score) : 10)
       setIntentos(examen.max_attempts ?? 2)
       setEnfriamiento(examen.cooldown_hours ?? 24)
+      setPoliticaRemedial((examen as { retake_policy?: PoliticaRemedial }).retake_policy ?? 'mejor')
+      setTopeRemedial((examen as { retake_cap_pct?: number | null }).retake_cap_pct ?? 80)
       setPeso(examen.weight != null ? Number(examen.weight) : 0)
       // Solo los módulos que dicta (más el del propio examen); si no tiene asignados, todos.
       const suyos = new Set((asig ?? []).map((x) => x.module_id))
@@ -229,6 +234,8 @@ export default function EditarExamen() {
         passing_score: tipo === 'certificacion' ? (notaMinima === '' ? 10 : notaMinima) : 10,
         max_attempts: intentos === '' ? (tipo === 'certificacion' ? 1 : 2) : intentos,
         cooldown_hours: enfriamiento === '' ? 24 : enfriamiento,
+        retake_policy: politicaRemedial as never,
+        retake_cap_pct: (topeRemedial === '' ? null : topeRemedial) as never,
         weight: peso === '' ? 0 : peso,
       })
       .eq('id', examId)
@@ -449,6 +456,14 @@ export default function EditarExamen() {
                     className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
                   />
                 </div>
+            {(intentos === '' || Number(intentos) > 1) && (
+              <PoliticaRemedialCampos
+                politica={politicaRemedial}
+                onPolitica={setPoliticaRemedial}
+                tope={topeRemedial}
+                onTope={setTopeRemedial}
+              />
+            )}
               </>
             )}
             <div>

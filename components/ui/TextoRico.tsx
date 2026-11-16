@@ -1,13 +1,18 @@
 'use client'
 
-import { Fragment, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
+import DOMPurify from 'dompurify'
 
-// Texto con formato sencillo para los bloques de texto de una unidad.
-// Se guarda como texto plano (content_items.description) con marcas simples y
-// se dibuja con elementos de React -- nunca como HTML, así que no hay riesgo de
-// inyección. Marcas: **negrita**, *cursiva*, [texto](https://enlace),
-// {rojo|texto} (también amarillo, verde, azul, grande, peq), y al inicio de
-// línea: "# " título, "## " subtítulo, "- " viñeta, "1. " lista numerada.
+// Texto con formato para los bloques de texto de una unidad.
+//
+// El profesor lo escribe en un editor visual (como Word): lo que ve mientras
+// escribe es lo que verá el estudiante, sin marcas ni código. Se guarda como
+// HTML sencillo en content_items.description, siempre limpiado con DOMPurify
+// (solo etiquetas de formato, sin scripts ni estilos arbitrarios).
+//
+// Los bloques escritos antes de este editor están en texto plano con marcas
+// (**negrita**, {rojo|texto}, "# título"...). Se siguen mostrando bien: si el
+// texto no parece HTML, se convierte con `marcasAHtml`.
 
 const COLORES: Record<string, string> = {
   rojo: '#f87171',
@@ -16,79 +21,79 @@ const COLORES: Record<string, string> = {
   azul: '#60a5fa',
 }
 
-const TOKEN = /\*\*([\s\S]+?)\*\*|\*([\s\S]+?)\*|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\{(rojo|amarillo|verde|azul|grande|peq)\|([\s\S]+?)\}/
-
-function inline(texto: string, k = 'i'): ReactNode[] {
-  const out: ReactNode[] = []
-  let resto = texto
-  let n = 0
-  while (resto) {
-    const m = TOKEN.exec(resto)
-    if (!m) { out.push(resto); break }
-    if (m.index > 0) out.push(resto.slice(0, m.index))
-    const key = `${k}${n++}`
-    if (m[1] !== undefined) out.push(<strong key={key} className="font-bold text-zr-text">{inline(m[1], key)}</strong>)
-    else if (m[2] !== undefined) out.push(<em key={key}>{inline(m[2], key)}</em>)
-    else if (m[3] !== undefined) {
-      out.push(
-        <a key={key} href={m[4]} target="_blank" rel="noopener noreferrer" className="font-semibold text-zr-blue underline">
-          {m[3]}
-        </a>,
-      )
-    } else {
-      const clave = m[5]
-      const cuerpo = inline(m[6], key)
-      if (COLORES[clave]) out.push(<span key={key} style={{ color: COLORES[clave] }} className="font-semibold">{cuerpo}</span>)
-      else if (clave === 'grande') out.push(<span key={key} className="text-lg font-bold text-zr-text">{cuerpo}</span>)
-      else out.push(<span key={key} className="text-xs">{cuerpo}</span>)
-    }
-    resto = resto.slice(m.index + m[0].length)
+let ganchoListo = false
+function limpiar(html: string): string {
+  if (typeof window === 'undefined' || !DOMPurify.isSupported) return ''
+  if (!ganchoListo) {
+    DOMPurify.addHook('afterSanitizeAttributes', (nodo) => {
+      if (nodo.tagName === 'A') {
+        nodo.setAttribute('target', '_blank')
+        nodo.setAttribute('rel', 'noopener noreferrer')
+      }
+    })
+    ganchoListo = true
   }
-  return out
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['b', 'strong', 'i', 'em', 'u', 'h1', 'h2', 'h3', 'p', 'div', 'br', 'ul', 'ol', 'li', 'a', 'font', 'span'],
+    ALLOWED_ATTR: ['href', 'color', 'size', 'target', 'rel'],
+  })
 }
 
-export function TextoRico({ texto }: { texto: string }) {
-  const lineas = texto.split('\n')
-  const bloques: ReactNode[] = []
-  let lista: { tipo: 'ul' | 'ol'; items: string[] } | null = null
-  const cerrarLista = () => {
-    if (!lista) return
-    const L = lista
-    const Tag = L.tipo
-    bloques.push(
-      <Tag key={`l${bloques.length}`} className={`ml-5 space-y-1 ${L.tipo === 'ul' ? 'list-disc' : 'list-decimal'}`}>
-        {L.items.map((t, i) => <li key={i}>{inline(t, `li${i}`)}</li>)}
-      </Tag>,
-    )
-    lista = null
-  }
-  lineas.forEach((l, idx) => {
+function esc(t: string): string {
+  return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+const pareceHtml = (t: string) => /^\s*<(p|div|h[1-3]|ul|ol|b|i|u|strong|em|font|span|br|a)[\s>/]/i.test(t)
+
+// Convierte las marcas antiguas a HTML para mostrarlas y editarlas.
+export function marcasAHtml(texto: string): string {
+  const inline = (t: string) =>
+    esc(t)
+      .replace(/\*\*([\s\S]+?)\*\*/g, '<b>$1</b>')
+      .replace(/\*([\s\S]+?)\*/g, '<i>$1</i>')
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>')
+      .replace(/\{(rojo|amarillo|verde|azul)\|([\s\S]+?)\}/g, (_m, c: string, x: string) => `<font color="${COLORES[c]}">${x}</font>`)
+      .replace(/\{grande\|([\s\S]+?)\}/g, '<font size="5">$1</font>')
+      .replace(/\{peq\|([\s\S]+?)\}/g, '<font size="2">$1</font>')
+  const out: string[] = []
+  let lista: 'ul' | 'ol' | null = null
+  const cerrar = () => { if (lista) { out.push(`</${lista}>`); lista = null } }
+  for (const l of texto.split('\n')) {
     const ul = /^[-•]\s+(.*)$/.exec(l)
     const ol = /^\d+[.)]\s+(.*)$/.exec(l)
     if (ul || ol) {
-      const tipo = ul ? 'ul' : 'ol'
-      if (lista && lista.tipo !== tipo) cerrarLista()
-      if (!lista) lista = { tipo, items: [] }
-      lista.items.push((ul ?? ol)![1])
-      return
+      const t = ul ? 'ul' : 'ol'
+      if (lista !== t) { cerrar(); out.push(`<${t}>`); lista = t }
+      out.push(`<li>${inline((ul ?? ol)![1])}</li>`)
+      continue
     }
-    cerrarLista()
-    if (l.trim() === '') { bloques.push(<div key={`b${idx}`} className="h-2" />); return }
-    const h1 = /^#\s+(.*)$/.exec(l)
+    cerrar()
     const h2 = /^##\s+(.*)$/.exec(l)
-    if (h2) bloques.push(<p key={`b${idx}`} className="pt-1 text-base font-bold text-zr-text">{inline(h2[1], `h${idx}`)}</p>)
-    else if (h1) bloques.push(<p key={`b${idx}`} className="pt-1 text-xl font-bold text-zr-text">{inline(h1[1], `h${idx}`)}</p>)
-    else bloques.push(<p key={`b${idx}`}>{inline(l, `p${idx}`)}</p>)
-  })
-  cerrarLista()
+    const h1 = /^#\s+(.*)$/.exec(l)
+    if (h2) out.push(`<h2>${inline(h2[1])}</h2>`)
+    else if (h1) out.push(`<h1>${inline(h1[1])}</h1>`)
+    else if (l.trim() === '') out.push('<br>')
+    else out.push(`<div>${inline(l)}</div>`)
+  }
+  cerrar()
+  return out.join('')
+}
+
+const aHtml = (t: string) => (pareceHtml(t) ? t : marcasAHtml(t))
+
+const ESTILO_CONTENIDO =
+  'break-words [&_a]:font-semibold [&_a]:text-zr-blue [&_a]:underline [&_b]:font-bold [&_strong]:font-bold [&_h1]:text-xl [&_h1]:font-bold [&_h1]:text-zr-text [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-zr-text [&_ul]:ml-5 [&_ul]:list-disc [&_ol]:ml-5 [&_ol]:list-decimal [&_li]:my-0.5'
+
+export function TextoRico({ texto }: { texto: string }) {
   return (
-    <div className="space-y-1 break-words text-sm leading-relaxed text-zr-text-muted">
-      {bloques.map((b, i) => <Fragment key={i}>{b}</Fragment>)}
-    </div>
+    <div
+      className={`text-sm leading-relaxed text-zr-text-muted ${ESTILO_CONTENIDO}`}
+      dangerouslySetInnerHTML={{ __html: limpiar(aHtml(texto)) }}
+    />
   )
 }
 
-// Editor: cuadro de texto con barra de formato y vista previa en vivo.
+// Editor visual: se escribe y se da formato como en Word, sin ver código.
 export function EditorTextoRico({
   value, onChange, placeholder, acento, rows = 6,
 }: {
@@ -98,41 +103,47 @@ export function EditorTextoRico({
   acento: string
   rows?: number
 }) {
-  const ref = useRef<HTMLTextAreaElement>(null)
+  const ref = useRef<HTMLDivElement>(null)
+  const ultimo = useRef<string | null>(null)
 
-  function envolver(antes: string, despues: string, ejemplo: string) {
-    const ta = ref.current
-    if (!ta) return
-    const { selectionStart: a, selectionEnd: b } = ta
-    const sel = value.slice(a, b) || ejemplo
-    const nuevo = value.slice(0, a) + antes + sel + despues + value.slice(b)
-    onChange(nuevo)
-    requestAnimationFrame(() => {
-      ta.focus()
-      ta.setSelectionRange(a + antes.length, a + antes.length + sel.length)
-    })
+  // Solo se vuelca el valor al editor cuando cambió desde afuera (abrir un
+  // bloque para editarlo, o vaciarlo al guardar); si no, se pisaría el cursor.
+  useEffect(() => {
+    const el = ref.current
+    if (!el || value === ultimo.current) return
+    el.innerHTML = limpiar(aHtml(value))
+    ultimo.current = value
+  }, [value])
+
+  function emitir() {
+    const el = ref.current
+    if (!el) return
+    const vacio = (el.textContent ?? '').trim() === ''
+    const html = vacio ? '' : limpiar(el.innerHTML)
+    ultimo.current = html
+    onChange(html)
   }
 
-  function prefijo(p: string) {
-    const ta = ref.current
-    if (!ta) return
-    const a = value.lastIndexOf('\n', ta.selectionStart - 1) + 1
-    onChange(value.slice(0, a) + p + value.slice(a))
-    requestAnimationFrame(() => ta.focus())
+  function ejecutar(cmd: string, arg?: string) {
+    ref.current?.focus()
+    document.execCommand('styleWithCSS', false, 'false')
+    document.execCommand(cmd, false, arg)
+    emitir()
   }
 
   function enlace() {
     const url = window.prompt('Pega el enlace (debe empezar con https://)')
-    if (url && /^https?:\/\//.test(url)) envolver('[', `](${url})`, 'texto del enlace')
+    if (url && /^https?:\/\//.test(url)) ejecutar('createLink', url)
   }
 
-  const Btn = ({ children, onClick, titulo }: { children: ReactNode; onClick: () => void; titulo: string }) => (
+  const Btn = ({ children, onClick, titulo, ancho }: { children: ReactNode; onClick: () => void; titulo: string; ancho?: string }) => (
     <button
       type="button"
       title={titulo}
       aria-label={titulo}
-      onClick={onClick}
-      className="flex h-9 min-w-9 items-center justify-center rounded-lg border border-zr-border bg-zr-surface px-2 text-sm font-bold text-zr-text"
+      // mouseDown (no click): así el texto seleccionado no pierde la selección.
+      onMouseDown={(e) => { e.preventDefault(); onClick() }}
+      className={`flex h-10 min-w-10 items-center justify-center rounded-lg border border-zr-border bg-zr-surface px-2 text-sm font-bold text-zr-text ${ancho ?? ''}`}
     >
       {children}
     </button>
@@ -141,41 +152,49 @@ export function EditorTextoRico({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-1.5">
-        <Btn titulo="Negrita" onClick={() => envolver('**', '**', 'texto')}>B</Btn>
-        <Btn titulo="Cursiva" onClick={() => envolver('*', '*', 'texto')}><span className="italic">I</span></Btn>
-        <Btn titulo="Título grande" onClick={() => prefijo('# ')}>T1</Btn>
-        <Btn titulo="Subtítulo" onClick={() => prefijo('## ')}>T2</Btn>
-        <Btn titulo="Viñetas" onClick={() => prefijo('- ')}>•</Btn>
-        <Btn titulo="Lista numerada" onClick={() => prefijo('1. ')}>1.</Btn>
-        <Btn titulo="Enlace" onClick={enlace}>🔗</Btn>
-        <Btn titulo="Letra grande" onClick={() => envolver('{grande|', '}', 'texto')}>A+</Btn>
-        <Btn titulo="Letra pequeña" onClick={() => envolver('{peq|', '}', 'texto')}><span className="text-xs">A-</span></Btn>
+        <Btn titulo="Negrita" onClick={() => ejecutar('bold')}>B</Btn>
+        <Btn titulo="Cursiva" onClick={() => ejecutar('italic')}><span className="italic">I</span></Btn>
+        <Btn titulo="Subrayado" onClick={() => ejecutar('underline')}><span className="underline">U</span></Btn>
+        <Btn titulo="Título" onClick={() => ejecutar('formatBlock', 'H1')}>Título</Btn>
+        <Btn titulo="Subtítulo" onClick={() => ejecutar('formatBlock', 'H2')}>Subtítulo</Btn>
+        <Btn titulo="Texto normal" onClick={() => ejecutar('formatBlock', 'DIV')}>Normal</Btn>
+        <Btn titulo="Viñetas" onClick={() => ejecutar('insertUnorderedList')}>• Lista</Btn>
+        <Btn titulo="Lista numerada" onClick={() => ejecutar('insertOrderedList')}>1. Lista</Btn>
+        <Btn titulo="Enlace" onClick={enlace}>Enlace</Btn>
+        <Btn titulo="Letra grande" onClick={() => ejecutar('fontSize', '5')}>A+</Btn>
+        <Btn titulo="Letra pequeña" onClick={() => ejecutar('fontSize', '2')}><span className="text-xs">A-</span></Btn>
         {(['rojo', 'amarillo', 'verde', 'azul'] as const).map((c) => (
           <button
             key={c}
             type="button"
             title={`Color ${c}`}
             aria-label={`Color ${c}`}
-            onClick={() => envolver(`{${c}|`, '}', 'texto')}
-            className="h-9 w-9 rounded-lg border border-zr-border"
+            onMouseDown={(e) => { e.preventDefault(); ejecutar('foreColor', COLORES[c]) }}
+            className="h-10 w-10 rounded-lg border border-zr-border"
             style={{ backgroundColor: COLORES[c] }}
           />
         ))}
+        <Btn titulo="Quitar formato" onClick={() => ejecutar('removeFormat')}>Sin formato</Btn>
       </div>
-      <textarea
-        ref={ref}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        rows={rows}
-        className="w-full rounded-lg border border-zr-border bg-zr-surface px-4 py-3 text-sm text-zr-text outline-none focus:border-zr-blue"
-      />
-      {value.trim() && (
-        <div style={{ borderColor: acento }} className="rounded-lg border border-dashed p-3">
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">Así lo verá el estudiante</p>
-          <TextoRico texto={value} />
-        </div>
-      )}
+
+      <div className="relative">
+        <div
+          ref={ref}
+          contentEditable
+          suppressContentEditableWarning
+          role="textbox"
+          aria-multiline="true"
+          onInput={emitir}
+          style={{ minHeight: `${rows * 1.6}rem` }}
+          className={`w-full rounded-lg border border-zr-border bg-zr-surface px-4 py-3 text-sm leading-relaxed text-zr-text outline-none focus:border-zr-blue ${ESTILO_CONTENIDO}`}
+        />
+        {!value && placeholder && (
+          <p className="pointer-events-none absolute left-4 top-3 text-sm text-zr-text-muted/60">{placeholder}</p>
+        )}
+      </div>
+      <p style={{ color: acento }} className="text-xs font-semibold">
+        Lo que ves aquí es exactamente lo que verá el estudiante.
+      </p>
     </div>
   )
 }

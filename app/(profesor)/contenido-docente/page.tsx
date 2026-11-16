@@ -212,6 +212,11 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
     // Fase 0 (docs/16_FASE0_PLAN_PROFESOR.md, Sprint E): lo que sube el
     // profesor queda pendiente hasta que administración lo revise — nunca
     // se publica solo, aunque el profesor lo marque como listo.
+    // Excepción (pedido del coordinador, 16-nov-2026): Dirección Académica y
+    // super_admin SON quienes aprueban -- lo que ellos suben se publica solo.
+    const { data: perfilSube } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    const apruebaSolo = perfilSube?.role === 'direccion_academica' || perfilSube?.role === 'super_admin'
+
     const { data: nuevoItem, error: falloRegistro } = await supabase.from('content_items').insert({
       module_id: moduloSel,
       cohort_id: cohorteSel,
@@ -224,8 +229,8 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
       mime_type: aSubir.type || null,
       size_bytes: aSubir.size,
       uploaded_by: user.id,
-      is_published: false,
-      approval_status: 'pendiente',
+      is_published: apruebaSolo,
+      approval_status: apruebaSolo ? 'aprobado' : 'pendiente',
     }).select('id').single()
 
     if (falloRegistro || !nuevoItem) {

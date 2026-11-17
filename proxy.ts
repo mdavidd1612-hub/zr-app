@@ -81,7 +81,11 @@ export async function proxy(request: NextRequest) {
   )
 
   // Refrescar sesión
-  const { data: { user } } = await supabase.auth.getUser()
+  // getClaims verifica la firma del token en el servidor sin ir a la red cada
+  // vez (getUser hacia una peticion extra a Auth en CADA navegacion y CADA
+  // precarga de enlace); refresca el token si hace falta, igual que antes.
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const user = claimsData?.claims?.sub ? { id: claimsData.claims.sub as string } : null
 
   // Sin sesión: ir a login
   if (!user) {

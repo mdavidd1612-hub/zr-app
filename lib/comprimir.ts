@@ -1,4 +1,4 @@
-import JSZip from 'jszip'
+import type JSZipTipo from 'jszip'
 
 /**
  * Compresión automática de material pesado (pedido del coordinador, oct.
@@ -215,7 +215,8 @@ async function comprimirImagen(archivo: File): Promise<File | null> {
 }
 
 async function comprimirOffice(archivo: File): Promise<File | null> {
-  let zip: JSZip
+  const JSZip = (await import('jszip')).default
+  let zip: JSZipTipo
   try {
     zip = await JSZip.loadAsync(await archivo.arrayBuffer())
   } catch {

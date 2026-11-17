@@ -31,10 +31,30 @@ function fetchConTimeout(input: RequestInfo | URL, init?: RequestInit) {
     .finally(() => clearTimeout(aviso))
 }
 
+/**
+ * RENDIMIENTO (16-nov-2026): `auth.getUser()` hace una peticion de red al
+ * servidor de autenticacion CADA vez que se llama, y las pantallas lo llaman
+ * varias veces por carga (115 llamadas en el codigo; el layout del estudiante
+ * solo ya hace 5 seguidas). En el navegador alcanza con leer la sesion local:
+ * quien manda de verdad es la base (RLS) y el servidor (proxy.ts verifica la
+ * sesion en cada navegacion), no esta lectura. Se redefine getUser para que
+ * use la sesion local -- sin tocar ninguno de los 115 sitios.
+ */
+let instancia: ReturnType<typeof createBrowserClient<Database>> | null = null
+
 export function createClient() {
-  return createBrowserClient<Database>(
+  if (instancia) return instancia
+  const cliente = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { global: { fetch: fetchConTimeout } },
   )
+  const getUserRemoto = cliente.auth.getUser.bind(cliente.auth)
+  cliente.auth.getUser = (async (jwt?: string) => {
+    if (jwt) return getUserRemoto(jwt)
+    const { data: { session } } = await cliente.auth.getSession()
+    return { data: { user: session?.user ?? null }, error: null }
+  }) as typeof cliente.auth.getUser
+  if (typeof window !== 'undefined') instancia = cliente
+  return cliente
 }

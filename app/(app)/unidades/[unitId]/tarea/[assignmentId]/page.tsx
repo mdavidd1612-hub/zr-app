@@ -44,6 +44,7 @@ export default function TareaDeUnidad() {
   const [cargando, setCargando] = useState(true)
   const [subiendo, setSubiendo] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
   const [userId, setUserId] = useState('')
   const [vencida, setVencida] = useState(false)
   // El archivo elegido NO se sube de una: primero se muestra para que el
@@ -88,7 +89,8 @@ export default function TareaDeUnidad() {
     // tal cual, sin pasar por el mismo comprimidor que ya tiene el material
     // del profesor -- un PDF pesado rechazaba con "excede el tamaño máximo"
     // en vez de intentar reducirlo primero.
-    const { archivo } = await prepararArchivo(archivoOriginal)
+    const { archivo, mensaje } = await prepararArchivo(archivoOriginal)
+    setAviso(mensaje)
 
     if (tarea && archivo.size > tarea.max_mb * 1024 * 1024) {
       setError(`El archivo pesa más de ${tarea.max_mb} MB incluso comprimido.`)
@@ -253,6 +255,9 @@ export default function TareaDeUnidad() {
             </button>
           )}
 
+          {aviso && !error && (
+            <p className="rounded-lg bg-zr-warning/10 px-4 py-3 text-sm text-zr-warning">{aviso}</p>
+          )}
           {error && (
             <p className="mt-3 rounded-lg border border-zr-error/30 bg-zr-error/10 px-4 py-3 text-sm text-zr-error">
               {error}

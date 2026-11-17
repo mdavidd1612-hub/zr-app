@@ -24,3 +24,8 @@ Se borró todo lo creado en la prueba (unidad, examen, tarea, notas).
 
 ## No cubierto
 Clics reales en la interfaz (editor visual de texto, arrastrar ítems, visor con "material visto"), pruebas en teléfono, y el segundo intento (remedial) de punta a punta en esta pasada.
+
+## Segunda pasada: remedial
+- Certificación con 2 intentos, tope 80 %, política "la más alta": intento 1 = 0, intento 2 con todo bien = 16/20 (tope aplicado), nota oficial 16; el 3.er intento se bloquea con "Ya usaste tu intento y tu remedial en esta certificación."
+- Fallo corregido: la pantalla de resultado mostraba 20 (puntos brutos) cuando la nota oficial era 16. Ahora lee la nota oficial del servidor (`examenes/[examId]/page.tsx`).
+- Sin verificar en pantalla; el `tsc` local reporta errores de tipos de `pdfjs-dist` ajenos a este cambio.

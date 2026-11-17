@@ -307,8 +307,19 @@ export default function ExamenPage() {
       // (nunca se calcula aquí); se muestra lo que devolvió y lo que falta.
       setConfirmando(false)
       setSubmitting(false)
+      let obtenidos = Number(data?.autoGradedPoints ?? 0)
+      // Si ya no queda nada por corregir, la nota oficial es la que dejó el
+      // servidor (con el tope del remedial aplicado), no los puntos brutos.
+      if (Number(data?.pendingManualQuestions ?? 0) === 0) {
+        const { data: oficial } = await supabase
+          .from('exam_attempts')
+          .select('total_score')
+          .eq('id', attemptId)
+          .maybeSingle()
+        if (oficial?.total_score != null) obtenidos = Number(oficial.total_score)
+      }
       setResultado({
-        obtenidos: Number(data?.autoGradedPoints ?? 0),
+        obtenidos,
         pendientes: Number(data?.pendingManualQuestions ?? 0),
       })
       return

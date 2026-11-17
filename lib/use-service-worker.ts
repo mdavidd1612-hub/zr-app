@@ -25,17 +25,28 @@ export function useServiceWorker() {
       console.error('Error registrando Service Worker:', err)
     })
 
+    // La pagina NUNCA se recarga mientras alguien la esta usando (se veia como
+    // "la app se recarga sola"). Si hay version nueva, se recarga cuando la
+    // persona SALE de la app (queda oculta), asi al volver ya esta al dia.
+    let pendiente = false
+    function recargarSiOculta() {
+      if (pendiente && document.hidden) window.location.reload()
+    }
     function alCambiarControlador() {
       try {
         if (sessionStorage.getItem(BANDERA_RECARGA_SW) === '1') return
         sessionStorage.setItem(BANDERA_RECARGA_SW, '1')
       } catch {
-        // Modo privado: sin el resguardo, pero mejor recargar una vez de más
-        // que dejar a alguien atascado en una versión vieja.
+        // Modo privado: sin el resguardo.
       }
-      window.location.reload()
+      pendiente = true
+      recargarSiOculta()
     }
     navigator.serviceWorker.addEventListener('controllerchange', alCambiarControlador)
-    return () => navigator.serviceWorker.removeEventListener('controllerchange', alCambiarControlador)
+    document.addEventListener('visibilitychange', recargarSiOculta)
+    return () => {
+      navigator.serviceWorker.removeEventListener('controllerchange', alCambiarControlador)
+      document.removeEventListener('visibilitychange', recargarSiOculta)
+    }
   }, [])
 }

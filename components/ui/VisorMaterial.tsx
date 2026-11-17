@@ -338,7 +338,14 @@ function VisorBase({ contentItemId, tipo, storagePath, externalUrl, bucket = 'co
         const pagina = await doc.getPage(n)
         const canvas = canvasRefs.current.get(n)
         if (!canvas) continue
-        const viewport = pagina.getViewport({ scale: 1.3 })
+        // Nitidez: se dibuja con el doble de la resolucion de la pantalla
+        // (antes escala fija 1.3: borroso, sobre todo en tareas escaneadas o
+        // a mano). El canvas se muestra al ancho de la columna (w-full).
+        const base = pagina.getViewport({ scale: 1 })
+        const anchoPantalla = Math.min(pdfRef.current?.clientWidth || window.innerWidth, 1200)
+        const dpr = Math.min(window.devicePixelRatio || 1, 3)
+        const escala = Math.min(4, Math.max(1.5, (anchoPantalla * dpr * 1.5) / base.width))
+        const viewport = pagina.getViewport({ scale: escala })
         canvas.width = viewport.width
         canvas.height = viewport.height
         const ctx = canvas.getContext('2d')
@@ -586,13 +593,11 @@ function VisorBase({ contentItemId, tipo, storagePath, externalUrl, bucket = 'co
   // TODOS los documentos que se ven dentro de la app, no solo imagen/PDF --
   // se agregó también a Word. PowerPoint se queda sin zoom: se abre en una
   // pestaña del navegador, fuera de nuestro control.
-  const controlZoomComun = (
-    <ControlZoom
-      zoom={zoom}
-      onAcercar={() => setZoom((z) => Math.min(ZOOM_MAX, z + 0.5))}
-      onAlejar={() => setZoom((z) => Math.max(ZOOM_MIN, z - 0.5))}
-    />
-  )
+  // 17-nov-2026: sin zoom en toda la app (pedido del coordinador, que se
+  // sienta como app). Los PDF se dibujan en alta resolucion para leerse bien.
+  void ControlZoom
+  void setZoom
+  const controlZoomComun = null
 
   if (tipo === 'imagen') {
     return (

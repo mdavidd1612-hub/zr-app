@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { comprimirAvatar } from '@/lib/comprimir'
 import { createClient } from '@/lib/supabase/client'
 import { IconoPerfil, IconoCamara } from '@/components/ui/Iconos'
 import { Aviso } from '@/components/ui/Aviso'
@@ -57,6 +58,7 @@ export function FotoPerfil({ uid, rutaInicial }: Props) {
 
     setSubiendo(true)
     const supabase = createClient()
+    archivo = await comprimirAvatar(archivo)
     const extension = archivo.type === 'image/png' ? 'png' : archivo.type === 'image/webp' ? 'webp' : 'jpg'
     const ruta = `${uid}/avatar.${extension}`
 

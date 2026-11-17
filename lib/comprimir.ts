@@ -34,6 +34,7 @@ export interface ResultadoCompresion {
 const MAX_LADO_IMAGEN = 2200
 const MAX_LADO_EN_DOCUMENTO = 1600
 const CALIDAD_JPG = 0.8
+const UMBRAL_IMAGEN = 300 * 1024
 
 const mb = (b: number) => `${(b / 1024 / 1024).toFixed(1)} MB`
 
@@ -256,9 +257,15 @@ export async function comprimirSiPesa(archivo: File, limiteBytes: number): Promi
     archivo, comprimido: false, bytesAntes: archivo.size, bytesDespues: archivo.size, mensaje,
   })
 
-  if (!limiteBytes || archivo.size <= limiteBytes) return intacto(null)
-
   const ext = extension(archivo.name)
+  // Las imagenes se comprimen SIEMPRE que pasen de 300 KB (una foto de celular
+  // pesa 3-8 MB y no tiene ningun costo reducirla): el limite configurable
+  // (content.aviso_pesado_mb) solo aplica a PDF y Office, donde comprimir
+  // puede cambiar el documento.
+  const esImagen = ['jpg', 'jpeg', 'png', 'webp'].includes(ext)
+  const limiteEfectivo = esImagen ? Math.min(limiteBytes || Infinity, UMBRAL_IMAGEN) : limiteBytes
+  if (!limiteEfectivo || archivo.size <= limiteEfectivo) return intacto(null)
+
   let nuevo: File | null = null
   let metodoPdf: 'imagenes' | 'paginas' | null = null
 
@@ -297,4 +304,19 @@ export async function comprimirSiPesa(archivo: File, limiteBytes: number): Promi
       ? `El archivo pesa ${mb(archivo.size)} y no se pudo reducir más automáticamente.`
       : `El archivo pesa ${mb(archivo.size)}. ${ext.toUpperCase() || 'Este formato'} no se puede comprimir automáticamente: conviene subirlo ya comprimido para que abra rápido en teléfonos de gama baja.`,
   )
+}
+
+/**
+ * Foto de perfil: se reduce a 640 px de lado (sobra para un avatar y el carnet).
+ * Devuelve el archivo original si no se pudo o no baja de peso.
+ */
+export async function comprimirAvatar(archivo: File): Promise<File> {
+  try {
+    const nuevo = await reducirImagen(archivo, 640, 'image/jpeg')
+    if (!nuevo || nuevo.size >= archivo.size) return archivo
+    const base = archivo.name.replace(/\.[^.]+$/, '')
+    return new File([nuevo], `${base}.jpg`, { type: 'image/jpeg', lastModified: Date.now() })
+  } catch {
+    return archivo
+  }
 }

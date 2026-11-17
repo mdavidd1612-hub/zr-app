@@ -27,6 +27,13 @@ interface Fila {
   totalScore: number | null
   pendientes: number
   totalRedacciones: number
+  cedula: string | null
+  codigo: string | null
+  cohorte: string | null
+  telefono: string | null
+  entregado: string | null
+  empezo: string | null
+  puntosAuto: number
 }
 
 const ETIQUETA_ESTADO: Record<Fila['estado'], { texto: string; tono: string }> = {
@@ -60,13 +67,14 @@ export default function ListaEstudiantesExamen() {
 
       const { data: intentos } = await supabase
         .from('exam_attempts')
-        .select('id, attempt_number, status, total_score, submitted_at, students(profiles!students_id_fkey(full_name))')
+        .select('id, attempt_number, status, total_score, submitted_at, started_at, students(student_code, cohorts(name), profiles!students_id_fkey(full_name, cedula, phone))')
         .eq('exam_id', examId)
         .order('submitted_at', { ascending: false })
 
       const filasIntentos = (intentos ?? []) as unknown as {
         id: string; attempt_number: number; status: Fila['estado']; total_score: number | null
-        students: { profiles: { full_name: string } | null } | null
+        submitted_at: string | null; started_at: string | null
+        students: { student_code: string | null; cohorts: { name: string } | null; profiles: { full_name: string; cedula: string | null; phone: string | null } | null } | null
       }[]
 
       const idsIntentos = filasIntentos.map((i) => i.id)
@@ -75,14 +83,18 @@ export default function ListaEstudiantesExamen() {
             .from('exam_answers')
             .select('attempt_id, awarded_points, exam_questions!inner(type)')
             .in('attempt_id', idsIntentos)
-            .eq('exam_questions.type', 'redaccion_abierta')
         : { data: [] }
 
-      const porIntento = new Map<string, { total: number; pendientes: number }>()
+      const porIntento = new Map<string, { total: number; pendientes: number; auto: number }>()
       for (const r of respuestas ?? []) {
-        const actual = porIntento.get(r.attempt_id) ?? { total: 0, pendientes: 0 }
-        actual.total++
-        if (r.awarded_points == null) actual.pendientes++
+        const actual = porIntento.get(r.attempt_id) ?? { total: 0, pendientes: 0, auto: 0 }
+        const tipo = (r.exam_questions as unknown as { type: string } | null)?.type
+        if (tipo === 'redaccion_abierta') {
+          actual.total++
+          if (r.awarded_points == null) actual.pendientes++
+        } else {
+          actual.auto += Number(r.awarded_points ?? 0)
+        }
         porIntento.set(r.attempt_id, actual)
       }
 
@@ -90,6 +102,13 @@ export default function ListaEstudiantesExamen() {
         filasIntentos.map((i) => ({
           attemptId: i.id,
           estudiante: i.students?.profiles?.full_name ?? 'Estudiante',
+          cedula: i.students?.profiles?.cedula ?? null,
+          codigo: i.students?.student_code ?? null,
+          cohorte: i.students?.cohorts?.name ?? null,
+          telefono: i.students?.profiles?.phone ?? null,
+          entregado: i.submitted_at,
+          empezo: i.started_at,
+          puntosAuto: porIntento.get(i.id)?.auto ?? 0,
           intento: i.attempt_number,
           estado: i.status,
           totalScore: i.total_score != null ? Number(i.total_score) : null,
@@ -143,6 +162,14 @@ export default function ListaEstudiantesExamen() {
               >
                 <div className="min-w-0">
                   <p className="truncate text-base font-bold text-zr-text">{f.estudiante}</p>
+                  <p className="mt-0.5 text-xs text-zr-text-muted">
+                    {[f.cedula && `C.I. ${f.cedula}`, f.codigo && `Código ${f.codigo}`, f.cohorte, f.telefono].filter(Boolean).join(' · ')}
+                  </p>
+                  <p className="mt-0.5 text-xs text-zr-text-muted">
+                    {f.entregado ? `Entregó el ${new Date(f.entregado).toLocaleString('es-VE', { dateStyle: 'medium', timeStyle: 'short' })}` : 'Aún no entrega'}
+                    {f.entregado && f.empezo ? ` · tardó ${Math.max(1, Math.round((new Date(f.entregado).getTime() - new Date(f.empezo).getTime()) / 60000))} min` : ''}
+                    {` · selección: ${f.puntosAuto.toFixed(2)} pts`}
+                  </p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
                     <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${ETIQUETA_ESTADO[f.estado].tono}`}>
                       {ETIQUETA_ESTADO[f.estado].texto}

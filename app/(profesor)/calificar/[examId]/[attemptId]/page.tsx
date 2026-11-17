@@ -38,6 +38,7 @@ export default function CorregirIntento() {
   const attemptId = params.attemptId as string
 
   const [estudiante, setEstudiante] = useState('')
+  const [fichaEstudiante, setFichaEstudiante] = useState('')
   const [tituloExamen, setTituloExamen] = useState('')
   const [notaMinima, setNotaMinima] = useState<number | null>(null)
   const [escala, setEscala] = useState(20)
@@ -63,11 +64,22 @@ export default function CorregirIntento() {
 
     const { data: intento } = await supabase
       .from('exam_attempts')
-      .select('status, total_score, students(profiles!students_id_fkey(full_name))')
+      .select('status, total_score, submitted_at, started_at, attempt_number, students(student_code, cohorts(name), profiles!students_id_fkey(full_name, cedula, phone))')
       .eq('id', attemptId).maybeSingle()
-    const nombre = (intento as unknown as { students: { profiles: { full_name: string } | null } | null } | null)
-      ?.students?.profiles?.full_name
-    setEstudiante(nombre ?? 'Estudiante')
+    const it = intento as unknown as {
+      submitted_at: string | null; started_at: string | null; attempt_number: number
+      students: { student_code: string | null; cohorts: { name: string } | null; profiles: { full_name: string; cedula: string | null; phone: string | null } | null } | null
+    } | null
+    setEstudiante(it?.students?.profiles?.full_name ?? 'Estudiante')
+    const pr = it?.students?.profiles
+    setFichaEstudiante([
+      pr?.cedula && `C.I. ${pr.cedula}`,
+      it?.students?.student_code && `Código ${it.students.student_code}`,
+      it?.students?.cohorts?.name,
+      pr?.phone,
+      it?.attempt_number && it.attempt_number > 1 ? `Intento ${it.attempt_number}` : null,
+      it?.submitted_at ? `Entregó el ${new Date(it.submitted_at).toLocaleString('es-VE', { dateStyle: 'medium', timeStyle: 'short' })}` : null,
+    ].filter(Boolean).join(' · '))
 
     const { data } = await supabase
       .from('exam_answers')
@@ -194,6 +206,7 @@ export default function CorregirIntento() {
           titulo={estudiante}
           descripcion={`${tituloExamen} · Redacción ${indice + 1} de ${cola.length}`}
         />
+        {fichaEstudiante && <p className="mt-2 text-sm text-zr-text-muted">{fichaEstudiante}</p>}
       </div>
 
       <div className="mt-8 h-1 w-full overflow-hidden rounded-full bg-zr-border">

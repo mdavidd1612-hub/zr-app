@@ -14,28 +14,29 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
  *   - opciones:  propone opciones incorrectas creíbles (distractores).
  *   - rubrica:   propone una rúbrica a partir del enunciado y la respuesta modelo.
  *
- * Requiere el secreto ANTHROPIC_API_KEY en Supabase (Edge Functions → Secrets).
+ * Requiere el secreto NVIDIA_API_KEY en Supabase (el mismo de resumir-dudas) (Edge Functions → Secrets).
  */
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-const MODELO = 'claude-sonnet-5-5'
+// Misma IA que resumir-dudas (NVIDIA NIM, clave NVIDIA_API_KEY ya configurada).
+const MODELO = 'meta/llama-3.2-11b-vision-instruct'
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 const fallo = (code: string, message: string, status = 400) => json({ error: { code, message } }, status)
 
 async function preguntarIA(sistema: string, usuario: string, maxTokens = 700): Promise<Record<string, unknown>> {
-  const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
+  const apiKey = Deno.env.get('NVIDIA_API_KEY')
   if (!apiKey) throw Object.assign(new Error('Falta la clave de la IA en el servidor'), { code: 'SIN_CONFIGURAR', status: 500 })
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
+  const r = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
     method: 'POST',
-    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: MODELO, max_tokens: maxTokens, temperature: 0.2, system: sistema,
-      messages: [{ role: 'user', content: usuario }],
+      model: MODELO, max_tokens: maxTokens, temperature: 0.2,
+      messages: [{ role: 'system', content: sistema }, { role: 'user', content: usuario }],
     }),
   })
   if (!r.ok) {
@@ -43,7 +44,7 @@ async function preguntarIA(sistema: string, usuario: string, maxTokens = 700): P
     throw Object.assign(new Error('La IA no está disponible ahora mismo'), { code: 'IA_NO_DISPONIBLE', status: 502 })
   }
   const cuerpo = await r.json()
-  const texto: string = cuerpo.content?.[0]?.text ?? ''
+  const texto: string = cuerpo.choices?.[0]?.message?.content ?? ''
   const m = texto.match(/\{[\s\S]*\}/)
   if (!m) throw Object.assign(new Error('La IA no devolvió un formato válido'), { code: 'IA_FORMATO', status: 502 })
   return JSON.parse(m[0])

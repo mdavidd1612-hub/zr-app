@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { EstadoVacio } from '@/components/ui/EstadoVacio'
+import { IconoNotas } from '@/components/ui/Iconos'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { useEsqueletoVisible } from '@/lib/useEsqueletoVisible'
 
@@ -152,12 +154,11 @@ export default function Notas() {
         <Regla delay={60} />
 
         {notas.length === 0 ? (
-          <div className="zr-card animate-rise p-8" style={{ animationDelay: '120ms' }}>
-            <p className="text-base font-semibold text-zr-text">Todavía no tienes notas</p>
-            <p className="mt-2 text-sm text-zr-text-muted">
-              Aparecerán cuando tu profesor las cargue y Dirección Académica las valide.
-            </p>
-          </div>
+          <EstadoVacio
+            Icono={IconoNotas}
+            titulo="Todavía no tienes notas"
+            explicacion="Aparecerán aquí cuando tus exámenes y tareas estén calificados."
+          />
         ) : (
           notas.map((n, i) => {
             const e = ETIQUETA[n.estado]

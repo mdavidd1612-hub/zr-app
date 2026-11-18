@@ -39,7 +39,9 @@ const UNIDADES: ItemBarra = { href: '/unidades-docente', label: 'Unidades', Icon
 const MATERIAL: ItemBarra = { href: '/material', label: 'Material', Icono: IconoDocumento }
 
 /** Píldora flotante del teléfono (máximo 5 secciones). */
-export const NAV_DIRECCION: ItemBarra[] = [NAV[0], NAV[1], UNIDADES, NAV[2], NAV[3]]
+export const NAV_DIRECCION: ItemBarra[] = [
+  NAV[0], UNIDADES, { href: '/notas-academicas', label: 'Notas', Icono: IconoNotas }, MATERIAL, NAV[3],
+]
 
 /**
  * Píldora de super_admin: lo que más usa -- Programas y Ajustes -- a la vista.
@@ -68,16 +70,15 @@ export const TODAS: ItemBarra[] = [
 
 /** Barra lateral completa (PC) para Dirección Académica. */
 export const TODAS_DIRECCION: ItemBarra[] = [
-  TODAS[0], TODAS[1], TODAS[2],
-  { ...UNIDADES, grupo: 'Clase de hoy' },
-  TODAS[3], TODAS[4],
-  { href: '/personal',             label: 'Personal',     Icono: IconoPersonal, grupo: 'Dirección académica' },
-  { ...MATERIAL, grupo: 'Dirección académica' },
+  TODAS[0],
+  { ...UNIDADES, grupo: 'Académico' },
+  { ...MATERIAL, grupo: 'Académico' },
+  { href: '/notas-academicas',     label: 'Notas',        Icono: IconoNotas,    grupo: 'Académico' },
+  { href: '/examenes-academicos',  label: 'Exámenes',     Icono: IconoExamen,   grupo: 'Académico' },
+  { href: '/personal',             label: 'Profesores',   Icono: IconoPersonal, grupo: 'Dirección académica' },
   { href: '/cohortes',             label: 'Programas',    Icono: IconoProgreso, grupo: 'Dirección académica' },
-  { href: '/cobertura-modulos',    label: 'Cobertura',    Icono: IconoProgreso, grupo: 'Dirección académica' },
-  { href: '/notas-academicas',     label: 'Notas',        Icono: IconoNotas,    grupo: 'Dirección académica' },
-  { href: '/examenes-academicos',  label: 'Exámenes',     Icono: IconoExamen,   grupo: 'Dirección académica' },
   { href: '/modulos',              label: 'Módulos',      Icono: IconoProgreso, grupo: 'Dirección académica' },
+  { href: '/cobertura-modulos',    label: 'Cobertura',    Icono: IconoProgreso, grupo: 'Dirección académica' },
   { href: '/feedback-modulos',     label: 'Feedback',     Icono: IconoDuda,     grupo: 'Dirección académica' },
   TODAS[TODAS.length - 1],
 ]

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla } from '@/components/ui/Editorial'
+import { TarjetaHero } from '@/components/ui/TarjetaHero'
 import { CASOS, diaSemanaISO, lunesDeLaSemana, fechaISO } from '@/lib/casos-fase0'
 import { leerSimulacionSabado } from '@/lib/demo-sabado'
 import { CASOS_HABILITADO } from '@/lib/flags'
@@ -71,6 +72,8 @@ export default function Inicio() {
   // punto de color en "Calendario" y en "Revisar el material del módulo"
   // cuando hay algo (examen, tarea) con fecha dentro de las próximas 48h.
   const [hayPendienteCalendario, setHayPendienteCalendario] = useState(false)
+  // "Lo que sigue": el próximo examen/tarea con fecha (tarjeta destacada).
+  const [siguienteEvento, setSiguienteEvento] = useState<{ titulo: string; fecha: string; tipo: string } | null>(null)
 
   const hoy = new Date()
   const diaHoy = simulado ? 6 : diaSemanaISO(hoy)
@@ -251,6 +254,16 @@ export default function Inicio() {
         .limit(1)
       setHayPendienteCalendario((proximoEvento ?? []).length > 0)
 
+      const { data: sig } = await supabase
+        .from('calendar_events')
+        .select('title, event_at, source_type')
+        .in('source_type', ['exam', 'assignment'])
+        .gte('event_at', new Date().toISOString())
+        .order('event_at', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+      setSiguienteEvento(sig ? { titulo: sig.title, fecha: sig.event_at, tipo: sig.source_type } : null)
+
       setCargando(false)
     }
 
@@ -316,11 +329,40 @@ export default function Inicio() {
   return (
     <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
       <div className="space-y-11">
+        {/* Lo único importante: qué sigue. Una sola tarjeta destacada; el
+            resto de la pantalla es apoyo (decisión del coordinador, 17-nov-2026). */}
         <header className="animate-rise" style={{ animationDelay: '0ms' }}>
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
-            Panel del estudiante
-          </p>
-          <h1 className="zr-display mt-3 text-4xl text-zr-text">{primerNombre}</h1>
+          <h1 className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
+            Hola, {primerNombre}
+          </h1>
+          <div className="mt-3">
+            {esSabado ? (
+              <TarjetaHero
+                sobretitulo="Hoy toca clase"
+                titulo={asistenciaHoy ? 'Ya estás registrado' : 'Marca tu asistencia'}
+                texto={asistenciaHoy ? 'Disfruta la clase. Más abajo está tu refrigerio.' : 'Escanea el código que se muestra en pantalla al llegar.'}
+                icono={<IconoCarnet size={24} />}
+              />
+            ) : siguienteEvento ? (
+              <TarjetaHero
+                sobretitulo={siguienteEvento.tipo === 'exam' ? 'Tu próximo examen' : 'Tu próxima entrega'}
+                titulo={siguienteEvento.titulo}
+                texto={new Date(siguienteEvento.fecha).toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'long' })}
+                accion="Ver mi calendario"
+                onAccion={() => router.push('/calendario')}
+                icono={<IconoCalendario size={24} />}
+              />
+            ) : (
+              <TarjetaHero
+                sobretitulo="Sigue aprendiendo"
+                titulo={modulo?.nombre ?? 'Tu módulo'}
+                texto="Entra a tus unidades para ver el material, las tareas y los exámenes."
+                accion="Ir a mis unidades"
+                onAccion={() => router.push('/unidades')}
+                icono={<IconoDocumento size={24} />}
+              />
+            )}
+          </div>
         </header>
 
         {avisoAsistencia && (
@@ -537,7 +579,7 @@ export default function Inicio() {
             {/* Identidad: el carnet digital, acción destacada. */}
             <button
               onClick={() => router.push('/perfil')}
-              className="flex w-full items-center justify-between gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-zr-blue-deep to-zr-blue px-6 py-5 text-left transition-all hover:shadow-lg hover:shadow-zr-blue/25"
+              className="zr-hero flex w-full items-center justify-between gap-3 px-6 py-5 text-left"
             >
               <span>
                 <span className="block text-base font-bold text-white">Mi carnet</span>

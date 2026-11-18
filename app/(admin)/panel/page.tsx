@@ -69,6 +69,8 @@ const ACCESOS_DIRECCION = [
 // Finanzas -- excepción explícita de Fase 1 aprobada por el coordinador
 // (sept. 2026, mismo mecanismo que ZR Coffee). Solo admin y super_admin --
 // pedido explícito de que Dirección Académica no entra aquí.
+const ACCESO_PERSONAL = { href: '/personal', titulo: 'Personal', sub: 'Crear y gestionar cuentas del personal', Icono: IconoPersonal }
+
 const ACCESOS_FINANZAS = [
   { href: '/finanzas', titulo: 'Finanzas', sub: 'Inscripción y mensualidad por estudiante', Icono: IconoCalificar },
 ]
@@ -203,7 +205,11 @@ export default function Panel() {
       {(() => {
         let n = 0
         const nHoy = esSabado ? ++n : 0
-        const nEstudiantes = ++n
+        // Dirección Académica = lo académico (profesores, material, exámenes,
+        // notas). Estudiantes/asistencia/QR/inscripción son de Administración
+        // (pedido del coordinador, 17-nov-2026).
+        const verOperativo = rol !== 'direccion_academica'
+        const nEstudiantes = verOperativo ? ++n : 0
         const nFinanzas = (rol === 'admin' || rol === 'super_admin') ? ++n : 0
         const nDireccion = esDireccionAcademica(rol) ? ++n : 0
         const nProgramas = esDireccionAcademica(rol) ? ++n : 0
@@ -239,16 +245,25 @@ export default function Panel() {
             {/* Agrupado por qué resuelve cada cosa, no una sola lista de once
                 botones seguidos — a pedido explícito del coordinador ("no se
                 explica para qué"). */}
-            <div id="tour-panel-accesos">
-              <GrupoAccesos numero={nEstudiantes} titulo="Estudiantes" accesos={ACCESOS} delay={200} />
-            </div>
+            {verOperativo && (
+              <div id="tour-panel-accesos">
+                <GrupoAccesos numero={nEstudiantes} titulo="Estudiantes y clase de hoy" accesos={ACCESOS} delay={200} />
+              </div>
+            )}
 
             {(rol === 'admin' || rol === 'super_admin') && (
-              <GrupoAccesos numero={nFinanzas} titulo="Finanzas" accesos={ACCESOS_FINANZAS} delay={220} />
+              <GrupoAccesos
+                numero={nFinanzas}
+                titulo="Administración"
+                accesos={rol === 'admin' ? [...ACCESOS_FINANZAS, ACCESO_PERSONAL] : ACCESOS_FINANZAS}
+                delay={220}
+              />
             )}
 
             {esDireccionAcademica(rol) && (
-              <GrupoAccesos numero={nDireccion} titulo="Dirección académica" accesos={ACCESOS_DIRECCION} delay={240} />
+              <div id={verOperativo ? undefined : 'tour-panel-accesos'}>
+                <GrupoAccesos numero={nDireccion} titulo="Dirección académica" accesos={ACCESOS_DIRECCION} delay={240} />
+              </div>
             )}
 
             {esDireccionAcademica(rol) && (

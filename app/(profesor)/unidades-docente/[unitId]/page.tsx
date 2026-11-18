@@ -16,7 +16,8 @@ import { PestanasUnidad, type PestanaUnidad } from '@/components/ui/PestanasUnid
 import { Recorrido, Paso } from '@/components/ui/Recorrido'
 import { IconoDocumento, IconoExamen, IconoDuda, IconoCheck, IconoLapiz } from '@/components/ui/Iconos'
 import { estadoUnidad } from '@/lib/estado-unidad'
-import { eyebrowMaterial } from '@/lib/material'
+import { eyebrowMaterial, enlaceWebValido } from '@/lib/material'
+import { mensajeError } from '@/lib/errores'
 import { iconoDeMaterial } from '@/components/ui/IconoMaterial'
 import { ModalEvaluacionAgregada } from '@/components/ui/ModalEvaluacionAgregada'
 import { sumaPesoOcupado, mensajeSiExcedePeso } from '@/lib/peso-notas'
@@ -67,6 +68,8 @@ interface Item {
   examId: string | null
   esTexto: boolean
   cuerpoTexto: string | null
+  descripcionMaterial: string | null
+  externalUrl: string | null
   esVideoOAudio: boolean
   materialTipo: string | null
   esCertificacion: boolean
@@ -175,6 +178,15 @@ export default function UnidadDocenteDetalle() {
   const [editTextoCuerpo, setEditTextoCuerpo] = useState('')
   const [guardandoEdicionTexto, setGuardandoEdicionTexto] = useState(false)
 
+  // Editar un material ya subido (título, descripción y, si es un enlace, la
+  // URL). Pedido del profesor Arjona, 18-nov-2026: antes solo se podía quitar
+  // y volver a subir. El archivo en sí no se reemplaza desde aquí.
+  const [editandoMatId, setEditandoMatId] = useState<string | null>(null)
+  const [editMatTitulo, setEditMatTitulo] = useState('')
+  const [editMatDesc, setEditMatDesc] = useState('')
+  const [editMatUrl, setEditMatUrl] = useState('')
+  const [guardandoMat, setGuardandoMat] = useState(false)
+
   // Banner personalizable (migración 194, pedido #4 del coordinador): imagen
   // o color a elegir, y el aspecto clásico/moderno de la unidad entera. Lo
   // configura quien edita; lo ve igual cualquier perfil que entre.
@@ -215,14 +227,14 @@ export default function UnidadDocenteDetalle() {
 
     const { data: filas } = await supabase
       .from('unit_items')
-      .select('id, type, required, order_index, assignment_id, content_item_id, exam_id, content_items(title, type, description, check_quiz_id, check_quiz:exams!content_items_check_quiz_id_fkey(title), approval_status, review_message), exams(title, kind), assignments(title)')
+      .select('id, type, required, order_index, assignment_id, content_item_id, exam_id, content_items(title, type, description, external_url, check_quiz_id, check_quiz:exams!content_items_check_quiz_id_fkey(title), approval_status, review_message), exams(title, kind), assignments(title)')
       .eq('unit_id', unitId)
       .order('order_index', { ascending: true })
 
     setItems(
       (filas ?? []).map((f) => {
         const ci = f.content_items as unknown as {
-          title: string; type: string; description: string | null
+          title: string; type: string; description: string | null; external_url: string | null
           check_quiz_id: string | null; check_quiz: { title: string } | null
           approval_status: string | null; review_message: string | null
         } | null
@@ -236,6 +248,8 @@ export default function UnidadDocenteDetalle() {
           examId: f.exam_id,
           esTexto: ci?.type === 'texto',
           cuerpoTexto: ci?.type === 'texto' ? (ci.description ?? '') : null,
+          descripcionMaterial: ci && ci.type !== 'texto' ? (ci.description ?? '') : null,
+          externalUrl: ci?.external_url ?? null,
           esVideoOAudio: ci?.type === 'video' || ci?.type === 'audio',
           materialTipo: ci?.type ?? null,
           esCertificacion: f.type === 'quiz' && ex?.kind === 'certificacion',
@@ -529,6 +543,37 @@ export default function UnidadDocenteDetalle() {
       await cargar()
     }
     setGuardandoEdicionTexto(false)
+  }
+
+  function empezarEdicionMaterial(item: Item) {
+    setEditandoMatId(item.id)
+    setEditMatTitulo(item.titulo)
+    setEditMatDesc(item.descripcionMaterial ?? '')
+    setEditMatUrl(item.externalUrl ?? '')
+    setError(null)
+  }
+
+  async function guardarEdicionMaterial(item: Item) {
+    if (!editMatTitulo.trim() || !item.contentItemId) return
+    if (item.externalUrl !== null && !enlaceWebValido(editMatUrl.trim())) {
+      setError('Pega un enlace válido (que empiece con http:// o https://).')
+      return
+    }
+    setGuardandoMat(true)
+    setError(null)
+    const supabase = createClient()
+    const cambios: { title: string; description: string | null; external_url?: string } = {
+      title: editMatTitulo.trim(),
+      description: editMatDesc.trim() || null,
+    }
+    if (item.externalUrl !== null) cambios.external_url = editMatUrl.trim()
+    const { error: err } = await supabase.from('content_items').update(cambios).eq('id', item.contentItemId)
+    if (err) setError(mensajeError(err.message))
+    else {
+      setEditandoMatId(null)
+      await cargar()
+    }
+    setGuardandoMat(false)
   }
 
   async function asociarMiniChequeo(contentItemId: string, examId: string) {
@@ -963,7 +1008,49 @@ export default function UnidadDocenteDetalle() {
                   </div>
                 </div>
                 <div>
-                  <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
+                  {item.type === 'material' && editandoMatId === item.id ? (
+                    <div className="space-y-3">
+                      <input
+                        value={editMatTitulo}
+                        onChange={(e) => setEditMatTitulo(e.target.value)}
+                        placeholder="Título"
+                        className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-surface px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
+                      />
+                      <textarea
+                        value={editMatDesc}
+                        onChange={(e) => setEditMatDesc(e.target.value)}
+                        placeholder="Descripción (opcional)"
+                        rows={3}
+                        className="w-full rounded-lg border border-zr-border bg-zr-surface px-4 py-3 text-sm text-zr-text outline-none focus:border-zr-blue"
+                      />
+                      {item.externalUrl !== null && (
+                        <input
+                          value={editMatUrl}
+                          onChange={(e) => setEditMatUrl(e.target.value)}
+                          placeholder="Enlace (https://…)"
+                          className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-surface px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
+                        />
+                      )}
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => guardarEdicionMaterial(item)}
+                          disabled={guardandoMat || !editMatTitulo.trim()}
+                          style={{ backgroundColor: acento }}
+                          className="min-h-11 flex-1 rounded-lg px-4 text-sm font-bold text-white disabled:opacity-50"
+                        >
+                          {guardandoMat ? 'Guardando…' : 'Guardar'}
+                        </button>
+                        <button
+                          onClick={() => setEditandoMatId(null)}
+                          className="min-h-11 rounded-lg border border-zr-border px-4 text-sm font-bold text-zr-text-muted"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
+                  )}
                   {item.type === 'tarea' && item.assignmentId && (
                     <button
                       onClick={() => router.push(`/unidades-docente/tarea/${item.assignmentId}`)}
@@ -987,6 +1074,11 @@ export default function UnidadDocenteDetalle() {
                   <button onClick={() => quitarItem(item.id)} className="text-xs font-bold text-zr-error">
                     Quitar
                   </button>
+                  {item.type === 'material' && editandoMatId !== item.id && (
+                    <button onClick={() => empezarEdicionMaterial(item)} style={{ color: acento }} className="text-xs font-bold">
+                      Editar
+                    </button>
+                  )}
                   {item.type === 'material' && (
                     <button onClick={() => alternarObligatorio(item.id, item.required)}>
                       <span

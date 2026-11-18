@@ -805,7 +805,7 @@ El profesor Arjona probó Unidades/exámenes (4 audios + capturas en el grupo). 
 - ✅ **Certificación trabada para siempre por material sin aprobar**: los obligatorios sin publicar/aprobar el estudiante no los ve pero se contaban como pendientes. Migración 215 (`fn_unit_required_complete` solo cuenta materiales `is_published` y con `visible_from` vencido) + el cliente (`unidades/[unitId]`) tampoco los cuenta. Aplicada a staging.
 - ✅ **"AbortError: The operation was aborted"** con internet lento: nuevo `lib/errores.ts` (`mensajeError`) traduce errores de red a "Se cortó o está muy lenta la conexión... vuelve a tocar Guardar", aplicado a los guardados de `crear-examen/nuevo` y `[examId]`. No hay reintento automático.
 - 🟡 **No confirmado:** que al abrir profesor y estudiante en dos navegadores se cierre uno -- no hay nada en el código que lo cause; dos pestañas/ventanas del mismo navegador comparten sesión (hay que preguntarle cómo lo abrió).
-- 🟡 **Carencia, no bug:** un material ya subido no se puede editar (solo quitar y volver a subir).
+- ✅ **Editar un material ya subido** (pedido a raíz de lo de Arjona): botón "Editar" en cada material del modo edición de `unidades-docente/[unitId]` -- cambia título, descripción y, si es un enlace, la URL. No reemplaza el archivo (para eso, quitar y volver a subir). La RLS de `content_items` ya lo permitía al profesor que lo subió y a Dirección/super_admin.
 - Respuesta a su duda: se crea el módulo (Inglés Técnico) y dentro sus unidades 1..8 con "Nueva unidad" en `/unidades-docente`.
 
 ---

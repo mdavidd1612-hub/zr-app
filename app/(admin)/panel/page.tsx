@@ -64,6 +64,7 @@ const ACCESOS_DIRECCION = [
   { href: '/material',             titulo: 'Material',                sub: 'Explorador de archivos por programa', Icono: IconoDocumento },
   { href: '/notas-academicas',     titulo: 'Notas',                   sub: 'Calificaciones de cualquier programa', Icono: IconoNotas },
   { href: '/examenes-academicos',  titulo: 'Exámenes',                sub: 'Supervisar evaluaciones',           Icono: IconoExamen },
+  { href: '/dudas-docente',        titulo: 'Dudas',                   sub: 'Dudas de los estudiantes por módulo', Icono: IconoDuda },
 ]
 
 // Finanzas -- excepción explícita de Fase 1 aprobada por el coordinador
@@ -85,6 +86,7 @@ const ACCESOS_PROGRAMAS = [
 ]
 
 const ACCESOS_SUPER = [
+  { href: '/monitoreo',     titulo: 'Monitoreo',     sub: 'Métricas de la app contra las metas del documento maestro', Icono: IconoProgreso },
   { href: '/configuracion', titulo: 'Configuración', sub: 'Horarios, notas mínimas, textos y reglas de la academia', Icono: IconoAjustes },
   { href: '/catalogo',      titulo: 'Catálogo',      sub: 'Crear sedes y programas nuevos',                          Icono: IconoDocumento },
 ]

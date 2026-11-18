@@ -783,6 +783,12 @@ Bug visto con captura: un estudiante de PTMA-2026-II, con el módulo actual en I
 - ✅ **Estilo:** fondo con resplandores azules y grano fino en toda la app, tarjeta destacada granulada (`.zr-hero`), campanita que se sacude y el contador que late al llegar un aviso nuevo (revisa cada 30 s), hover con elevación en tarjetas y con ícono que crece en botones (solo donde hay mouse; se apaga con "reducir movimiento").
 - ✅ **Versión visible:** `lib/version.ts` (`APP_VERSION`), mostrada en la barra lateral y en la cinta "Entorno de prueba". Regla de subirla en cada cambio en §12.4.
 
+### 8.31 Dudas de Dirección, Feedback más limpio y Monitoreo (18-nov-2026, v1.55)
+
+- ✅ **Dirección Académica ve las Dudas:** la pantalla `/dudas-docente` y la RLS ya se lo permitían; faltaba el acceso. Agregada al menú (grupo Académico), al panel y a `RUTAS_PROFESOR` del proxy.
+- ✅ **Feedback de módulo** (`/feedback-modulos`): tarjeta destacada, editor de preguntas plegado, comentarios en burbujas (3 visibles + "Ver todos") con contador.
+- ✅ **Monitoreo de la app** (`/monitoreo`, solo super_admin; migración 214, `fn_metricas_app`): semáforo contra meta + tendencia de 8 semanas. Grupos: uso de la app, Aula Virtual, indicadores del modelo (§7.3: 1-4 y 8 con datos; 5-7 "sin datos" hasta construir evaluación práctica y retención) y salud técnica. Las metas de cada tarjeta son provisionales: ajustarlas con la dirección.
+
 ### 8.30 COSAS POR HACER (anotado, no construido)
 
 - 🔴 **Modo sin conexión (offline):** poder descargar una unidad en el teléfono (lecturas, PDF, imágenes, instrucciones) y abrirla sin internet. Ya hay service worker (`public/sw.js`, red primero con caché de respaldo) pero no guarda unidades. Ideas: botón "Descargar para ver sin conexión" por unidad que guarda los archivos en el almacenamiento del navegador (Cache API / IndexedDB), con aviso de espacio usado y opción de borrar; las URL firmadas caducan, así que hay que guardar el archivo, no el enlace; el progreso de "material visto" se guarda localmente y se sincroniza al volver la conexión; las entregas de tareas y exámenes siguen exigiendo conexión. Definir antes: cuánto espacio permitir, qué tipos (PDF/imagen sí; video pesado probablemente no) y si el progreso offline cuenta como visto.
@@ -1622,7 +1628,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
-- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.54**.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.55**.
 
 ### 12.5 Al cierre de cada sprint
 
@@ -1755,6 +1761,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-14 | Estudiante veía todo bloqueado en el módulo actual (calendario vs módulo actual, material de otra cohorte en unidad compartida) y selector de módulos cursados en /unidades. Migr. 208 y 209. Ver §8.27. | `supabase/migrations/208_estudiante_ve_modulos_cursados.sql`, `209_modulos_cursados_incluye_actual.sql` |
 | 2026-11-15 | Cambios del coordinador por audio: remedial en certificación, aviso al profesor de exámenes por corregir (migr. 210). Ver §8.28. | `supabase/migrations/210_remedial_certificacion_y_aviso_correccion.sql` |
 | 2026-11-17 | Versión 1.49: roles Dirección/Administración, 5 notificaciones nuevas (migr. 213), fondo granulado, campanita animada, versión central y regla de subirla en cada cambio; anotado el modo sin conexión. Ver §8.29 y §8.30. | `supabase/migrations/213_notificaciones_faltantes.sql` |
+| 2026-11-18 | v1.54-1.55: Mi módulo/Malla/Dudas con el estilo nuevo; Dirección ve Dudas; Feedback más limpio; panel de Monitoreo del super admin (migr. 214). Ver §8.31. | `supabase/migrations/214_metricas_app_super_admin.sql` |
 
 ---
 

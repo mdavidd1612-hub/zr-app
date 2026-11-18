@@ -495,7 +495,9 @@ export default function Inicio() {
                 </button>
               </div>
             </div>
-          ) : modulo ? (
+          ) : modulo && siguienteEvento ? (
+            // Si no hay examen ni tarea próximos, la tarjeta destacada de
+            // arriba ya muestra el módulo: no se repite aquí (17-nov-2026).
             // Con "Casos" apagado (lib/flags.ts), este espacio no se deja
             // vacío: a pedido explícito del coordinador, va el resumen corto
             // y las competencias del módulo que está cursando — nada que

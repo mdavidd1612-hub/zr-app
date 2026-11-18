@@ -1622,7 +1622,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
-- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.49**.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.50**.
 
 ### 12.5 Al cierre de cada sprint
 

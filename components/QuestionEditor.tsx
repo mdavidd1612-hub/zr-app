@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { InputNota } from '@/components/ui/InputNota'
-import { llamarAsistente } from '@/lib/asistente-examenes'
 
 interface Option {
   key: string
@@ -16,7 +15,7 @@ export interface PreguntaNueva {
   statement: string
   points: number
   options?: Option[]
-  correct_answer: { key: string } | { value: boolean } | { text: string } | null
+  correct_answer: { key: string } | { value: boolean } | null
   rubric?: string | null
 }
 
@@ -34,14 +33,6 @@ export function QuestionEditor({ type, onSave, onCancel, initialData, modoEdicio
   const [rubric, setRubric] = useState(
     typeof initialData?.rubric === 'string' ? initialData.rubric : ''
   )
-
-  // Redacción: respuesta modelo del profesor (la usa la IA para sugerir la nota).
-  const [modelo, setModelo] = useState(() => {
-    const ca = initialData?.correct_answer as unknown
-    return ca && typeof ca === 'object' && 'text' in ca ? String((ca as { text: string }).text) : ''
-  })
-  const [pensando, setPensando] = useState(false)
-  const [avisoIA, setAvisoIA] = useState<string | null>(null)
 
   // Multiple choice — normaliza correct_answer que puede venir como { key }
   // (desde QuestionEditor) o como string "A" (desde importarPdf)
@@ -70,40 +61,6 @@ export function QuestionEditor({ type, onSave, onCancel, initialData, modoEdicio
   }
 
   const [correctValue, setCorrectValue] = useState(resolverVFInicial)
-
-  // IA (solo sugiere; el profesor revisa y edita todo antes de guardar).
-  async function sugerirOpciones() {
-    const correcta = options.find((o) => o.key === correctOption)?.text.trim() ?? ''
-    if (!statement.trim() || !correcta) {
-      setAvisoIA('Escribe la pregunta y la opción correcta (marcada con el círculo) y luego pide las sugerencias.')
-      return
-    }
-    setPensando(true); setAvisoIA(null)
-    const cantidad = Math.max(3, options.length - 1)
-    const { datos, mensaje } = await llamarAsistente<{ opciones: string[] }>({ modo: 'opciones', enunciado: statement, correcta, cantidad })
-    setPensando(false)
-    if (!datos) { setAvisoIA(mensaje); return }
-    const incorrectas = datos.opciones.filter(Boolean)
-    // La correcta se queda en su letra; las demás se rellenan con las sugerencias.
-    const total = Math.min(6, Math.max(options.length, incorrectas.length + 1))
-    let k = 0
-    setOptions(Array.from({ length: total }, (_, i) => {
-      const key = String.fromCharCode(97 + i)
-      if (key === correctOption) return { key, text: correcta }
-      return { key, text: incorrectas[k++] ?? options[i]?.text ?? '' }
-    }))
-    setAvisoIA('Sugerencias de la IA: léelas y cámbialas si hace falta.')
-  }
-
-  async function sugerirRubrica() {
-    if (!statement.trim()) { setAvisoIA('Escribe la pregunta primero.'); return }
-    setPensando(true); setAvisoIA(null)
-    const { datos, mensaje } = await llamarAsistente<{ rubrica: string }>({ modo: 'rubrica', enunciado: statement, respuestaModelo: modelo, puntos: points })
-    setPensando(false)
-    if (!datos) { setAvisoIA(mensaje); return }
-    setRubric(datos.rubrica)
-    setAvisoIA('Rúbrica sugerida por la IA: revísala y ajústala.')
-  }
 
   function handleAddOption() {
     if (options.length < 6) {
@@ -156,9 +113,7 @@ export function QuestionEditor({ type, onSave, onCancel, initialData, modoEdicio
         statement,
         points,
         rubric: rubric.trim() || null,
-        // Respuesta modelo: solo la ve el personal (la vista del estudiante no
-        // trae correct_answer) y ayuda a la IA a sugerir la nota.
-        correct_answer: modelo.trim() ? { text: modelo.trim() } : null,
+        correct_answer: null,
       })
     }
   }
@@ -218,15 +173,6 @@ export function QuestionEditor({ type, onSave, onCancel, initialData, modoEdicio
               </div>
             ))}
           </div>
-          <button
-            type="button"
-            onClick={sugerirOpciones}
-            disabled={pensando}
-            className="text-sm px-4 py-2 bg-zr-blue/10 border border-zr-blue/30 text-zr-blue-mid rounded-lg font-semibold disabled:opacity-50"
-          >
-            {pensando ? 'Pensando…' : '✨ Sugerir opciones incorrectas con IA'}
-          </button>
-          {avisoIA && <p className="text-xs text-zr-text-muted">{avisoIA}</p>}
           {options.length < 6 && (
             <button
               onClick={handleAddOption}
@@ -269,19 +215,8 @@ export function QuestionEditor({ type, onSave, onCancel, initialData, modoEdicio
 
       {/* Redacción Abierta */}
       {type === 'redaccion_abierta' && (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-zr-text mb-2">
-              Respuesta modelo (opcional, solo la ve el profesor)
-            </label>
-            <textarea
-              value={modelo}
-              onChange={(e) => setModelo(e.target.value)}
-              placeholder="Cómo debería responder un estudiante que domina el tema..."
-              className="w-full min-h-24 px-4 py-3 bg-zr-background border border-zr-border rounded-lg text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none resize-none"
-            />
-          </div>
-          <label className="block text-sm font-semibold text-zr-text">
+        <div>
+          <label className="block text-sm font-semibold text-zr-text mb-2">
             Rúbrica (guía de corrección)
           </label>
           <textarea
@@ -290,15 +225,6 @@ export function QuestionEditor({ type, onSave, onCancel, initialData, modoEdicio
             placeholder="Describe los criterios para calificar esta respuesta..."
             className="w-full min-h-24 px-4 py-3 bg-zr-background border border-zr-border rounded-lg text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none resize-none"
           />
-          <button
-            type="button"
-            onClick={sugerirRubrica}
-            disabled={pensando}
-            className="text-sm px-4 py-2 bg-zr-blue/10 border border-zr-blue/30 text-zr-blue-mid rounded-lg font-semibold disabled:opacity-50"
-          >
-            {pensando ? 'Pensando…' : '✨ Sugerir rúbrica con IA'}
-          </button>
-          {avisoIA && <p className="text-xs text-zr-text-muted">{avisoIA}</p>}
         </div>
       )}
 

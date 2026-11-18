@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { llamarAsistente } from '@/lib/asistente-examenes'
 import { Encabezado, Regla } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
@@ -40,9 +39,6 @@ export default function CorregirIntento() {
 
   const [estudiante, setEstudiante] = useState('')
   const [fichaEstudiante, setFichaEstudiante] = useState('')
-  const [sugerencia, setSugerencia] = useState<{ puntos: number; comentario: string; razon: string } | null>(null)
-  const [pensandoIA, setPensandoIA] = useState(false)
-  const [avisoIA, setAvisoIA] = useState<string | null>(null)
   const [tituloExamen, setTituloExamen] = useState('')
   const [notaMinima, setNotaMinima] = useState<number | null>(null)
   const [escala, setEscala] = useState(20)
@@ -122,17 +118,6 @@ export default function CorregirIntento() {
 
   const actual = cola[indice]
 
-  // La IA SOLO sugiere: no guarda nada. El profesor decide con "Usar sugerencia"
-  // (rellena los campos) y luego "Guardar", igual que siempre.
-  async function pedirSugerencia() {
-    if (!actual) return
-    setPensandoIA(true); setAvisoIA(null); setSugerencia(null)
-    const { datos, mensaje } = await llamarAsistente<{ puntos: number; comentario: string; razon: string }>({ modo: 'calificar', answerId: actual.answerId })
-    setPensandoIA(false)
-    if (!datos) { setAvisoIA(mensaje); return }
-    setSugerencia(datos)
-  }
-
   async function guardar() {
     if (!actual) return
     const valor = Number(puntos.replace(',', '.'))
@@ -157,8 +142,6 @@ export default function CorregirIntento() {
 
     setPuntos('')
     setComentario('')
-    setSugerencia(null)
-    setAvisoIA(null)
     setGuardando(false)
 
     if (indice >= cola.length - 1) {
@@ -251,32 +234,6 @@ export default function CorregirIntento() {
         </div>
 
         <div className="zr-card animate-rise space-y-5 p-6" style={{ animationDelay: '220ms' }}>
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={pedirSugerencia}
-              disabled={pensandoIA}
-              className="w-full rounded-lg border border-zr-blue/30 bg-zr-blue/10 px-4 py-3 text-sm font-bold text-zr-blue-mid disabled:opacity-50"
-            >
-              {pensandoIA ? 'La IA está leyendo la respuesta…' : '✨ Pedir sugerencia a la IA'}
-            </button>
-            {avisoIA && <p className="text-sm text-zr-text-muted">{avisoIA}</p>}
-            {sugerencia && (
-              <div className="space-y-2 rounded-lg border border-zr-blue/25 bg-zr-blue/5 p-4">
-                <p className="text-sm font-bold text-zr-text">
-                  Sugiere {sugerencia.puntos.toFixed(2)} de {actual.puntosMaximos} puntos
-                </p>
-                <p className="text-sm text-zr-text-muted">{sugerencia.razon}</p>
-                <button
-                  type="button"
-                  onClick={() => { setPuntos(String(sugerencia.puntos)); setComentario(sugerencia.comentario) }}
-                  className="rounded-lg bg-zr-blue px-4 py-2 text-sm font-bold text-white"
-                >
-                  Usar sugerencia (tú decides al guardar)
-                </button>
-              </div>
-            )}
-          </div>
           <div>
             <label htmlFor="puntos" className="mb-2 block text-sm font-semibold text-zr-text">
               Puntaje (0 – {actual.puntosMaximos})

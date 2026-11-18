@@ -39,7 +39,7 @@
   --zr-touch-min:   48px;
   --zr-button-h:    56px;
   --zr-button-h-lg: 64px;
-  --zr-radius:      12px;
+  --zr-radius:      20px;      /* tarjetas más suaves (refresco visual 17-nov-2026) */
   --zr-gap:         16px;
   --zr-page-pad:    16px;
 
@@ -70,6 +70,11 @@
   --font-texto:  'Roboto Variable', system-ui, sans-serif;
 
   --radius-zr:        var(--zr-radius);
+  /* Esquinas más redondeadas en TODA la app a la vez: todos los rounded-lg /
+     xl / 2xl de las pantallas se suavizan sin tocar cada una. */
+  --radius-lg:  0.875rem;
+  --radius-xl:  1.25rem;
+  --radius-2xl: 1.75rem;
   --spacing-toque:    var(--zr-touch-min);
   --spacing-boton:    var(--zr-button-h);
   --spacing-boton-lg: var(--zr-button-h-lg);
@@ -340,10 +345,28 @@ h1, h2, h3, .titulo {
 /* Superficie base de tarjeta. Un solo lugar donde se decide cómo se ve
    una tarjeta, para que no haya doce variantes de gris. */
 .zr-card {
-  background: var(--zr-surface);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0%, rgba(255, 255, 255, 0) 60%), var(--zr-surface);
   border: 1px solid var(--zr-border);
   border-radius: var(--zr-radius);
+  box-shadow: 0 8px 24px -14px rgba(0, 0, 0, 0.6);
   transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+}
+/* Tarjetas que se tocan (enlaces y botones): responden al toque, como una app. */
+a.zr-card:active, button.zr-card:active { transform: scale(0.985); }
+
+/* ---------------------------------------------------------------------------
+   Toque y foco (refresco visual 17-nov-2026): todo lo tocable "se hunde" un
+   poquito al presionar, y el foco con teclado se ve claro. Sin esto la app se
+   siente como una página; con esto responde como una app.
+   --------------------------------------------------------------------------- */
+button:not(:disabled), a[href], [role='button'] {
+  transition: transform 0.12s ease, background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+button:not(:disabled):active, [role='button']:active { transform: scale(0.97); }
+:focus-visible { outline: 2px solid var(--zr-blue-mid); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  button, a, .zr-card { transition: none !important; }
+  button:active, [role='button']:active, a.zr-card:active { transform: none !important; }
 }
 
 /* Filas de chips con scroll horizontal (filtros, cohortes...). La barra de

@@ -4,9 +4,11 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Seccion, Regla } from '@/components/ui/Editorial'
+import { Seccion } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
-import { IconoCheck, IconoAviso, IconoChevron } from '@/components/ui/Iconos'
+import { TarjetaHero } from '@/components/ui/TarjetaHero'
+import { EstadoVacio } from '@/components/ui/EstadoVacio'
+import { IconoCheck, IconoAviso, IconoChevron, IconoProgreso, IconoDocumento, IconoCarpeta } from '@/components/ui/Iconos'
 import { esAdmin } from '@/lib/auth-helpers'
 import { leerCohorteVistaRecorridoCookie, leerModuloVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import type { UserRole } from '@/lib/types'
@@ -163,82 +165,92 @@ export default function MiModulo() {
     )
   }
 
+  const avance = modulo
+    ? Math.min(100, Math.round((modulo.semanaActual / Math.max(1, modulo.duracionSemanas)) * 100))
+    : 0
+
   return (
-    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
-      <div className="space-y-9">
+    <div className="px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
+      <div className="space-y-7">
         <BotonVolver href="/" />
 
         {!modulo ? (
-          <div className="flex flex-col items-center gap-3 py-12 text-center">
-            <p className="text-base font-bold text-zr-text">Todavía no tienes módulo asignado</p>
-            <p className="max-w-xs text-sm text-zr-text-muted">
-              Cuando la academia te asigne un programa, aquí vas a ver en qué módulo estás y qué
-              vas a aprender.
-            </p>
-          </div>
+          <EstadoVacio
+            Icono={IconoProgreso}
+            titulo="Todavía no tienes módulo asignado"
+            explicacion="Cuando la academia te asigne un programa, aquí vas a ver en qué módulo estás y qué vas a aprender."
+          />
         ) : (
           <>
-            <div id="tour-modulo" className="animate-rise overflow-hidden rounded-2xl bg-gradient-to-br from-zr-blue-deep to-zr-blue p-6 text-white">
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">
-                Módulo · Semana {modulo.semanaActual} de {modulo.duracionSemanas}
-              </p>
-              <p className="zr-display text-2xl">{modulo.nombre}</p>
+            <div id="tour-modulo" className="animate-rise">
+              <TarjetaHero
+                sobretitulo={`Mi módulo · Semana ${modulo.semanaActual} de ${modulo.duracionSemanas}`}
+                titulo={modulo.nombre}
+                icono={<IconoProgreso size={24} />}
+              >
+                <div className="mt-5">
+                  <div className="h-2 overflow-hidden rounded-full bg-white/20" role="progressbar" aria-valuenow={avance} aria-valuemin={0} aria-valuemax={100}>
+                    <div className="h-full rounded-full bg-white transition-all" style={{ width: `${avance}%` }} />
+                  </div>
+                  <p className="mt-2 text-xs font-semibold text-white/75">{avance}% del módulo</p>
+                </div>
+              </TarjetaHero>
             </div>
 
             <Seccion numero={1} titulo="Lo que se aprende aquí" delay={120}>
-              {/* Resumen como texto que se lee, no como cuadro gris. */}
-              {modulo.resumen ? (
-                <p className="text-[15px] leading-relaxed text-zr-text-muted">{modulo.resumen}</p>
-              ) : !modulo.competencias?.length ? (
-                <p className="text-sm text-zr-text-muted">
-                  Todavía no se ha cargado el contenido de este módulo.
-                </p>
-              ) : null}
+              <div className="zr-card space-y-4 p-5">
+                {modulo.resumen ? (
+                  <p className="text-[15px] leading-relaxed text-zr-text-muted">{modulo.resumen}</p>
+                ) : !modulo.competencias?.length ? (
+                  <p className="text-sm text-zr-text-muted">
+                    Todavía no se ha cargado el contenido de este módulo.
+                  </p>
+                ) : null}
 
-              {modulo.competencias && modulo.competencias.length > 0 && (
-                <ul className="space-y-3 pt-1">
-                  {modulo.competencias.map((c, i) => (
-                    <li key={i} className="flex items-start gap-3 text-[15px] text-zr-text">
-                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-zr-blue/15 text-zr-blue-mid">
-                        <IconoCheck size={13} />
-                      </span>
-                      <span>{c}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+                {modulo.competencias && modulo.competencias.length > 0 && (
+                  <ul className="space-y-3">
+                    {modulo.competencias.map((c, i) => (
+                      <li key={i} className="flex items-start gap-3 text-[15px] text-zr-text">
+                        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zr-blue/15 text-zr-blue-mid ring-1 ring-zr-blue/25">
+                          <IconoCheck size={13} />
+                        </span>
+                        <span className="min-w-0 break-words">{c}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
 
-              <p className="flex items-start gap-2 pt-1 text-xs leading-relaxed text-zr-text-muted">
+              <p className="flex items-start gap-2 text-xs leading-relaxed text-zr-text-muted">
                 <IconoAviso size={15} className="mt-0.5 shrink-0 text-zr-blue-mid" />
                 Las competencias no se califican en esta fase. Están aquí para que sepas hacia dónde vas.
               </p>
             </Seccion>
 
-            <Regla delay={200} />
-
-            {/* Acción primaria: entrar al recorrido del Aula Virtual (material,
-                exámenes y tareas de este módulo) — es el centro de la vida del
-                estudiante, así que va destacada. */}
-            <Link
-              href="/unidades"
-              className="flex items-center justify-between gap-3 overflow-hidden rounded-2xl bg-gradient-to-r from-zr-blue-deep to-zr-blue px-6 py-5 text-white transition-all hover:shadow-lg hover:shadow-zr-blue/25"
-            >
-              <span className="min-w-0">
-                <span className="block text-base font-bold">Entrar al Aula Virtual</span>
-                <span className="mt-0.5 block text-xs text-white/70">Material, exámenes y tareas de este módulo</span>
-              </span>
-              <IconoChevron size={20} className="shrink-0 -rotate-90 text-white/80" />
-            </Link>
-
-            {/* Secundario: la malla completa del programa (Módulo 7 de la spec),
-                como enlace ligero, no como otro cuadro. */}
-            <Link
-              href="/malla"
-              className="flex items-center justify-between gap-3 py-1 text-sm font-bold text-zr-text-muted transition-colors hover:text-zr-text"
-            >
-              Ver la malla curricular completa
-              <IconoChevron size={16} className="shrink-0 -rotate-90" />
-            </Link>
+            <Seccion numero={2} titulo="Sigue por aquí" delay={200}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Link href="/unidades" className="zr-card flex items-center gap-4 p-5">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-zr-blue/15 text-zr-blue-mid ring-1 ring-zr-blue/25">
+                    <IconoDocumento size={22} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-base font-bold text-zr-text">Entrar al Aula Virtual</span>
+                    <span className="mt-0.5 block text-xs text-zr-text-muted">Material, exámenes y tareas</span>
+                  </span>
+                  <IconoChevron size={18} className="shrink-0 -rotate-90 text-zr-text-muted" />
+                </Link>
+                <Link href="/malla" className="zr-card flex items-center gap-4 p-5">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-zr-blue/15 text-zr-blue-mid ring-1 ring-zr-blue/25">
+                    <IconoCarpeta size={22} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-base font-bold text-zr-text">Malla curricular</span>
+                    <span className="mt-0.5 block text-xs text-zr-text-muted">Todos los módulos del programa</span>
+                  </span>
+                  <IconoChevron size={18} className="shrink-0 -rotate-90 text-zr-text-muted" />
+                </Link>
+              </div>
+            </Seccion>
           </>
         )}
       </div>

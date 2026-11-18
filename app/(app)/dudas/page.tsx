@@ -3,7 +3,9 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
+import { Seccion, Etiqueta } from '@/components/ui/Editorial'
+import { TarjetaHero } from '@/components/ui/TarjetaHero'
+import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { IconoAviso, IconoDuda } from '@/components/ui/Iconos'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
@@ -158,12 +160,21 @@ function DudasInterno() {
   }
 
   return (
-    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
-      <div className="space-y-11">
+    <div className="px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
+      <div className="space-y-8">
         <BotonVolver href="/" />
 
+        <div className="animate-rise">
+          <TarjetaHero
+            sobretitulo="Dudas"
+            titulo="Pregunta sin pena"
+            texto="Lo que no te quedó claro, tu profesor lo responde. Las más repetidas se resuelven el sábado en clase."
+            icono={<IconoDuda size={24} />}
+          />
+        </div>
+
         <Seccion numero={1} titulo="Mandar una duda" delay={60}>
-          <div id="tour-dudas" className="space-y-4">
+          <div id="tour-dudas" className="zr-card space-y-4 p-5">
             {unidadPreseleccionada && (
               <p className="flex items-center gap-2 text-xs font-semibold text-zr-blue-mid">
                 <IconoDuda size={15} className="shrink-0" />
@@ -179,13 +190,13 @@ function DudasInterno() {
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
                 placeholder="Por ejemplo: ¿por qué se revisa primero lo que está a la vista?"
-                className="min-h-[96px] w-full rounded-xl border border-zr-border bg-zr-surface/40 p-4 text-sm text-zr-text outline-none transition-colors focus:border-zr-blue"
+                className="min-h-[96px] w-full rounded-2xl border border-zr-border bg-zr-surface/40 p-4 text-base text-zr-text outline-none transition-colors focus:border-zr-blue"
               />
             </div>
             <button
               onClick={enviarDuda}
               disabled={!texto.trim() || enviando}
-              className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white transition-colors active:bg-zr-blue-deep disabled:cursor-not-allowed disabled:opacity-40"
+              className="min-h-14 w-full rounded-2xl bg-zr-blue text-base font-bold text-white transition-colors active:bg-zr-blue-deep disabled:cursor-not-allowed disabled:opacity-40"
             >
               {enviando ? 'Enviando…' : 'Enviar mi duda'}
             </button>
@@ -197,18 +208,20 @@ function DudasInterno() {
           </p>
         </Seccion>
 
-        <Regla delay={100} />
-
         <Seccion numero={2} titulo="Las que has mandado" delay={140}>
           {dudas.length === 0 ? (
-            <p className="text-sm text-zr-text-muted">Todavía no has mandado ninguna duda.</p>
+            <EstadoVacio
+              Icono={IconoDuda}
+              titulo="Todavía no has mandado ninguna"
+              explicacion="Cuando mandes una duda, aquí verás su estado y la respuesta de tu profesor."
+            />
           ) : (
-            <div className="divide-y divide-zr-border/60">
+            <div className="space-y-3">
               {dudas.map((d) => {
                 const estado = ETIQUETA_ESTADO[d.status] ?? ETIQUETA_ESTADO.abierta
                 const unidad = d.unitId ? unidadNombre[d.unitId] : null
                 return (
-                  <div key={d.id} className="space-y-3 py-4 first:pt-0">
+                  <div key={d.id} className="zr-card space-y-3 p-5">
                     {editandoId === d.id ? (
                       <div className="space-y-3">
                         <textarea
@@ -245,7 +258,7 @@ function DudasInterno() {
                         </div>
 
                         {d.respuestas.length > 0 && (
-                          <div className="space-y-2 border-l-2 border-zr-blue/30 pl-3">
+                          <div className="space-y-2 rounded-2xl bg-zr-blue/8 p-3 ring-1 ring-zr-blue/15">
                             {d.respuestas.map((r) => (
                               <div key={r.id}>
                                 {r.isOfficial && <Etiqueta tono="exito">Respuesta del profesor</Etiqueta>}

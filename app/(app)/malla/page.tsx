@@ -3,10 +3,12 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Encabezado, Regla, Etiqueta } from '@/components/ui/Editorial'
+import { Etiqueta } from '@/components/ui/Editorial'
+import { TarjetaHero } from '@/components/ui/TarjetaHero'
+import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { Recorrido, Paso, type EstadoPaso } from '@/components/ui/Recorrido'
 import { BotonVolver } from '@/components/ui/BotonVolver'
-import { IconoCheck } from '@/components/ui/Iconos'
+import { IconoCheck, IconoCarpeta } from '@/components/ui/Iconos'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { esAdmin } from '@/lib/auth-helpers'
 import { leerCohorteVistaRecorridoCookie, leerModuloVistaRecorridoCookie } from '@/lib/vista-recorrido'
@@ -237,28 +239,49 @@ export default function MallaCurricular() {
     )
   }
 
+  const cursados = modulos.filter((m) => m.estado === 'cursado').length
+  const actual = modulos.find((m) => m.estado === 'actual')
+  const avance = modulos.length ? Math.round((cursados / modulos.length) * 100) : 0
+
   return (
-    <div className="space-y-9 px-5 pt-14 pb-28">
+    <div className="space-y-7 px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <BotonVolver />
 
-      <Encabezado
-        sobretitulo={programa ?? 'Todos los programas'}
-        titulo="Malla curricular"
-        descripcion={
-          programa
-            ? 'Todos los módulos del programa, en el orden en que se cursan.'
-            : 'Los 13 módulos del plan de estudio — el contenido es el mismo en PTMA y PFTA.'
-        }
-      />
-
-      <Regla delay={60} />
-
       {modulos.length === 0 ? (
-        <p className="text-sm text-zr-text-muted">
-          Todavía no tienes un programa asignado. Cuando administración te lo
-          asigne, aquí verás la malla completa.
-        </p>
+        <EstadoVacio
+          Icono={IconoCarpeta}
+          titulo="Todavía no tienes programa asignado"
+          explicacion="Cuando administración te lo asigne, aquí verás la malla completa."
+        />
       ) : (
+        <>
+        <div className="animate-rise">
+          <TarjetaHero
+            sobretitulo={programa ?? 'Todos los programas'}
+            titulo="Malla curricular"
+            texto={
+              programa
+                ? actual
+                  ? `Vas por el módulo ${actual.orden}: ${actual.nombre}.`
+                  : 'Todos los módulos del programa, en el orden en que se cursan.'
+                : 'El plan de estudio completo — el contenido es el mismo en PTMA y PFTA.'
+            }
+            icono={<IconoCarpeta size={24} />}
+          >
+            {programa && (
+              <div className="mt-5">
+                <div className="h-2 overflow-hidden rounded-full bg-white/20" role="progressbar" aria-valuenow={avance} aria-valuemin={0} aria-valuemax={100}>
+                  <div className="h-full rounded-full bg-white transition-all" style={{ width: `${avance}%` }} />
+                </div>
+                <p className="mt-2 text-xs font-semibold text-white/75">
+                  {cursados} de {modulos.length} módulos cursados
+                </p>
+              </div>
+            )}
+          </TarjetaHero>
+        </div>
+
+        <div className="zr-card p-5 pb-2">
         <Recorrido>
           {modulos.map((m, i) => {
             const estadoPaso: EstadoPaso =
@@ -319,6 +342,8 @@ export default function MallaCurricular() {
             )
           })}
         </Recorrido>
+        </div>
+        </>
       )}
     </div>
   )

@@ -576,7 +576,7 @@ export default function Inicio() {
         )}
 
         {/* 03 — ACCESOS */}
-        <Seccion numero={3} titulo="Accesos" delay={280}>
+        <Seccion numero={modulo && CASOS_HABILITADO ? 3 : 2} titulo="Accesos" delay={280}>
           <div id="tour-accesos" className="space-y-3">
             {/* Identidad: el carnet digital, acción destacada. */}
             <button

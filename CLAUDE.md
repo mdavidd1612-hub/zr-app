@@ -797,6 +797,17 @@ Bug visto con captura: un estudiante de PTMA-2026-II, con el módulo actual en I
 - 🔴 Revisar a ojo (con el panel del navegador visible o en un teléfono real) el estilo nuevo: grano, esquinas, tarjeta destacada y animaciones.
 - 🔴 Más estados vacíos con ícono (solo "Mis notas" lo usa); la tarjeta "lo que sigue" para profesor y Dirección.
 
+### 8.31 Pruebas del profesor Arjona (18-nov-2026) — 4 bugs reales (staging)
+
+El profesor Arjona probó Unidades/exámenes (4 audios + capturas en el grupo). Se analizó todo y se corrigió:
+- ✅ **"null value in column id of relation exam_questions"** al guardar un examen editado con preguntas nuevas (`crear-examen/[examId]`): el `upsert` mezclaba preguntas con `id` y sin `id` y PostgREST mandaba `id = null`. Ahora se separan: existentes -> `upsert`, nuevas -> `insert`.
+- ✅ **La hora de apertura "cambiaba sola" 4 h** (11:35 -> 3:35 PM): al reabrir se mostraba la hora UTC (`slice(0,16)` del ISO) en el `datetime-local`; al guardar otra vez se corría otras 4 h. Nuevo `lib/fecha-local.ts` (`isoAInputLocal`), usado en `crear-examen/[examId]` (abre/cierra) y `unidades-docente/[unitId]` (open_at/close_at de la unidad).
+- ✅ **Certificación trabada para siempre por material sin aprobar**: los obligatorios sin publicar/aprobar el estudiante no los ve pero se contaban como pendientes. Migración 215 (`fn_unit_required_complete` solo cuenta materiales `is_published` y con `visible_from` vencido) + el cliente (`unidades/[unitId]`) tampoco los cuenta. Aplicada a staging.
+- ✅ **"AbortError: The operation was aborted"** con internet lento: nuevo `lib/errores.ts` (`mensajeError`) traduce errores de red a "Se cortó o está muy lenta la conexión... vuelve a tocar Guardar", aplicado a los guardados de `crear-examen/nuevo` y `[examId]`. No hay reintento automático.
+- 🟡 **No confirmado:** que al abrir profesor y estudiante en dos navegadores se cierre uno -- no hay nada en el código que lo cause; dos pestañas/ventanas del mismo navegador comparten sesión (hay que preguntarle cómo lo abrió).
+- 🟡 **Carencia, no bug:** un material ya subido no se puede editar (solo quitar y volver a subir).
+- Respuesta a su duda: se crea el módulo (Inglés Técnico) y dentro sus unidades 1..8 con "Nueva unidad" en `/unidades-docente`.
+
 ---
 
 # PARTE IV — FLUJOGRAMAS POR ROL
@@ -1763,6 +1774,8 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-15 | Cambios del coordinador por audio: remedial en certificación, aviso al profesor de exámenes por corregir (migr. 210). Ver §8.28. | `supabase/migrations/210_remedial_certificacion_y_aviso_correccion.sql` |
 | 2026-11-17 | Versión 1.49: roles Dirección/Administración, 5 notificaciones nuevas (migr. 213), fondo granulado, campanita animada, versión central y regla de subirla en cada cambio; anotado el modo sin conexión. Ver §8.29 y §8.30. | `supabase/migrations/213_notificaciones_faltantes.sql` |
 | 2026-11-18 | v1.54-1.55: Mi módulo/Malla/Dudas con el estilo nuevo; Dirección ve Dudas; Feedback más limpio; panel de Monitoreo del super admin (migr. 214). Ver §8.31. | `supabase/migrations/214_metricas_app_super_admin.sql` |
+| 2026-11-15 | Nota base al entregar un examen, pantalla de cero + "Apelar nota" al salir, y pestañas de unidades solo del módulo abierto. Ver §8.28. | — |
+| 2026-11-18 | Pruebas del profesor Arjona: id null al guardar preguntas, hora desplazada 4 h, certificación trabada por material sin aprobar (migr. 215), mensaje claro ante conexión lenta. Ver §8.31. | `supabase/migrations/215_obligatorios_solo_material_visible.sql` |
 
 ---
 

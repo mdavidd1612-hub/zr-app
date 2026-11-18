@@ -37,6 +37,7 @@ interface ItemFila {
   completado: boolean
   esCertificacion: boolean
   esTexto: boolean
+  visible: boolean
   cuerpoTexto: string | null
   materialTipo: string | null
   examAbreEl: string | null
@@ -191,6 +192,7 @@ export default function UnidadDetalle() {
             completado,
             esCertificacion: f.type === 'quiz' && ex?.kind === 'certificacion',
             esTexto: ci?.type === 'texto',
+            visible: !!ci,
             cuerpoTexto: ci?.type === 'texto' ? (ci.description ?? '') : null,
             materialTipo: ci?.type ?? null,
             examAbreEl: f.type === 'quiz' ? (ex?.opens_at ?? null) : null,
@@ -234,7 +236,9 @@ export default function UnidadDetalle() {
   // Los bloques de texto no pasan por material_progress (no hay visor que
   // marque "visto"), así que nunca cuentan como obligatorio -- quedaría
   // trabada la certificación para siempre si se incluyeran.
-  const obligatorios = items.filter((i) => i.type === 'material' && i.required && !i.esTexto)
+  // Un material que el estudiante todavía no puede ver (sin aprobar/publicar) no
+  // cuenta: si no, la certificación quedaría trabada sin que pueda hacer nada.
+  const obligatorios = items.filter((i) => i.type === 'material' && i.required && !i.esTexto && i.visible)
   const obligatoriosCompletos = obligatorios.filter((i) => i.completado).length
   const faltanObligatorios = obligatorios.length - obligatoriosCompletos
   const hayCertificacion = items.some((i) => i.esCertificacion)

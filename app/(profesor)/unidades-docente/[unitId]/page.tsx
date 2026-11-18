@@ -28,6 +28,7 @@ import { TextoRico, EditorTextoRico } from '@/components/ui/TextoRico'
 import { SelectorBloqueo } from '@/components/ui/SelectorBloqueo'
 import { certificacionesDelModulo, valorAColumnas, columnasAValor, type OpcionCertificacion } from '@/lib/bloqueo-unidad'
 import { InputNota } from '@/components/ui/InputNota'
+import { isoAInputLocal } from '@/lib/fecha-local'
 
 /**
  * Aula Virtual — el profesor administra el contenido de UNA unidad: fechas
@@ -190,8 +191,8 @@ export default function UnidadDocenteDetalle() {
       .eq('id', unitId).maybeSingle()
     if (!unidad) { router.replace('/unidades-docente'); return }
     setTitulo(unidad.title)
-    setOpenAt(unidad.open_at ? unidad.open_at.slice(0, 16) : '')
-    setCloseAt(unidad.close_at ? unidad.close_at.slice(0, 16) : '')
+    setOpenAt(isoAInputLocal(unidad.open_at))
+    setCloseAt(isoAInputLocal(unidad.close_at))
     setManualStatus(unidad.manual_status)
     setModuleId(unidad.module_id)
     {

@@ -14,6 +14,8 @@ import { sumaPesoOcupado, mensajeSiExcedePeso } from '@/lib/peso-notas'
 import { ImportarPreguntas } from '@/components/ui/ImportarPreguntas'
 import type { PreguntaImportada } from '@/lib/importar-preguntas'
 import { InputNota } from '@/components/ui/InputNota'
+import { isoAInputLocal } from '@/lib/fecha-local'
+import { mensajeError } from '@/lib/errores'
 
 type TipoPregunta = 'opcion_multiple' | 'verdadero_falso' | 'redaccion_abierta'
 
@@ -115,8 +117,8 @@ export default function EditarExamen() {
       setCohorteId(examen.cohort_id ?? '')
       setPuntajeMaximo(Number(examen.max_score) || 20)
       setDuracion(examen.duration_minutes ?? '')
-      setAbreEl(examen.opens_at ? examen.opens_at.slice(0, 16) : '')
-      setCierraEl(examen.closes_at ? examen.closes_at.slice(0, 16) : '')
+      setAbreEl(isoAInputLocal(examen.opens_at))
+      setCierraEl(isoAInputLocal(examen.closes_at))
       setTipo(examen.kind === 'certificacion' ? 'certificacion' : 'formativo')
       setNotaMinima(examen.passing_score != null ? Number(examen.passing_score) : 10)
       setIntentos(examen.max_attempts ?? 2)
@@ -242,7 +244,7 @@ export default function EditarExamen() {
       .eq('id', examId)
 
     if (falloExamen) {
-      setError(falloExamen.message)
+      setError(mensajeError(falloExamen.message))
       setGuardando(false)
       return
     }
@@ -266,14 +268,32 @@ export default function EditarExamen() {
       rubric: q.rubric ?? null,
     }))
 
-    const { error: falloPregs } = await supabase
-      .from('exam_questions')
-      .upsert(preguntasParaUpsert, { onConflict: 'id' })
+    // Se separan existentes (con id) y nuevas (sin id): mezclarlas en un solo
+    // upsert hace que PostgREST mande id = null para las nuevas y la base
+    // rechace todo ("null value in column id of relation exam_questions",
+    // reportado por el profesor Arjona el 18-nov-2026).
+    const existentes = preguntasParaUpsert.filter((q) => 'id' in q)
+    const nuevas = preguntasParaUpsert.filter((q) => !('id' in q))
 
-    if (falloPregs) {
-      setError(falloPregs.message)
-      setGuardando(false)
-      return
+    if (existentes.length > 0) {
+      const { error: falloExist } = await supabase
+        .from('exam_questions')
+        .upsert(existentes as typeof preguntasParaUpsert, { onConflict: 'id' })
+      if (falloExist) {
+        setError(mensajeError(falloExist.message))
+        setGuardando(false)
+        return
+      }
+    }
+    if (nuevas.length > 0) {
+      const { error: falloNuevas } = await supabase
+        .from('exam_questions')
+        .insert(nuevas)
+      if (falloNuevas) {
+        setError(mensajeError(falloNuevas.message))
+        setGuardando(false)
+        return
+      }
     }
 
     setGuardando(false)

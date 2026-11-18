@@ -15,6 +15,7 @@ import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import { ModalEvaluacionAgregada } from '@/components/ui/ModalEvaluacionAgregada'
 import { sumaPesoOcupado, mensajeSiExcedePeso } from '@/lib/peso-notas'
 import { ImportarPreguntas } from '@/components/ui/ImportarPreguntas'
+import { mensajeError } from '@/lib/errores'
 import type { PreguntaImportada } from '@/lib/importar-preguntas'
 import { InputNota } from '@/components/ui/InputNota'
 
@@ -339,7 +340,7 @@ function NuevoExamenInterno() {
       .single()
 
     if (falloExamen || !examen) {
-      setError(falloExamen?.message ?? 'No se pudo crear el examen.')
+      setError(mensajeError(falloExamen?.message ?? 'No se pudo crear el examen.'))
       setGuardando(false)
       return
     }
@@ -358,7 +359,7 @@ function NuevoExamenInterno() {
     )
 
     if (falloPreguntas) {
-      setError(falloPreguntas.message)
+      setError(mensajeError(falloPreguntas.message))
       setGuardando(false)
       return
     }

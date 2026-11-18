@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -41,6 +41,8 @@ export function Campanita() {
   const [notis, setNotis] = useState<Notificacion[]>([])
   const [rol, setRol] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
+  const [agita, setAgita] = useState(false)
+  const prevSinLeer = useRef<number | null>(null)
 
   useEffect(() => {
     let vigente = true
@@ -80,11 +82,22 @@ export function Campanita() {
 
     cargar()
     // Refresco periódico simple: cada 60s basta para algo que no es un chat.
-    const intervalo = setInterval(cargar, 60_000)
+    const intervalo = setInterval(cargar, 30_000)
     return () => { vigente = false; clearInterval(intervalo) }
   }, [rol])
 
   const sinLeer = notis.filter((n) => !n.leida).length
+
+  // La campanita se sacude cuando llega una notificación nueva (no en la primera carga).
+  useEffect(() => {
+    const antes = prevSinLeer.current
+    prevSinLeer.current = sinLeer
+    if (antes !== null && sinLeer > antes) {
+      const a = setTimeout(() => setAgita(true), 0)
+      const b = setTimeout(() => setAgita(false), 2000)
+      return () => { clearTimeout(a); clearTimeout(b) }
+    }
+  }, [sinLeer])
 
   // A dónde lleva el botón "Ver", según el tipo y a quién le llegó.
   function destino(n: Notificacion): string | null {
@@ -120,6 +133,19 @@ export function Campanita() {
         const unitId = p.unit_id as string | undefined
         return unitId ? `/unidades-docente/${unitId}` : '/unidades-docente'
       }
+      case 'tarea_entregada': {
+        const aid = p.assignment_id as string | undefined
+        return aid ? `/unidades-docente/tarea/${aid}` : '/unidades-docente'
+      }
+      case 'material_por_aprobar':
+        return '/material'
+      case 'unidad_desbloqueada':
+      case 'unidad_abierta': {
+        const uid = p.unit_id as string | undefined
+        return uid ? `/unidades/${uid}` : '/unidades'
+      }
+      case 'recordatorio_entrega':
+        return '/calendario'
       case 'examen_habilitado':
         // Sin exam_id en el payload (no debería pasar, pero por si acaso):
         // /examenes (la lista) no tiene acceso desde el menú del estudiante.
@@ -174,11 +200,11 @@ export function Campanita() {
       <button
         onClick={() => setAbierta(true)}
         aria-label="Notificaciones"
-        className="relative flex h-10 w-10 items-center justify-center rounded-full text-zr-text-muted transition-colors active:bg-zr-border/40"
+        className={`relative flex h-10 w-10 items-center justify-center rounded-full text-zr-text-muted transition-colors active:bg-zr-border/40 ${agita ? 'zr-campana-agita text-zr-text' : ''}`}
       >
         <IconoCampana size={22} />
         {sinLeer > 0 && (
-          <span className="absolute right-0.5 top-0.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-zr-error px-1 text-[10px] font-bold text-white">
+          <span className={`absolute right-0.5 top-0.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-zr-error px-1 text-[10px] font-bold text-white ${agita ? 'zr-latido' : ''}`}>
             {sinLeer > 9 ? '9+' : sinLeer}
           </span>
         )}

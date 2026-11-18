@@ -1,4 +1,5 @@
 import { ES_ENTORNO_PRUEBA } from '@/lib/entorno'
+import { APP_VERSION } from '@/lib/version'
 
 /**
  * Cinta fija "ENTORNO DE PRUEBA": solo existe en el entorno de pruebas, nunca
@@ -12,7 +13,7 @@ export default function EtiquetaEntorno() {
       style={{ top: 0, paddingTop: 'max(2px, env(safe-area-inset-top))' }}
       aria-label="Estás en el entorno de prueba"
     >
-      Entorno de prueba
+      Entorno de prueba · V {APP_VERSION}
     </div>
   )
 }

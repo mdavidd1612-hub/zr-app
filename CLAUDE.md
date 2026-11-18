@@ -775,6 +775,21 @@ Bug visto con captura: un estudiante de PTMA-2026-II, con el módulo actual en I
 - ✅ **Salir de un examen:** ya no vuelve en silencio a la unidad; muestra "Saliste del examen", "Has sacado cero" y el botón "Apelar nota" (lleva a `/examenes`, donde ya existía la solicitud de rehabilitación al profesor).
 - 🟡 El coordinador dijo que probó más cosas que no recordaba; quedan por llegar.
 
+### 8.29 Ronda del 17-nov-2026 (versión 1.49) — roles, notificaciones, estilo y pendientes
+
+- ✅ **Roles (menú y panel):** Dirección Académica ve lo académico (Unidades, Material, Notas, Exámenes, Profesores, Programas, Módulos, Cobertura, Feedback) **más Estudiantes y Asistencia** (consulta/filtrado); **no inscribe** (Inscribir es de Administración). Administración conserva Estudiantes, Inscribir, Asistencia, QR, Finanzas y Personal (ahora también en su panel). QR sale de la barra del teléfono (sigue en el menú ☰). Barra del teléfono de Dirección: Panel, Asistencia, Unidades, Notas, Perfil. Todo en `lib/nav-direccion.ts` y `app/(admin)/panel/page.tsx`.
+- ✅ **Notificaciones (migración 213, solo staging):** nuevas por campanita y push (`channel='push'`): `tarea_entregada` (estudiante entrega → profesor de la tarea), `material_por_aprobar` (profesor sube material → Dirección y Administración), `unidad_desbloqueada` (aprueba la certificación → ese estudiante), `unidad_abierta` (llega la fecha de apertura, cron cada 10 min) y `recordatorio_entrega` (examen/tarea en las próximas 24 h a quien no ha entregado, cron cada hora). Con las 14 que ya existían quedan cubiertos estudiante, profesor, Dirección y Administración. La campanita sabe a dónde llevar cada una.
+- 🟡 **Push en staging:** la función `send-push` y su cron (cada 5 min) existen, pero hay 0 suscripciones de dispositivos y 420 avisos push sin enviar: nadie activó las notificaciones en un teléfono de prueba, y no se verificó que las claves VAPID estén puestas. Para probarlo: entrar desde un teléfono, activar notificaciones en el perfil y generar un aviso.
+- ✅ **Estilo:** fondo con resplandores azules y grano fino en toda la app, tarjeta destacada granulada (`.zr-hero`), campanita que se sacude y el contador que late al llegar un aviso nuevo (revisa cada 30 s), hover con elevación en tarjetas y con ícono que crece en botones (solo donde hay mouse; se apaga con "reducir movimiento").
+- ✅ **Versión visible:** `lib/version.ts` (`APP_VERSION`), mostrada en la barra lateral y en la cinta "Entorno de prueba". Regla de subirla en cada cambio en §12.4.
+
+### 8.30 COSAS POR HACER (anotado, no construido)
+
+- 🔴 **Modo sin conexión (offline):** poder descargar una unidad en el teléfono (lecturas, PDF, imágenes, instrucciones) y abrirla sin internet. Ya hay service worker (`public/sw.js`, red primero con caché de respaldo) pero no guarda unidades. Ideas: botón "Descargar para ver sin conexión" por unidad que guarda los archivos en el almacenamiento del navegador (Cache API / IndexedDB), con aviso de espacio usado y opción de borrar; las URL firmadas caducan, así que hay que guardar el archivo, no el enlace; el progreso de "material visto" se guarda localmente y se sincroniza al volver la conexión; las entregas de tareas y exámenes siguen exigiendo conexión. Definir antes: cuánto espacio permitir, qué tipos (PDF/imagen sí; video pesado probablemente no) y si el progreso offline cuenta como visto.
+- 🔴 **IA para corregir redacciones y proponer opciones/rúbricas:** se construyó y se retiró (17-nov-2026) porque la única IA disponible (NVIDIA, modelo pequeño) no es confiable para calificar y falta su clave en staging. Retomar solo con un modelo mejor y una clave probada; siempre como sugerencia que el profesor confirma.
+- 🔴 Revisar a ojo (con el panel del navegador visible o en un teléfono real) el estilo nuevo: grano, esquinas, tarjeta destacada y animaciones.
+- 🔴 Más estados vacíos con ícono (solo "Mis notas" lo usa); la tarjeta "lo que sigue" para profesor y Dirección.
+
 ---
 
 # PARTE IV — FLUJOGRAMAS POR ROL
@@ -1607,6 +1622,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.49**.
 
 ### 12.5 Al cierre de cada sprint
 
@@ -1738,6 +1754,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-14 | Segunda ronda de la reunión: plantillas de unidad y examen (migr. 207), `/modulos` tipo→programa, fotos por enlace (Google Fotos), descripción en material. Ver §8.26. | `supabase/migrations/207_plantillas_unidad_examen.sql` |
 | 2026-11-14 | Estudiante veía todo bloqueado en el módulo actual (calendario vs módulo actual, material de otra cohorte en unidad compartida) y selector de módulos cursados en /unidades. Migr. 208 y 209. Ver §8.27. | `supabase/migrations/208_estudiante_ve_modulos_cursados.sql`, `209_modulos_cursados_incluye_actual.sql` |
 | 2026-11-15 | Cambios del coordinador por audio: remedial en certificación, aviso al profesor de exámenes por corregir (migr. 210). Ver §8.28. | `supabase/migrations/210_remedial_certificacion_y_aviso_correccion.sql` |
+| 2026-11-17 | Versión 1.49: roles Dirección/Administración, 5 notificaciones nuevas (migr. 213), fondo granulado, campanita animada, versión central y regla de subirla en cada cambio; anotado el modo sin conexión. Ver §8.29 y §8.30. | `supabase/migrations/213_notificaciones_faltantes.sql` |
 
 ---
 

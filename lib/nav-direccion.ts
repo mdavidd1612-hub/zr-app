@@ -40,7 +40,7 @@ const MATERIAL: ItemBarra = { href: '/material', label: 'Material', Icono: Icono
 
 /** Píldora flotante del teléfono (máximo 5 secciones). */
 export const NAV_DIRECCION: ItemBarra[] = [
-  NAV[0], UNIDADES, { href: '/notas-academicas', label: 'Notas', Icono: IconoNotas }, MATERIAL, NAV[3],
+  NAV[0], NAV[1], UNIDADES, { href: '/notas-academicas', label: 'Notas', Icono: IconoNotas }, NAV[3],
 ]
 
 /**
@@ -71,6 +71,9 @@ export const TODAS: ItemBarra[] = [
 /** Barra lateral completa (PC) para Dirección Académica. */
 export const TODAS_DIRECCION: ItemBarra[] = [
   TODAS[0],
+  { href: '/estudiantes',          label: 'Estudiantes',  Icono: IconoEstudiantes, grupo: 'Estudiantes' },
+  { ...NAV[1], grupo: 'Clase de hoy' },
+  { ...NAV[2], grupo: 'Clase de hoy' },
   { ...UNIDADES, grupo: 'Académico' },
   { ...MATERIAL, grupo: 'Académico' },
   { href: '/notas-academicas',     label: 'Notas',        Icono: IconoNotas,    grupo: 'Académico' },

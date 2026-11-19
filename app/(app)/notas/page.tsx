@@ -183,7 +183,10 @@ export default function Notas() {
                             sin calificar todavía se veía con un guion -- se ve el
                             mínimo (0.00) de referencia, igual que ya ven profesor y
                             Dirección Académica. */}
-                        <p className={`shrink-0 text-lg font-bold ${tono(d.nota ?? 0, d.minimo)}`}>
+                        {/* Sin nota todavía: 0.00 en gris, no en rojo (19-nov-2026) --
+                            el rojo le hacía creer al estudiante que reprobó algo
+                            que ni siquiera ha presentado. */}
+                        <p className={`shrink-0 text-lg font-bold ${d.nota == null ? 'text-zr-text-muted' : tono(d.nota, d.minimo)}`}>
                           {cifra(d.nota ?? 0)}
                           <span className="text-xs font-normal text-zr-text-muted"> / {d.escala}</span>
                         </p>

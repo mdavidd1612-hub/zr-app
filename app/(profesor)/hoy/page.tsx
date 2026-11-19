@@ -111,8 +111,8 @@ export default function Hoy() {
       }
 
       const [{ data: intentos }, { data: entregas }, { count: dudas }] = await Promise.all([
-        supabase.from('exam_attempts').select('exam_id, exams!inner(teacher_id)').eq('status', 'entregado').eq('exams.teacher_id', user.id).limit(200),
-        supabase.from('submissions').select('assignment_id').is('grade', null).limit(200),
+        supabase.from('exam_attempts').select('exam_id, exams!inner(teacher_id)').eq('status', 'entregado').eq('exams.teacher_id', user.id).order('submitted_at', { ascending: false }).limit(200),
+        supabase.from('submissions').select('assignment_id').is('grade', null).order('submitted_at', { ascending: false }).limit(200),
         supabase.from('doubts').select('id', { count: 'exact', head: true }).eq('status', 'abierta'),
       ])
       const lista: Pendiente[] = []

@@ -817,6 +817,17 @@ Cierra los huecos que quedaban de los Sprints 1, 2 y 3 (ver §10).
   - **Unidad del estudiante:** "Descargar unidad" pasa al final; lo primero es el contenido.
   - **Local:** `node_modules` estaba dañado (faltaban archivos de pdf-lib, pdfjs y el compilador de Next); se reinstaló con `npm ci`. No afectaba a staging.
 - 🟡 Sin probar: cámara (escaneo QR) y descargas reales; el navegador de pruebas no tiene cámara.
+- ✅ **v1.65, flujo real de un módulo completo** (19-nov-2026, staging, con cuentas QA y la app compilada como en producción): el profesor creó la unidad "QA Flujo completo 19-nov" (Instrumentación automotriz, PTMA-2026-II) con texto, PDF obligatorio, certificación (opción múltiple + redacción, 10 %) y tarea (10 %); el estudiante presentó el examen y entregó la tarea; el profesor calificó la redacción; Dirección aprobó el PDF y calificó la tarea; las dos notas llegaron solas a Notas (18 y 17.5). Variaciones probadas: volver atrás en el examen conserva respuestas, reabrir el examen respeta la espera de 24 h, puntaje fuera de rango rechazado con mensaje claro. Bugs corregidos:
+  - **Abrir un examen gastaba un intento:** el intento y el reloj arrancaban con solo abrir la pantalla. Ahora hay pantalla previa (tiempo, puntos, intentos) y el intento nace al tocar "Empezar"; si hay uno en curso, se retoma.
+  - **El profesor veía "0 entregas" en tareas de módulos ya cursados** (migración 222): `v_assignment_status` solo listaba cohortes cuyo módulo actual era el de la tarea; ahora incluye las que ya pasaron por ese módulo y a cualquiera que haya entregado.
+  - **Certificación ya aprobada se mostraba bloqueada** si el material obligatorio se aprobó después del examen; ahora sale "Completado".
+  - **Crear examen se quedaba en "Guardar borrador"** después de completar los puntos; ahora vuelve solo a "Publicar de una vez" (salvo que el profesor elija borrador a propósito).
+  - Unidad nueva: entra directo a la unidad en modo edición. "Lo que te espera" del profesor lleva al pendiente más reciente. Textos: "de la pregunta de redacción" (no "de las 1 pregunta"); material sin publicar dice "En preparación" en vez de "Avisa a tu profesor". En "Mis notas", una evaluación sin nota sale en gris, no en rojo.
+  - **Rendimiento:** grano de fondo sin `mix-blend-mode` (recomponía la pantalla en cada scroll), desenfoque del vidrio a 12 px en teléfono, bienvenida con el logo una sola vez por apertura (antes 2,6 s en cada recarga), jsPDF y la tabla de Excel se cargan solo al descargar en `/estudiantes`.
+  - `tsconfig.json` excluye la carpeta suelta `ZR QR/` (rompía la compilación local).
+- 🟡 **Decisión pendiente (regla de Notas):** el profesor no puede calificar una tarea de un módulo cuya semana de corrección ya pasó ("pídele a Dirección Académica"), pero la redacción de un examen del mismo módulo sí se califica (pasa por `grade-answer`, que no revisa ese cierre). Hay que decidir si el cierre aplica también a exámenes o si se abre para tareas de módulos cursados.
+- 🟡 En `/material`, Dirección solo puede **descargar** el material pendiente antes de aprobarlo; falta un "Ver" dentro de la app.
+- Datos de prueba que quedan en staging: unidad "QA Flujo completo 19-nov" con su examen, tarea, entrega y duda del estudiante V-90000001.
 - 🟡 Pendiente técnico: `npm run lint` marca 35 avisos del compilador de React (`set-state-in-effect`), sin fallas visibles; y la carpeta suelta `ZR QR/` (sin seguimiento en git) rompe `tsc` local.
 
 ### 8.30 COSAS POR HACER (anotado, no construido)
@@ -1678,7 +1689,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
-- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.64**.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.65**.
 
 ### 12.5 Al cierre de cada sprint
 
@@ -1815,7 +1826,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-15 | Nota base al entregar un examen, pantalla de cero + "Apelar nota" al salir, y pestañas de unidades solo del módulo abierto. Ver §8.28. | — |
 | 2026-11-18 | Pruebas del profesor Arjona: id null al guardar preguntas, hora desplazada 4 h, certificación trabada por material sin aprobar (migr. 215), mensaje claro ante conexión lenta. Ver §8.31. | `supabase/migrations/215_obligatorios_solo_material_visible.sql` |
 | 2026-11-18 | v1.57: salones por sede y por sábado (migr. 216), calendario con vistas Mes/Lista y botón flotante, marca de agua con el logo, PowerPoint → PDF con CloudConvert. Ver §8.32. | `supabase/migrations/216_salones_por_sede_y_sabado.sql` |
-| 2026-11-19 | v1.62 revierte el QR; v1.63 revisión masiva: Dirección puede escanear, margen con muesca en 54 pantallas, rendimiento de RLS e índices (migr. 220-221); v1.64 recorrido con clics por rol: semana del módulo, "Lo que te espera" para profesor y Dirección. Ver §8.33. | `supabase/migrations/221_rendimiento_rls_e_indices.sql` |
+| 2026-11-19 | v1.62 revierte el QR; v1.63 revisión masiva: Dirección puede escanear, margen con muesca en 54 pantallas, rendimiento de RLS e índices (migr. 220-221); v1.64 recorrido con clics por rol: semana del módulo, "Lo que te espera" para profesor y Dirección; v1.65 flujo real de un módulo completo: examen con pantalla previa, tareas de módulos cursados (migr. 222), certificación aprobada, rendimiento. Ver §8.33. | `supabase/migrations/221_rendimiento_rls_e_indices.sql` |
 
 ---
 

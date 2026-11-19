@@ -128,6 +128,10 @@ export default function UnidadDocenteDetalle() {
   const unitId = params.unitId as string
 
   const [modoEdicion, setModoEdicion] = useState(false)
+  // Recién creada desde la lista: se abre directo en modo edición.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('editar') === '1') setModoEdicion(true) // eslint-disable-line react-hooks/set-state-in-effect
+  }, [])
   const [panel, setPanel] = useState<'material' | 'texto' | 'tarea' | null>(null)
   const [verApariencia, setVerApariencia] = useState(false)
   const [ladoALado, setLadoALado] = useState(true)

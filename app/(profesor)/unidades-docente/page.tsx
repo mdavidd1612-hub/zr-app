@@ -147,17 +147,21 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
     setError(null)
     const supabase = createClient()
     const siguienteOrden = unidades.length > 0 ? Math.max(...unidades.map((u) => u.order_index)) + 1 : 1
-    const { error: err } = await supabase.from('units').insert({
+    const { data: nueva, error: err } = await supabase.from('units').insert({
       module_id: ctx.moduleId,
       title: titulo.trim(),
       order_index: siguienteOrden,
       ...(certs.length > 0 ? valorAColumnas(bloqueo) : {}),
-    } as never)
+    } as never).select('id').single()
     if (err) {
       setError(err.message)
     } else {
       setTitulo('')
       setFormAbierto(false)
+      // Directo a armarla (19-nov-2026): antes se quedaba en la lista y había
+      // que buscarla y abrirla para empezar a cargarle contenido.
+      const id = (nueva as { id: string } | null)?.id
+      if (id) { window.location.href = `/unidades-docente/${id}?editar=1`; return }
       await cargar()
     }
     setCreando(false)

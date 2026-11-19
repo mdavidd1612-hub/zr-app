@@ -2,7 +2,7 @@
 
 import { Select } from '@/components/ui/Select'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { PoliticaRemedialCampos, type PoliticaRemedial } from '@/components/ui/PoliticaRemedial'
 import { siguienteOrdenUnidad } from '@/lib/unidad-orden'
@@ -209,8 +209,13 @@ function NuevoExamenInterno() {
   // Si deja de cuadrar (se agregó/quitó una pregunta) mientras "Publicar de
   // una vez" estaba elegido, se cae sola a "Guardar como borrador" -- no se
   // puede dejar seleccionada una opción que ya está deshabilitada.
+  // Y al volver a cuadrar regresa sola a "Publicar de una vez", salvo que el
+  // profesor haya elegido el borrador a propósito (19-nov-2026: se quedaba en
+  // borrador y el examen terminaba oculto sin que nadie lo notara).
+  const eligioBorrador = useRef(false)
   useEffect(() => {
     if (!puntosCuadran && publicarDeUnaVez) setPublicarDeUnaVez(false)
+    else if (puntosCuadran && !publicarDeUnaVez && !eligioBorrador.current) setPublicarDeUnaVez(true)
   }, [puntosCuadran, publicarDeUnaVez])
 
   function agregarPregunta(datos: Omit<Pregunta, 'id'>) {
@@ -820,7 +825,7 @@ function NuevoExamenInterno() {
         <div className="grid gap-3 sm:grid-cols-2">
           <button
             type="button"
-            onClick={() => setPublicarDeUnaVez(true)}
+            onClick={() => { eligioBorrador.current = false; setPublicarDeUnaVez(true) }}
             disabled={!puntosCuadran}
             className={`rounded-lg border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
               publicarDeUnaVez ? 'border-zr-blue bg-zr-blue/8' : 'border-zr-border bg-zr-bg'
@@ -831,7 +836,7 @@ function NuevoExamenInterno() {
           </button>
           <button
             type="button"
-            onClick={() => setPublicarDeUnaVez(false)}
+            onClick={() => { eligioBorrador.current = true; setPublicarDeUnaVez(false) }}
             className={`rounded-lg border p-4 text-left transition-colors ${
               !publicarDeUnaVez ? 'border-zr-blue bg-zr-blue/8' : 'border-zr-border bg-zr-bg'
             }`}

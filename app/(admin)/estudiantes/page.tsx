@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
-import { descargarPlanillasDelPrograma } from '@/lib/planilla-pdf-bulk'
-import { descargarTablaDelPrograma } from '@/lib/estudiantes-tabla'
 import { CAMPOS_TODOS, esPlanillaCompleta, type CamposPlanilla } from '@/lib/planilla-campos'
 import { SelectorCampos } from '@/components/planilla/SelectorCampos'
 import { IconoCerrar } from '@/components/ui/Iconos'
@@ -173,13 +171,13 @@ export default function Estudiantes() {
     const progreso = (hecho: number, total: number) => setDescargando({ cohorteId, hecho, total })
 
     const { generadas, fallidas } = formato === 'excel'
-      ? await descargarTablaDelPrograma(
+      ? await (await import('@/lib/estudiantes-tabla')).descargarTablaDelPrograma(
           grupo.map((e) => ({ id: e.id, nombre: e.nombre })),
           nombreCohorte,
           campos,
           progreso,
         )
-      : await descargarPlanillasDelPrograma(
+      : await (await import('@/lib/planilla-pdf-bulk')).descargarPlanillasDelPrograma(
           grupo.map((e) => ({ id: e.id, nombre: e.nombre, cedula: e.cedula })),
           nombreCohorte,
           progreso,

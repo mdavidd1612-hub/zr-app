@@ -15,6 +15,12 @@ export function SplashZR() {
   const [fase, setFase] = useState<'dentro' | 'saliendo' | 'fuera'>('dentro')
 
   useEffect(() => {
+    // Una sola vez por apertura de la app (19-nov-2026): antes salía en cada
+    // recarga o al abrir un aviso, y la app se sentía lenta (2,6 s cada vez).
+    try {
+      if (sessionStorage.getItem('zr_splash_visto')) { setFase('fuera'); return } // eslint-disable-line react-hooks/set-state-in-effect
+      sessionStorage.setItem('zr_splash_visto', '1')
+    } catch { /* sin almacenamiento: se muestra igual */ }
     // Un poco más largo (pedido del coordinador): el nombre alcanza a leerse
     // antes de que entre la app.
     const t1 = setTimeout(() => setFase('saliendo'), 2200)

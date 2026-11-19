@@ -66,9 +66,14 @@ export default function ExamenPage() {
   const [bloqueado, setBloqueado] = useState<string | null>(null)
   // Pantalla de resultado base al entregar (pedido del coordinador, 15-nov-2026).
   const [resultado, setResultado] = useState<{ obtenidos: number; pendientes: number; abandonado?: boolean } | null>(null)
+  // Pantalla previa (19-nov-2026, revisión masiva): antes, con solo ABRIR el
+  // examen ya se creaba el intento y arrancaba el reloj -- tocarlo "para ver
+  // qué era" le gastaba un intento al estudiante. Ahora el intento nace al
+  // tocar "Empezar". Si ya hay uno en curso, se retoma directo.
+  const [porEmpezar, setPorEmpezar] = useState(false)
+  const [empezando, setEmpezando] = useState(false)
 
-  useEffect(() => {
-    async function initExam() {
+  async function initExam(crear: boolean) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.push('/login')
@@ -103,6 +108,12 @@ export default function ExamenPage() {
 
       if (attempt && attempt.status !== 'en_progreso') {
         attempt = null
+      }
+
+      if (!attempt && !crear) {
+        setPorEmpezar(true)
+        setLoading(false)
+        return
       }
 
       if (!attempt) {
@@ -168,11 +179,20 @@ export default function ExamenPage() {
         setTimeLeft(restante)
       }
 
+      setPorEmpezar(false)
       setLoading(false)
     }
 
-    initExam()
+  useEffect(() => {
+    void initExam(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examId])
+
+  async function empezar() {
+    setEmpezando(true)
+    await initExam(true)
+    setEmpezando(false)
+  }
 
   // Timer effect
   useEffect(() => {
@@ -348,7 +368,7 @@ export default function ExamenPage() {
           {resultado.abandonado
             ? 'Has sacado cero porque saliste antes de entregar. Si fue por un problema real (se fue la luz, falló el internet, etc.), puedes apelar tu nota y tu profesor decide si te deja presentarlo de nuevo.'
             : hayPendientes
-            ? `Esta es tu nota base de las preguntas de selección y verdadero/falso. Los ${fmt(puntosAbiertas)} puntos de las ${resultado.pendientes} pregunta${resultado.pendientes > 1 ? 's' : ''} de redacción los evalúa tu profesor; cuando los califique, tu nota se completa.`
+            ? `Esta es tu nota base de las preguntas de selección y verdadero/falso. ${resultado.pendientes > 1 ? `Los ${fmt(puntosAbiertas)} puntos de las ${resultado.pendientes} preguntas` : `Los ${fmt(puntosAbiertas)} puntos de la pregunta`} de redacción los evalúa tu profesor; cuando los califique, tu nota se completa.`
             : 'Tu examen ya quedó calificado por completo.'}
         </p>
         {resultado.abandonado && (
@@ -387,6 +407,37 @@ export default function ExamenPage() {
         >
           Volver a mi aula
         </button>
+      </div>
+    )
+  }
+
+  if (porEmpezar && exam) {
+    const e = exam as unknown as { title: string; instructions?: string | null; duration_minutes?: number | null; max_score?: number | null; kind?: string | null; max_attempts?: number | null }
+    return (
+      <div className="flex min-h-dvh flex-col justify-center gap-6 bg-zr-background px-6 py-12">
+        <div className="mx-auto w-full max-w-md space-y-5">
+          <p className="zr-eyebrow">{e.kind === 'certificacion' ? 'Certificación' : 'Examen'}</p>
+          <h1 className="zr-display text-3xl text-zr-text">{e.title}</h1>
+          {e.instructions && <p className="text-sm leading-relaxed text-zr-text-muted">{e.instructions}</p>}
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="zr-card p-3"><p className="cifra text-lg font-bold text-zr-text">{e.duration_minutes ? `${e.duration_minutes} min` : 'Libre'}</p><p className="text-[11px] text-zr-text-muted">Tiempo</p></div>
+            <div className="zr-card p-3"><p className="cifra text-lg font-bold text-zr-text">{e.max_score ?? '—'}</p><p className="text-[11px] text-zr-text-muted">Puntos</p></div>
+            <div className="zr-card p-3"><p className="cifra text-lg font-bold text-zr-text">{e.max_attempts ?? 1}</p><p className="text-[11px] text-zr-text-muted">Intentos</p></div>
+          </div>
+          <p className="text-xs leading-relaxed text-zr-text-muted">
+            Al tocar «Empezar» corre el tiempo y cuenta como un intento. Si sales sin entregar, el intento se pierde.
+          </p>
+          <button
+            onClick={empezar}
+            disabled={empezando}
+            className="min-h-12 w-full rounded-xl bg-zr-blue text-sm font-bold text-white disabled:opacity-50"
+          >
+            {empezando ? 'Preparando…' : 'Empezar'}
+          </button>
+          <button onClick={() => router.replace('/unidades')} className="min-h-11 w-full text-sm font-semibold text-zr-text-muted">
+            Ahora no
+          </button>
+        </div>
       </div>
     )
   }

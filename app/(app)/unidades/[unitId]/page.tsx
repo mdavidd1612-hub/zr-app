@@ -243,7 +243,10 @@ export default function UnidadDetalle() {
   const obligatoriosCompletos = obligatorios.filter((i) => i.completado).length
   const faltanObligatorios = obligatorios.length - obligatoriosCompletos
   const hayCertificacion = items.some((i) => i.esCertificacion)
-  const certificacionTrabada = faltanObligatorios > 0
+  // Si ya presentó la certificación (p. ej. el material obligatorio se aprobó
+  // DESPUÉS de su examen), no se le muestra como trabada (19-nov-2026).
+  const certificacionHecha = items.some((i) => i.esCertificacion && i.completado)
+  const certificacionTrabada = faltanObligatorios > 0 && !certificacionHecha
   const pctObligatorios = obligatorios.length === 0 ? 100 : Math.round((obligatoriosCompletos / obligatorios.length) * 100)
 
   function hrefDe(item: ItemFila): string {
@@ -271,7 +274,7 @@ export default function UnidadDetalle() {
           <div className="space-y-2.5">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">
-                {hayCertificacion ? (certificacionTrabada ? 'Para la certificación' : 'Materiales obligatorios listos') : 'Tu avance en la unidad'}
+                {hayCertificacion && !certificacionHecha ? (certificacionTrabada ? 'Para la certificación' : 'Materiales obligatorios listos') : 'Tu avance en la unidad'}
               </p>
               <span className="cifra text-sm text-zr-blue-mid">
                 {obligatoriosCompletos}/{obligatorios.length}
@@ -286,7 +289,9 @@ export default function UnidadDetalle() {
             <p className="text-xs text-zr-text-muted">
               {certificacionTrabada
                 ? `Te falta${faltanObligatorios === 1 ? '' : 'n'} ${faltanObligatorios} material${faltanObligatorios === 1 ? '' : 'es'} obligatorio${faltanObligatorios === 1 ? '' : 's'}${hayCertificacion ? ' para presentar la certificación.' : '.'}`
-                : hayCertificacion ? 'Ya puedes presentar la certificación de esta unidad.' : 'Ya viste todo lo obligatorio.'}
+                : certificacionHecha
+                  ? (faltanObligatorios > 0 ? `Ya presentaste la certificación. Te falta${faltanObligatorios === 1 ? '' : 'n'} ${faltanObligatorios} material${faltanObligatorios === 1 ? '' : 'es'} por ver.` : 'Ya viste todo lo obligatorio.')
+                  : hayCertificacion ? 'Ya puedes presentar la certificación de esta unidad.' : 'Ya viste todo lo obligatorio.'}
             </p>
           </div>
         )}
@@ -377,7 +382,7 @@ export default function UnidadDetalle() {
                       estado="bloqueado"
                       eyebrow={eyebrowDe(item)}
                       titulo={item.titulo}
-                      meta={<Etiqueta tono="neutro">Avisa a tu profesor si esto no cambia</Etiqueta>}
+                      meta={<Etiqueta tono="neutro">En preparación: aparece aquí cuando esté listo</Etiqueta>}
                       ultimo={ultimo}
                       delay={80 + idx * 50}
                     />

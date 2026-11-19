@@ -999,6 +999,13 @@ CADA EVALUACIÓN PRÁCTICA
 ## 10. SPRINTS CON FECHAS REALES Y MICRO-ACTIVIDADES
 
 **10 sprints de 2 semanas** = 20 semanas = ~5 meses.
+
+> **Estado al 18-nov-2026 (revisado contra los criterios de cada sprint):**
+>
+> - **Sprint 1 — cerrado con pendientes.** Hecho: flujo vendedor → admin → clave (B.5-B.8), cohortes (N.7), profesores (N.10), salones (N.9, migr. 216) y horarios. Falta: confirmar que Dirección cargó los salones reales del mes y probar el flujo completo con un estudiante nuevo.
+> - **Sprint 2 — cerrado con un pendiente.** Hecho: unidades, PDF, imagen, Word, apertura por fecha, bloqueo por URL (RLS), visor dentro de la app. Falta: PowerPoint → PDF, que ya está construido pero necesita `CLOUDCONVERT_API_KEY` en Vercel y probarse con un archivo real.
+> - **Sprint 3 — cerrado con pendientes.** Hecho: calendario (mes y lista), clase con salón, eventos que llegan solos, video con seguimiento (adelantar no cuenta), YouTube/Drive. Cambio de especificación pedido por el coordinador: la marca de agua es solo el logo de la academia (no cédula y nombre), y F.19/F.20 se dan por cumplidos así. Falta: que el calendario del estudiante muestre también la hora y el profesor de la clase (hoy muestra el salón), y la vista de calendario completa para el profesor.
+> - **Sprint 4 (indicadores 8 + mini chequeo)** pasa a ser el activo. Ya hay adelantado: `/monitoreo` con indicadores 1-4 y 8, y el mini chequeo (F.28-F.30). Falta el correo de los lunes (N.3) y la pantalla de salud para Dirección (N.2).
 **Arranque:** lunes 3 de noviembre de 2026 (próximo lunes).
 **Cierre proyectado:** sábado 21 de marzo de 2027.
 

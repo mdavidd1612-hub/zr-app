@@ -122,7 +122,7 @@ export default function Rehabilitaciones() {
   const respondidas = solicitudes.filter(s => s.estado !== 'pendiente')
 
   return (
-    <div className="space-y-11 px-5 pt-14 pb-24">
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-24">
       <Encabezado
         sobretitulo="Exámenes"
         titulo="Rehabilitaciones"

@@ -716,7 +716,7 @@ export default function MaterialAdmin() {
   }
 
   return (
-    <div className="space-y-11 px-5 pb-28 pt-14">
+    <div className="space-y-11 px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <BotonVolver href="/panel" />
 
       <Encabezado

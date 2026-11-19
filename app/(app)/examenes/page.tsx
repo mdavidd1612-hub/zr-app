@@ -191,7 +191,7 @@ export default function Examenes() {
   const cerrados = examenes.filter((e) => !sePuedePresentar(e))
 
   return (
-    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
+    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       {/* Modal de solicitud de rehabilitación */}
       {rehab && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-5 sm:items-center">

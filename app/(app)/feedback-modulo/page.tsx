@@ -135,7 +135,7 @@ export default function FeedbackModulo() {
   }
 
   return (
-    <div className="space-y-9 px-5 pb-16 pt-14">
+    <div className="space-y-9 px-5 pb-16 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <BotonVolver href="/" />
 
       <Encabezado sobretitulo="Tu opinión" titulo="Feedback del módulo" descripcion={moduloNombre} />

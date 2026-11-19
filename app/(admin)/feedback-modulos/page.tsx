@@ -260,7 +260,7 @@ export default function FeedbackModulos() {
 
   if (!autorizado) {
     return (
-      <div className="space-y-5 px-5 pt-14">
+      <div className="space-y-5 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
         <BotonVolver href="/panel" />
         <p className="text-sm text-zr-text-muted">Solo Dirección Académica o super_admin pueden entrar aquí.</p>
       </div>

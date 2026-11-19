@@ -117,7 +117,7 @@ export default function RefrigerioCantina() {
   }
 
   return (
-    <div className="space-y-8 px-5 pt-14">
+    <div className="space-y-8 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <div className="print:hidden"><BotonVolver href="/zr-coffee" /></div>
 
       <header className="print:hidden">

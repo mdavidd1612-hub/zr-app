@@ -348,7 +348,7 @@ export default function VerCalificacionesCohorte() {
     v === undefined ? 'text-zr-text' : v < min ? 'text-zr-error' : 'text-zr-success'
 
   return (
-    <div className="space-y-6 px-5 pt-14 pb-10">
+    <div className="space-y-6 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-10">
       <BotonVolver href="/notas-academicas" />
 
       <header>

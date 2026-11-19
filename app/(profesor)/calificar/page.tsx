@@ -144,7 +144,7 @@ export default function Calificar() {
 
   if (!actual) {
     return (
-      <div className="px-5 pt-14">
+      <div className="px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
         <Encabezado sobretitulo="Calificación" titulo="Todo al día" />
         <Regla delay={60} />
         <div className="zr-card mt-10 animate-rise p-10 text-center" style={{ animationDelay: '120ms' }}>
@@ -171,7 +171,7 @@ export default function Calificar() {
   const avance = Math.round((indice / cola.length) * 100)
 
   return (
-    <div className="px-5 pt-14">
+    <div className="px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <Encabezado
         sobretitulo="Calificación"
         titulo="Redacciones"

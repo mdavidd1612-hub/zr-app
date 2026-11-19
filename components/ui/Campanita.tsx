@@ -49,7 +49,11 @@ export function Campanita() {
     const supabase = createClient()
 
     async function cargar() {
-      const { data: { user } } = await supabase.auth.getUser()
+      // Si la pestaña está oculta no se consulta (ahorra red y base con muchos usuarios).
+      if (typeof document !== 'undefined' && document.hidden) return
+      // getSession lee la sesión local; getUser haría una llamada al servidor cada 30 s.
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user) return
 
       if (rol === null) {
@@ -83,7 +87,9 @@ export function Campanita() {
     cargar()
     // Refresco periódico simple: cada 60s basta para algo que no es un chat.
     const intervalo = setInterval(cargar, 30_000)
-    return () => { vigente = false; clearInterval(intervalo) }
+    const alVolver = () => { if (!document.hidden) void cargar() }
+    document.addEventListener('visibilitychange', alVolver)
+    return () => { vigente = false; clearInterval(intervalo); document.removeEventListener('visibilitychange', alVolver) }
   }, [rol])
 
   const sinLeer = notis.filter((n) => !n.leida).length

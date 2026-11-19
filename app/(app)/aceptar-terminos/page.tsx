@@ -60,7 +60,7 @@ export default function AceptarTerminos() {
   }
 
   return (
-    <div className="space-y-8 px-5 pb-32 pt-14">
+    <div className="space-y-8 px-5 pb-32 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <Encabezado
         sobretitulo="Antes de seguir"
         titulo="Términos y condiciones"

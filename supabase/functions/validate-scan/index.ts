@@ -52,7 +52,7 @@ Deno.serve(async (req: Request) => {
 
     // 2. Verificar que es profesor/admin/super_admin
     const { data: profile } = await user.from('profiles').select('role').eq('id', authUser.id).single()
-    if (!['profesor', 'admin', 'super_admin'].includes(profile?.role)) {
+    if (!['profesor', 'admin', 'direccion_academica', 'super_admin'].includes(profile?.role)) {
       return errorResponse('NO_AUTORIZADO', 'Solo profesores pueden registrar asistencia', 403)
     }
 

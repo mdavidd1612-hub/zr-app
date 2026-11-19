@@ -148,7 +148,7 @@ export default function CoberturaModulos() {
 
   if (!autorizado) {
     return (
-      <div className="space-y-5 px-5 pt-14">
+      <div className="space-y-5 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
         <BotonVolver href="/panel" />
         <p className="text-sm text-zr-text-muted">Solo Dirección Académica o super_admin pueden entrar aquí.</p>
       </div>
@@ -158,7 +158,7 @@ export default function CoberturaModulos() {
   const cohorteActual = cohortes.find((c) => c.id === cohorteId) ?? null
 
   return (
-    <div className="space-y-9 px-5 pb-16 pt-14">
+    <div className="space-y-9 px-5 pb-16 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       {cohorteActual ? (
         <button
           onClick={() => setCohorteId(null)}

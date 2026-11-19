@@ -213,7 +213,7 @@ export default function Cohortes() {
   }
 
   return (
-    <div className="space-y-11 px-5 pt-14">
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <BotonVolver href="/panel" />
 
       <Encabezado

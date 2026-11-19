@@ -83,7 +83,7 @@ export default function RevisionExamen() {
   const maxPuntos = data.preguntas.reduce((s, q) => s + q.points, 0)
 
   return (
-    <div className="space-y-11 px-5 pt-14 pb-24">
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-24">
       <BotonVolver href="/unidades" />
 
       <Encabezado

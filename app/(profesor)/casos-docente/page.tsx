@@ -168,7 +168,7 @@ export default function CasosDocente() {
 
   if (!modulo) {
     return (
-      <div className="space-y-11 px-5 pt-14">
+      <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
         <Encabezado sobretitulo="Panel del profesor" titulo="Casos" />
         <div className="zr-card p-8 text-center">
           <p className="text-base font-semibold text-zr-text">Todavía no tienes programa asignado</p>
@@ -178,7 +178,7 @@ export default function CasosDocente() {
   }
 
   return (
-    <div className="space-y-11 px-5 pt-14">
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <Encabezado
         sobretitulo="Panel del profesor"
         titulo="Casos"

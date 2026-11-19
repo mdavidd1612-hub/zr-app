@@ -91,7 +91,7 @@ export default function Progreso() {
   const semanas = Object.keys(porSemana).map(Number).sort((a, b) => a - b)
 
   return (
-    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
+    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <div className="space-y-11">
         <header className="animate-rise">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">

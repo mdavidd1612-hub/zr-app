@@ -186,7 +186,7 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
 
   if (opciones.length === 0) {
     return (
-      <div className="space-y-6 px-5 pb-10 pt-14">
+      <div className="space-y-6 px-5 pb-10 pt-[calc(3.5rem+env(safe-area-inset-top))]">
         <BotonVolver href={volverHref} />
         <EstadoVacio titulo="Sin programa asignado" explicacion="Dirección Académica es quien te asigna los programas y módulos." />
       </div>

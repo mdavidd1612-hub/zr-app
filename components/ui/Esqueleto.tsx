@@ -100,7 +100,7 @@ function TablaSkel() {
 
 export function PantallaEsqueleto({ variante = 'panel' }: { variante?: Variante }) {
   return (
-    <div className="zr-skel-in min-h-dvh bg-zr-bg px-5 pb-28 pt-14" role="status" aria-label="Cargando">
+    <div className="zr-skel-in min-h-dvh bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]" role="status" aria-label="Cargando">
       <div className="space-y-8">
         {/* Encabezado: etiqueta pequeña + título grande (igual en toda la app) */}
         <div className="space-y-3">

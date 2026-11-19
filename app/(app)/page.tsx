@@ -328,7 +328,7 @@ export default function Inicio() {
   })
 
   return (
-    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
+    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <div className="space-y-11">
         {/* Lo único importante: qué sigue. Una sola tarjeta destacada; el
             resto de la pantalla es apoyo (decisión del coordinador, 17-nov-2026). */}

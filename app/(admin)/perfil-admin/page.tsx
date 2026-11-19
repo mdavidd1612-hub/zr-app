@@ -149,7 +149,7 @@ export default function PerfilAdmin() {
   }
 
   return (
-    <div className="space-y-11 px-5 pt-14">
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <header className="animate-rise">
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
           Mi cuenta

@@ -42,7 +42,7 @@ export default function PlanillaEstudiante() {
   }
 
   return (
-    <div className="px-5 pb-16 pt-14 print:px-0 print:pt-0">
+    <div className="px-5 pb-16 pt-[calc(3.5rem+env(safe-area-inset-top))] print:px-0 print:pt-0">
       <div className="print:hidden">
         <BotonVolver href={`/estudiantes/${id}`} />
 

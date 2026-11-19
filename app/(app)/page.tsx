@@ -1,5 +1,6 @@
 'use client'
 
+import { ELECTUDE_HABILITADO } from '@/lib/flags'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -635,16 +636,18 @@ export default function Inicio() {
           </p>
         </div>
       )}
-      <Link
-        href="/electude"
-        className="zr-card mt-6 flex items-center justify-between gap-3 p-4"
-      >
-        <span>
-          <span className="block text-sm font-bold text-zr-text">Simulador Electude</span>
-          <span className="block text-xs text-zr-text-muted">Practica diagnóstico antes de la clase, gratis.</span>
-        </span>
-        <span className="text-sm font-bold text-zr-blue">Abrir ›</span>
-      </Link>
+      {ELECTUDE_HABILITADO && (
+        <Link
+          href="/electude"
+          className="zr-card mt-6 flex items-center justify-between gap-3 p-4"
+        >
+          <span>
+            <span className="block text-sm font-bold text-zr-text">Simulador Electude</span>
+            <span className="block text-xs text-zr-text-muted">Practica diagnóstico antes de la clase, gratis.</span>
+          </span>
+          <span className="text-sm font-bold text-zr-blue">Abrir ›</span>
+        </Link>
+      )}
     </div>
   )
 }

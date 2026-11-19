@@ -799,6 +799,7 @@ Cierra los huecos que quedaban de los Sprints 1, 2 y 3 (ver §10).
 - ✅ **Marca de agua (F.19), versión del coordinador:** solo el logo de la academia (no cédula ni nombre) sobre todo lo que se ve en el visor (video, PDF, imagen, Word, presentación convertida); video y audio sin botón de descarga, sin menú de clic derecho ni imagen en imagen. No impide grabar la pantalla.
 - 🟡 **PowerPoint → PDF (F.5):** `/api/convertir-pptx` convierte con CloudConvert y guarda `<ruta>.pdf` junto al original (se convierte una sola vez). **Necesita la variable `CLOUDCONVERT_API_KEY` en Vercel (plan gratis, ~25 conversiones al día)**; sin ella, o si falla, el visor sigue abriendo la presentación en pestaña aparte como antes. Sin verificar con un archivo real.
 - ✅ **Calendario con hora, profesor y salón (v1.58, migr. 217 `fn_agenda_clases`):** cada clase muestra la hora de la cohorte, el módulo del día (calendario de módulos), el profesor asignado en Cobertura y el salón. **Calendario completo del profesor** en `/calendario-docente` (menú "Calendario"): sus clases y, de sus módulos, cuándo se abre cada unidad (tener el material cargado), exámenes y fechas límite de tareas (calificar). Misma vista que la del estudiante (`components/ui/VistaCalendario.tsx`).
+- ✅ **v1.59 (18-nov-2026):** el calendario es una cuadrícula de mes grande como Google Calendar (etiquetas por día en pantalla ancha, puntos en el teléfono); al tocar un día se abre una pantalla con todo el detalle (hora, módulo, profesor, salón) y abajo "Agregar a tu calendario". El botón del calendario junto a la campanita ahora abre esa página (ya no es ventana). **Salud de la app** (`/monitoreo`) ahora la ve también Dirección Académica (migr. 218). **Electude oculto** del Inicio con `ELECTUDE_HABILITADO = false` en `lib/flags.ts` (la pantalla queda intacta). No se construye el correo de los lunes (N.3): se descartó por fastidioso.
 - Pendiente: probar todo en pantalla con sesión (no se verificó visualmente); el calendario del profesor completo (hoy solo la ventana flotante).
 
 ### 8.30 COSAS POR HACER (anotado, no construido)
@@ -1660,7 +1661,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
-- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.58**.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.59**.
 
 ### 12.5 Al cierre de cada sprint
 

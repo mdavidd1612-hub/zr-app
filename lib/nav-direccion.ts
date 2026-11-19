@@ -85,6 +85,7 @@ export const TODAS_DIRECCION: ItemBarra[] = [
   { href: '/salones',              label: 'Salones',      Icono: IconoProgreso, grupo: 'Dirección académica' },
   { href: '/cobertura-modulos',    label: 'Cobertura',    Icono: IconoProgreso, grupo: 'Dirección académica' },
   { href: '/feedback-modulos',     label: 'Feedback',     Icono: IconoDuda,     grupo: 'Dirección académica' },
+  { href: '/monitoreo',            label: 'Salud de la app', Icono: IconoProgreso, grupo: 'Dirección académica' },
   TODAS[TODAS.length - 1],
 ]
 

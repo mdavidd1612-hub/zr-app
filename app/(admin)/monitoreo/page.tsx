@@ -12,7 +12,7 @@ import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import type { UserRole } from '@/lib/types'
 
 /**
- * Monitoreo de la app (solo super_admin, 18-nov-2026): mide las métricas del
+ * Monitoreo de la app (super_admin y Dirección Académica, 18-nov-2026): mide las métricas del
  * documento maestro (§7) con los datos que ya existen. Todo se calcula en el
  * servidor (`fn_metricas_app`, migración 214); aquí solo se pinta el semáforo
  * contra la meta y la tendencia de las últimas 8 semanas.
@@ -234,7 +234,8 @@ export default function Monitoreo() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/login'); return }
       const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-      if ((perfil?.role as UserRole | undefined) !== 'super_admin') { setCargando(false); return }
+      const rolPerfil = perfil?.role as UserRole | undefined
+      if (rolPerfil !== 'super_admin' && rolPerfil !== 'direccion_academica') { setCargando(false); return }
       setAutorizado(true)
       await cargar()
       setCargando(false)

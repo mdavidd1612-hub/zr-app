@@ -16,6 +16,8 @@ export interface ItemAgenda {
   tipo: TipoAgenda
   detalle?: string
   href?: string | null
+  /** Solo clases: datos para la pantalla del día. */
+  clase?: { hora: string | null; modulo: string | null; profesor: string | null; salon: string | null; cohorte: string }
 }
 
 export interface Agenda {
@@ -42,6 +44,7 @@ export async function cargarAgenda(supabase: SupabaseClient): Promise<Agenda> {
       titulo: rol === 'profesor' ? `Clase · ${c.cohort_name}${c.modulo ? ` · ${c.modulo}` : ''}` : `Clase${c.modulo ? ` · ${c.modulo}` : ''}`,
       tipo: 'clase',
       detalle: partes.join(' · '),
+      clase: { hora: c.hora, modulo: c.modulo, profesor: c.profesor, salon: c.salon, cohorte: c.cohort_name },
     })
   }
 

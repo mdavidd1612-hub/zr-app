@@ -84,10 +84,10 @@ const ACCESOS_PROGRAMAS = [
   { href: '/salones',          titulo: 'Salones',    sub: 'En qué salón tiene clase cada cohorte',   Icono: IconoProgreso },
   { href: '/cobertura-modulos', titulo: 'Cobertura',  sub: 'Qué módulos tienen profesor y contenido', Icono: IconoProgreso },
   { href: '/feedback-modulos',  titulo: 'Feedback',   sub: 'Abrir y revisar el feedback de módulo',   Icono: IconoDuda },
+  { href: '/monitoreo',         titulo: 'Salud de la app', sub: 'Métricas contra las metas del documento maestro', Icono: IconoProgreso },
 ]
 
 const ACCESOS_SUPER = [
-  { href: '/monitoreo',     titulo: 'Monitoreo',     sub: 'Métricas de la app contra las metas del documento maestro', Icono: IconoProgreso },
   { href: '/configuracion', titulo: 'Configuración', sub: 'Horarios, notas mínimas, textos y reglas de la academia', Icono: IconoAjustes },
   { href: '/catalogo',      titulo: 'Catálogo',      sub: 'Crear sedes y programas nuevos',                          Icono: IconoDocumento },
 ]

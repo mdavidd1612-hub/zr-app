@@ -78,3 +78,57 @@ export function descargarEventoICS(opciones: {
     descargarArchivoICS({ ...opciones, fin })
   }
 }
+
+/**
+ * Varios eventos en un solo archivo (calendario del día). En Android, que no abre
+ * el .ics solo, se abre el primero en Google Calendar.
+ */
+export function descargarVariosICS(eventos: { titulo: string; descripcion?: string; inicio: Date; fin?: Date }[], nombreArchivo = 'zr-mecademy.ics') {
+  if (eventos.length === 0) return
+  const lista = eventos.map((e) => ({ ...e, fin: e.fin ?? new Date(e.inicio.getTime() + 60 * 60 * 1000) }))
+  if (esAndroid()) {
+    abrirEventoEnGoogleCalendar(lista[0])
+    return
+  }
+  const cuerpo = lista.flatMap((e) => [
+    'BEGIN:VEVENT',
+    `UID:${crypto.randomUUID()}@zrmecademy`,
+    `DTSTAMP:${formatoICS(new Date())}`,
+    `DTSTART:${formatoICS(e.inicio)}`,
+    `DTEND:${formatoICS(e.fin)}`,
+    `SUMMARY:${escaparTexto(e.titulo)}`,
+    e.descripcion ? `DESCRIPTION:${escaparTexto(e.descripcion)}` : '',
+    'END:VEVENT',
+  ])
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ZR App//Aula Virtual//ES', ...cuerpo, 'END:VCALENDAR'].filter(Boolean).join('\r\n')
+  const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = nombreArchivo
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
+/** "9:00 a.m. – 12:00 p.m." o "2:00 a 6:00 p.m" → horas de inicio y fin para un día dado. */
+export function rangoDeHora(fechaISO: string, hora?: string | null): { inicio: Date; fin: Date } {
+  const base = new Date(fechaISO)
+  base.setHours(12, 0, 0, 0)
+  const por_defecto = { inicio: base, fin: new Date(base.getTime() + 60 * 60 * 1000) }
+  if (!hora) return por_defecto
+  const t = hora.replace(/\s+a\s+(?=\d)/i, ' – ')
+  const m = Array.from(t.matchAll(/(\d{1,2}):(\d{2})\s*([ap])?/gi))
+  if (m.length < 2) return por_defecto
+  const aHora = (x: RegExpMatchArray, meridiano?: string) => {
+    let h = parseInt(x[1], 10)
+    const mer = (x[3] ?? meridiano ?? '').toLowerCase()
+    if (mer === 'p' && h < 12) h += 12
+    if (mer === 'a' && h === 12) h = 0
+    const d = new Date(fechaISO)
+    d.setHours(h, parseInt(x[2], 10), 0, 0)
+    return d
+  }
+  const mer2 = m[1][3]
+  return { inicio: aHora(m[0], mer2), fin: aHora(m[1]) }
+}

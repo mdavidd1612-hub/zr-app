@@ -25,7 +25,7 @@ const RUTAS_ESTUDIANTE = ['/', '/clases', '/contenido', '/examenes', '/perfil', 
 // chequeo de rol en app/(profesor)/layout.tsx y a la RLS, pero las dos
 // capas deben decir lo mismo. Se agrega para que sea consistente.
 const RUTAS_PROFESOR = ['/hoy', '/dudas-docente', '/sesiones', '/crear-examen', '/calificar', '/perfil-docente', '/contenido-docente', '/unidades-docente', '/temario-docente', '/dominio', '/escanear', '/feedback-clase', '/feedback-modulo-docente', '/notas-docente', '/evaluaciones']
-const RUTAS_ADMIN = ['/panel', '/estudiantes', '/consentimientos', '/cohortes', '/reportes', '/perfil-admin', '/configuracion', '/personal', '/notas-academicas', '/examenes-academicos', '/cobertura-modulos', '/feedback-modulos', '/metricas-material', '/monitoreo']
+const RUTAS_ADMIN = ['/panel', '/estudiantes', '/consentimientos', '/cohortes', '/reportes', '/perfil-admin', '/configuracion', '/personal', '/notas-academicas', '/examenes-academicos', '/cobertura-modulos', '/feedback-modulos', '/metricas-material', '/monitoreo', '/salones']
 
 function empiezaConAlguna(pathname: string, rutas: string[]) {
   return rutas.some((r) => pathname === r || pathname.startsWith(r + '/'))

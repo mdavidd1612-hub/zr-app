@@ -789,11 +789,23 @@ Bug visto con captura: un estudiante de PTMA-2026-II, con el módulo actual en I
 - ✅ **Feedback de módulo** (`/feedback-modulos`): tarjeta destacada, editor de preguntas plegado, comentarios en burbujas (3 visibles + "Ver todos") con contador.
 - ✅ **Monitoreo de la app** (`/monitoreo`, solo super_admin; migración 214, `fn_metricas_app`): semáforo contra meta + tendencia de 8 semanas. Grupos: uso de la app, Aula Virtual, indicadores del modelo (§7.3: 1-4 y 8 con datos; 5-7 "sin datos" hasta construir evaluación práctica y retención) y salud técnica. Las metas de cada tarjeta son provisionales: ajustarlas con la dirección.
 
+### 8.32 Salones, calendario con vistas y marca de agua (18-nov-2026, v1.57)
+
+Cierra los huecos que quedaban de los Sprints 1, 2 y 3 (ver §10).
+
+- ✅ **Salones (N.9, migración 216, solo staging):** tablas `rooms` (salones por sede, los crea el super_admin) y `cohort_room_days` (salón de cada cohorte cada sábado, lo elige Dirección Académica/super_admin). Pantalla `/salones`. Si un sábado no tiene salón propio, se repite el último asignado; así no hay que cargarlo semana por semana y sí se puede cambiar un sábado puntual. Lo ven el estudiante y el profesor en el calendario. Los horarios ya existían (`cohorts.schedule`/`days`, calendario de módulos).
+- ✅ **Calendario con vistas (V.1-V.5):** `/calendario` ahora tiene "Mes" (cuadrícula normal con puntos por tipo y detalle del día) y "Lista" (agenda). Muestra las clases de los próximos 8 sábados con su salón. Fuente común en `lib/agenda.ts`.
+- ✅ **Calendario flotante:** botón junto a la campanita (`components/ui/CalendarioFlotante.tsx`, montado en `Marco`) para estudiante y profesor; ventana con lo próximo y un punto si hay algo en 48 h.
+- ✅ **Marca de agua (F.19), versión del coordinador:** solo el logo de la academia (no cédula ni nombre) sobre todo lo que se ve en el visor (video, PDF, imagen, Word, presentación convertida); video y audio sin botón de descarga, sin menú de clic derecho ni imagen en imagen. No impide grabar la pantalla.
+- 🟡 **PowerPoint → PDF (F.5):** `/api/convertir-pptx` convierte con CloudConvert y guarda `<ruta>.pdf` junto al original (se convierte una sola vez). **Necesita la variable `CLOUDCONVERT_API_KEY` en Vercel (plan gratis, ~25 conversiones al día)**; sin ella, o si falla, el visor sigue abriendo la presentación en pestaña aparte como antes. Sin verificar con un archivo real.
+- Pendiente: probar todo en pantalla con sesión (no se verificó visualmente); el calendario del profesor completo (hoy solo la ventana flotante).
+
 ### 8.30 COSAS POR HACER (anotado, no construido)
 
 - 🔴 **Modo sin conexión (offline):** poder descargar una unidad en el teléfono (lecturas, PDF, imágenes, instrucciones) y abrirla sin internet. Ya hay service worker (`public/sw.js`, red primero con caché de respaldo) pero no guarda unidades. Ideas: botón "Descargar para ver sin conexión" por unidad que guarda los archivos en el almacenamiento del navegador (Cache API / IndexedDB), con aviso de espacio usado y opción de borrar; las URL firmadas caducan, así que hay que guardar el archivo, no el enlace; el progreso de "material visto" se guarda localmente y se sincroniza al volver la conexión; las entregas de tareas y exámenes siguen exigiendo conexión. Definir antes: cuánto espacio permitir, qué tipos (PDF/imagen sí; video pesado probablemente no) y si el progreso offline cuenta como visto.
 - 🔴 **IA para corregir redacciones y proponer opciones/rúbricas:** se construyó y se retiró (17-nov-2026) porque la única IA disponible (NVIDIA, modelo pequeño) no es confiable para calificar y falta su clave en staging. Retomar solo con un modelo mejor y una clave probada; siempre como sugerencia que el profesor confirma.
 - 🔴 **Activar notificaciones push (pendiente del colaborador técnico, 18-nov-2026):** en staging el perfil dice "Notificaciones no configuradas" porque faltan las claves VAPID. Pasos: (1) `npx web-push generate-vapid-keys`; (2) Vercel (rama `develop`): `NEXT_PUBLIC_VAPID_PUBLIC_KEY` = clave pública; (3) Supabase staging, secretos de Edge Functions: `VAPID_PUBLIC_KEY` y `VAPID_PRIVATE_KEY` (las lee `send-push`); (4) redesplegar `develop` (la variable `NEXT_PUBLIC_` se incrusta al compilar). Probar activando notificaciones desde un teléfono y viendo en `/monitoreo` que "Personas con avisos activados" sube de 0 y "Avisos push sin enviar" baja. La clave privada nunca va al repo ni a una variable `NEXT_PUBLIC_`. Producción necesita su propio par de claves.
+- 🔴 **Exámenes con cálculo/fórmulas (idea del 18-nov-2026, no construida):** módulos de matemática o técnicos necesitan preguntas que se califiquen solas pero lleven números. Opciones evaluadas (como Moodle/Canvas): (1) numérica con tolerancia y unidad, (2) calculada con variables por semilla de intento (cada estudiante números distintos; fórmula evaluada en servidor con intérprete seguro, nunca `eval`), (3) foto del procedimiento a la cola de redacciones con rúbrica y puntos parciales, (4) simbólica/álgebra (pesada, probablemente innecesaria), (5) KaTeX para ver fórmulas en el enunciado. Orden sugerido: 1 + 5, luego 2, luego 3. Definir antes: tipo de matemática de los módulos, si se presenta en teléfono (teclado) y si hay puntos parciales por procedimiento. Reglas: `correct_answer` nunca al navegador, nota en `submit-attempt`.
 - 🔴 Revisar a ojo (con el panel del navegador visible o en un teléfono real) el estilo nuevo: grano, esquinas, tarjeta destacada y animaciones.
 - 🔴 Más estados vacíos con ícono (solo "Mis notas" lo usa); la tarjeta "lo que sigue" para profesor y Dirección.
 
@@ -1640,7 +1652,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
-- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.56**.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.57**.
 
 ### 12.5 Al cierre de cada sprint
 
@@ -1776,6 +1788,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-18 | v1.54-1.55: Mi módulo/Malla/Dudas con el estilo nuevo; Dirección ve Dudas; Feedback más limpio; panel de Monitoreo del super admin (migr. 214). Ver §8.31. | `supabase/migrations/214_metricas_app_super_admin.sql` |
 | 2026-11-15 | Nota base al entregar un examen, pantalla de cero + "Apelar nota" al salir, y pestañas de unidades solo del módulo abierto. Ver §8.28. | — |
 | 2026-11-18 | Pruebas del profesor Arjona: id null al guardar preguntas, hora desplazada 4 h, certificación trabada por material sin aprobar (migr. 215), mensaje claro ante conexión lenta. Ver §8.31. | `supabase/migrations/215_obligatorios_solo_material_visible.sql` |
+| 2026-11-18 | v1.57: salones por sede y por sábado (migr. 216), calendario con vistas Mes/Lista y botón flotante, marca de agua con el logo, PowerPoint → PDF con CloudConvert. Ver §8.32. | `supabase/migrations/216_salones_por_sede_y_sabado.sql` |
 
 ---
 

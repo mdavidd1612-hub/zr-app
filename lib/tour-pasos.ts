@@ -61,6 +61,9 @@ const ESTUDIANTE: PasoTour[] = [
   { id: 'estudiante-accesos', ruta: '/', targetId: 'tour-accesos',
     titulo: 'Tu carnet, calendario y material',
     texto: 'Desde aquí muestras tu carnet para la asistencia, y entras directo a tu calendario o al material de Aula Virtual.' },
+  { id: 'estudiante-calendario-flotante', ruta: '/', targetId: null,
+    titulo: 'Calendario siempre a mano',
+    texto: 'El botón del calendario, junto a la campanita, te muestra lo que viene: tu clase del sábado con su salón, exámenes y tareas. Un puntito avisa cuando hay algo en las próximas 48 horas.' },
   { id: 'estudiante-nav', ruta: '/', targetId: 'tour-nav',
     titulo: 'Muévete por la app',
     texto: 'Desde estos botones vas a Inicio, tu módulo, el Aula (ahí está todo tu material), tus dudas y tu perfil.' },
@@ -127,6 +130,9 @@ const ADMIN: PasoTour[] = [
   { id: 'admin-asistencia', ruta: '/asistencias', targetId: null,
     titulo: 'Asistencia',
     texto: 'El cuadro completo de asistencia por programa, en vivo — igual que la hoja de firmas, pero digital.' },
+  { id: 'admin-salones', ruta: '/salones', targetId: null,
+    titulo: 'Salones',
+    texto: 'Elige en qué salón tiene clase cada cohorte cada sábado. Estudiantes y profesores lo ven en su calendario. Si no cambias nada, se repite el de la semana anterior.' },
 ]
 
 const VENDEDOR: PasoTour[] = [

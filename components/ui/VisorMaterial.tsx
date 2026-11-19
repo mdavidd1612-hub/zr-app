@@ -99,6 +99,8 @@ interface PropsBase extends Props {
   onMedido?: (real: number, cumplido: boolean) => void
   /** Ya lo había completado antes: no hace falta volver a medir. */
   yaCompleto?: boolean
+  /** PDF ya firmado (presentación convertida): se usa en vez de pedir la ruta a Storage. */
+  urlFirmada?: string
 }
 
 const SEGUNDOS_IMAGEN = 30
@@ -185,7 +187,7 @@ function ImagenDeEnlace({ url, alCargar }: { url: string; alCargar: () => void }
   )
 }
 
-function VisorBase({ contentItemId, tipo, storagePath, externalUrl, bucket = 'contenido', registrarProgreso = true, onMedido, yaCompleto = false }: PropsBase) {
+function VisorBase({ contentItemId, tipo, storagePath, externalUrl, bucket = 'contenido', registrarProgreso = true, onMedido, yaCompleto = false, urlFirmada }: PropsBase) {
   const [url, setUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [numPaginas, setNumPaginas] = useState(0)
@@ -292,6 +294,7 @@ function VisorBase({ contentItemId, tipo, storagePath, externalUrl, bucket = 'co
   // contenido/page.tsx), 10 min para lo demás.
   useEffect(() => {
     if (tipo === 'enlace') return
+    if (urlFirmada) { setUrl(urlFirmada); return }
     let cancelado = false
     async function cargar() {
       const supabase = createClient()
@@ -307,7 +310,7 @@ function VisorBase({ contentItemId, tipo, storagePath, externalUrl, bucket = 'co
     }
     cargar()
     return () => { cancelado = true }
-  }, [storagePath, bucket, tipo])
+  }, [storagePath, bucket, tipo, urlFirmada])
 
   // Guardado periódico, cada ~15s mientras la pantalla está abierta.
   useEffect(() => {
@@ -564,6 +567,8 @@ function VisorBase({ contentItemId, tipo, storagePath, externalUrl, bucket = 'co
         ref={videoRef}
         src={url}
         controls
+        controlsList="nodownload noremoteplayback"
+        disablePictureInPicture
         playsInline
         className="mx-auto max-h-[85dvh] w-full rounded-xl bg-black object-contain"
         onPlay={alReproducir}
@@ -580,6 +585,7 @@ function VisorBase({ contentItemId, tipo, storagePath, externalUrl, bucket = 'co
         ref={videoRef as unknown as React.RefObject<HTMLAudioElement>}
         src={url}
         controls
+        controlsList="nodownload"
         className="w-full"
         onPlay={alReproducir}
         onPause={alPausarOFin}
@@ -687,6 +693,58 @@ function textoDeExigencia(tipo: TipoMaterial, externalUrl?: string | null): stri
 }
 
 /**
+ * Marca de agua (18-nov-2026): el logo de la academia, fijo sobre todo lo que se
+ * ve dentro de la app (video, PDF, imagen, Word). No se puede quitar tocándola
+ * (pointer-events-none), el menú de "guardar como" está apagado y el video no
+ * ofrece descarga. No impide grabar la pantalla, pero deja la marca en la copia.
+ */
+function VisorMarcado(props: PropsBase) {
+  // PowerPoint (18-nov-2026): se intenta convertir a PDF en el servidor para verlo
+  // dentro de la app. Si no se puede (sin conversor o se acabó el cupo), se
+  // muestra como siempre: botón para abrirlo en una pestaña aparte.
+  const { contentItemId, tipo } = props
+  const esPpt = tipo === 'presentacion' && !!contentItemId
+  const [conv, setConv] = useState<{ url: string } | 'fallo' | null>(null)
+
+  useEffect(() => {
+    if (!esPpt) return
+    let vigente = true
+    fetch('/api/convertir-pptx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contentItemId }),
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { url?: string }) => { if (vigente) setConv(d.url ? { url: d.url } : 'fallo') })
+      .catch(() => { if (vigente) setConv('fallo') })
+    return () => { vigente = false }
+  }, [esPpt, contentItemId])
+
+  const convertida = esPpt && conv && conv !== 'fallo'
+  return (
+    <div className="relative select-none" onContextMenu={(e) => e.preventDefault()}>
+      {esPpt && conv === null ? (
+        <div className="zr-card space-y-2 p-8 text-center">
+          <div className="zr-skel mx-auto h-40 w-full rounded-xl" />
+          <p className="text-sm text-zr-text-muted">Preparando la presentación…</p>
+        </div>
+      ) : convertida ? (
+        <VisorBase {...props} tipo="pdf" urlFirmada={conv.url} />
+      ) : (
+        <VisorBase {...props} />
+      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/logo-zr-mecademy.png"
+        alt=""
+        draggable={false}
+        className="pointer-events-none absolute right-3 top-3 z-20 w-16 opacity-40 sm:w-24"
+      />
+    </div>
+  )
+}
+
+/**
  * Envoltura con la barra de avance y el aviso de "material visto".
  * Pedido del coordinador (16-nov-2026): un material no se marca como visto
  * hasta que de verdad se vea completo -- documento hasta el final, video y
@@ -734,7 +792,7 @@ export function VisorMaterial(props: Props) {
     }
   }, [])
 
-  if (!registrarProgreso) return <VisorBase {...props} />
+  if (!registrarProgreso) return <VisorMarcado {...props} />
   if (!listo) return <div className="zr-skel h-64 w-full rounded-xl" />
 
   return (
@@ -757,7 +815,7 @@ export function VisorMaterial(props: Props) {
         )}
       </div>
 
-      <VisorBase {...props} onMedido={alMedir} yaCompleto={previo} />
+      <VisorMarcado {...props} onMedido={alMedir} yaCompleto={previo} />
 
       {aviso && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-5" role="dialog" aria-modal="true">

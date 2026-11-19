@@ -8,7 +8,7 @@ import { Encabezado, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { Recorrido, Paso, type EstadoPaso } from '@/components/ui/Recorrido'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
-import { IconoCalendario, IconoExamen } from '@/components/ui/Iconos'
+import { IconoCalendario, IconoExamen, IconoDocumento } from '@/components/ui/Iconos'
 
 /**
  * Aula Virtual — las unidades del módulo como un recorrido, no una lista de
@@ -98,6 +98,13 @@ export default function Unidades() {
               >
                 <IconoExamen size={16} />
                 Mis exámenes
+              </Link>
+              <Link
+                href="/descargas"
+                className="inline-flex items-center gap-2 rounded-full border border-zr-border px-4 py-2.5 text-xs font-bold text-zr-text transition-colors hover:border-zr-blue/40"
+              >
+                <IconoDocumento size={16} />
+                Sin conexión
               </Link>
               <Link
                 href="/calendario"

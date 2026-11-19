@@ -92,6 +92,8 @@ interface Props {
    * material_progress. Default true (comportamiento de siempre).
    */
   registrarProgreso?: boolean
+  /** Archivo ya descargado en el teléfono (lib/offline-unidades.ts): se usa en vez de pedirlo a Storage. */
+  archivoLocal?: Blob
 }
 
 interface PropsBase extends Props {
@@ -187,7 +189,7 @@ function ImagenDeEnlace({ url, alCargar }: { url: string; alCargar: () => void }
   )
 }
 
-function VisorBase({ contentItemId, tipo, storagePath, externalUrl, bucket = 'contenido', registrarProgreso = true, onMedido, yaCompleto = false, urlFirmada }: PropsBase) {
+function VisorBase({ contentItemId, tipo, storagePath, externalUrl, bucket = 'contenido', registrarProgreso = true, onMedido, yaCompleto = false, urlFirmada, archivoLocal }: PropsBase) {
   const [url, setUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [numPaginas, setNumPaginas] = useState(0)
@@ -295,6 +297,11 @@ function VisorBase({ contentItemId, tipo, storagePath, externalUrl, bucket = 'co
   useEffect(() => {
     if (tipo === 'enlace') return
     if (urlFirmada) { setUrl(urlFirmada); return }
+    if (archivoLocal) {
+      const local = URL.createObjectURL(archivoLocal)
+      setUrl(local)
+      return () => URL.revokeObjectURL(local)
+    }
     let cancelado = false
     async function cargar() {
       const supabase = createClient()
@@ -310,7 +317,7 @@ function VisorBase({ contentItemId, tipo, storagePath, externalUrl, bucket = 'co
     }
     cargar()
     return () => { cancelado = true }
-  }, [storagePath, bucket, tipo, urlFirmada])
+  }, [storagePath, bucket, tipo, urlFirmada, archivoLocal])
 
   // Guardado periódico, cada ~15s mientras la pantalla está abierta.
   useEffect(() => {
@@ -703,7 +710,7 @@ function VisorMarcado(props: PropsBase) {
   // dentro de la app. Si no se puede (sin conversor o se acabó el cupo), se
   // muestra como siempre: botón para abrirlo en una pestaña aparte.
   const { contentItemId, tipo } = props
-  const esPpt = tipo === 'presentacion' && !!contentItemId
+  const esPpt = tipo === 'presentacion' && !!contentItemId && !props.archivoLocal
   const [conv, setConv] = useState<{ url: string } | 'fallo' | null>(null)
 
   useEffect(() => {

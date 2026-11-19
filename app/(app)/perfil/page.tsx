@@ -37,13 +37,67 @@ export default function PerfilEstudiante() {
   const [qrUrl, setQrUrl] = useState('')
   const [totp, setTotp] = useState('')
   const [cargando, setCargando] = useState(true)
+  const [sinConexion, setSinConexion] = useState(false)
+  // Secreto del QR en memoria: el código se recalcula cada segundo y el QR se
+  // vuelve a dibujar cuando cambia (cada 30 s). Antes se generaba una sola vez y
+  // dejaba de servir a los ~90 s.
+  const [secretoQR, setSecretoQR] = useState<{ secret: string; label: string; cedula: string } | null>(null)
+
+  useEffect(() => {
+    if (!secretoQR) return
+    let ultimo = ''
+    let vigente = true
+    async function tick() {
+      const codigo = generateTOTP(secretoQR!.secret, secretoQR!.label)
+      if (codigo === ultimo) return
+      ultimo = codigo
+      const url = await QRCode.toDataURL(`ZR1|${secretoQR!.cedula}|${codigo}`, {
+        width: 200,
+        margin: 1,
+        color: { dark: '#0F1419', light: '#FFFFFF' },
+      })
+      if (!vigente) return
+      setTotp(codigo)
+      setQrUrl(url)
+    }
+    void tick()
+    const id = setInterval(() => { void tick() }, 1000)
+    return () => { vigente = false; clearInterval(id) }
+  }, [secretoQR])
 
   useEffect(() => {
     const supabase = createClient()
 
+    // Carnet sin internet: el secreto del QR vive en el teléfono (IndexedDB) y
+    // los datos del carnet se guardan la última vez que hubo conexión.
+    async function cargarSinConexion(): Promise<boolean> {
+      try {
+        const crudo = localStorage.getItem('zr-carnet-cache')
+        if (!crudo) return false
+        const cache = JSON.parse(crudo) as Perfil
+        const secreto = await getQRSecret(cache.cedula ?? '')
+        if (!secreto) return false
+        setPerfil(cache)
+        setSecretoQR({ secret: secreto.secret, label: secreto.label, cedula: cache.cedula })
+        setSinConexion(true)
+        setCargando(false)
+        return true
+      } catch {
+        return false
+      }
+    }
+
     async function cargar() {
-      const { data: { user } } = await supabase.auth.getUser()
+      if (typeof navigator !== 'undefined' && !navigator.onLine && await cargarSinConexion()) return
+      let user: { id: string } | null = null
+      try {
+        const r = await supabase.auth.getUser()
+        user = r.data.user
+      } catch {
+        if (await cargarSinConexion()) return
+      }
       if (!user) {
+        if (!navigator.onLine && await cargarSinConexion()) return
         router.replace('/login')
         return
       }
@@ -78,16 +132,14 @@ export default function PerfilEstudiante() {
         // El QR se genera del secreto TOTP del propio estudiante. El código
         // rota solo cada 30s; el navegador nunca decide si es válido.
         const secret = await getQRSecret(prof.cedula ?? '')
-        if (secret) {
-          const codigo = generateTOTP(secret.secret, secret.label)
-          setTotp(codigo)
-          const url = await QRCode.toDataURL(`ZR1|${prof.cedula}|${codigo}`, {
-            width: 200,
-            margin: 1,
-            color: { dark: '#0F1419', light: '#FFFFFF' },
-          })
-          setQrUrl(url)
-        }
+        if (secret) setSecretoQR({ secret: secret.secret, label: secret.label, cedula: prof.cedula })
+        try {
+          localStorage.setItem('zr-carnet-cache', JSON.stringify({
+            uid: user.id, fullName: prof.full_name, cedula: prof.cedula, contactEmail: prof.contact_email,
+            cohorte: estData?.cohorts?.name ?? 'Sin programa asignado', codigoCarnet: estData?.student_code ?? null,
+            modulo: estData?.cohorts?.modules?.name ?? null, avatarPath: prof.avatar_url, rol: prof.role,
+          }))
+        } catch { /* sin espacio o modo privado: el carnet sin conexión simplemente no se guarda */ }
       }
 
       setCargando(false)
@@ -160,6 +212,7 @@ export default function PerfilEstudiante() {
 
         <p className="text-sm text-zr-text-muted">
           Muéstrale este código a tu profesor al llegar. Cambia solo, no hace falta refrescar.
+          {sinConexion && ' Estás sin conexión: el código funciona igual y tu asistencia se registra cuando el profesor tenga internet.'}
         </p>
       </Seccion>
 

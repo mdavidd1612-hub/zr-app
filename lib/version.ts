@@ -4,4 +4,4 @@
  * (commit, migracion, ajuste), para saber a simple vista que el telefono o la
  * computadora ya tiene lo ultimo. Esta es la unica fuente del numero.
  */
-export const APP_VERSION = '1.57'
+export const APP_VERSION = '1.58'

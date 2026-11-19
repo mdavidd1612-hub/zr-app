@@ -12,7 +12,7 @@ import { PASOS_POR_ROL } from '@/lib/tour-pasos'
 import { leerVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import { NAV_DIRECCION, NAV_SUPER, TODAS_DIRECCION, TODAS_SUPER } from '@/lib/nav-direccion'
 import {
-  IconoPanel, IconoDuda, IconoProgreso, IconoVideo, IconoNotas, IconoPerfil, IconoExamen,
+  IconoPanel, IconoCalendario, IconoDuda, IconoProgreso, IconoVideo, IconoNotas, IconoPerfil, IconoExamen,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -27,6 +27,7 @@ import type { UserRole } from '@/lib/types'
 
 const NAV_BASE = [
   { href: '/hoy',                label: 'Hoy',      Icono: IconoPanel },
+  { href: '/calendario-docente', label: 'Calendario', Icono: IconoCalendario },
   { href: '/dudas-docente',      label: 'Dudas',    Icono: IconoDuda },
   { href: '/casos-docente',      label: 'Casos',    Icono: IconoProgreso },
   // Aula Virtual: antes solo se llegaba por un enlace dentro de "Material"

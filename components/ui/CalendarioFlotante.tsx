@@ -93,9 +93,8 @@ export function CalendarioFlotante() {
               </div>
             )}
 
-            {agenda.rol === 'estudiante' && (
-              <button
-                onClick={() => { setAbierto(false); router.push('/calendario') }}
+            {(              <button
+                onClick={() => { setAbierto(false); router.push(agenda.rol === 'profesor' ? '/calendario-docente' : '/calendario') }}
                 className="min-h-12 w-full rounded-2xl bg-zr-blue text-sm font-bold text-white"
               >
                 Ver calendario completo

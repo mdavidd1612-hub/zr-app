@@ -18,7 +18,6 @@ import { encolar, sincronizar, contarPendientes, listenToOnline, type PendingSca
 
 type Resultado =
   | { tipo: 'exito'; nombre: string; duplicado: boolean }
-  | { tipo: 'guardado'; mensaje: string }
   | { tipo: 'error'; mensaje: string }
   | null
 
@@ -68,14 +67,10 @@ export default function Escanear() {
     setInscritos(insc ?? 0)
   }, [sessionId])
 
-  // Devuelve null cuando no hay conexión (para que el escaneo se guarde y se
-  // sincronice después); antes ese caso se mostraba como error y se perdía.
   const llamarFuncion = useCallback(async (nombre: string, cuerpo: Record<string, unknown>) => {
-    if (typeof navigator !== 'undefined' && !navigator.onLine) return null
     const supabase = createClient()
     const { data, error } = await supabase.functions.invoke(nombre, { body: cuerpo })
     if (error) {
-      if ((error as { name?: string }).name === 'FunctionsFetchError') return null
       // El body del error viene en error.context para FunctionsHttpError.
       const contexto = (error as { context?: Response }).context
       if (contexto) {
@@ -117,11 +112,8 @@ export default function Escanear() {
       if (modo === 'asistencia') {
         await encolar({ sessionId, qrCode, scannedAt, deviceId })
         setPendientes(await contarPendientes())
-        const cedula = qrCode.split('|')[1] ?? ''
-        setResultado({ tipo: 'guardado', mensaje: `Guardado sin conexión${cedula ? ` · ${cedula}` : ''}` })
-      } else {
-        setResultado({ tipo: 'error', mensaje: 'Sin conexión. El refrigerio necesita internet.' })
       }
+      setResultado({ tipo: 'error', mensaje: 'Sin conexión. Se guardó para sincronizar después.' })
     } else if (respuesta.ok) {
       setResultado({
         tipo: 'exito',
@@ -194,7 +186,6 @@ export default function Escanear() {
           scannedAt: scan.scannedAt,
           deviceId: scan.deviceId,
         })
-        if (!r) return { ok: false }
         return { ok: r.ok, duplicate: r.ok ? r.duplicate : false }
       })
       if (sincronizados > 0) {
@@ -292,7 +283,7 @@ export default function Escanear() {
             className={`absolute inset-x-0 bottom-0 flex flex-col items-center justify-center px-6 py-8 text-center ${
               resultado.tipo === 'exito'
                 ? resultado.duplicado ? 'bg-zr-warning' : 'bg-zr-success'
-                : resultado.tipo === 'guardado' ? 'bg-zr-warning' : 'bg-zr-error'
+                : 'bg-zr-error'
             }`}
           >
             {resultado.tipo === 'exito' ? (

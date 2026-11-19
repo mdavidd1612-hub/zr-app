@@ -33,12 +33,17 @@ interface Resumen {
   inscritos: number
 }
 
+// Lo que espera al profesor (19-nov-2026, revisión masiva): antes "Hoy" no le
+// decía nada de lo que tenía por hacer. RLS ya limita todo a sus módulos.
+interface Pendiente { clave: string; cantidad: number; titulo: string; detalle: string; href: string }
+
 export default function Hoy() {
   const router = useRouter()
   const [cargando, setCargando] = useState(true)
   const [sesion, setSesion] = useState<Sesion | null>(null)
   const [resumen, setResumen] = useState<Resumen>({ presentes: 0, inscritos: 0 })
   const [nombre, setNombre] = useState('')
+  const [pendientes, setPendientes] = useState<Pendiente[]>([])
 
   useEffect(() => {
     async function cargar() {
@@ -105,6 +110,40 @@ export default function Hoy() {
         setResumen({ presentes: presentes ?? 0, inscritos: inscritos ?? 0 })
       }
 
+      const [{ data: intentos }, { data: entregas }, { count: dudas }] = await Promise.all([
+        supabase.from('exam_attempts').select('exam_id, exams!inner(teacher_id)').eq('status', 'entregado').eq('exams.teacher_id', user.id).limit(200),
+        supabase.from('submissions').select('assignment_id').is('grade', null).limit(200),
+        supabase.from('doubts').select('id', { count: 'exact', head: true }).eq('status', 'abierta'),
+      ])
+      const lista: Pendiente[] = []
+      const nIntentos = intentos?.length ?? 0
+      if (nIntentos > 0) {
+        lista.push({
+          clave: 'examenes', cantidad: nIntentos,
+          titulo: nIntentos === 1 ? 'Examen por corregir' : 'Exámenes por corregir',
+          detalle: 'Tienen respuestas de redacción esperando tu nota.',
+          href: `/calificar/${intentos![0].exam_id}`,
+        })
+      }
+      const nEntregas = entregas?.length ?? 0
+      if (nEntregas > 0) {
+        lista.push({
+          clave: 'tareas', cantidad: nEntregas,
+          titulo: nEntregas === 1 ? 'Tarea sin calificar' : 'Tareas sin calificar',
+          detalle: 'Entregas de tus estudiantes que todavía no tienen nota.',
+          href: `/unidades-docente/tarea/${entregas![0].assignment_id}`,
+        })
+      }
+      if ((dudas ?? 0) > 0) {
+        lista.push({
+          clave: 'dudas', cantidad: dudas ?? 0,
+          titulo: dudas === 1 ? 'Duda abierta' : 'Dudas abiertas',
+          detalle: 'Preguntas de tus estudiantes que esperan respuesta.',
+          href: '/dudas-docente',
+        })
+      }
+      setPendientes(lista)
+
       setCargando(false)
     }
 
@@ -131,6 +170,30 @@ export default function Hoy() {
       />
 
       <Regla delay={80} />
+
+      {pendientes.length > 0 && (
+        <section className="animate-rise space-y-3">
+          <p className="zr-eyebrow">Lo que te espera</p>
+          <div className="space-y-2">
+            {pendientes.map((p) => (
+              <button
+                key={p.clave}
+                onClick={() => router.push(p.href)}
+                className="zr-card flex w-full items-center gap-4 p-4 text-left transition-colors hover:border-zr-blue/50"
+              >
+                <span className="cifra flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zr-blue/15 text-lg font-bold text-zr-blue-mid">
+                  {p.cantidad > 99 ? '99+' : p.cantidad}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-zr-text">{p.titulo}</span>
+                  <span className="mt-0.5 block text-xs text-zr-text-muted">{p.detalle}</span>
+                </span>
+                <span className="text-zr-text-muted">›</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       <Seccion numero={1} titulo={sesion?.esHoy ? 'Tu clase de hoy' : 'Próxima clase'} delay={140}>
         <div id="tour-hoy-clase">

@@ -586,7 +586,7 @@ export default function Personal() {
       <BotonVolver href="/panel" />
 
       <Encabezado
-        sobretitulo="Administración"
+        sobretitulo="Gestión académica"
         titulo="Personal"
         descripcion={
           miRol === 'admin'

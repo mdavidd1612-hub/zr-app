@@ -217,7 +217,7 @@ export default function Cohortes() {
       <BotonVolver href="/panel" />
 
       <Encabezado
-        sobretitulo="Administración"
+        sobretitulo="Gestión académica"
         titulo="Programas"
         descripcion={`${cohortes.length} en total`}
         accion={

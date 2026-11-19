@@ -113,6 +113,9 @@ export default function Panel() {
   const [rol, setRol] = useState<UserRole | null>(null)
   const [sesionesHoy, setSesionesHoy] = useState<SesionHoy[]>([])
   const [cargando, setCargando] = useState(true)
+  // Lo que espera acción (19-nov-2026): material por aprobar y estudiantes por validar.
+  const [porAprobar, setPorAprobar] = useState(0)
+  const [porValidar, setPorValidar] = useState(0)
   // PRUEBA TEMPORAL: interruptor de simulación de sábado, controlado desde
   // Perfil (docs/15_FASE0_PLAN_ADMIN.md). Ojo: la fecha que se usa para
   // BUSCAR las sesiones de hoy sigue siendo la real.
@@ -146,6 +149,16 @@ export default function Panel() {
 
       const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
       setRol((perfil?.role as UserRole) ?? null)
+
+      const rolActual = perfil?.role as UserRole | undefined
+      const [{ count: nAprobar }, { count: nValidar }] = await Promise.all([
+        supabase.from('content_items').select('id', { count: 'exact', head: true }).eq('approval_status', 'pendiente'),
+        rolActual === 'admin' || rolActual === 'super_admin'
+          ? supabase.from('students').select('id', { count: 'exact', head: true }).is('validated_at', null)
+          : Promise.resolve({ count: 0 }),
+      ])
+      setPorAprobar(nAprobar ?? 0)
+      setPorValidar(nValidar ?? 0)
 
       // Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, Sprint D): el sábado, calendario
       // de las sesiones de hoy, una tarjeta por cohorte, con registrados
@@ -193,11 +206,40 @@ export default function Panel() {
     <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <header className="animate-rise">
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
-          Administración
+          {rol === 'direccion_academica' ? 'Dirección Académica' : rol === 'super_admin' ? 'Super admin' : 'Administración'}
         </p>
-        <h1 className="zr-display mt-3 text-4xl text-zr-text">Panel de administración</h1>
+        <h1 className="zr-display mt-3 text-4xl text-zr-text">
+          {rol === 'direccion_academica' ? 'Panel académico' : 'Panel de administración'}
+        </h1>
         <p className="mt-3 text-base text-zr-text-muted">Academia ZR Mecademy</p>
       </header>
+
+      {(porAprobar > 0 || porValidar > 0) && (
+        <section className="animate-rise space-y-3">
+          <p className="zr-eyebrow">Lo que te espera</p>
+          <div className="space-y-2">
+            {[
+              porAprobar > 0 && { n: porAprobar, t: porAprobar === 1 ? 'Material por aprobar' : 'Materiales por aprobar', d: 'Los estudiantes no lo ven hasta que lo apruebes.', href: '/material' },
+              porValidar > 0 && { n: porValidar, t: porValidar === 1 ? 'Estudiante por validar' : 'Estudiantes por validar', d: 'Revisa firma y pago para activarlos.', href: '/estudiantes' },
+            ].filter((x): x is { n: number; t: string; d: string; href: string } => Boolean(x)).map((p) => (
+              <button
+                key={p.href}
+                onClick={() => router.push(p.href)}
+                className="zr-card flex w-full items-center gap-4 p-4 text-left transition-colors hover:border-zr-blue/50"
+              >
+                <span className="cifra flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zr-warning/15 text-lg font-bold text-zr-warning">
+                  {p.n > 99 ? '99+' : p.n}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-zr-text">{p.t}</span>
+                  <span className="mt-0.5 block text-xs text-zr-text-muted">{p.d}</span>
+                </span>
+                <span className="text-zr-text-muted">›</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       <Regla delay={60} />
 

@@ -265,7 +265,7 @@ export default function Monitoreo() {
 
       <div className="animate-rise">
         <TarjetaHero
-          sobretitulo="Super admin"
+          sobretitulo="Salud del sistema"
           titulo="Monitoreo de la app"
           texto={`${enMeta} de ${evaluables.length} métricas en meta${atencion ? ` · ${atencion} necesitan atención` : ''}.`}
           icono={<IconoProgreso size={24} />}

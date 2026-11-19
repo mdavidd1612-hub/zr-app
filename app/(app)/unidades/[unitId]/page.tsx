@@ -265,16 +265,6 @@ export default function UnidadDetalle() {
       <div className="mt-7 space-y-9">
         <BannerUnidad sobretitulo="Aula Virtual" titulo={titulo} imagenUrl={bannerUrl} posicionImagen={bannerPosicion} color={bannerColor} />
 
-        {items.length > 0 && (
-          <BotonDescargarUnidad
-            unitId={unitId}
-            titulo={titulo}
-            items={items.filter((i) => i.type === 'material' && i.content_item_id).map((i) => ({
-              contentItemId: i.content_item_id!, titulo: i.titulo, tipo: i.materialTipo, esTexto: i.esTexto, cuerpoTexto: i.cuerpoTexto,
-            }))}
-          />
-        )}
-
         {/* Avance de obligatorios, tejido sin cuadro: un rótulo, una línea fina
             y el texto de lo que falta. */}
         {obligatorios.length > 0 && (
@@ -421,6 +411,17 @@ export default function UnidadDetalle() {
             </Recorrido>
           )}
         </section>
+
+        {/* Descargar va al final: primero lo que el estudiante tiene que hacer. */}
+        {items.length > 0 && (
+          <BotonDescargarUnidad
+            unitId={unitId}
+            titulo={titulo}
+            items={items.filter((i) => i.type === 'material' && i.content_item_id).map((i) => ({
+              contentItemId: i.content_item_id!, titulo: i.titulo, tipo: i.materialTipo, esTexto: i.esTexto, cuerpoTexto: i.cuerpoTexto,
+            }))}
+          />
+        )}
       </div>
     </div>
   )

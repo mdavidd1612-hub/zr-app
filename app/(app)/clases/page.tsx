@@ -135,8 +135,14 @@ export default function MiModulo() {
         // la primera clase se muestra la semana 1, no un error.
         const hoy = new Date().toISOString().slice(0, 10)
         const filas = sesiones ?? []
-        const proxima = filas.find((s) => s.session_date >= hoy)
-        const semanaActual = proxima?.week_number ?? filas[filas.length - 1]?.week_number ?? 1
+        // week_number es la semana del PROGRAMA completo (p. ej. 13), no la del
+        // módulo: la semana del módulo es la posición de la clase dentro de
+        // las sesiones de ese módulo (19-nov-2026, mostraba "Semana 13 de 4").
+        const idxProxima = filas.findIndex((s) => s.session_date >= hoy)
+        const semanaActual = Math.min(
+          Math.max(1, mod.duration_weeks ?? 1),
+          idxProxima >= 0 ? idxProxima + 1 : Math.max(1, filas.length),
+        )
 
         // Primer párrafo del resumen largo como resumen "medio" -- ver nota
         // arriba del componente. Si el módulo todavía no tiene resumen

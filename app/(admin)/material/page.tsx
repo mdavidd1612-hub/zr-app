@@ -720,7 +720,7 @@ export default function MaterialAdmin() {
       <BotonVolver href="/panel" />
 
       <Encabezado
-        sobretitulo="Administración"
+        sobretitulo="Gestión académica"
         titulo="Material"
         descripcion="Organizado en carpetas por programa, como Classroom."
         accion={

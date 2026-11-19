@@ -223,7 +223,7 @@ export default function Estudiantes() {
   return (
     <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <Encabezado
-        sobretitulo="Administración"
+        sobretitulo="Gestión académica"
         titulo="Estudiantes"
         descripcion={`${estudiantes.length} registrados`}
         accion={

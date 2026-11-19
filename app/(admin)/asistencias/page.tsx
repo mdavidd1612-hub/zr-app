@@ -352,7 +352,7 @@ export default function Asistencias() {
       <BotonVolver href="/panel" />
 
       <Encabezado
-        sobretitulo="Administración"
+        sobretitulo="Gestión académica"
         titulo="Asistencia"
         descripcion="Todas las fechas, de un vistazo — igual que la hoja de firmas."
       />

@@ -810,7 +810,13 @@ Cierra los huecos que quedaban de los Sprints 1, 2 y 3 (ver §10).
 - ✅ **Margen superior con muesca en toda la app:** quedaban 54 pantallas con `pt-14` fijo (solo se habían corregido las de §8.6). Todas pasan a `pt-[calc(3.5rem+env(safe-area-inset-top))]`.
 - ✅ **Escala (migración 220 y 221):** índice de la campanita (`notifications(profile_id, created_at)`); las 69 políticas RLS que evaluaban `auth.uid()` fila por fila ahora lo calculan una vez por consulta (no cambia quién ve qué, verificado con un estudiante); índices para las 72 llaves foráneas que no tenían. La campanita ya no consulta con la pestaña oculta y usa la sesión local en vez de llamar al servidor de autenticación cada 30 s.
 - Sin errores registrados en `app_errors`; advisors de seguridad sin hallazgos nuevos.
-- 🟡 **No se recorrieron las pantallas con clics por rol:** el navegador de pruebas solo tenía abierta la sesión de ZR Coffee (sin desborde a 360 px) y el asistente no escribe claves en el sitio desplegado. Falta esa pasada.
+- ✅ **v1.64, recorrido con clics por rol** (app corriendo en local contra `zr-staging`; estudiante, profesor, Dirección Académica, admin y ZR Coffee, a 360 px): sin desbordes horizontales ni errores de pantalla. Corregido y mejorado:
+  - **Bug:** "Mi módulo" decía "Semana 13 de 4 · 100 %": usaba la semana del programa (`class_sessions.week_number`) en vez de la posición de la clase dentro del módulo.
+  - **Profesor, "Hoy":** nueva sección "Lo que te espera" (exámenes por corregir, tareas sin calificar, dudas abiertas), cada una lleva directo a resolverla.
+  - **Dirección/admin, Panel:** "Lo que te espera" (material por aprobar; estudiantes por validar para admin). Encabezado según el rol ("Panel académico" para Dirección) y rótulo "Gestión académica"/"Salud del sistema" en las pantallas compartidas que decían "Administración"/"Super admin".
+  - **Unidad del estudiante:** "Descargar unidad" pasa al final; lo primero es el contenido.
+  - **Local:** `node_modules` estaba dañado (faltaban archivos de pdf-lib, pdfjs y el compilador de Next); se reinstaló con `npm ci`. No afectaba a staging.
+- 🟡 Sin probar: cámara (escaneo QR) y descargas reales; el navegador de pruebas no tiene cámara.
 - 🟡 Pendiente técnico: `npm run lint` marca 35 avisos del compilador de React (`set-state-in-effect`), sin fallas visibles; y la carpeta suelta `ZR QR/` (sin seguimiento en git) rompe `tsc` local.
 
 ### 8.30 COSAS POR HACER (anotado, no construido)
@@ -1672,7 +1678,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
-- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.63**.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.64**.
 
 ### 12.5 Al cierre de cada sprint
 
@@ -1809,7 +1815,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-15 | Nota base al entregar un examen, pantalla de cero + "Apelar nota" al salir, y pestañas de unidades solo del módulo abierto. Ver §8.28. | — |
 | 2026-11-18 | Pruebas del profesor Arjona: id null al guardar preguntas, hora desplazada 4 h, certificación trabada por material sin aprobar (migr. 215), mensaje claro ante conexión lenta. Ver §8.31. | `supabase/migrations/215_obligatorios_solo_material_visible.sql` |
 | 2026-11-18 | v1.57: salones por sede y por sábado (migr. 216), calendario con vistas Mes/Lista y botón flotante, marca de agua con el logo, PowerPoint → PDF con CloudConvert. Ver §8.32. | `supabase/migrations/216_salones_por_sede_y_sabado.sql` |
-| 2026-11-19 | v1.62 revierte el QR; v1.63 revisión masiva: Dirección puede escanear, margen con muesca en 54 pantallas, rendimiento de RLS e índices (migr. 220-221). Ver §8.33. | `supabase/migrations/221_rendimiento_rls_e_indices.sql` |
+| 2026-11-19 | v1.62 revierte el QR; v1.63 revisión masiva: Dirección puede escanear, margen con muesca en 54 pantallas, rendimiento de RLS e índices (migr. 220-221); v1.64 recorrido con clics por rol: semana del módulo, "Lo que te espera" para profesor y Dirección. Ver §8.33. | `supabase/migrations/221_rendimiento_rls_e_indices.sql` |
 
 ---
 

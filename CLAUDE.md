@@ -1827,6 +1827,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-18 | Pruebas del profesor Arjona: id null al guardar preguntas, hora desplazada 4 h, certificación trabada por material sin aprobar (migr. 215), mensaje claro ante conexión lenta. Ver §8.31. | `supabase/migrations/215_obligatorios_solo_material_visible.sql` |
 | 2026-11-18 | v1.57: salones por sede y por sábado (migr. 216), calendario con vistas Mes/Lista y botón flotante, marca de agua con el logo, PowerPoint → PDF con CloudConvert. Ver §8.32. | `supabase/migrations/216_salones_por_sede_y_sabado.sql` |
 | 2026-11-19 | v1.62 revierte el QR; v1.63 revisión masiva: Dirección puede escanear, margen con muesca en 54 pantallas, rendimiento de RLS e índices (migr. 220-221); v1.64 recorrido con clics por rol: semana del módulo, "Lo que te espera" para profesor y Dirección; v1.65 flujo real de un módulo completo: examen con pantalla previa, tareas de módulos cursados (migr. 222), certificación aprobada, rendimiento. Ver §8.33. | `supabase/migrations/221_rendimiento_rls_e_indices.sql` |
+| 2026-11-19 | **Investigación (solo lectura, nada aplicado):** cómo pasar develop/staging a main/prod sin perder datos: orden real de migraciones vs. por número (riesgo con `fn_exam_attempt_prepare`), backfill del Material de producción hacia Unidades (10 archivos), tutorial con ids nuevos (los estudiantes ya "vieron" `estudiante-aula`), Inglés Técnico en paralelo, plan por fases y decisiones pendientes. | `docs/reportes/plan_paso_a_produccion_2026-11-19.md` |
 
 ---
 

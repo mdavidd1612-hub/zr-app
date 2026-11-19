@@ -1,3 +1,4 @@
+import { ReportarErrores } from '@/components/ui/ReportarErrores'
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import ServiceWorkerInit from './service-worker-init'
@@ -57,6 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <InstalarApp />
         <SplashZR />
         <ArrastrarParaActualizar />
+        <ReportarErrores />
       </body>
     </html>
   )

@@ -146,6 +146,8 @@ export function Campanita() {
       }
       case 'recordatorio_entrega':
         return '/calendario'
+      case 'resumen_semanal':
+        return '/monitoreo'
       case 'examen_habilitado':
         // Sin exam_id en el payload (no debería pasar, pero por si acaso):
         // /examenes (la lista) no tiene acceso desde el menú del estudiante.

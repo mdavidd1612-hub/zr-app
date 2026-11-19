@@ -800,6 +800,7 @@ Cierra los huecos que quedaban de los Sprints 1, 2 y 3 (ver §10).
 - 🟡 **PowerPoint → PDF (F.5):** `/api/convertir-pptx` convierte con CloudConvert y guarda `<ruta>.pdf` junto al original (se convierte una sola vez). **Necesita la variable `CLOUDCONVERT_API_KEY` en Vercel (plan gratis, ~25 conversiones al día)**; sin ella, o si falla, el visor sigue abriendo la presentación en pestaña aparte como antes. Sin verificar con un archivo real.
 - ✅ **Calendario con hora, profesor y salón (v1.58, migr. 217 `fn_agenda_clases`):** cada clase muestra la hora de la cohorte, el módulo del día (calendario de módulos), el profesor asignado en Cobertura y el salón. **Calendario completo del profesor** en `/calendario-docente` (menú "Calendario"): sus clases y, de sus módulos, cuándo se abre cada unidad (tener el material cargado), exámenes y fechas límite de tareas (calificar). Misma vista que la del estudiante (`components/ui/VistaCalendario.tsx`).
 - ✅ **v1.59 (18-nov-2026):** el calendario es una cuadrícula de mes grande como Google Calendar (etiquetas por día en pantalla ancha, puntos en el teléfono); al tocar un día se abre una pantalla con todo el detalle (hora, módulo, profesor, salón) y abajo "Agregar a tu calendario". El botón del calendario junto a la campanita ahora abre esa página (ya no es ventana). **Salud de la app** (`/monitoreo`) ahora la ve también Dirección Académica (migr. 218). **Electude oculto** del Inicio con `ELECTUDE_HABILITADO = false` en `lib/flags.ts` (la pantalla queda intacta). No se construye el correo de los lunes (N.3): se descartó por fastidioso.
+- ✅ **v1.60 — Resumen semanal por notificación (reemplaza el correo del lunes, N.3; migr. 219):** cada lunes 7:00 a.m. (Caracas) Dirección Académica y super_admin reciben una notificación "Resumen de la semana: X de Y metas en verde" con estudiantes que entraron, dudas sin responder, tiempo de respuesta, tareas a tiempo, dominio al primer intento, asistencias y deserción. El super_admin además recibe la salud del sistema: errores de la semana y el más repetido, avisos sin enviar, personas con avisos activados y espacio usado. Al tocarla abre `/monitoreo`. Los errores salen de `app_errors` (tabla nueva, solo la lee el super_admin), que llena `components/ui/ReportarErrores.tsx` (errores no controlados del navegador, máx. 5 por sesión, sin datos personales). Con esto el **Sprint 4 se cierra**; los indicadores 5-7 y el 1 exacto llegan con los Sprints 5 y 6.
 - Pendiente: probar todo en pantalla con sesión (no se verificó visualmente); el calendario del profesor completo (hoy solo la ventana flotante).
 
 ### 8.30 COSAS POR HACER (anotado, no construido)
@@ -1007,7 +1008,7 @@ CADA EVALUACIÓN PRÁCTICA
 > - **Sprint 1:** flujo vendedor → admin → clave (B.5-B.8), cohortes (N.7), profesores (N.10), salones y horarios (N.9, migr. 216-217).
 > - **Sprint 2:** unidades, PDF, imagen, Word, PowerPoint → PDF (`/api/convertir-pptx`, requiere `CLOUDCONVERT_API_KEY` en Vercel; sin ella se abre en pestaña aparte), apertura por fecha, bloqueo por URL y visor dentro de la app.
 > - **Sprint 3:** calendario (Mes/Lista, flotante, completo del profesor) con hora, profesor y salón; video con seguimiento; YouTube/Drive. Cambio de especificación del coordinador: la marca de agua es solo el logo de la academia (no cédula y nombre).
-> - **Sprint 4 (indicadores 8 + mini chequeo)** pasa a ser el activo. Ya hay adelantado: `/monitoreo` con indicadores 1-4 y 8, y el mini chequeo (F.28-F.30). Falta el correo de los lunes (N.3) y la pantalla de salud para Dirección (N.2).
+> - **Sprint 4 — CERRADO el 18-nov-2026:** indicadores 1-4 y 8 en `/monitoreo`, pantalla de salud para Dirección y super admin, mini chequeo y bloqueo por material obligatorio, y resumen semanal por notificación en vez del correo. Los indicadores 5-7 y el 1 exacto quedan para los Sprints 5 y 6, donde nacen sus datos. **El Sprint 5 (ciclo semanal, casos, duda del jueves) es el siguiente.**
 **Arranque:** lunes 3 de noviembre de 2026 (próximo lunes).
 **Cierre proyectado:** sábado 21 de marzo de 2027.
 
@@ -1661,7 +1662,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
-- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.59**.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.60**.
 
 ### 12.5 Al cierre de cada sprint
 

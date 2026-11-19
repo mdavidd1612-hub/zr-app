@@ -182,7 +182,7 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
           material se crean DENTRO de la unidad -- no hacen falta botones de
           crear/subir fuera de ella. (Los que estaban aquí, de la tarde
           anterior, se quitan.) */}
-      <Seccion numero={1} titulo="Nueva unidad" delay={60}>
+      <Seccion numero={1} titulo="Nueva unidad" delay={60} tourId="td-nueva">
         {aviso && <p className="mb-3 rounded-lg border border-zr-border bg-zr-surface p-3 text-sm text-zr-text">{aviso}</p>}
         {!formAbierto ? (
           <div className="space-y-3">
@@ -265,7 +265,7 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
 
       <Regla delay={100} />
 
-      <Seccion numero={2} titulo="Unidades de este módulo" delay={140}>
+      <Seccion numero={2} titulo="Unidades de este módulo" delay={140} tourId="td-lista">
         {unidades.length === 0 ? (
           <p className="text-sm text-zr-text-muted">Todavía no has creado ninguna unidad.</p>
         ) : (
@@ -277,7 +277,7 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
               return (
                 <div key={u.id} className="zr-card space-y-3 p-5">
                   <div className="flex items-center justify-between gap-3">
-                    <Link href={`/unidades-docente/${u.id}`} className="min-w-0 flex-1">
+                    <Link href={`/unidades-docente/${u.id}`} className="min-w-0 flex-1" data-tour-target={i === 0 ? 'td-primera-unidad' : undefined}>
                       <p className="text-xs font-bold uppercase tracking-wider text-zr-text-muted">Unidad {i + 1}</p>
                       <p className="mt-1 break-words text-base font-bold text-zr-text">{u.title}</p>
                       <div className="mt-2"><Etiqueta tono={estado.tono}>{estado.texto}</Etiqueta></div>

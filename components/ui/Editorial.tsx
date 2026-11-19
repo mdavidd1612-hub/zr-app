@@ -24,14 +24,17 @@ interface SeccionProps {
   /** Retraso de entrada, en milisegundos. */
   delay?: number
   className?: string
+  /** Marca la sección para el tutorial guiado (data-tour-target). */
+  tourId?: string
 }
 
 /** Bloque de contenido con su rótulo numerado. */
-export function Seccion({ numero, titulo, children, delay = 0, className = '' }: SeccionProps) {
+export function Seccion({ numero, titulo, children, delay = 0, className = '', tourId }: SeccionProps) {
   return (
     <section
       className={`animate-rise space-y-5 ${className}`}
       style={{ animationDelay: `${delay}ms` }}
+      data-tour-target={tourId}
     >
       <p className="zr-eyebrow">
         {String(numero).padStart(2, '0')} — {titulo}

@@ -786,6 +786,7 @@ export default function UnidadDocenteDetalle() {
         </div>
 
         <div className="mt-7 space-y-9">
+          <div data-tour-target="td-banner">
           <BannerUnidad
             sobretitulo="Aula Virtual · Vista del estudiante"
             titulo={titulo}
@@ -798,10 +799,11 @@ export default function UnidadDocenteDetalle() {
               </span>
             }
           />
+          </div>
 
           {barraAvance}
 
-          <section className="animate-rise space-y-6">
+          <section className="animate-rise space-y-6" data-tour-target="td-recorrido">
             <p className="zr-eyebrow">01 — CONTENIDO DE LA UNIDAD</p>
 
             {contenidoRecorrido}
@@ -812,6 +814,7 @@ export default function UnidadDocenteDetalle() {
             similar [al estudiante]... y abajo un botón de editar." */}
         <button
           onClick={() => setModoEdicion(true)}
+          data-tour-target="td-editar"
           style={{ backgroundColor: acento }}
           className="fixed bottom-[calc(7rem+env(safe-area-inset-bottom))] left-1/2 z-[60] flex min-h-14 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 items-center justify-center gap-2 rounded-full text-base font-bold text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)] lg:bottom-8"
         >
@@ -853,6 +856,7 @@ export default function UnidadDocenteDetalle() {
           flotante abajo que cierra la edición (cada control ya guarda solo). */}
       <button
         onClick={() => setModoEdicion(false)}
+        data-tour-target="td-guardar"
         style={{ backgroundColor: acento }}
         className="fixed bottom-[calc(7rem+env(safe-area-inset-bottom))] left-1/2 z-[60] flex min-h-14 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 items-center justify-center gap-2 rounded-full text-base font-bold text-white shadow-[0_8px_24px_rgba(0,0,0,0.35)] lg:bottom-8"
       >
@@ -873,7 +877,7 @@ export default function UnidadDocenteDetalle() {
 
       <div className={ladoALado ? 'grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_400px]' : ''}>
         <div className="min-w-0 space-y-11">
-      <Seccion numero={1} titulo="Cuándo se abre y se cierra" delay={60}>
+      <Seccion numero={1} titulo="Cuándo se abre y se cierra" delay={60} tourId="td-fechas">
         <div className="zr-card space-y-4 p-5">
           <div>
             <label className="mb-2 block text-sm font-semibold text-zr-text">Se abre</label>
@@ -895,7 +899,7 @@ export default function UnidadDocenteDetalle() {
             />
             <p className="mt-1 text-xs text-zr-text-muted">Después de esta fecha la siguen viendo, solo para repasar.</p>
           </div>
-          <div className="border-t border-zr-border pt-4">
+          <div className="border-t border-zr-border pt-4" data-tour-target="td-bloqueo">
             <SelectorBloqueo
               opciones={certsPrevias}
               valor={bloqueo}
@@ -918,7 +922,7 @@ export default function UnidadDocenteDetalle() {
 
       <Regla delay={100} />
 
-      <Seccion numero={2} titulo="Contenido de la unidad" delay={100}>
+      <Seccion numero={2} titulo="Contenido de la unidad" delay={100} tourId="td-contenido">
         {items.length === 0 && (
           <div className="rounded-xl border border-dashed border-zr-border p-5 text-center">
             <p className="text-base font-bold text-zr-text">Esta unidad está vacía</p>
@@ -1182,7 +1186,7 @@ export default function UnidadDocenteDetalle() {
         </SortableContext>
         </DndContext>
 
-        <div className="zr-card space-y-4 p-5">
+        <div className="zr-card space-y-4 p-5" data-tour-target="td-agregar">
           {error && <p className="text-sm font-medium text-zr-error">{error}</p>}
           <p className="text-base font-bold text-zr-text">¿Qué quieres agregar?</p>
           <div className="grid grid-cols-2 gap-3">
@@ -1342,9 +1346,10 @@ export default function UnidadDocenteDetalle() {
 
       <Regla delay={160} />
 
-      <Seccion numero={3} titulo="Apariencia (opcional)" delay={180}>
+      <Seccion numero={3} titulo="Apariencia (opcional)" delay={180} tourId="td-apariencia">
         <button
           type="button"
+          data-tour-target="td-apariencia-toggle"
           onClick={() => setVerApariencia(!verApariencia)}
           className="zr-card flex min-h-14 w-full items-center justify-between gap-3 p-4 text-left"
         >

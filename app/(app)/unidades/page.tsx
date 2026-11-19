@@ -94,6 +94,7 @@ export default function Unidades() {
                   vivo (8-nov-2026). */}
               <Link
                 href="/examenes"
+                data-tour-target="tour-unidades-examenes"
                 className="inline-flex items-center gap-2 rounded-full border border-zr-border px-4 py-2.5 text-xs font-bold text-zr-text transition-colors hover:border-zr-blue/40"
               >
                 <IconoExamen size={16} />
@@ -101,6 +102,7 @@ export default function Unidades() {
               </Link>
               <Link
                 href="/descargas"
+                data-tour-target="tour-unidades-sinconexion"
                 className="inline-flex items-center gap-2 rounded-full border border-zr-border px-4 py-2.5 text-xs font-bold text-zr-text transition-colors hover:border-zr-blue/40"
               >
                 <IconoDocumento size={16} />
@@ -108,6 +110,7 @@ export default function Unidades() {
               </Link>
               <Link
                 href="/calendario"
+                data-tour-target="tour-unidades-calendario"
                 className="inline-flex items-center gap-2 rounded-full border border-zr-border px-4 py-2.5 text-xs font-bold text-zr-text transition-colors hover:border-zr-blue/40"
               >
                 <IconoCalendario size={16} />
@@ -122,6 +125,7 @@ export default function Unidades() {
         {modulos.length > 1 && (
           <button
             onClick={() => setMenuModulos(true)}
+            data-tour-target="tour-unidades-modulo"
             className="flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border border-zr-border bg-zr-surface px-5 text-left"
           >
             <span className="min-w-0">
@@ -168,6 +172,7 @@ export default function Unidades() {
             Todavía no hay unidades abiertas en este módulo. Cuando tu profesor publique una, aparece aquí sola.
           </p>
         ) : (
+          <div data-tour-target="tour-unidades-lista">
           <Recorrido>
             {unidadesDelModulo.map((u, i) => {
               const bloqueada = u.prerequisite_met === false
@@ -205,6 +210,7 @@ export default function Unidades() {
               )
             })}
           </Recorrido>
+          </div>
         )}
       </div>
     </div>

@@ -262,16 +262,20 @@ export default function UnidadDetalle() {
       <div className="space-y-7">
         <BotonVolver href="/unidades" />
 
-        <PestanasUnidad unidades={unidades} activaId={unitId} hrefBase="/unidades" />
+        <div data-tour-target="tour-unidad-pestanas">
+          <PestanasUnidad unidades={unidades} activaId={unitId} hrefBase="/unidades" />
+        </div>
       </div>
 
       <div className="mt-7 space-y-9">
-        <BannerUnidad sobretitulo="Aula Virtual" titulo={titulo} imagenUrl={bannerUrl} posicionImagen={bannerPosicion} color={bannerColor} />
+        <div data-tour-target="tour-unidad-banner">
+          <BannerUnidad sobretitulo="Aula Virtual" titulo={titulo} imagenUrl={bannerUrl} posicionImagen={bannerPosicion} color={bannerColor} />
+        </div>
 
         {/* Avance de obligatorios, tejido sin cuadro: un rótulo, una línea fina
             y el texto de lo que falta. */}
         {obligatorios.length > 0 && (
-          <div className="space-y-2.5">
+          <div className="space-y-2.5" data-tour-target="tour-unidad-progreso">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">
                 {hayCertificacion && !certificacionHecha ? (certificacionTrabada ? 'Para la certificación' : 'Materiales obligatorios listos') : 'Tu avance en la unidad'}
@@ -296,7 +300,7 @@ export default function UnidadDetalle() {
           </div>
         )}
 
-        <section className="animate-rise space-y-6">
+        <section className="animate-rise space-y-6" data-tour-target="tour-unidad-contenido">
           <p className="zr-eyebrow">01 — CONTENIDO DE LA UNIDAD</p>
 
           {items.length === 0 ? (
@@ -419,6 +423,7 @@ export default function UnidadDetalle() {
 
         {/* Descargar va al final: primero lo que el estudiante tiene que hacer. */}
         {items.length > 0 && (
+          <div data-tour-target="tour-unidad-descargar">
           <BotonDescargarUnidad
             unitId={unitId}
             titulo={titulo}
@@ -426,6 +431,7 @@ export default function UnidadDetalle() {
               contentItemId: i.content_item_id!, titulo: i.titulo, tipo: i.materialTipo, esTexto: i.esTexto, cuerpoTexto: i.cuerpoTexto,
             }))}
           />
+          </div>
         )}
       </div>
     </div>

@@ -32,6 +32,25 @@ interface Props {
 
 interface Rect { top: number; left: number; width: number; height: number }
 
+/** ¿Este paso se muestra en la ruta actual? (`prefijo`: cualquier ruta que empiece así, p. ej. /unidades/<id>). */
+function coincide(paso: PasoTour, pathname: string): boolean {
+  if (paso.prefijo) return pathname.startsWith(paso.ruta) && pathname.length > paso.ruta.length
+  return pathname === paso.ruta
+}
+
+/** Busca un elemento por id/data-tour-target, o por selector CSS si empieza con "css:". */
+function buscarElemento(clave: string): HTMLElement | null {
+  if (clave.startsWith('css:')) return document.querySelector<HTMLElement>(clave.slice(4))
+  const candidatos = document.querySelectorAll<HTMLElement>(
+    `#${CSS.escape(clave)}, [data-tour-target="${CSS.escape(clave)}"]`
+  )
+  for (const c of candidatos) {
+    const r = c.getBoundingClientRect()
+    if (r.width > 0 && r.height > 0) return c
+  }
+  return null
+}
+
 export function Tour({ pasos, incremental, onTerminado }: Props) {
   const router = useRouter()
   const pathname = usePathname()
@@ -41,6 +60,11 @@ export function Tour({ pasos, incremental, onTerminado }: Props) {
 
   // La bienvenida (o "funciones nuevas") es un paso sintético, sin id propio
   // -- "Siguiente" desde ahí navega directo al primer paso real.
+  // "Actualizaciones de la app": si ya había visto el tutorial y hay un paso con
+  // `portada`, la primera tarjeta es un anuncio de novedades en vez de la
+  // bienvenida, y un solo botón lleva directo a lo nuevo.
+  const portada = incremental ? pasos.find((p) => p.portada)?.portada : undefined
+
   const PASOS: PasoTour[] = [
     {
       id: '__intro__',
@@ -62,7 +86,7 @@ export function Tour({ pasos, incremental, onTerminado }: Props) {
   // funciones nuevas" puede avisar en cualquier pantalla, no solo en el
   // inicio del rol). Del paso 1 en adelante sí hace falta estar en la ruta
   // de ESE paso -- si no, "Siguiente" todavía está navegando para allá.
-  const enRutaCorrecta = paso === 0 || pathname === actual.ruta
+  const enRutaCorrecta = paso === 0 || coincide(actual, pathname)
 
   // Bug real de producción (sept. 2026, TourEstudiante): bloquear el scroll
   // sin condición alguna dejaba /completar-perfil con el scroll trabado,
@@ -99,16 +123,7 @@ export function Tour({ pasos, incremental, onTerminado }: Props) {
     // nada". `buscarVisible` revisa TODOS los elementos que comparten ese
     // id o ese `data-tour-target` y se queda con el primero que de verdad
     // ocupa espacio en pantalla.
-    function buscarVisible(targetId: string): HTMLElement | null {
-      const candidatos = document.querySelectorAll<HTMLElement>(
-        `#${CSS.escape(targetId)}, [data-tour-target="${CSS.escape(targetId)}"]`
-      )
-      for (const candidato of candidatos) {
-        const r = candidato.getBoundingClientRect()
-        if (r.width > 0 && r.height > 0) return candidato
-      }
-      return null
-    }
+    const buscarVisible = buscarElemento
 
     function medir(el: HTMLElement) {
       const r = el.getBoundingClientRect()
@@ -174,12 +189,54 @@ export function Tour({ pasos, incremental, onTerminado }: Props) {
       void terminar()
       return
     }
+    // Paso con `clic`: en vez de navegar, el tour toca ese elemento por la
+    // persona (p. ej. abrir la primera unidad o entrar a "Editar unidad").
+    if (actual.clic) {
+      const el = buscarElemento(actual.clic)
+      if (el) {
+        el.click()
+        setPaso(paso + 1)
+        return
+      }
+      // No hay nada que tocar (p. ej. todavía no hay unidades): se saltan los
+      // pasos que dependían de eso y se sigue con el primero de otra pantalla.
+      let j = paso + 1
+      while (j < PASOS.length && PASOS[j].prefijo) j += 1
+      if (j >= PASOS.length) { void terminar(); return }
+      setPaso(j)
+      if (!coincide(PASOS[j], pathname)) router.push(PASOS[j].ruta)
+      return
+    }
     const proximo = PASOS[paso + 1]
     setPaso(paso + 1)
-    if (proximo.ruta !== pathname) {
+    if (!coincide(proximo, pathname)) {
       router.push(proximo.ruta)
     }
   }
+
+  function atras() {
+    if (paso === 0) return
+    const previo = PASOS[paso - 1]
+    setPaso(paso - 1)
+    if (paso - 1 === 0) return
+    if (!coincide(previo, pathname)) {
+      if (previo.prefijo) router.back()
+      else router.push(previo.ruta)
+    }
+  }
+
+  // Red de seguridad: si por lo que sea la pantalla del paso nunca llega
+  // (p. ej. no había unidades para abrir), no se deja al tour mudo para
+  // siempre -- se salta al siguiente paso que sí corresponde a esta pantalla.
+  useEffect(() => {
+    if (enRutaCorrecta) return
+    const t = setTimeout(() => {
+      const j = PASOS.findIndex((p, i) => i > paso && coincide(p, pathname))
+      if (j > -1) setPaso(j)
+      else void terminar()
+    }, 3500)
+    return () => clearTimeout(t)
+  }, [enRutaCorrecta, paso, pathname]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mientras la navegación a la ruta del paso que sigue todavía no termina,
   // no se dibuja nada encima de la pantalla vieja.
@@ -188,16 +245,62 @@ export function Tour({ pasos, incremental, onTerminado }: Props) {
   const pad = 8
   const arriba = rect ? rect.top < window.innerHeight / 2 : false
 
-  const tarjeta = (
+  const total = PASOS.length - 1
+  const esPortada = paso === 0 && !!portada
+
+  const tarjeta = esPortada && portada ? (
     <>
-      <div className="flex gap-1.5">
-        {PASOS.map((_, i) => (
-          <span
-            key={i}
-            className={`h-1.5 flex-1 rounded-full ${i <= paso ? 'bg-zr-blue' : 'bg-zr-border'}`}
-          />
-        ))}
+      <span className="inline-flex rounded-full bg-zr-blue/15 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-zr-blue">
+        Actualizaciones de la app
+      </span>
+      <div>
+        <p className="zr-display text-2xl leading-tight text-zr-text">{portada.titulo}</p>
+        <p className="mt-2 text-sm leading-relaxed text-zr-text-muted">{portada.texto}</p>
       </div>
+      <ul className="space-y-2.5">
+        {portada.puntos.map((pt) => (
+          <li key={pt} className="flex items-start gap-3 text-sm text-zr-text">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-zr-blue/20 text-[11px] font-bold text-zr-blue">✓</span>
+            <span className="leading-snug">{pt}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-zr-text-muted">{total} pasos · unos 2 minutos. Te llevamos directo a lo nuevo.</p>
+      <div className="flex items-center justify-between gap-3 pt-1">
+        <button onClick={terminar} disabled={guardando} className="text-sm font-semibold text-zr-text-muted disabled:opacity-50">
+          Ahora no
+        </button>
+        <button
+          onClick={siguiente}
+          disabled={guardando}
+          className="min-h-12 rounded-lg bg-zr-blue px-6 text-sm font-bold text-white disabled:opacity-50"
+        >
+          Ver las novedades
+        </button>
+      </div>
+    </>
+  ) : (
+    <>
+      {paso > 0 && PASOS.length > 4 ? (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">
+            <span className="truncate">{actual.seccion ?? 'Tutorial'}</span>
+            <span className="shrink-0">Paso {paso} de {total}</span>
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-zr-border">
+            <div className="h-full rounded-full bg-zr-blue transition-all duration-300" style={{ width: `${(paso / total) * 100}%` }} />
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-1.5">
+          {PASOS.map((_, i) => (
+            <span
+              key={i}
+              className={`h-1.5 flex-1 rounded-full ${i <= paso ? 'bg-zr-blue' : 'bg-zr-border'}`}
+            />
+          ))}
+        </div>
+      )}
 
       <div>
         <p className="zr-display text-lg text-zr-text">{actual.titulo}</p>
@@ -212,13 +315,24 @@ export function Tour({ pasos, incremental, onTerminado }: Props) {
         >
           Omitir
         </button>
-        <button
-          onClick={siguiente}
-          disabled={guardando}
-          className="min-h-12 rounded-lg bg-zr-blue px-6 text-sm font-bold text-white disabled:opacity-50"
-        >
-          {esUltimo ? (guardando ? 'Un momento…' : 'Empezar') : 'Siguiente'}
-        </button>
+        <div className="flex items-center gap-2">
+          {paso > 1 && (
+            <button
+              onClick={atras}
+              disabled={guardando}
+              className="min-h-12 rounded-lg border border-zr-border px-4 text-sm font-bold text-zr-text disabled:opacity-50"
+            >
+              Atrás
+            </button>
+          )}
+          <button
+            onClick={siguiente}
+            disabled={guardando}
+            className="min-h-12 rounded-lg bg-zr-blue px-6 text-sm font-bold text-white disabled:opacity-50"
+          >
+            {esUltimo ? (guardando ? 'Un momento…' : 'Terminar') : 'Siguiente'}
+          </button>
+        </div>
       </div>
     </>
   )

@@ -85,14 +85,14 @@ export function PestanasModulo({ conMargenArriba }: { conMargenArriba: boolean }
   if (!enModulo) return null
   return (
     <nav className={`${conMargenArriba ? 'pt-[calc(3.5rem+env(safe-area-inset-top))]' : 'pt-4'} px-5`}>
-      <div className="zr-scroll mx-auto flex w-fit max-w-full gap-1 overflow-x-auto rounded-full border border-zr-border bg-zr-surface/70 p-1 backdrop-blur-md">
+      <div className="mx-auto flex w-full max-w-md gap-1 rounded-full sm:w-fit border border-zr-border bg-zr-surface/70 p-1 backdrop-blur-md">
         {PESTANAS_MODULO.map((p) => {
           const on = esActiva(p.href)
           return (
             <button
               key={p.href}
               onClick={() => router.push(p.href)}
-              className={`shrink-0 rounded-full px-5 py-2 text-sm font-bold transition-colors ${
+              className={`min-w-0 flex-1 truncate rounded-full px-2 py-2 text-[13px] font-bold transition-colors sm:flex-none sm:px-5 sm:text-sm ${
                 on ? 'bg-zr-blue text-white shadow-[0_2px_10px_rgba(37,99,235,0.35)]' : 'text-zr-text-muted hover:text-zr-text'
               }`}
             >

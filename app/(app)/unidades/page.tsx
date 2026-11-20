@@ -52,8 +52,28 @@ export default function Unidades() {
         .order('order_index', { ascending: true })
 
       const { data: idsCursados } = await supabase.rpc('mis_modulos_cursados' as never) as { data: string[] | null }
-      const { data: miActual } = await supabase.rpc('my_module_id' as never) as { data: string | null }
-      const ids = (idsCursados ?? []) as string[]
+      let { data: miActual } = await supabase.rpc('my_module_id' as never) as { data: string | null }
+      let ids = (idsCursados ?? []) as string[]
+      // Vista de recorrido (staff): la base no tiene fila de estudiante para
+      // calcular sus módulos, así que se calcula con el corte elegido en el
+      // panel y la MISMA regla de mis_modulos_cursados (migr. 209/223): todos los
+      // del programa hasta el actual + los del calendario que ya empezaron.
+      const corteRecorrido = ids.length === 0 ? leerCohorteVistaRecorridoCookie() : null
+      if (corteRecorrido) {
+        const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' })
+        const { data: c } = await supabase
+          .from('cohorts').select('program_id, current_module_id, modules:current_module_id(order_index)')
+          .eq('id', corteRecorrido).maybeSingle()
+        const fila = c as unknown as { program_id: string; current_module_id: string | null; modules: { order_index: number } | null } | null
+        if (fila) {
+          const [{ data: hasta }, { data: calEmp }] = await Promise.all([
+            supabase.from('modules').select('id').eq('program_id', fila.program_id).lte('order_index', fila.modules?.order_index ?? 0),
+            supabase.from('cohort_module_calendar').select('module_id').eq('cohort_id', corteRecorrido).lte('start_date', hoy),
+          ])
+          ids = [...new Set([...(hasta ?? []).map((m) => m.id), ...(calEmp ?? []).map((m) => m.module_id)])]
+          miActual = fila.current_module_id
+        }
+      }
       const { data: mods } = ids.length
         ? await supabase.from('modules').select('id, name, order_index').in('id', ids).order('order_index')
         : { data: [] as { id: string; name: string; order_index: number }[] }

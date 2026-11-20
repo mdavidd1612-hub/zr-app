@@ -43,6 +43,9 @@ export function Campanita() {
   const [cargando, setCargando] = useState(true)
   const [agita, setAgita] = useState(false)
   const prevSinLeer = useRef<number | null>(null)
+  // Última notificación conocida: el sondeo pregunta solo por esa fila y baja la
+  // lista completa únicamente si cambió (ahorro de datos, 20-nov-2026).
+  const ultimaRef = useRef<string | null>(null)
 
   useEffect(() => {
     let vigente = true
@@ -70,6 +73,7 @@ export function Campanita() {
 
       if (!vigente) return
 
+      ultimaRef.current = data?.[0]?.id ?? null
       setNotis(
         (data ?? []).map((n) => ({
           id: n.id,
@@ -84,9 +88,21 @@ export function Campanita() {
       setCargando(false)
     }
 
+    // Sondeo liviano: una sola fila (id) en vez de 30 notificaciones completas.
+    async function revisar() {
+      if (typeof document !== 'undefined' && document.hidden) return
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) return
+      const { data } = await supabase
+        .from('notifications').select('id')
+        .eq('profile_id', session.user.id)
+        .order('created_at', { ascending: false }).limit(1)
+      const top = data?.[0]?.id ?? null
+      if (vigente && top !== ultimaRef.current) void cargar()
+    }
+
     cargar()
-    // Refresco periódico simple: cada 60s basta para algo que no es un chat.
-    const intervalo = setInterval(cargar, 30_000)
+    const intervalo = setInterval(revisar, 30_000)
     const alVolver = () => { if (!document.hidden) void cargar() }
     document.addEventListener('visibilitychange', alVolver)
     return () => { vigente = false; clearInterval(intervalo); document.removeEventListener('visibilitychange', alVolver) }

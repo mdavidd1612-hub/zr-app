@@ -73,8 +73,8 @@ export default function FichaCorte() {
       </Seccion>
 
 
-      <div className="grid items-start gap-8 xl:grid-cols-2">
-        <div className="space-y-8">
+      <div className="grid grid-cols-1 items-start gap-8 xl:grid-cols-2 [&>*]:min-w-0">
+        <div className="min-w-0 space-y-8">
           <Seccion numero={2} titulo="Salón de cada clase" delay={90}>
             <SalonesCorte cohorteId={cohortId} />
           </Seccion>

@@ -7,6 +7,7 @@ import { Encabezado, Regla } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { MoverClase } from '@/components/MoverClase'
+import { PlanificacionCortes } from '@/components/PlanificacionCortes'
 
 /**
  * Calendario general (parte 1, 20-nov-2026; propuesta en
@@ -65,6 +66,7 @@ export default function CalendarioGeneral() {
   const [sede, setSede] = useState('')
   const [corte, setCorte] = useState('')
   const [abierta, setAbierta] = useState<Clase | null>(null)
+  const [vista, setVista] = useState<'semana' | 'plan'>('semana')
   // Mover clases: solo Dirección Académica y super_admin (la base lo vuelve a revisar).
   const [puedeMover, setPuedeMover] = useState(false)
   // Arrastrar en computadora (parte 3): al soltar se abre "Mover" con destino puesto.
@@ -153,6 +155,17 @@ export default function CalendarioGeneral() {
         descripcion="Todas las clases de tus sedes en la semana. Toca una para ver su detalle o moverla; en computadora también puedes arrastrarla."
       />
       <Regla delay={40} />
+      <div className="flex justify-center">
+        <div className="inline-flex rounded-full border border-zr-border bg-zr-surface p-1">
+          {(['semana', 'plan'] as const).map((v) => (
+            <button key={v} onClick={() => setVista(v)} className={`min-h-10 rounded-full px-5 text-sm font-bold ${vista === v ? 'bg-zr-blue text-white' : 'text-zr-text-muted'}`}>
+              {v === 'semana' ? 'Semana' : 'Planificación'}
+            </button>
+          ))}
+        </div>
+      </div>
+      {vista === 'plan' && <PlanificacionCortes />}
+      {vista === 'semana' && (<>
 
       {/* Barra de semana y filtros */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -304,6 +317,7 @@ export default function CalendarioGeneral() {
       )}
 
       {/* Detalle de una clase */}
+      </>)}
       {abierta && (
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 sm:items-center sm:p-5" onClick={cerrar}>
           <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} className="max-h-[90dvh] w-full max-w-md space-y-4 overflow-y-auto rounded-t-2xl border border-zr-border bg-zr-surface p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:rounded-2xl">

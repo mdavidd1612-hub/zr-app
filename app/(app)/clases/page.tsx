@@ -192,7 +192,7 @@ export default function MiModulo() {
           <>
             <div id="tour-modulo" className="animate-rise">
               <TarjetaHero
-                sobretitulo={`Mi módulo · Semana ${modulo.semanaActual} de ${modulo.duracionSemanas}`}
+                sobretitulo={`Mi avance · Semana ${modulo.semanaActual} de ${modulo.duracionSemanas}`}
                 titulo={modulo.nombre}
                 icono={<IconoProgreso size={24} />}
               >

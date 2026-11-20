@@ -79,7 +79,7 @@ export default function FeedbackClase() {
 
   return (
     <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
-      <BotonVolver href="/sesiones" />
+      <BotonVolver href="/hoy" />
 
       <Encabezado
         sobretitulo="Docencia"

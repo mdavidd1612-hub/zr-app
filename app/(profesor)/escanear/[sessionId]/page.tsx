@@ -252,7 +252,7 @@ export default function Escanear() {
       {/* Cámara */}
       <div className="relative h-[68vh] w-full overflow-hidden bg-zr-bg">
         <div className="absolute left-3 top-3 z-10">
-          <BotonVolver href="/sesiones" texto="Salir" />
+          <BotonVolver href="/hoy" texto="Salir" />
         </div>
 
         <video ref={videoRef} className="h-full w-full object-cover" muted playsInline />

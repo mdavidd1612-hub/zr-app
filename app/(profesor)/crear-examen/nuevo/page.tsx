@@ -264,6 +264,20 @@ function NuevoExamenInterno() {
       return
     }
 
+    // Decisión del coordinador (20-nov-2026): el 2.º intento tiene tope (por
+    // defecto 80 %). Si la nota mínima pasa ese tope, el remedial nunca podría
+    // aprobar: no se deja guardar ese caso imposible.
+    {
+      const intentosN = intentos === '' ? (tipo === 'certificacion' ? 1 : 2) : intentos
+      const topeN = topeRemedial === '' ? 80 : topeRemedial
+      const minimaN = notaMinima === '' ? 10 : notaMinima
+      const techo = Math.round(puntajeMaximo * topeN) / 100
+      if (tipo === 'certificacion' && intentosN > 1 && minimaN > techo) {
+        setError(`Con el tope del remedial (${topeN} %), lo máximo que se puede sacar en el 2.º intento es ${techo}. Baja la nota mínima a ${techo} o menos, o sube el tope.`)
+        return
+      }
+    }
+
     const supabase = createClient()
 
     // Bug real reportado en vivo (8-nov-2026): guardar como BORRADOR fallaba

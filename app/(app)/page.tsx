@@ -678,7 +678,7 @@ export default function Inicio() {
                 // arriba.
                 // "Material" repetía Unidades; en su lugar "Mi módulo" (avance,
                 // malla y progreso), que sale de la barra (19-nov-2026).
-                { href: '/clases',    titulo: 'Mi módulo',   sub: 'Avance y malla',    Icono: IconoDocumento, insignia: false },
+                { href: '/clases',    titulo: 'Mi avance',   sub: 'Módulo, malla y progreso',    Icono: IconoDocumento, insignia: false },
               ].map(({ href, titulo, sub, Icono, insignia }) => (
                 <button
                   key={href}

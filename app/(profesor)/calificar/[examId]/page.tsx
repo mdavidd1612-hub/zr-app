@@ -21,6 +21,7 @@ import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 interface Fila {
   attemptId: string
+  studentId: string
   estudiante: string
   intento: number
   estado: 'en_progreso' | 'entregado' | 'calificado' | 'abandonado'
@@ -53,6 +54,11 @@ export default function ListaEstudiantesExamen() {
   const [escala, setEscala] = useState(20)
   const [filas, setFilas] = useState<Fila[]>([])
   const [cargando, setCargando] = useState(true)
+  // "Dar otra oportunidad" (decisión del coordinador, 20-nov-2026): un
+  // intervention_grants suma un intento y deja presentar aunque el examen haya
+  // cerrado (migración 232). Para quien agotó intento y remedial, o llegó tarde.
+  const [otorgando, setOtorgando] = useState<string | null>(null)
+  const [otorgados, setOtorgados] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     async function cargar() {
@@ -67,12 +73,12 @@ export default function ListaEstudiantesExamen() {
 
       const { data: intentos } = await supabase
         .from('exam_attempts')
-        .select('id, attempt_number, status, total_score, submitted_at, started_at, students(student_code, cohorts(name), profiles!students_id_fkey(full_name, cedula, phone))')
+        .select('id, student_id, attempt_number, status, total_score, submitted_at, started_at, students(student_code, cohorts(name), profiles!students_id_fkey(full_name, cedula, phone))')
         .eq('exam_id', examId)
         .order('submitted_at', { ascending: false })
 
       const filasIntentos = (intentos ?? []) as unknown as {
-        id: string; attempt_number: number; status: Fila['estado']; total_score: number | null
+        id: string; student_id: string; attempt_number: number; status: Fila['estado']; total_score: number | null
         submitted_at: string | null; started_at: string | null
         students: { student_code: string | null; cohorts: { name: string } | null; profiles: { full_name: string; cedula: string | null; phone: string | null } | null } | null
       }[]
@@ -101,6 +107,7 @@ export default function ListaEstudiantesExamen() {
       setFilas(
         filasIntentos.map((i) => ({
           attemptId: i.id,
+          studentId: i.student_id,
           estudiante: i.students?.profiles?.full_name ?? 'Estudiante',
           cedula: i.students?.profiles?.cedula ?? null,
           codigo: i.students?.student_code ?? null,
@@ -120,6 +127,24 @@ export default function ListaEstudiantesExamen() {
     }
     cargar()
   }, [examId, router])
+
+  async function darOportunidad(studentId: string) {
+    setOtorgando(studentId)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error } = await supabase.from('intervention_grants').insert({
+      exam_id: examId, student_id: studentId, granted_by: user!.id, reason: 'Otra oportunidad dada desde la lista del examen',
+    })
+    setOtorgando(null)
+    if (!error) setOtorgados((prev) => new Set(prev).add(studentId))
+  }
+
+  // Solo el intento más reciente de cada estudiante ofrece la oportunidad.
+  const ultimoPorEstudiante = new Set<string>()
+  const vistos = new Set<string>()
+  for (const f of filas) {
+    if (!vistos.has(f.studentId)) { vistos.add(f.studentId); ultimoPorEstudiante.add(f.attemptId) }
+  }
 
   if (cargando) return <PantallaEsqueleto variante="lista" />
 
@@ -187,14 +212,29 @@ export default function ListaEstudiantesExamen() {
                     )}
                   </div>
                 </div>
-                {(puedeCorregir || f.totalRedacciones > 0) && f.estado !== 'en_progreso' && (
-                  <button
-                    onClick={() => router.push(`/calificar/${examId}/${f.attemptId}`)}
-                    className="shrink-0 rounded-lg bg-zr-blue px-4 py-2.5 text-sm font-bold text-white"
-                  >
-                    {puedeCorregir ? 'Corregir' : 'Ver'}
-                  </button>
-                )}
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  {(puedeCorregir || f.totalRedacciones > 0) && f.estado !== 'en_progreso' && (
+                    <button
+                      onClick={() => router.push(`/calificar/${examId}/${f.attemptId}`)}
+                      className="rounded-lg bg-zr-blue px-4 py-2.5 text-sm font-bold text-white"
+                    >
+                      {puedeCorregir ? 'Corregir' : 'Ver'}
+                    </button>
+                  )}
+                  {ultimoPorEstudiante.has(f.attemptId) && ((f.estado === 'calificado' && !aprobo) || f.estado === 'abandonado') && (
+                    otorgados.has(f.studentId) ? (
+                      <span className="text-xs font-semibold text-zr-success">Ya puede presentarlo otra vez</span>
+                    ) : (
+                      <button
+                        onClick={() => darOportunidad(f.studentId)}
+                        disabled={otorgando === f.studentId}
+                        className="rounded-lg border border-zr-border px-3 py-2 text-xs font-bold text-zr-text disabled:opacity-50"
+                      >
+                        {otorgando === f.studentId ? 'Dando…' : 'Dar otra oportunidad'}
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
             )
           })}

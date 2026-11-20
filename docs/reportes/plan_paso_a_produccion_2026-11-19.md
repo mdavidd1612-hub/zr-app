@@ -137,3 +137,5 @@ join content_items ci on ci.module_id = n.module_id
 - Edge Functions redesplegadas en staging: `grade-answer` (v4), `respond-rehabilitation`, `approve-rehabilitation` (sin admin, con Dirección).
 - En `zr-prod` el módulo "Inglés técnico automotriz" no existe (migración 138 lo borró): crearlo antes del tramo virtual.
 - Detalle: `docs/reportes/informe_nocturno_2026-11-20.md` y `docs/reportes/evaluacion_lms_ux_visual_2026-11-20.md`.
+
+- v1.83: migración 232 (después de 231). Redefine `fn_exam_attempt_prepare` con un `replace` sobre la versión vigente (agrega la prórroga por `intervention_grants`): en producción debe correr **después** de la versión final de esa función, nunca antes.

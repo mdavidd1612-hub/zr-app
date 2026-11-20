@@ -22,7 +22,7 @@ Tres revisores independientes (ingeniero de LMS y pedagogía, experto en UX móv
 | 14 | Fechas del calendario de módulos y tipo de evaluación apretados a 320 px | Cuadrículas de 3 columnas fijas | 1 columna en teléfono (2 en tipos), 3 desde 640 px |
 | 15 | Semáforo de Monitoreo con un ámbar distinto al de la app | Color fuera de los tokens | Token de la app |
 
-## 2. Para que decidas (no lo cambié)
+## 2. Decisiones (respondidas el 20-nov-2026: todas aprobadas menos la 6 — construidas en v1.83, migración 232)
 
 1. **Tope del 80 % en el remedial vs. "repetir no castiga" (§5.1 regla 3).** Es una decisión documentada, pero tiene un efecto lateral: si la nota mínima de una certificación es mayor que el 80 % del máximo (p. ej. 17/20), el remedial **nunca** puede aprobar. Opciones: (a) que el constructor no deje guardar eso; (b) que el tope no cuente para decidir si aprobó y desbloquea.
 2. **Estudiante que agota intento y remedial queda bloqueado en la unidad siguiente.** La única salida es dar un intento extra, y no hay botón visible para eso. Propuesta: "Dar intento extra" en la lista de quienes presentaron el examen (como el "user override" de Moodle).

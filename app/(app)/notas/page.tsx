@@ -206,6 +206,12 @@ export default function Notas() {
                           de {cifra(Math.round(posibles * 100) / 100)} puntos evaluados · {cifra(n.evaluadoPct)} % del módulo
                         </p>
                       )}
+                      {/* Decisión del coordinador (20-nov-2026): las notas digitales se ven al
+                          instante y todavía pueden cambiar (una redacción por corregir, un
+                          ajuste de Dirección), así que se rotulan como provisionales. */}
+                      {!completo && (
+                        <p className="mt-1 text-xs font-semibold text-zr-warning">Provisional hasta el cierre del módulo</p>
+                      )}
                       {/* El umbral siempre visible: cambia por módulo. */}
                       <p className="mt-2 text-sm text-zr-text-muted">Aprueba con {n.umbral}</p>
                     </div>

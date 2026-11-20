@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { PestanasMiModulo } from '@/components/ui/PestanasMiModulo'
 import { TarjetaHero } from '@/components/ui/TarjetaHero'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { IconoCheck, IconoAviso, IconoChevron, IconoProgreso, IconoDocumento, IconoCarpeta } from '@/components/ui/Iconos'
@@ -179,6 +180,7 @@ export default function MiModulo() {
     <div className="px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <div className="space-y-7">
         <BotonVolver href="/" />
+        <PestanasMiModulo />
 
         {!modulo ? (
           <EstadoVacio

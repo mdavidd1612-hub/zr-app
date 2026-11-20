@@ -30,6 +30,9 @@ export interface ItemBarra {
    * botones seguidos en el menú de super_admin) "no se explica para qué".
    */
   grupo?: string
+  /** Otras rutas en las que esta sección cuenta como activa (p. ej. "Mi módulo"
+   *  del profesor también en Notas, Dudas y Feedback, que son sus pestañas). */
+  tambienEn?: string[]
 }
 
 interface Props {
@@ -99,8 +102,11 @@ export function BarraFlotante({ items, todasLasSecciones, deslizable = true, alT
     }
   }, [pathname, items, router, deslizable, alTocarBloqueado])
 
-  const activo = (href: string) =>
-    href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/')
+  const coincide = (h: string) => (h === '/' ? pathname === '/' : pathname === h || pathname.startsWith(h + '/'))
+  const activo = (href: string) => {
+    const extra = [...items, ...(todasLasSecciones ?? [])].find((i) => i.href === href)?.tambienEn ?? []
+    return [href, ...extra].some(coincide)
+  }
 
   // ¿La pantalla actual es una de las 4 visibles en la píldora? Si no, el
   // botón de menú se marca activo para no dejar la navegación "en blanco".

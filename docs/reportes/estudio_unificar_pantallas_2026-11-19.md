@@ -1,6 +1,6 @@
 # Estudio: unificar pantallas para no agobiar (19-nov-2026)
 
-Pedido del coordinador: revisar si se pueden juntar funciones en menos pantallas, para profesores, trabajadores y estudiantes, mirando cómo lo resuelven otras plataformas. **Esto es una propuesta; no se construyó nada de aquí.** Se elige primero.
+Pedido del coordinador: revisar si se pueden juntar funciones en menos pantallas, para profesores, trabajadores y estudiantes, mirando cómo lo resuelven otras plataformas. **Construido completo en v1.71 (A a E), a pedido del coordinador.**
 
 ## 1. Lo que hay hoy (contado en el código)
 

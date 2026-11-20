@@ -160,11 +160,14 @@ const ESTUDIANTE: PasoTour[] = [
     titulo: 'Tu semana',
     texto: 'Aquí ves los días de la semana. El sábado marcas tu asistencia; los demás días, tu módulo y tu material.' },
   { id: 'estudiante-accesos', ruta: '/', targetId: 'tour-accesos',
-    titulo: 'Tu carnet, calendario y material',
-    texto: 'Desde aquí muestras tu carnet para la asistencia, y entras directo a tu calendario o al material de Aula Virtual.' },
+    titulo: 'Tu carnet, calendario y módulo',
+    texto: 'Desde aquí muestras tu carnet para la asistencia y entras a tu calendario o a Mi módulo, donde ves tu avance, la malla y tu progreso.' },
+  { id: 'estudiante-lo-proximo', ruta: '/', targetId: null,
+    titulo: 'Lo próximo y tus cursos virtuales',
+    texto: 'En Inicio ves los próximos exámenes y entregas de todos tus módulos. Si cursas uno virtual al mismo tiempo (por ejemplo Inglés Técnico), aparece como «También cursas · virtual» y en Unidades lo eliges arriba.' },
   { id: 'estudiante-nav', ruta: '/', targetId: 'tour-nav',
     titulo: 'Muévete por la app',
-    texto: 'Desde estos botones vas a Inicio, tu módulo, Unidades (ahí está todo tu material, exámenes y tareas), tus notas, tus dudas y tu perfil.' },
+    texto: 'Desde estos botones vas a Inicio, Unidades (ahí está todo tu material, exámenes y tareas), tus notas, tus dudas y tu perfil.' },
   { id: 'estudiante-modulo', ruta: '/clases', targetId: 'tour-modulo',
     titulo: 'Mi módulo',
     texto: 'Aquí ves todo lo que vas a aprender en el módulo que estás cursando ahora: el resumen completo y tus competencias.' },
@@ -312,7 +315,10 @@ const PROFESOR: PasoTour[] = [
     texto: 'Módulo, taller y horario de tu próxima clase, con la asistencia en vivo apenas los estudiantes van llegando.' },
   { id: 'profesor-nav', ruta: '/hoy', targetId: 'tour-nav',
     titulo: 'Muévete por la app',
-    texto: 'Desde aquí vas a Hoy, Dudas, Unidades (ahí subes material y creas exámenes y tareas), Notas y tu perfil.' },
+    texto: 'Desde aquí vas a Hoy, Mi módulo, tu calendario, los exámenes y tu perfil.' },
+  { id: 'profesor-mi-modulo', ruta: '/unidades-docente', targetId: null,
+    titulo: 'Mi módulo',
+    texto: 'Unidades, Notas, Dudas y Feedback están juntos aquí, en pestañas. Eliges el módulo una vez y cambias de pestaña sin volver a elegirlo. Lo que está en curso sale primero.' },
   ...NOVEDADES_PROFESOR,
 ]
 
@@ -332,6 +338,9 @@ const ADMIN: PasoTour[] = [
   { id: 'admin-salones', ruta: '/salones', targetId: null,
     titulo: 'Salones',
     texto: 'Elige en qué salón tiene clase cada cohorte cada sábado. Estudiantes y profesores lo ven en su calendario. Si no cambias nada, se repite el de la semana anterior.' },
+  { id: 'admin-ficha-corte', ruta: '/cohortes', targetId: null,
+    titulo: 'Ficha de cada corte',
+    texto: 'Toca el nombre de un corte para abrir su ficha: ahí armas su calendario de módulos (también un módulo virtual en paralelo, como Inglés) y llegas a sus profesores, salones, estudiantes y notas.' },
 ]
 
 const VENDEDOR: PasoTour[] = [

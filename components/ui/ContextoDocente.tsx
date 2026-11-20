@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
@@ -66,6 +66,43 @@ interface Props {
 
 // Ventana flotante con el fondo borroso: la elección es obligatoria, así que no
 // se cierra tocando afuera (solo con «Volver»).
+
+// Pestañas de "Mi módulo" del profesor (19-nov-2026): las 4 pantallas que usan
+// este mismo selector de módulo se ven como un solo lugar. Como la elección se
+// guarda (sessionStorage), cambiar de pestaña no vuelve a pedir el módulo.
+const PESTANAS_MODULO = [
+  { href: '/unidades-docente', label: 'Unidades' },
+  { href: '/notas-docente', label: 'Notas' },
+  { href: '/dudas-docente', label: 'Dudas' },
+  { href: '/feedback-modulo-docente', label: 'Feedback' },
+]
+
+export function PestanasModulo({ conMargenArriba }: { conMargenArriba: boolean }) {
+  const pathname = usePathname()
+  const router = useRouter()
+  const esActiva = (h: string) => pathname === h || (h === '/notas-docente' && pathname.startsWith('/notas/'))
+  const enModulo = PESTANAS_MODULO.some((p) => esActiva(p.href))
+  if (!enModulo) return null
+  return (
+    <nav className={`zr-scroll flex ${conMargenArriba ? 'pt-[calc(3rem+env(safe-area-inset-top))]' : ''} gap-1 overflow-x-auto border-b border-zr-border bg-zr-surface/60 px-4`}>
+      {PESTANAS_MODULO.map((p) => {
+        const on = esActiva(p.href)
+        return (
+          <button
+            key={p.href}
+            onClick={() => router.push(p.href)}
+            className={`shrink-0 border-b-2 px-3 py-3 text-sm font-bold transition-colors ${
+              on ? 'border-zr-blue text-zr-text' : 'border-transparent text-zr-text-muted hover:text-zr-text'
+            }`}
+          >
+            {p.label}
+          </button>
+        )
+      })}
+    </nav>
+  )
+}
+
 function VentanaElegir({ children }: { children: React.ReactNode }) {
   if (typeof document === 'undefined') return null
   return createPortal(
@@ -231,6 +268,7 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
             </button>
           </div>
         )}
+        {nivel === 'modulo' && <PestanasModulo conMargenArriba={!hayQueElegir} />}
         {children(seleccion)}
       </>
     )

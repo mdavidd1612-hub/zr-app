@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BotonVolver } from '@/components/ui/BotonVolver'
+import { PestanasModulo } from '@/components/ui/ContextoDocente'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
@@ -287,8 +287,9 @@ export default function NotasCohorteProfesor() {
   const faltaPorcentaje = Math.round(sumaPct * 100) !== 10000
 
   return (
-    <div className="space-y-6 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-10">
-      <BotonVolver href="/hoy" />
+    <>
+    <PestanasModulo conMargenArriba />
+    <div className="space-y-6 px-5 pt-6 pb-10">
 
       <header>
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">Notas</p>
@@ -446,5 +447,6 @@ export default function NotasCohorteProfesor() {
         </>
       )}
     </div>
+    </>
   )
 }

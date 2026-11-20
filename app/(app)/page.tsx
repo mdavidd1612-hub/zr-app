@@ -77,6 +77,9 @@ export default function Inicio() {
   const [hayPendienteCalendario, setHayPendienteCalendario] = useState(false)
   // "Lo que sigue": el próximo examen/tarea con fecha (tarjeta destacada).
   const [siguienteEvento, setSiguienteEvento] = useState<{ titulo: string; fecha: string; tipo: string } | null>(null)
+  // "Lo próximo" (19-nov-2026, propuesta C): exámenes y entregas por venir de
+  // todos sus módulos (presencial y virtual), en una sola lista.
+  const [proximos, setProximos] = useState<{ id: string; titulo: string; fecha: string; tipo: string; modulo: string; moduloId: string }[]>([])
 
   const hoy = new Date()
   const diaHoy = simulado ? 6 : diaSemanaISO(hoy)
@@ -268,15 +271,20 @@ export default function Inicio() {
         .limit(1)
       setHayPendienteCalendario((proximoEvento ?? []).length > 0)
 
-      const { data: sig } = await supabase
+      const { data: sigs } = await supabase
         .from('calendar_events')
-        .select('title, event_at, source_type')
+        .select('source_id, module_id, title, event_at, source_type, modules(name)')
         .in('source_type', ['exam', 'assignment'])
         .gte('event_at', new Date().toISOString())
         .order('event_at', { ascending: true })
-        .limit(1)
-        .maybeSingle()
+        .limit(5)
+      const filas = (sigs ?? []) as unknown as { source_id: string; module_id: string; title: string; event_at: string; source_type: string; modules: { name: string } | null }[]
+      const sig = filas[0]
       setSiguienteEvento(sig ? { titulo: sig.title, fecha: sig.event_at, tipo: sig.source_type } : null)
+      setProximos(filas.map((f) => ({
+        id: f.source_id, titulo: f.title, fecha: f.event_at, tipo: f.source_type,
+        modulo: f.modules?.name ?? '', moduloId: f.module_id,
+      })))
 
       setCargando(false)
     }
@@ -602,6 +610,35 @@ export default function Inicio() {
           </Seccion>
         )}
 
+        {proximos.length > 1 && (
+          <section className="animate-rise space-y-3">
+            <p className="zr-eyebrow">Lo próximo</p>
+            <div className="space-y-2">
+              {proximos.map((p) => (
+                <button
+                  key={p.tipo + p.id}
+                  onClick={() => router.push(p.tipo === 'exam' ? `/examenes/${p.id}` : `/unidades?modulo=${p.moduloId}`)}
+                  className="zr-card flex w-full items-center gap-3 p-4 text-left"
+                >
+                  <span className="w-12 shrink-0 text-center">
+                    <span className="block text-lg font-bold leading-none text-zr-text">{new Date(p.fecha).getDate()}</span>
+                    <span className="block text-[10px] font-bold uppercase text-zr-text-muted">
+                      {new Date(p.fecha).toLocaleDateString('es-VE', { month: 'short' })}
+                    </span>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold text-zr-text">{p.titulo}</span>
+                    <span className="block truncate text-xs text-zr-text-muted">
+                      {p.tipo === 'exam' ? 'Examen' : 'Entrega'}{p.modulo ? ` · ${p.modulo}` : ''}
+                    </span>
+                  </span>
+                  <span className="text-zr-text-muted">›</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* 03 — ACCESOS */}
         <Seccion numero={modulo && CASOS_HABILITADO ? 3 : 2} titulo="Accesos" delay={280}>
           <div id="tour-accesos" className="space-y-3">
@@ -629,7 +666,9 @@ export default function Inicio() {
                 // en la reunión del 31-oct-2026 (§8.2); ahora todo vive en
                 // Unidades, igual que "Revisar el material del módulo" de
                 // arriba.
-                { href: '/unidades',  titulo: 'Material',    sub: 'Guías y PDFs',      Icono: IconoDocumento, insignia: false },
+                // "Material" repetía Unidades; en su lugar "Mi módulo" (avance,
+                // malla y progreso), que sale de la barra (19-nov-2026).
+                { href: '/clases',    titulo: 'Mi módulo',   sub: 'Avance y malla',    Icono: IconoDocumento, insignia: false },
               ].map(({ href, titulo, sub, Icono, insignia }) => (
                 <button
                   key={href}

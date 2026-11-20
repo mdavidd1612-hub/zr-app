@@ -387,7 +387,9 @@ export default function Cohortes() {
                 <div className="p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-base font-semibold text-zr-text">{c.nombre}</p>
+                      <button onClick={() => router.push(`/cohortes/${c.id}`)} className="text-left text-base font-semibold text-zr-text hover:text-zr-blue-mid">
+                        {c.nombre} <span className="text-xs font-bold text-zr-blue-mid">· Abrir ficha ›</span>
+                      </button>
                       <div className="mt-1.5"><EtiquetaSede sede={c.sede} turno={c.turno} /></div>
                       <p className="mt-1.5 text-sm text-zr-text-muted">{c.ubicacion ?? 'Sin ubicación'}</p>
                     </div>

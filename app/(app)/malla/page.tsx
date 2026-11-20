@@ -8,6 +8,7 @@ import { TarjetaHero } from '@/components/ui/TarjetaHero'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { Recorrido, Paso, type EstadoPaso } from '@/components/ui/Recorrido'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { PestanasMiModulo } from '@/components/ui/PestanasMiModulo'
 import { IconoCheck, IconoCarpeta } from '@/components/ui/Iconos'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { esAdmin } from '@/lib/auth-helpers'
@@ -246,6 +247,7 @@ export default function MallaCurricular() {
   return (
     <div className="space-y-7 px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <BotonVolver />
+      <PestanasMiModulo />
 
       {modulos.length === 0 ? (
         <EstadoVacio

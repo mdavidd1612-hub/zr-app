@@ -12,7 +12,7 @@ import { PASOS_POR_ROL, PASOS_DIRECCION_UNIDADES, SIN_PASOS_DE_TOUR } from '@/li
 import { leerVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import { NAV_DIRECCION, NAV_SUPER, TODAS_DIRECCION, TODAS_SUPER } from '@/lib/nav-direccion'
 import {
-  IconoPanel, IconoCalendario, IconoDuda, IconoProgreso, IconoVideo, IconoNotas, IconoPerfil, IconoExamen,
+  IconoPanel, IconoCalendario, IconoProgreso, IconoVideo, IconoPerfil, IconoExamen,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -25,31 +25,20 @@ import type { UserRole } from '@/lib/types'
  * 2026) -- antes solo se llegaba desde un botón dentro de "Hoy".
  */
 
-const NAV_BASE = [
+const NAV_BASE: { href: string; label: string; Icono: typeof IconoPanel; tambienEn?: string[] }[] = [
   { href: '/hoy',                label: 'Hoy',      Icono: IconoPanel },
+  // "Mi módulo" (19-nov-2026, propuesta A del estudio de unificar pantallas):
+  // Unidades, Notas, Dudas y Feedback son pestañas de un mismo lugar
+  // (components/ui/ContextoDocente.tsx), así el profesor elige el módulo una
+  // sola vez. Antes eran 4 entradas del menú y en cada una volvía a elegir.
+  { href: '/unidades-docente',   label: 'Mi módulo', Icono: IconoVideo,
+    tambienEn: ['/notas-docente', '/dudas-docente', '/feedback-modulo-docente', '/temario-docente', '/notas'] },
   { href: '/calendario-docente', label: 'Calendario', Icono: IconoCalendario },
-  { href: '/dudas-docente',      label: 'Dudas',    Icono: IconoDuda },
-  { href: '/casos-docente',      label: 'Casos',    Icono: IconoProgreso },
-  // Aula Virtual: antes solo se llegaba por un enlace dentro de "Material"
-  // (pedido del coordinador, oct. 2026: sacarlo a la barra para que se vea).
-  // "Material" se retira del menú en la reunión del 31-oct-2026 -- redundante
-  // con Aula Virtual, que ya centraliza materiales, exámenes y tareas. Subir
-  // y ver material sigue existiendo en /contenido-docente, pero ahora se
-  // llega siempre desde dentro de una unidad (botón "+ Subir material
-  // nuevo"), nunca como pestaña aparte.
-  { href: '/unidades-docente',   label: 'Unidades', Icono: IconoVideo },
-  // Bug real reportado en vivo (8-nov-2026): no había NINGÚN acceso al
-  // listado de exámenes (/crear-examen) desde el menú -- solo se llegaba
-  // escribiendo la URL a mano, o por accidente (el botón "Cancelar" de
-  // editar un examen manda ahí). Por eso exámenes creados desde una unidad
-  // se quedaban sin publicar: el profesor no tenía forma de encontrar dónde
-  // publicarlos. Ver la pantalla de /crear-examen para la regla de que ya
-  // NO se puede crear un examen nuevo desde ahí -- solo ver/editar/publicar/
-  // borrar los que ya existen; crear uno nuevo sigue siendo solo desde
-  // dentro de una unidad, en Aula Virtual.
+  // Lista de exámenes para publicar/editar/corregir (crear sigue siendo dentro
+  // de una unidad). Ver la historia en git: antes no había acceso desde el menú.
   { href: '/crear-examen',       label: 'Exámenes', Icono: IconoExamen },
-  { href: '/notas-docente',      label: 'Notas',    Icono: IconoNotas },
   { href: '/perfil-docente',     label: 'Perfil',    Icono: IconoPerfil },
+  { href: '/casos-docente',      label: 'Casos',    Icono: IconoProgreso },
 ]
 
 // "Casos" apagado a pedido del coordinador (lib/flags.ts): la IA todavía no

@@ -12,7 +12,7 @@ import { PASOS_POR_ROL } from '@/lib/tour-pasos'
 import { BannerNoSolvente, ModalNoSolvente } from '@/components/ui/AvisoSolvencia'
 import { ResultadoModulo } from '@/components/ui/ResultadoModulo'
 import {
-  IconoInicio, IconoPerfil, IconoProgreso, IconoVideo, IconoDuda, IconoNotas,
+  IconoInicio, IconoPerfil, IconoVideo, IconoDuda, IconoNotas,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -36,9 +36,10 @@ import type { UserRole } from '@/lib/types'
 // unidad. La pantalla /contenido sigue existiendo en el código (no se
 // borra), solo deja de ser pestaña del menú.
 const NAV: ItemBarra[] = [
-  { href: '/',          label: 'Inicio',    Icono: IconoInicio },
-  { href: '/clases',    label: 'Mi módulo', Icono: IconoProgreso },
-  { href: '/unidades',  label: 'Unidades',  Icono: IconoVideo },
+  // Barra de 5 (19-nov-2026, propuesta E): "Mi módulo" (con Malla y Mi
+  // progreso como pestañas) se abre desde una tarjeta de Inicio.
+  { href: '/',          label: 'Inicio',    Icono: IconoInicio, tambienEn: ['/clases', '/malla', '/progreso'] },
+  { href: '/unidades',  label: 'Unidades',  Icono: IconoVideo, tambienEn: ['/examenes', '/descargas', '/calendario'] },
   { href: '/notas',     label: 'Notas',     Icono: IconoNotas },
   { href: '/dudas',     label: 'Dudas',     Icono: IconoDuda },
   { href: '/perfil',    label: 'Perfil',    Icono: IconoPerfil },

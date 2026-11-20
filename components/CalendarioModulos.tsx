@@ -60,7 +60,7 @@ function formatear(iso: string): string {
   return aFecha(iso).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-export function CalendarioModulos() {
+export function CalendarioModulos({ cohorteFija }: { cohorteFija?: string } = {}) {
   const [cohortes, setCohortes] = useState<Cohorte[]>([])
   const [cohorteId, setCohorteId] = useState('')
   const [modulos, setModulos] = useState<Modulo[]>([])
@@ -86,7 +86,7 @@ export function CalendarioModulos() {
           id: c.id, nombre: c.name, programId: c.program_id, moduloActual: c.current_module_id,
         }))
         setCohortes(lista)
-        setCohorteId((actual) => actual || lista.find((c) => c.nombre === 'PTMA-2026-II')?.id || lista[0]?.id || '')
+        setCohorteId((actual) => cohorteFija || actual || lista.find((c) => c.nombre === 'PTMA-2026-II')?.id || lista[0]?.id || '')
       })
   }, [version])
 
@@ -180,7 +180,7 @@ export function CalendarioModulos() {
         los sábados.
       </p>
 
-      <div>
+      <div className={cohorteFija ? 'hidden' : ''}>
         <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Cohorte</label>
         <select value={cohorteId} onChange={(e) => setCohorteId(e.target.value)} className={CAMPO}>
           {cohortes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}

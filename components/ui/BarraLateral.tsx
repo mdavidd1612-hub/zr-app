@@ -49,8 +49,11 @@ export function BarraLateral({ items, alTocarBloqueado }: { items: ItemBarra[]; 
     })
   }
 
-  const activo = (href: string) =>
-    href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/')
+  const coincide = (h: string) => (h === '/' ? pathname === '/' : pathname === h || pathname.startsWith(h + '/'))
+  const activo = (href: string) => {
+    const extra = items.find((i) => i.href === href)?.tambienEn ?? []
+    return [href, ...extra].some(coincide)
+  }
 
   return (
     // `data-tour-target="tour-nav"` (bug real de producción, reportado por

@@ -8,7 +8,8 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { CalendarioModulos } from '@/components/CalendarioModulos'
 import { CoberturaCorte } from '@/components/CoberturaCorte'
-import { IconoCalendario, IconoEstudiantes, IconoNotas, IconoPanel } from '@/components/ui/Iconos'
+import { SalonesCorte } from '@/components/SalonesCorte'
+import { IconoCalendario, IconoEstudiantes, IconoNotas } from '@/components/ui/Iconos'
 
 /**
  * Ficha única de un corte (19-nov-2026, propuesta B del estudio de unificar
@@ -37,7 +38,6 @@ export default function FichaCorte() {
   if (!corte) return <PantallaEsqueleto />
 
   const accesos = [
-    { href: '/salones', titulo: 'Salones', sub: 'Dónde es la clase cada sábado', Icono: IconoPanel },
     { href: '/estudiantes', titulo: 'Estudiantes', sub: `${corte.estudiantes} en este corte`, Icono: IconoEstudiantes },
     { href: `/notas-academicas/${cohortId}`, titulo: 'Notas', sub: 'Calificaciones del corte', Icono: IconoNotas },
     { href: '/asistencias', titulo: 'Asistencia', sub: 'Sábado a sábado', Icono: IconoCalendario },
@@ -53,20 +53,10 @@ export default function FichaCorte() {
       />
       <div><Etiqueta tono={corte.estado === 'activa' ? 'exito' : 'neutro'}>{corte.estado}</Etiqueta></div>
 
-      <Regla delay={60} />
+      <Regla delay={40} />
 
-      <div className="grid items-start gap-8 xl:grid-cols-2">
-        <Seccion numero={1} titulo="Calendario de módulos" delay={100}>
-          <CalendarioModulos cohorteFija={cohortId} />
-        </Seccion>
-
-        <Seccion numero={2} titulo="Profesor de cada módulo" delay={130}>
-          <CoberturaCorte cohorteId={cohortId} />
-        </Seccion>
-      </div>
-
-      <Seccion numero={3} titulo="Lo demás de este corte" delay={160}>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <Seccion numero={1} titulo="Ir a" delay={60}>
+        <div className="grid gap-2 sm:grid-cols-3">
           {accesos.map(({ href, titulo, sub, Icono }) => (
             <button key={href} onClick={() => router.push(href)} className="zr-card flex items-center gap-3 p-4 text-left">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue-mid"><Icono size={20} /></span>
@@ -78,6 +68,23 @@ export default function FichaCorte() {
           ))}
         </div>
       </Seccion>
+
+
+      <div className="grid items-start gap-8 xl:grid-cols-2">
+        <div className="space-y-8">
+          <Seccion numero={2} titulo="Salón de cada clase" delay={90}>
+            <SalonesCorte cohorteId={cohortId} />
+          </Seccion>
+          <Seccion numero={3} titulo="Calendario de módulos" delay={110}>
+            <CalendarioModulos cohorteFija={cohortId} />
+          </Seccion>
+        </div>
+
+        <Seccion numero={4} titulo="Profesor de cada módulo" delay={130}>
+          <CoberturaCorte cohorteId={cohortId} />
+        </Seccion>
+      </div>
+
     </div>
   )
 }

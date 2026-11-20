@@ -7,7 +7,8 @@ import { Select } from '@/components/ui/Select'
 /**
  * Datos editables de un corte (20-nov-2026, pedido del coordinador: "poder
  * modificar desde aquí como super admin lo que se edita al crear: el nombre,
- * la sede, entre otras cosas"). Solo super_admin. Todo es un `update` simple
+ * la sede, entre otras cosas"). Super_admin y, desde v1.91, también Dirección
+ * Académica (para poner el horario de los cortes y cursos que crea). Todo es un `update` simple
  * sobre `cohorts`; la RLS ("admin: escribir cohortes") ya lo permite.
  */
 interface Datos {
@@ -34,7 +35,7 @@ export function DatosCorte({ cohorteId, onGuardado }: { cohorteId: string; onGua
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
       const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-      if (perfil?.role !== 'super_admin') return
+      if (perfil?.role !== 'super_admin' && perfil?.role !== 'direccion_academica') return
       setEsSuper(true)
       const [{ data: c }, { data: s }] = await Promise.all([
         supabase.from('cohorts').select('name, sede, turno, location, days, schedule, start_date, status, class_weekdays, class_start, class_end' as 'name, sede, turno, location, days, schedule, start_date, status').eq('id', cohorteId).maybeSingle(),
@@ -90,7 +91,7 @@ export function DatosCorte({ cohorteId, onGuardado }: { cohorteId: string; onGua
       <button onClick={() => setAbierto((a) => !a)} className="flex w-full items-center justify-between gap-3 p-4 text-left">
         <span>
           <span className="block text-sm font-bold text-zr-text">Datos del corte</span>
-          <span className="block text-xs text-zr-text-muted">Nombre, sede, turno, días, horario, fecha de inicio y estado · solo super admin</span>
+          <span className="block text-xs text-zr-text-muted">Nombre, sede, turno, días, horario, fecha de inicio y estado · Dirección Académica y super admin</span>
         </span>
         <span aria-hidden className={`text-zr-text-muted transition-transform ${abierto ? 'rotate-90' : ''}`}>›</span>
       </button>

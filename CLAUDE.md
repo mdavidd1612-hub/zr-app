@@ -1722,7 +1722,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
-- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.76**.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.77**.
 
 ### 12.5 Al cierre de cada sprint
 
@@ -1870,6 +1870,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-20 | v1.74: salones por día en calendario de mes dentro de la ficha del corte y accesos arriba. Ver §8.33. | — |
 | 2026-11-20 | v1.75: selector de módulo y pestañas de Mi módulo con el estilo de la app. Ver §8.33. | — |
 | 2026-11-20 | v1.76: datos editables del corte (super admin) en su ficha. Ver §8.33. | — |
+| 2026-11-20 | v1.77: la barra del teléfono de Dirección Académica cambia Asistencia por Programas (Asistencia sigue en el panel y el menú ☰). | — |
 
 ---
 

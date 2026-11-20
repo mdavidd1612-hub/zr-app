@@ -40,7 +40,7 @@ const MATERIAL: ItemBarra = { href: '/material', label: 'Material', Icono: Icono
 
 /** Píldora flotante del teléfono (máximo 5 secciones). */
 export const NAV_DIRECCION: ItemBarra[] = [
-  NAV[0], NAV[1], UNIDADES, { href: '/notas-academicas', label: 'Notas', Icono: IconoNotas }, NAV[3],
+  NAV[0], { href: '/cohortes', label: 'Programas', Icono: IconoProgreso }, UNIDADES, { href: '/notas-academicas', label: 'Notas', Icono: IconoNotas }, NAV[3],
 ]
 
 /**

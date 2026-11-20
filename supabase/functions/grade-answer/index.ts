@@ -113,6 +113,34 @@ Deno.serve(async (req: Request) => {
       return errorResponse('NO_AUTORIZADO', 'No das clase en esta cohorte', 403)
     }
 
+    // Cierre de notas (19-nov-2026, decisión del coordinador: "cierra todo").
+    // Igual que las tareas y las notas manuales (fn_bloquear_notas_enviadas,
+    // migración 167): pasada la semana de corrección del módulo, el profesor ya
+    // no califica; lo corrige Dirección Académica. Antes esta función guardaba
+    // con permisos de servidor y se saltaba esa regla.
+    if (perfil.role === 'profesor') {
+      const { data: intentoCierre } = await adminSupabase
+        .from('exam_attempts').select('student_id, exams(module_id)').eq('id', answer.attempt_id).single()
+      const fila = intentoCierre as unknown as { student_id: string; exams: { module_id: string } | null } | null
+      const { data: est } = await adminSupabase
+        .from('students').select('cohort_id').eq('id', fila?.student_id).single()
+      const cohort = est?.cohort_id
+      const modulo = fila?.exams?.module_id
+      if (cohort && modulo) {
+        const { data: puede } = await userSupabase.rpc('profesor_puede_editar_notas', { p_cohort: cohort, p_module: modulo })
+        if (puede !== true) {
+          const { data: estado } = await userSupabase.rpc('estado_modulo_cohorte', { p_cohort: cohort, p_module: modulo })
+          return errorResponse(
+            'NOTAS_CERRADAS',
+            estado === 'no_empezo'
+              ? 'Este módulo todavía no empieza: aún no se pueden cargar notas.'
+              : 'Ya pasó la semana para corregir este módulo: pídele a Dirección Académica que la corrija.',
+            403,
+          )
+        }
+      }
+    }
+
     // El puntaje no puede pasarse del máximo de la pregunta.
     const maxPoints = Number(answer.exam_questions?.points ?? 0)
     if (typeof awardedPoints !== 'number' || awardedPoints < 0 || awardedPoints > maxPoints) {

@@ -123,7 +123,14 @@ export default function Calificar() {
     })
 
     if (fallo) {
-      setError('No se pudo guardar. Revisa tu conexión e inténtalo otra vez.')
+      // El servidor explica por qué (p. ej. notas cerradas del módulo); solo si no
+      // hay respuesta se asume problema de conexión.
+      let motivo = 'No se pudo guardar. Revisa tu conexión e inténtalo otra vez.'
+      try {
+        const cuerpo = await (fallo as { context?: Response }).context?.json()
+        if (cuerpo?.error?.message) motivo = cuerpo.error.message
+      } catch { /* sin cuerpo legible */ }
+      setError(motivo)
       setGuardando(false)
       return
     }

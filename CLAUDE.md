@@ -839,6 +839,7 @@ Cierra los huecos que quedaban de los Sprints 1, 2 y 3 (ver §10).
 - ✅ **v1.73 (20-nov-2026):** la ficha del corte en computadora usa dos columnas (calendario de módulos | profesor de cada módulo, con las fechas y si es virtual) y ancho máximo mayor; accesos en 4 columnas. "Cobertura" sale del menú y del panel de Dirección (queda por enlace y dentro de la ficha).
 - ✅ **v1.74 (20-nov-2026):** la ficha del corte trae arriba los accesos (Estudiantes, Notas, Asistencia) y un **calendario de mes con el salón de cada clase** (`components/SalonesCorte.tsx`): se toca un día y se cambia su salón (hereda el anterior si no tiene propio). Falta: marcar un día sin clase o moverlo, y avisar a estudiantes y profesor.
 - ✅ **v1.75 (20-nov-2026):** el selector de módulo del profesor ahora es una tarjeta (corte y módulo en grande, botón "Cambiar" redondeado) y las pestañas Unidades/Notas/Dudas/Feedback son una píldora centrada y redondeada.
+- ✅ **v1.76 (20-nov-2026):** en la ficha del corte, el super admin tiene "Datos del corte" (`components/DatosCorte.tsx`): nombre, sede, turno, ubicación, días, horario, fecha de inicio y estado (activa/suspendida/finalizada). Solo super_admin; cambiar la sede cambia los salones elegibles y no toca el carnet de los inscritos.
 - 🟡 Para arrancar Inglés virtual en producción: marcar el tramo virtual en el calendario (hoy solo super_admin), asignar el profesor en Cobertura y usar "Usar en otro corte" en cada examen que se haya creado en otro corte.
 - 🟡 En `/material`, Dirección solo puede **descargar** el material pendiente antes de aprobarlo; falta un "Ver" dentro de la app.
 - Datos de prueba que quedan en staging: unidad "QA Flujo completo 19-nov" con su examen, tarea, entrega y duda del estudiante V-90000001.
@@ -1721,7 +1722,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
-- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.75**.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.76**.
 
 ### 12.5 Al cierre de cada sprint
 
@@ -1868,6 +1869,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-20 | v1.73: ficha del corte a dos columnas en PC y Cobertura fuera del menú. Ver §8.33. | — |
 | 2026-11-20 | v1.74: salones por día en calendario de mes dentro de la ficha del corte y accesos arriba. Ver §8.33. | — |
 | 2026-11-20 | v1.75: selector de módulo y pestañas de Mi módulo con el estilo de la app. Ver §8.33. | — |
+| 2026-11-20 | v1.76: datos editables del corte (super admin) en su ficha. Ver §8.33. | — |
 
 ---
 

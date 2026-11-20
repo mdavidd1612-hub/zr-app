@@ -9,6 +9,7 @@ import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { CalendarioModulos } from '@/components/CalendarioModulos'
 import { CoberturaCorte } from '@/components/CoberturaCorte'
 import { SalonesCorte } from '@/components/SalonesCorte'
+import { DatosCorte } from '@/components/DatosCorte'
 import { IconoCalendario, IconoEstudiantes, IconoNotas } from '@/components/ui/Iconos'
 
 /**
@@ -54,6 +55,8 @@ export default function FichaCorte() {
       <div><Etiqueta tono={corte.estado === 'activa' ? 'exito' : 'neutro'}>{corte.estado}</Etiqueta></div>
 
       <Regla delay={40} />
+
+      <DatosCorte cohorteId={cohortId} onGuardado={(nombre, estado) => setCorte((c) => (c ? { ...c, nombre, estado } : c))} />
 
       <Seccion numero={1} titulo="Ir a" delay={60}>
         <div className="grid gap-2 sm:grid-cols-3">

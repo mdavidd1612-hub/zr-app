@@ -23,6 +23,9 @@ interface Props {
   horaFin: string | null
   sede: string | null
   onListo: () => void
+  // Al soltar una clase arrastrada (parte 3): fecha y hora destino ya puestas,
+  // y el resumen se calcula solo (igual hay que confirmar).
+  inicial?: { nueva: string; ini: string; fin: string }
 }
 
 interface Tramo { modulo: string; desde: string; hasta: string }
@@ -37,10 +40,10 @@ const CAMPO = 'min-h-11 w-full rounded-xl border border-zr-border bg-zr-bg px-3 
 const f = (s: string | null) => s ? new Date(`${s}T12:00:00`).toLocaleDateString('es-VE', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
 const masDias = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00`); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
-export function MoverClase({ cohortId, fecha, horaInicio, horaFin, sede, onListo }: Props) {
-  const [nueva, setNueva] = useState(masDias(fecha, 7))
-  const [ini, setIni] = useState((horaInicio ?? '').slice(0, 5))
-  const [fin, setFin] = useState((horaFin ?? '').slice(0, 5))
+export function MoverClase({ cohortId, fecha, horaInicio, horaFin, sede, onListo, inicial }: Props) {
+  const [nueva, setNueva] = useState(inicial?.nueva ?? masDias(fecha, 7))
+  const [ini, setIni] = useState(inicial?.ini ?? (horaInicio ?? '').slice(0, 5))
+  const [fin, setFin] = useState(inicial?.fin ?? (horaFin ?? '').slice(0, 5))
   const [salon, setSalon] = useState('')
   const [salones, setSalones] = useState<{ id: string; nombre: string }[]>([])
   const [motivo, setMotivo] = useState('')
@@ -62,6 +65,12 @@ export function MoverClase({ cohortId, fecha, horaInicio, horaFin, sede, onListo
 
   // Al cambiar algo, el resumen anterior ya no vale.
   useEffect(() => { setResumen(null) }, [nueva, ini, fin, salon, sinClase])
+
+  // Viene de un arrastre: calcula el resumen de una vez.
+  useEffect(() => {
+    if (inicial) void llamar(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function llamar(simular: boolean) {
     setOcupado(true); setError(null)

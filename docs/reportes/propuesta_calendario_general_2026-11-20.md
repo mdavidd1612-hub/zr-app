@@ -1,6 +1,6 @@
 # Propuesta: calendario general de clases para Dirección (20-nov-2026)
 
-Pedido del coordinador: un espacio donde Dirección Académica (y Administración) vea todas las clases de sus sedes, de qué hora a qué hora, con su módulo, y pueda moverlas desde ahí. **Aprobada el 20-nov-2026. Parte 1 construida en v1.84 (migración 233) y parte 2 en v1.85 (migraciones 234, 234b, 235); parte 3 (arrastrar) pendiente. Decisiones por defecto en la parte 2: la reposición trae la hora y el salón de siempre pero se pueden cambiar; Administración solo ve.**
+Pedido del coordinador: un espacio donde Dirección Académica (y Administración) vea todas las clases de sus sedes, de qué hora a qué hora, con su módulo, y pueda moverlas desde ahí. **Aprobada el 20-nov-2026. Parte 1 construida en v1.84 (migración 233) y parte 2 en v1.85 (migraciones 234, 234b, 235); parte 3 (arrastrar) en v1.87. Decisiones por defecto en la parte 2: la reposición trae la hora y el salón de siempre pero se pueden cambiar; Administración solo ve.**
 
 ## Lo que respondiste
 

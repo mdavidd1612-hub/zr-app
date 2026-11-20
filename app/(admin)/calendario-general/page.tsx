@@ -67,6 +67,12 @@ export default function CalendarioGeneral() {
   const [abierta, setAbierta] = useState<Clase | null>(null)
   // Mover clases: solo Dirección Académica y super_admin (la base lo vuelve a revisar).
   const [puedeMover, setPuedeMover] = useState(false)
+  // Arrastrar en computadora (parte 3): al soltar se abre "Mover" con destino puesto.
+  const [arrastrada, setArrastrada] = useState<Clase | null>(null)
+  const [sobreDia, setSobreDia] = useState<string | null>(null)
+  const [propuesta, setPropuesta] = useState<{ nueva: string; ini: string; fin: string } | null>(null)
+  const abrir = (c: Clase) => { setPropuesta(null); setAbierta(c) }
+  const cerrar = () => { setPropuesta(null); setAbierta(null) }
 
   const dias = useMemo(() => Array.from({ length: 7 }, (_, i) => {
     const d = new Date(lunes); d.setDate(lunes.getDate() + i); return d
@@ -144,7 +150,7 @@ export default function CalendarioGeneral() {
       <Encabezado
         sobretitulo="Dirección académica"
         titulo="Calendario general"
-        descripcion="Todas las clases de tus sedes en la semana. Toca una para ver su detalle o moverla."
+        descripcion="Todas las clases de tus sedes en la semana. Toca una para ver su detalle o moverla; en computadora también puedes arrastrarla."
       />
       <Regla delay={40} />
 
@@ -203,7 +209,26 @@ export default function CalendarioGeneral() {
               const iso = aISO(d)
               const delDia = visibles.filter((c) => c.fecha === iso)
               return (
-                <div key={iso} className="relative border-l border-zr-border/60" style={{ height: horas.length * PX_HORA }}>
+                <div
+                  key={iso}
+                  className={`relative border-l border-zr-border/60 ${sobreDia === iso ? 'bg-zr-blue/10' : ''}`}
+                  style={{ height: horas.length * PX_HORA }}
+                  onDragOver={(e) => { if (arrastrada && iso >= hoyISO) { e.preventDefault(); setSobreDia(iso) } }}
+                  onDragLeave={() => setSobreDia((s) => (s === iso ? null : s))}
+                  onDrop={(e) => {
+                    e.preventDefault(); setSobreDia(null)
+                    const c = arrastrada; setArrastrada(null)
+                    if (!c || iso < hoyISO) return
+                    const y = e.clientY - e.currentTarget.getBoundingClientRect().top
+                    const ini0 = minutos(c.hora_inicio) ?? 8 * 60
+                    const dur = (minutos(c.hora_fin) ?? ini0 + 120) - ini0
+                    const ini = Math.max(0, Math.min(24 * 60 - dur, Math.round((hDesde * 60 + (y / PX_HORA) * 60) / 30) * 30))
+                    const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+                    if (iso === c.fecha && hhmm(ini) === (c.hora_inicio ?? '').slice(0, 5)) return
+                    setPropuesta({ nueva: iso, ini: hhmm(ini), fin: hhmm(ini + dur) })
+                    setAbierta(c)
+                  }}
+                >
                   {horas.map((h, i) => (
                     <div key={h} className="absolute inset-x-0 border-t border-zr-border/40" style={{ top: i * PX_HORA }} />
                   ))}
@@ -223,8 +248,12 @@ export default function CalendarioGeneral() {
                     return (
                       <button
                         key={`${c.cohort_id}-${k}`}
-                        onClick={() => setAbierta(c)}
-                        className={`absolute flex flex-col justify-start overflow-hidden rounded-lg px-2 py-1.5 text-left text-white shadow-md ${malo ? 'ring-2 ring-zr-error' : ''}`}
+                        onClick={() => abrir(c)}
+                        draggable={puedeMover && c.fecha >= hoyISO}
+                        onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setArrastrada(c) }}
+                        onDragEnd={() => { setArrastrada(null); setSobreDia(null) }}
+                        title={puedeMover && c.fecha >= hoyISO ? 'Arrastra para mover esta clase' : undefined}
+                        className={`absolute flex ${puedeMover && c.fecha >= hoyISO ? 'cursor-grab active:cursor-grabbing' : ''} flex-col justify-start overflow-hidden rounded-lg px-2 py-1.5 text-left text-white shadow-md ${malo ? 'ring-2 ring-zr-error' : ''}`}
                         style={{ top: top + 2, height: alto, left: `calc(${pos * ancho}% + 3px)`, width: `calc(${ancho}% - 6px)`, background: colorDe(c.cohorte) }}
                       >
                         <p className="truncate text-xs font-bold">{c.cohorte}</p>
@@ -255,7 +284,7 @@ export default function CalendarioGeneral() {
                   return (
                     <button
                       key={`${c.cohort_id}-${k}`}
-                      onClick={() => setAbierta(c)}
+                      onClick={() => abrir(c)}
                       className={`zr-card flex w-full items-stretch gap-3 overflow-hidden p-0 text-left ${malo ? 'ring-2 ring-zr-error' : ''}`}
                     >
                       <span className="w-1.5 shrink-0" style={{ background: colorDe(c.cohorte) }} />
@@ -276,14 +305,14 @@ export default function CalendarioGeneral() {
 
       {/* Detalle de una clase */}
       {abierta && (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 sm:items-center sm:p-5" onClick={() => setAbierta(null)}>
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 sm:items-center sm:p-5" onClick={cerrar}>
           <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} className="max-h-[90dvh] w-full max-w-md space-y-4 overflow-y-auto rounded-t-2xl border border-zr-border bg-zr-surface p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:rounded-2xl">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="zr-eyebrow">{abierta.sede ?? ''}</p>
                 <p className="text-lg font-bold text-zr-text">{abierta.cohorte}</p>
               </div>
-              <button onClick={() => setAbierta(null)} aria-label="Cerrar" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-zr-border text-zr-text">✕</button>
+              <button onClick={cerrar} aria-label="Cerrar" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-zr-border text-zr-text">✕</button>
             </div>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
               <dt className="text-zr-text-muted">Fecha</dt>
@@ -308,12 +337,13 @@ export default function CalendarioGeneral() {
             </button>
             {puedeMover && abierta.fecha >= hoyISO && (
               <MoverClase
-                key={`${abierta.cohort_id}-${abierta.fecha}`}
+                key={`${abierta.cohort_id}-${abierta.fecha}-${propuesta ? propuesta.nueva + propuesta.ini : ""}`}
                 cohortId={abierta.cohort_id}
                 fecha={abierta.fecha}
                 horaInicio={abierta.hora_inicio}
                 horaFin={abierta.hora_fin}
                 sede={abierta.sede}
+                inicial={propuesta ?? undefined}
                 onListo={() => { void cargar() }}
               />
             )}

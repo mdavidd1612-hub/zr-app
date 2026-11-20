@@ -263,6 +263,49 @@ const NOVEDADES_PROFESOR: PasoTour[] = [
     texto: 'Te llega un aviso cuando un estudiante entrega una tarea, cuando un examen tiene respuestas por corregir, cuando Dirección aprueba o rechaza tu material y cuando hay una duda nueva.' },
 ]
 
+// ───────────────────────── NOVEDADES: UNIDADES (Dirección Académica) ─────────────────────────
+// Mismos pantallas que el profesor (Dirección entra como ella misma y puede
+// modificar todo), con textos propios. Se corre en el layout de profesor,
+// porque ahí viven las pantallas de Unidades; por eso termina en Dudas (las
+// pantallas de Notas y Panel son de otro layout y cortarían el recorrido).
+const TEXTOS_DIRECCION: Record<string, Partial<PasoTour>> = {
+  'nov-prof-unidades': {
+    portada: {
+      titulo: 'Unidades: el aula virtual de cada módulo',
+      texto: 'Material ya no es una sección aparte: todo vive dentro de cada unidad, junto con los exámenes y tareas. Tú puedes ver y modificar todo, de cualquier módulo. Esto es lo nuevo.',
+      puntos: [
+        'Unidades por módulo, con fechas y bloqueos',
+        'Material, exámenes, tareas y texto dentro de la unidad',
+        'Exámenes de práctica y certificación con remedial',
+        'Las notas pasan solas a Notas',
+        'Tú apruebas el material que suben los profesores',
+        'Plantillas, banner con color e imagen, dudas por unidad',
+      ],
+    },
+    texto: 'Aquí ves y armas el aula de cualquier módulo. Primero eliges el módulo; toca “Siguiente” y elegimos uno por ti para ver sus unidades. Vamos a recorrerlo todo.',
+  },
+  'nov-prof-lista': {
+    texto: 'Cada tarjeta muestra su estado: Borrador (sin fecha, nadie la ve), Programada, Abierta o Cerrada. Ahí mismo: “Corregir nombre”, “Guardar plantilla” y “Eliminar” (te muestra primero qué se pierde). Tienes los mismos permisos que el profesor del módulo.',
+  },
+  'nov-prof-u-contenido': {
+    texto: 'Mantén presionados los puntitos para arrastrar y cambiar el orden. “Quitar” saca el elemento de la unidad. En un material: “Editar” cambia título, descripción o enlace; “Obligatorio/Opcional” decide si cuenta para la certificación; y una etiqueta indica si está aprobado, en espera o rechazado.',
+  },
+  'nov-prof-u-material': {
+    texto: 'Sube un PDF, Word, presentación, imagen, video o audio, o pega un link (YouTube, Google Drive, Google Fotos u otra página). Lo que sube un profesor queda en espera hasta que tú lo apruebes en Material; te llega un aviso cuando hay algo por revisar.',
+  },
+  'nov-prof-examenes': {
+    texto: 'La lista de todos los exámenes: publicas u ocultas, editas, borras y entras a ver quién lo presentó para corregir las redacciones. Aquí no se crean exámenes nuevos: se crean dentro de una unidad.',
+  },
+  'nov-prof-dudas': {
+    seccion: 'Dudas y notas',
+    texto: 'Las dudas de los estudiantes llegan agrupadas y puedes filtrarlas por unidad. Además, cada examen o tarea con su % aparece solo como columna en Notas académicas y la nota se llena sola al calificar, sin registrarla dos veces. Los avisos te llegan por la campanita.',
+  },
+}
+
+const NOVEDADES_DIRECCION: PasoTour[] = NOVEDADES_PROFESOR
+  .filter((p) => p.id !== 'nov-prof-notas' && p.id !== 'nov-prof-avisos')
+  .map((p) => ({ ...p, id: p.id.replace('nov-prof-', 'nov-dir-'), ...(TEXTOS_DIRECCION[p.id] ?? {}) }))
+
 const PROFESOR: PasoTour[] = [
   { id: 'profesor-hoy', ruta: '/hoy', targetId: 'tour-hoy-clase',
     titulo: 'Tu clase de hoy',
@@ -283,6 +326,9 @@ const ADMIN: PasoTour[] = [
   { id: 'admin-asistencia', ruta: '/asistencias', targetId: null,
     titulo: 'Asistencia',
     texto: 'El cuadro completo de asistencia por programa, en vivo — igual que la hoja de firmas, pero digital.' },
+  { id: 'admin-unidades-aviso', ruta: '/panel', targetId: 'tour-nav',
+    titulo: 'Nuevo: Unidades',
+    texto: 'Material ahora vive dentro de Unidades, el aula virtual de cada módulo. Si eres de Dirección Académica, al entrar a Unidades te mostramos todo lo nuevo, paso a paso.' },
   { id: 'admin-salones', ruta: '/salones', targetId: null,
     titulo: 'Salones',
     texto: 'Elige en qué salón tiene clase cada cohorte cada sábado. Estudiantes y profesores lo ven en su calendario. Si no cambias nada, se repite el de la semana anterior.' },
@@ -326,3 +372,6 @@ export const PASOS_POR_ROL: Record<RolConTour, PasoTour[]> = {
 // se podía tocar, pero no pasaba nada. Esta constante es la misma
 // referencia siempre, así nunca dispara el efecto de nuevo sin motivo.
 export const SIN_PASOS_DE_TOUR: PasoTour[] = []
+
+/** Tutorial de Unidades para Dirección Académica (corre en el layout de profesor). */
+export const PASOS_DIRECCION_UNIDADES: PasoTour[] = NOVEDADES_DIRECCION

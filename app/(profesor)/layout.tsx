@@ -8,7 +8,7 @@ import { Marco } from '@/components/ui/Marco'
 import { BannerSimulacion } from '@/components/ui/BannerSimulacion'
 import { Tour } from '@/components/ui/Tour'
 import { useTour } from '@/lib/useTour'
-import { PASOS_POR_ROL } from '@/lib/tour-pasos'
+import { PASOS_POR_ROL, PASOS_DIRECCION_UNIDADES, SIN_PASOS_DE_TOUR } from '@/lib/tour-pasos'
 import { leerVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import { NAV_DIRECCION, NAV_SUPER, TODAS_DIRECCION, TODAS_SUPER } from '@/lib/nav-direccion'
 import {
@@ -146,8 +146,15 @@ export default function ProfesorLayout({ children }: { children: React.ReactNode
   // justo para lo que existe esa vista. Se guarda en el propio
   // profiles.tour_pasos_vistos de quien está recorriendo (los IDs ya llevan
   // el prefijo del rol -- "profesor-...", nunca chocan con los suyos).
+  // Dirección Académica entrando como ella misma (sin simulación) ve su propio
+  // tutorial de Unidades, una sola vez; en vista de recorrido y el profesor
+  // real, el de profesor. super_admin nunca tiene tutorial.
+  const tourDeDireccion = rolStaff === 'direccion_academica' && !enRecorrido
+  const pasosDeTour = rolStaff === 'super_admin'
+    ? SIN_PASOS_DE_TOUR
+    : tourDeDireccion ? PASOS_DIRECCION_UNIDADES : PASOS_POR_ROL.profesor
   const { pasos: pasosTour, incremental: tourIncremental, terminar: terminarTour } =
-    useTour(PASOS_POR_ROL.profesor, !verificando, esStaff)
+    useTour(pasosDeTour, !verificando, esStaff && !tourDeDireccion)
 
   if (verificando) {
     return (

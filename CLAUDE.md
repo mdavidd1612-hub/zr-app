@@ -858,7 +858,7 @@ Pedido del coordinador: un tutorial completo y profesional, no el de siempre, pa
 - ✅ **Profesor (19 pasos nuevos, ids `nov-prof-*`)**: elegir módulo, nueva unidad y plantillas, lista (estados, corregir nombre, guardar plantilla, eliminar), entrar a una unidad, vista del estudiante, los "Ver", fechas, bloqueo por certificación, tarjetas (arrastrar, quitar, editar, obligatorio, aprobación), qué agregar (material, examen, tarea, texto), apariencia, guardar; y fuera: Exámenes, Notas automáticas, Dudas por unidad, avisos. Reemplazan a los `profesor-aula*`/`profesor-plantillas`/`profesor-notas`.
 - ✅ Elementos marcados con `data-tour-target` en las pantallas de Unidades (estudiante y profesor); `Seccion` acepta `tourId`.
 - ✅ **Ids nuevos a propósito:** en producción 17 de 18 estudiantes ya tienen `estudiante-aula`/`estudiante-material` como vistos, así que reusar esos ids no les mostraría nada. Con ids nuevos ven el anuncio completo.
-- 🟡 **No probado en pantalla:** no hay una cuenta de prueba con clave conocida (no se cambian claves sin permiso). Hay que verlo con un estudiante y un profesor de staging. Dirección Académica usa el tour de "admin" (sin pasos de Unidades todavía).
+- ✅ **Probado en pantalla (19-nov-2026, v1.67, staging, navegador integrado, 360 px):** estudiante (V-90000001) recorrió los 20 pasos de punta a punta (portada → Unidades → clic automático a la primera unidad → dentro de la unidad → Exámenes → Calendario → Notas → avisos). Profesor (V-90000002) recorrió los 21-23 pasos, incluido el clic automático a "Editar unidad". Bug encontrado y corregido: al profesor sin módulo elegido el tour saltaba "Entrar a una unidad" porque la lista no existía; ahora el primer paso toca solo el primer módulo (`td-elegir` en `ContextoDocente`). Pendiente menor: en pantallas altas la tarjeta puede tapar parte del elemento resaltado. Dirección Académica usa el tour de "admin" (sin pasos de Unidades todavía).
 - 🟡 Los textos dicen que "tu material de antes también está aquí": eso solo es cierto después del backfill del Material de producción (ver `docs/reportes/plan_paso_a_produccion_2026-11-19.md`).
 
 ---
@@ -1700,7 +1700,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
-- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.65**.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.67**.
 
 ### 12.5 Al cierre de cada sprint
 
@@ -1840,6 +1840,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-19 | v1.62 revierte el QR; v1.63 revisión masiva: Dirección puede escanear, margen con muesca en 54 pantallas, rendimiento de RLS e índices (migr. 220-221); v1.64 recorrido con clics por rol: semana del módulo, "Lo que te espera" para profesor y Dirección; v1.65 flujo real de un módulo completo: examen con pantalla previa, tareas de módulos cursados (migr. 222), certificación aprobada, rendimiento. Ver §8.33. | `supabase/migrations/221_rendimiento_rls_e_indices.sql` |
 | 2026-11-19 | **Investigación (solo lectura, nada aplicado):** cómo pasar develop/staging a main/prod sin perder datos: orden real de migraciones vs. por número (riesgo con `fn_exam_attempt_prepare`), backfill del Material de producción hacia Unidades (10 archivos), tutorial con ids nuevos (los estudiantes ya "vieron" `estudiante-aula`), Inglés Técnico en paralelo, plan por fases y decisiones pendientes. | `docs/reportes/plan_paso_a_produccion_2026-11-19.md` |
 | 2026-11-19 | **Tutorial "Actualizaciones de la app"** para Unidades (v1.66): portada de novedades, progreso Paso X de N, Atrás, pasos que abren cosas solos (`clic`/`prefijo`) y recorrido completo de Unidades para estudiante (20 pasos) y profesor (19). Ver §8.32. | — |
+| 2026-11-19 | Prueba en pantalla del tutorial de Unidades con cuentas de staging (estudiante y profesor): recorrido completo OK; el tour ahora elige solo el primer módulo del profesor (v1.67). Ver §8.32. | — |
 
 ---
 

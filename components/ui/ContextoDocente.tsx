@@ -291,9 +291,10 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
         </p>
       </header>
       <div className="space-y-3">
-        {delPrograma.map((o) => (
+        {delPrograma.map((o, idx) => (
           <button
             key={o.moduleId}
+            data-tour-target={idx === 0 ? 'td-elegir' : undefined}
             onClick={() => {
               setModuleId(o.moduleId)
               guardar(CLAVE_MODULO, o.moduleId)

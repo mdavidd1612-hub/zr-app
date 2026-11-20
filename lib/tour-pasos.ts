@@ -184,7 +184,7 @@ const ESTUDIANTE: PasoTour[] = [
 // ───────────────────────── NOVEDADES: UNIDADES (profesor) ─────────────────────────
 const UD = '/unidades-docente'
 const NOVEDADES_PROFESOR: PasoTour[] = [
-  { id: 'nov-prof-unidades', ruta: UD, targetId: null, seccion: 'Unidades',
+  { id: 'nov-prof-unidades', ruta: UD, targetId: 'td-elegir', clic: 'td-elegir', seccion: 'Unidades',
     portada: {
       titulo: 'Todo tu módulo en un solo lugar',
       texto: 'Material ya no es una sección aparte: ahora subes todo dentro de cada unidad, junto con tus exámenes y tareas. Esto es lo nuevo.',
@@ -198,7 +198,7 @@ const NOVEDADES_PROFESOR: PasoTour[] = [
       ],
     },
     titulo: 'Unidades: tu espacio de trabajo',
-    texto: 'Aquí armas el módulo. Primero elige el programa y el módulo arriba; verás sus unidades. Vamos a recorrerlo todo, desde crear una unidad hasta dónde quedan las notas.' },
+    texto: 'Aquí armas el módulo. Primero eliges el módulo; toca “Siguiente” y elegimos uno por ti para ver sus unidades. Vamos a recorrerlo todo, desde crear una unidad hasta dónde quedan las notas.' },
   { id: 'nov-prof-nueva', ruta: UD, targetId: 'td-nueva', seccion: 'Unidades',
     titulo: 'Nueva unidad',
     texto: '“+ Agregar unidad” crea una unidad con el nombre que le pongas. “+ Agregar unidad ya creada” copia una de tus plantillas con todo su contenido (los exámenes llegan ocultos y con 0 % para que los ajustes).' },

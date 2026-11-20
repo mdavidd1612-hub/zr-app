@@ -9,6 +9,7 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EtiquetaSede } from '@/components/ui/EtiquetaSede'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+import { NuevoCurso } from '@/components/NuevoCurso'
 
 /**
  * T-211 · Gestión de cohortes.
@@ -42,7 +43,7 @@ export default function Cohortes() {
   const [cohortes, setCohortes] = useState<Cohorte[]>([])
   const [modulos, setModulos] = useState<Modulo[]>([])
   const [profesores, setProfesores] = useState<Profesor[]>([])
-  const [programas, setProgramas] = useState<{ id: string; name: string }[]>([])
+  const [programas, setProgramas] = useState<{ id: string; name: string; tipo?: string }[]>([])
   const [programaId, setProgramaId] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const [version, setVersion] = useState(0)
@@ -66,6 +67,12 @@ export default function Cohortes() {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [creada, setCreada] = useState<string | null>(null)
+  // Un curso corto tiene un solo módulo: se elige solo como inicial.
+  useEffect(() => {
+    if (programas.find((x) => x.id === programaId)?.tipo !== 'curso') return
+    const unico = modulos.find((m) => m.program_id === programaId)
+    if (unico) setModuloNueva(unico.id)
+  }, [programaId, programas, modulos])
 
   const [confirmandoAvance, setConfirmandoAvance] = useState<string | null>(null)
 
@@ -94,7 +101,7 @@ export default function Cohortes() {
         // el primer programa que devolviera la base, así que una cohorte de PFTA
         // podía quedar colgada de PTMA — y el prefijo del carnet sale del
         // programa. Ahora se eligen todos y el usuario dice cuál.
-        supabase.from('programs').select('id, name').order('name'),
+        supabase.from('programs').select('id, name, tipo').order('name'),
         // R-20: catálogo de sedes, no las que ya usaron cohortes existentes.
         supabase.from('sedes').select('nombre').eq('activa', true).order('nombre'),
         // Para avisar si el módulo que cursa un corte no tiene profesor (20-nov-2026).
@@ -133,8 +140,9 @@ export default function Cohortes() {
       const listaProfes = (profs as unknown as { id: string; profiles: { full_name: string } | null }[] | null) ?? []
       setProfesores(listaProfes.map((p) => ({ id: p.id, full_name: p.profiles?.full_name ?? 'Sin nombre' })))
 
-      setProgramas(programa ?? [])
-      setProgramaId((actual) => actual ?? programa?.[0]?.id ?? null)
+      const progs = (programa ?? []) as unknown as { id: string; name: string; tipo?: string }[]
+      setProgramas(progs)
+      setProgramaId((actual) => actual ?? progs[0]?.id ?? null)
 
       setSedesConocidas((sedesActivas ?? []).map((s) => s.nombre))
 
@@ -236,6 +244,16 @@ export default function Cohortes() {
 
       <Regla delay={60} />
 
+      <NuevoCurso onCreado={(p) => {
+        setProgramas((lista) => [...lista, p])
+        // El módulo del curso se creó recién: se agrega a la lista para poder elegirlo como inicial.
+        void createClient().from('modules').select('id, name, order_index, program_id').eq('program_id', p.id)
+          .then(({ data }) => setModulos((lista) => [...lista, ...((data ?? []) as Modulo[])]))
+        setProgramaId(p.id)
+        setCreando(true)
+        setCreada(`Curso "${p.name}" creado. Ahora ábrele su primer corte aquí abajo.`)
+      }} />
+
       {creada && (
         <p className="rounded-lg border border-zr-success/30 bg-zr-success/12 px-4 py-3 text-sm font-medium text-zr-success">
           {creada}
@@ -252,11 +270,11 @@ export default function Cohortes() {
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
             >
               {programas.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+                <option key={p.id} value={p.id}>{p.tipo === 'curso' ? `Curso corto · ${p.name}` : p.name}</option>
               ))}
             </Select>
             <p className="mt-1.5 text-xs text-zr-text-muted">
-              Define el prefijo del carnet de sus estudiantes (PTMA o PFTA).
+              Define el prefijo del carnet de sus estudiantes (PTMA, PFTA o las siglas del curso).
             </p>
           </div>
           <div>

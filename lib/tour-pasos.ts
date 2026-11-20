@@ -347,6 +347,12 @@ const ADMIN: PasoTour[] = [
   { id: 'admin-ficha-corte', ruta: '/cohortes', targetId: null,
     titulo: 'Ficha de cada corte',
     texto: 'Toca el nombre de un corte para abrir su ficha: ahí armas su calendario de módulos (también un módulo virtual en paralelo, como Inglés) y llegas a sus profesores, salones, estudiantes y notas.' },
+  { id: 'admin-curso-corto', ruta: '/cohortes', targetId: null,
+    titulo: 'Cursos cortos',
+    texto: 'Con "+ Curso corto" creas un curso suelto (motos, pintura…). Funciona igual que un programa pero con un solo módulo: le abres un corte con "+ Nueva", le pones profesor e inscribes a los estudiantes como siempre.' },
+  { id: 'admin-planificacion', ruta: '/calendario-general', targetId: null,
+    titulo: 'Planificación',
+    texto: 'En "Planificación" ves todos los cortes y cursos como en la hoja de Excel: una fila por corte, una columna por semana y cada módulo con su profesor. Puedes verlo por mes, trimestre, semestre o año.' },
 ]
 
 const VENDEDOR: PasoTour[] = [

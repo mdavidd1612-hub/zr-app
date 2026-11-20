@@ -88,7 +88,7 @@ export default function EditarModulos() {
         return
       }
 
-      const { data: progs } = await supabase.from('programs').select('id, name, siglas').order('name')
+      const { data: progs } = await supabase.from('programs').select('id, name, siglas, tipo' as 'id, name, siglas').neq('tipo' as never, 'curso' as never).order('name')
       if (vigente) setProgramas((progs ?? []) as { id: string; name: string; siglas: string | null }[])
       const { data: cos } = await supabase.from('cohorts').select('id, name, program_id').order('name')
       if (vigente) setCortes((cos ?? []) as { id: string; name: string; program_id: string }[])

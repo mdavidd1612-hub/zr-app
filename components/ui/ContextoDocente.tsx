@@ -84,21 +84,23 @@ export function PestanasModulo({ conMargenArriba }: { conMargenArriba: boolean }
   const enModulo = PESTANAS_MODULO.some((p) => esActiva(p.href))
   if (!enModulo) return null
   return (
-    <nav className={`zr-scroll flex ${conMargenArriba ? 'pt-[calc(3rem+env(safe-area-inset-top))]' : ''} gap-1 overflow-x-auto border-b border-zr-border bg-zr-surface/60 px-4`}>
-      {PESTANAS_MODULO.map((p) => {
-        const on = esActiva(p.href)
-        return (
-          <button
-            key={p.href}
-            onClick={() => router.push(p.href)}
-            className={`shrink-0 border-b-2 px-3 py-3 text-sm font-bold transition-colors ${
-              on ? 'border-zr-blue text-zr-text' : 'border-transparent text-zr-text-muted hover:text-zr-text'
-            }`}
-          >
-            {p.label}
-          </button>
-        )
-      })}
+    <nav className={`${conMargenArriba ? 'pt-[calc(3.5rem+env(safe-area-inset-top))]' : 'pt-4'} px-5`}>
+      <div className="zr-scroll mx-auto flex w-fit max-w-full gap-1 overflow-x-auto rounded-full border border-zr-border bg-zr-surface/70 p-1 backdrop-blur-md">
+        {PESTANAS_MODULO.map((p) => {
+          const on = esActiva(p.href)
+          return (
+            <button
+              key={p.href}
+              onClick={() => router.push(p.href)}
+              className={`shrink-0 rounded-full px-5 py-2 text-sm font-bold transition-colors ${
+                on ? 'bg-zr-blue text-white shadow-[0_2px_10px_rgba(37,99,235,0.35)]' : 'text-zr-text-muted hover:text-zr-text'
+              }`}
+            >
+              {p.label}
+            </button>
+          )
+        })}
+      </div>
     </nav>
   )
 }
@@ -258,14 +260,22 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
     return (
       <>
         {hayQueElegir && (
-          <div className="flex items-center justify-between gap-3 border-b border-zr-border bg-zr-surface px-5 pb-3 pt-[calc(3rem+env(safe-area-inset-top))]">
-            <p className="min-w-0 truncate text-xs font-semibold text-zr-text-muted">
-              {seleccion.cohorteNombre}{seleccion.sede ? ` · ${seleccion.sede}` : ''}
-              {nivel === 'modulo' ? ` · Módulo ${seleccion.moduloOrden} · ${seleccion.moduloNombre}` : ''}
-            </p>
-            <button onClick={cambiar} className="shrink-0 rounded-lg px-3 py-2 text-xs font-bold text-zr-blue-mid">
-              Cambiar
-            </button>
+          <div className="px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
+            <div className="zr-card mx-auto flex max-w-3xl items-center justify-between gap-3 rounded-2xl px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">
+                  {seleccion.cohorteNombre}{seleccion.sede ? ` · ${seleccion.sede}` : ''}
+                </p>
+                {nivel === 'modulo' && (
+                  <p className="truncate text-base font-bold text-zr-text">
+                    Módulo {seleccion.moduloOrden} · {seleccion.moduloNombre}
+                  </p>
+                )}
+              </div>
+              <button onClick={cambiar} className="shrink-0 rounded-full border border-zr-blue/50 px-4 py-2 text-xs font-bold text-zr-blue-mid transition-colors hover:bg-zr-blue/15">
+                Cambiar
+              </button>
+            </div>
           </div>
         )}
         {nivel === 'modulo' && <PestanasModulo conMargenArriba={!hayQueElegir} />}

@@ -52,7 +52,7 @@ Pedido del coordinador: revisar qué hay en producción que no esté en staging,
 
 ## 4. Para decidir (no lo toqué)
 
-1. **¿Administración (rol operativo) puede cambiar notas?** Hoy sí puede, en los cortes de su sede (la regla da acceso a los admins por sede). El documento maestro dice que lo académico es de Dirección. Si no debe, es una migración corta.
+1. ~~¿Administración puede cambiar notas?~~ **Decidido: no.** Quitado en v1.81 (migración 229).
 2. **PTMA-2026-III está cursando Introducción a la Mecánica sin ningún profesor asignado** (0 asignaciones). Nadie puede subir material ni calificar ese módulo hasta que se asigne en la ficha del corte.
 3. **Cuentas para pruebas en pantalla:** para probar cada rol en pantalla (no solo permisos) necesito poder entrar con las cuentas de prueba. Opciones: que me dejes leer la clave de `.secrets` o que tú inicies sesión en el panel del navegador cuando haga falta.
 

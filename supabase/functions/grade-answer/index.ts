@@ -64,8 +64,10 @@ Deno.serve(async (req: Request) => {
     const { data: perfil } = await adminSupabase
       .from('profiles').select('role').eq('id', user.id).single()
 
-    if (!perfil || !['profesor', 'admin', 'super_admin', 'direccion_academica'].includes(perfil.role)) {
-      return errorResponse('NO_AUTORIZADO', 'Solo el personal docente califica', 403)
+    // 20-nov-2026 (decisión del coordinador): Administración ya no califica;
+    // las notas son de Dirección Académica y del profesor del módulo.
+    if (!perfil || !['profesor', 'super_admin', 'direccion_academica'].includes(perfil.role)) {
+      return errorResponse('NO_AUTORIZADO', 'Solo el profesor o Dirección Académica califican', 403)
     }
 
     const { data: respuesta, error: answerErr } = await adminSupabase

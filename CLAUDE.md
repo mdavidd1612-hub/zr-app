@@ -843,6 +843,7 @@ Cierra los huecos que quedaban de los Sprints 1, 2 y 3 (ver §10).
 - ✅ **v1.78 — rendimiento con poco internet (20-nov-2026):** se quitó `zod` (285 KB en login, Personal, Recuperar; `lib/validators.ts` ahora son funciones pequeñas con la misma forma `safeParse`); el lector de QR (`@zxing/browser`, ~480 KB) se carga solo al abrir la cámara en asistencia, refrigerio y escanear; `qrcode` bajo demanda en QR de admin y cantina (en el carnet NO, para que funcione sin conexión). Peso de JavaScript propio de la pantalla: login 608→~110 KB, asistencia 846→~370 KB. Sensación de app: sin resaltado al tocar, sin menú de mantener presionado en botones, respuesta visual al tocar y barra de estado translúcida en iPhone.
 - ✅ **v1.79 — prueba de escenarios con cuentas reales (20-nov-2026):** **hueco de permisos corregido (migración 227):** cualquier profesor podía renombrar/vaciar unidades, crear/borrar tareas y calificar entregas de módulos que NO dicta; ahora solo en `modulos_que_imparto()` (Dirección/super_admin/admin igual). La ficha del corte se salía del ancho en el teléfono (cuadrícula sin `grid-cols-1`/`min-w-0`); la vista de recorrido del estudiante mezclaba las unidades de todos sus módulos (ahora calcula los módulos con el corte elegido); las pestañas de Mi módulo caben a 375 px; la campanita sondea 1 fila cada 30 s y solo baja la lista si hay algo nuevo.
 - ✅ **v1.80 (20-nov-2026):** **segundo hueco corregido (migración 228):** un estudiante podía abrir un intento en un examen de otro corte o en un borrador; ahora la política de INSERT de `exam_attempts` exige que el examen le sea visible. Programas avisa cuando un corte cursa un módulo sin profesor (hoy PTMA-2026-III). Textos del calendario de módulos más cortos.
+- ✅ **v1.81 — Administración no cambia notas (decisión del coordinador, 20-nov-2026; migración 229):** admin pierde la escritura de notas manuales, evaluaciones y su %, nota del módulo, calificación de tareas, intentos y respuestas de examen, intentos extra y `enviar_notas`; sigue leyendo todo. Edge Functions `grade-answer`, `respond-rehabilitation` y `approve-rehabilitation` ya no aceptan admin (y aceptan Dirección). De paso, `enviar_notas` sumaba los % de todos los cortes del módulo: ahora solo los del corte.
 - 🟡 Para arrancar Inglés virtual en producción: marcar el tramo virtual en el calendario (hoy solo super_admin), asignar el profesor en Cobertura y usar "Usar en otro corte" en cada examen que se haya creado en otro corte.
 - 🟡 En `/material`, Dirección solo puede **descargar** el material pendiente antes de aprobarlo; falta un "Ver" dentro de la app.
 - Datos de prueba que quedan en staging: unidad "QA Flujo completo 19-nov" con su examen, tarea, entrega y duda del estudiante V-90000001.
@@ -1725,7 +1726,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
-- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.80**.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.81**.
 
 ### 12.5 Al cierre de cada sprint
 
@@ -1877,6 +1878,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-20 | v1.78: rendimiento (sin zod, QR y escáner bajo demanda) y sensación de app. Comparación main vs develop: no falta nada de producción en develop. Ver §8.33. | — |
 | 2026-11-20 | v1.79: pruebas de escenarios por rol (migr. 227: profesor solo escribe en sus módulos), ficha responsive, vista de recorrido del estudiante, pestañas y campanita livianas. Ver §8.33 y el informe nocturno. | `supabase/migrations/227_profesor_escribe_solo_sus_modulos.sql` |
 | 2026-11-20 | v1.80: migr. 228 (intento solo en examen visible), aviso de módulo sin profesor en Programas, textos más cortos. Informe completo de la noche. | `docs/reportes/informe_nocturno_2026-11-20.md`, `supabase/migrations/228_intento_solo_en_examen_visible.sql` |
+| 2026-11-20 | v1.81: Administración no cambia notas (migr. 229 + 3 Edge Functions); enviar_notas suma % por corte. | `supabase/migrations/229_administracion_no_cambia_notas.sql` |
 
 ---
 

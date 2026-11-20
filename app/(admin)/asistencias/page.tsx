@@ -75,7 +75,21 @@ export default function Asistencias() {
   const hoyISO = hoyLocalISO()
   const sesionHoy = sesiones.find((s) => s.fecha === hoyISO) ?? null
   const diasCohorte = cohortes.find((c) => c.id === cohorteId)?.dias ?? null
-  const hoyEsDiaDeClase = esDiaDeClase(diasCohorte, hoyISO)
+  // Si hoy hay clase lo decide la base (`fn_clase_del_dia`, migración 235), que
+  // ya conoce el calendario de módulos y las clases movidas o repuestas. El
+  // texto "Sábados" queda solo como respaldo mientras responde.
+  const [moduloDeHoy, setModuloDeHoy] = useState<string | null | undefined>(undefined)
+  const hoyEsDiaDeClase = moduloDeHoy === undefined ? esDiaDeClase(diasCohorte, hoyISO) : moduloDeHoy !== null
+
+  useEffect(() => {
+    if (!cohorteId) return
+    setModuloDeHoy(undefined)
+    void createClient()
+      .rpc('fn_clase_del_dia' as never, { p_cohort: cohorteId, p_fecha: hoyISO } as never)
+      .then(({ data, error }: { data: unknown; error: unknown }) => {
+        if (!error) setModuloDeHoy((data as string | null) ?? null)
+      })
+  }, [cohorteId, hoyISO])
 
   useEffect(() => {
     async function cargar() {
@@ -107,7 +121,8 @@ export default function Asistencias() {
 
     const { data: cohorte } = await supabase
       .from('cohorts').select('current_module_id').eq('id', cohorteId).single()
-    if (!cohorte?.current_module_id) return null
+    const moduloSesion = moduloDeHoy ?? cohorte?.current_module_id
+    if (!moduloSesion) return null
 
     const { data: ultima } = await supabase
       .from('class_sessions').select('week_number').eq('cohort_id', cohorteId)
@@ -117,7 +132,7 @@ export default function Asistencias() {
       .from('class_sessions')
       .insert({
         cohort_id: cohorteId,
-        module_id: cohorte.current_module_id,
+        module_id: moduloSesion,
         session_date: hoyISO,
         week_number: (ultima?.week_number ?? 0) + 1,
         status: 'programada',

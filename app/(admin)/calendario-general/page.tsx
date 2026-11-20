@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+import { MoverClase } from '@/components/MoverClase'
 
 /**
  * Calendario general (parte 1, 20-nov-2026; propuesta en
@@ -64,6 +65,8 @@ export default function CalendarioGeneral() {
   const [sede, setSede] = useState('')
   const [corte, setCorte] = useState('')
   const [abierta, setAbierta] = useState<Clase | null>(null)
+  // Mover clases: solo Dirección Académica y super_admin (la base lo vuelve a revisar).
+  const [puedeMover, setPuedeMover] = useState(false)
 
   const dias = useMemo(() => Array.from({ length: 7 }, (_, i) => {
     const d = new Date(lunes); d.setDate(lunes.getDate() + i); return d
@@ -74,6 +77,8 @@ export default function CalendarioGeneral() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.replace('/login'); return }
+    const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    setPuedeMover(perfil?.role === 'direccion_academica' || perfil?.role === 'super_admin')
     const { data, error: e } = await supabase.rpc('fn_calendario_general' as never, {
       p_desde: aISO(dias[0]), p_hasta: aISO(dias[6]),
     } as never) as { data: Clase[] | null; error: { message: string } | null }
@@ -139,7 +144,7 @@ export default function CalendarioGeneral() {
       <Encabezado
         sobretitulo="Dirección académica"
         titulo="Calendario general"
-        descripcion="Todas las clases de tus sedes en la semana, con su hora, módulo, profesor y salón."
+        descripcion="Todas las clases de tus sedes en la semana. Toca una para ver su detalle o moverla."
       />
       <Regla delay={40} />
 
@@ -272,7 +277,7 @@ export default function CalendarioGeneral() {
       {/* Detalle de una clase */}
       {abierta && (
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 sm:items-center sm:p-5" onClick={() => setAbierta(null)}>
-          <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} className="w-full max-w-md space-y-4 rounded-t-2xl border border-zr-border bg-zr-surface p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:rounded-2xl">
+          <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} className="max-h-[90dvh] w-full max-w-md space-y-4 overflow-y-auto rounded-t-2xl border border-zr-border bg-zr-surface p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:rounded-2xl">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="zr-eyebrow">{abierta.sede ?? ''}</p>
@@ -298,9 +303,20 @@ export default function CalendarioGeneral() {
             {abierta.movida && abierta.fecha_original && (
               <p className="text-xs text-zr-text-muted">Movida desde el {deISO(abierta.fecha_original).toLocaleDateString('es-VE', { day: 'numeric', month: 'long' })}.</p>
             )}
-            <button onClick={() => router.push(`/cohortes/${abierta.cohort_id}`)} className="min-h-12 w-full rounded-xl bg-zr-blue text-sm font-bold text-white">
+            <button onClick={() => router.push(`/cohortes/${abierta.cohort_id}`)} className="min-h-12 w-full rounded-xl border border-zr-border text-sm font-bold text-zr-text">
               Abrir la ficha del corte
             </button>
+            {puedeMover && abierta.fecha >= hoyISO && (
+              <MoverClase
+                key={`${abierta.cohort_id}-${abierta.fecha}`}
+                cohortId={abierta.cohort_id}
+                fecha={abierta.fecha}
+                horaInicio={abierta.hora_inicio}
+                horaFin={abierta.hora_fin}
+                sede={abierta.sede}
+                onListo={() => { void cargar() }}
+              />
+            )}
           </div>
         </div>
       )}

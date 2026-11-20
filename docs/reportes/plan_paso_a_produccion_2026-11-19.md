@@ -139,3 +139,4 @@ join content_items ci on ci.module_id = n.module_id
 - Detalle: `docs/reportes/informe_nocturno_2026-11-20.md` y `docs/reportes/evaluacion_lms_ux_visual_2026-11-20.md`.
 
 - v1.83: migración 232 (después de 231). Redefine `fn_exam_attempt_prepare` con un `replace` sobre la versión vigente (agrega la prórroga por `intervention_grants`): en producción debe correr **después** de la versión final de esa función, nunca antes.
+- v1.84–1.85: migraciones 233, 234, 234b (`234b_agenda_clases_con_excepciones`), 235. La 235 cambia el cron `generar-sesion-del-sabado` a diario (`0 8 * * *`); en producción revisar que el job exista con ese nombre antes de aplicarla. Antes de usar el calendario general en producción, revisar el horario convertido de cada corte en "Datos del corte" (la conversión del texto libre puede fallar con formatos raros: queda vacío y se completa a mano).

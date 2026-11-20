@@ -170,6 +170,9 @@ export function Campanita() {
         return '/calendario'
       case 'resumen_semanal':
         return '/monitoreo'
+      case 'clase_movida':
+        // Calendario general, parte 2 (migración 234): lleva al calendario de cada quien.
+        return rol === 'profesor' ? '/calendario-docente' : '/calendario'
       case 'examen_habilitado':
         // Sin exam_id en el payload (no debería pasar, pero por si acaso):
         // /examenes (la lista) no tiene acceso desde el menú del estudiante.

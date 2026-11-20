@@ -1876,7 +1876,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-20 | v1.77: la barra del teléfono de Dirección Académica cambia Asistencia por Programas (Asistencia sigue en el panel y el menú ☰). | — |
 | 2026-11-20 | v1.78: rendimiento (sin zod, QR y escáner bajo demanda) y sensación de app. Comparación main vs develop: no falta nada de producción en develop. Ver §8.33. | — |
 | 2026-11-20 | v1.79: pruebas de escenarios por rol (migr. 227: profesor solo escribe en sus módulos), ficha responsive, vista de recorrido del estudiante, pestañas y campanita livianas. Ver §8.33 y el informe nocturno. | `supabase/migrations/227_profesor_escribe_solo_sus_modulos.sql` |
-| 2026-11-20 | v1.80: migr. 228 (intento solo en examen visible), aviso de módulo sin profesor en Programas, textos más cortos. | `supabase/migrations/228_intento_solo_en_examen_visible.sql` |
+| 2026-11-20 | v1.80: migr. 228 (intento solo en examen visible), aviso de módulo sin profesor en Programas, textos más cortos. Informe completo de la noche. | `docs/reportes/informe_nocturno_2026-11-20.md`, `supabase/migrations/228_intento_solo_en_examen_visible.sql` |
 
 ---
 

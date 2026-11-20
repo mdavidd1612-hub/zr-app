@@ -40,6 +40,8 @@ export default function Inicio() {
   const [nombre, setNombre] = useState('')
   const [proximo, setProximo] = useState<ProximoSabado | null>(null)
   const [modulo, setModulo] = useState<Modulo | null>(null)
+  // Módulo virtual que cursa en paralelo (migración 223), p. ej. Inglés Técnico.
+  const [virtual, setVirtual] = useState<{ id: string; nombre: string } | null>(null)
   const [cargando, setCargando] = useState(true)
   const [validado, setValidado] = useState(true)
   const [hechos, setHechos] = useState<Set<string>>(new Set())
@@ -228,6 +230,17 @@ export default function Inicio() {
         if (mod) setModulo({ nombre: mod.name, descripcion: mod.description, competencias: mod.competencias })
       }
 
+      {
+        const hoyISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' })
+        const { data: cal } = await supabase
+          .from('cohort_module_calendar')
+          .select('module_id, modalidad, start_date, end_date, modules(name)' as 'start_date, end_date')
+          .lte('start_date', hoyISO).gte('end_date', hoyISO)
+        const v = ((cal ?? []) as unknown as { module_id: string; modalidad?: string; modules: { name: string } | null }[])
+          .find((k) => k.modalidad === 'virtual')
+        setVirtual(v ? { id: v.module_id, nombre: v.modules?.name ?? 'Módulo virtual' } : null)
+      }
+
       // Qué días de esta semana ya se trabajaron. Fase 0 (Sprint 2) los
       // guardaba solo en el teléfono; ahora se lee de la base
       // (case_completions, ver Sprint D de docs/16_FASE0_PLAN_PROFESOR.md)
@@ -362,6 +375,19 @@ export default function Inicio() {
                 onAccion={() => router.push('/unidades')}
                 icono={<IconoDocumento size={24} />}
               />
+            )}
+            {virtual && (
+              <button
+                onClick={() => router.push(`/unidades?modulo=${virtual.id}`)}
+                className="zr-card mt-3 flex w-full items-center gap-3 p-4 text-left"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue-mid"><IconoDocumento size={20} /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-zr-blue-mid">También cursas · virtual</span>
+                  <span className="block truncate text-sm font-bold text-zr-text">{virtual.nombre}</span>
+                </span>
+                <span className="text-zr-text-muted">›</span>
+              </button>
             )}
           </div>
         </header>

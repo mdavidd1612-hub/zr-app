@@ -379,6 +379,10 @@ export default function UnidadDetalle() {
                 // la unidad sin explicar nada. Ahora se muestra bloqueado con
                 // el motivo, en vez de navegar a algo que no va a cargar.
                 const sinResolver = item.type !== 'dudas' && item.titulo === 'Todavía no disponible'
+                // Un examen que el estudiante no ve es de OTRO corte (las unidades se
+                // comparten entre cortes del mismo módulo) o un borrador: no se le
+                // muestra un hueco que nunca se va a llenar (19-nov-2026).
+                if (sinResolver && item.type === 'quiz') return null
                 if (sinResolver) {
                   return (
                     <Paso

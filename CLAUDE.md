@@ -826,6 +826,15 @@ Cierra los huecos que quedaban de los Sprints 1, 2 y 3 (ver §10).
   - **Rendimiento:** grano de fondo sin `mix-blend-mode` (recomponía la pantalla en cada scroll), desenfoque del vidrio a 12 px en teléfono, bienvenida con el logo una sola vez por apertura (antes 2,6 s en cada recarga), jsPDF y la tabla de Excel se cargan solo al descargar en `/estudiantes`.
   - `tsconfig.json` excluye la carpeta suelta `ZR QR/` (rompía la compilación local).
 - ✅ **v1.69 — cierre de notas para todo (decisión del coordinador, 19-nov-2026: "cierra todo"):** pasada la semana de corrección del módulo, el profesor tampoco califica redacciones de examen. `grade-answer` ahora revisa `profesor_puede_editar_notas` (la misma regla de `fn_bloquear_notas_enviadas`, migr. 167) y responde `NOTAS_CERRADAS`; Dirección Académica y super_admin siguen pudiendo. Las pantallas de calificar muestran el motivo real del servidor en vez de "revisa tu conexión". Verificado: el profesor de prueba recibe el aviso y la nota no cambia.
+- ✅ **v1.70 — Inglés Técnico virtual en paralelo a Fluidos (19-nov-2026, staging):**
+  - **Migración 223:** `cohort_module_calendar.modalidad` ('presencial'/'virtual'). Un tramo virtual abre el módulo al estudiante (`mis_modulos_cursados`), le da estado "en curso" y ventana de notas al profesor, pero **no** cambia el módulo actual del corte, ni reasigna las sesiones del sábado (`modulo_por_calendario`), ni sale en la agenda de clases (`fn_agenda_clases`), ni cuenta sábados para la puntualidad (`fn_recalc_puntualidad`). Configuración → Calendario de módulos: casilla "Virtual, en paralelo" y botón "Hacer virtual/presencial" (hoy solo super_admin abre esa pantalla).
+  - **Escenario armado en staging:** PTMA-2026-II con Inglés Técnico virtual del 17-nov al 12-dic, junto a Fluidos presencial; el profesor QA queda con 3 módulos (Instrumentación, Gestión e Inglés). Verificado con los permisos reales: el corte sigue en Fluidos y sus sesiones del sábado no cambian; el estudiante ve las unidades de Inglés; el profesor lo dicta y puede poner notas.
+  - **Estudiante:** en Unidades, dos tarjetas "Presencial · Fluidos" y "Virtual · Inglés Técnico" para cambiar de uno a otro; en Inicio, "También cursas · virtual" que abre directo Inglés (`/unidades?modulo=`).
+  - **Profesor:** en el selector de módulos lo que está en curso va primero, con la etiqueta "En curso".
+  - **"Usar en otro corte"** (antes "Duplicar para otro programa", que en realidad copiaba en el mismo corte y perdía tipo, intentos, % y la unidad): copia el examen completo para el corte elegido, publicado si el original lo estaba, y lo engancha en la misma unidad. Probado con la certificación real de la Unidad 1 de Inglés (era de PTMA-III) para PTMA-II. Al estudiante ya no se le muestra como "Todavía no disponible" un examen de otro corte.
+  - **Migración 224:** la columna en Notas de un examen hereda el corte del examen (antes salía en Notas de todos los cortes del módulo), y el tope de 100 % se cuenta por corte (antes dos cortes en el mismo módulo se repartían el 100 %). Backfill de las columnas existentes.
+- 📄 **Estudio para unificar pantallas** (propuesta, nada construido): `docs/reportes/estudio_unificar_pantallas_2026-11-19.md`. Recomienda primero "Mi módulo" con pestañas para el profesor y Material dentro de Unidades; "Cortes" con ficha única para Dirección después. **Pendiente de que el coordinador elija.**
+- 🟡 Para arrancar Inglés virtual en producción: marcar el tramo virtual en el calendario (hoy solo super_admin), asignar el profesor en Cobertura y usar "Usar en otro corte" en cada examen que se haya creado en otro corte.
 - 🟡 En `/material`, Dirección solo puede **descargar** el material pendiente antes de aprobarlo; falta un "Ver" dentro de la app.
 - Datos de prueba que quedan en staging: unidad "QA Flujo completo 19-nov" con su examen, tarea, entrega y duda del estudiante V-90000001.
 - 🟡 Pendiente técnico: `npm run lint` marca 35 avisos del compilador de React (`set-state-in-effect`), sin fallas visibles; y la carpeta suelta `ZR QR/` (sin seguimiento en git) rompe `tsc` local.
@@ -1685,6 +1694,13 @@ Antes de cerrar cualquier sesión que hizo trabajo real (no una pregunta rápida
 - En el mismo PR actualizas este documento (`CLAUDE.md`), sección correspondiente.
 - Las 10 reglas absolutas (§6) siguen vigentes.
 
+### 12.3bis Ante la duda, preguntar (regla del coordinador, 19-nov-2026)
+
+- Si algo no quedó claro o surge una duda de producto, **pregunta antes de decidir**. No adivines.
+- **Excepción:** si te mandaron a ejecutar algo concreto, ejecútalo. Pregunta solo lo que de verdad bloquea.
+- Si es una **sugerencia, investigación o estudio**, pregunta casi siempre antes de construir: muestra lo que encontraste y deja que el coordinador elija.
+- Preguntar no detiene el trabajo: sigue con lo que no depende de esa respuesta.
+
 ### 12.4 Antes de cerrar cualquier tarea
 
 Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
@@ -1700,7 +1716,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
-- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.69**.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.70**.
 
 ### 12.5 Al cierre de cada sprint
 
@@ -1837,7 +1853,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-15 | Nota base al entregar un examen, pantalla de cero + "Apelar nota" al salir, y pestañas de unidades solo del módulo abierto. Ver §8.28. | — |
 | 2026-11-18 | Pruebas del profesor Arjona: id null al guardar preguntas, hora desplazada 4 h, certificación trabada por material sin aprobar (migr. 215), mensaje claro ante conexión lenta. Ver §8.31. | `supabase/migrations/215_obligatorios_solo_material_visible.sql` |
 | 2026-11-18 | v1.57: salones por sede y por sábado (migr. 216), calendario con vistas Mes/Lista y botón flotante, marca de agua con el logo, PowerPoint → PDF con CloudConvert. Ver §8.32. | `supabase/migrations/216_salones_por_sede_y_sabado.sql` |
-| 2026-11-19 | v1.62 revierte el QR; v1.63 revisión masiva: Dirección puede escanear, margen con muesca en 54 pantallas, rendimiento de RLS e índices (migr. 220-221); v1.64 recorrido con clics por rol: semana del módulo, "Lo que te espera" para profesor y Dirección; v1.65 flujo real de un módulo completo: examen con pantalla previa, tareas de módulos cursados (migr. 222), certificación aprobada, rendimiento; v1.69 cierre de notas también para exámenes. Ver §8.33. | `supabase/migrations/221_rendimiento_rls_e_indices.sql` |
+| 2026-11-19 | v1.62 revierte el QR; v1.63 revisión masiva: Dirección puede escanear, margen con muesca en 54 pantallas, rendimiento de RLS e índices (migr. 220-221); v1.64 recorrido con clics por rol: semana del módulo, "Lo que te espera" para profesor y Dirección; v1.65 flujo real de un módulo completo: examen con pantalla previa, tareas de módulos cursados (migr. 222), certificación aprobada, rendimiento; v1.69 cierre de notas también para exámenes; v1.70 Inglés virtual en paralelo (migr. 223-224), "Usar en otro corte", estudio para unificar pantallas. Ver §8.33. | `supabase/migrations/221_rendimiento_rls_e_indices.sql` |
 | 2026-11-19 | **Investigación (solo lectura, nada aplicado):** cómo pasar develop/staging a main/prod sin perder datos: orden real de migraciones vs. por número (riesgo con `fn_exam_attempt_prepare`), backfill del Material de producción hacia Unidades (10 archivos), tutorial con ids nuevos (los estudiantes ya "vieron" `estudiante-aula`), Inglés Técnico en paralelo, plan por fases y decisiones pendientes. | `docs/reportes/plan_paso_a_produccion_2026-11-19.md` |
 | 2026-11-19 | **Tutorial "Actualizaciones de la app"** para Unidades (v1.66): portada de novedades, progreso Paso X de N, Atrás, pasos que abren cosas solos (`clic`/`prefijo`) y recorrido completo de Unidades para estudiante (20 pasos) y profesor (19). Ver §8.32. | — |
 | 2026-11-19 | Prueba en pantalla del tutorial de Unidades con cuentas de staging (estudiante y profesor): recorrido completo OK; el tour ahora elige solo el primer módulo del profesor (v1.67). Ver §8.32. | — |

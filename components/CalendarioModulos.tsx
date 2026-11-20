@@ -19,6 +19,7 @@ interface Tramo {
   moduleId: string
   inicio: string
   fin: string
+  modalidad: 'presencial' | 'virtual'
 }
 
 interface Modulo { id: string; nombre: string; orden: number }
@@ -70,6 +71,7 @@ export function CalendarioModulos() {
   const [nuevoModulo, setNuevoModulo] = useState('')
   const [nuevoInicio, setNuevoInicio] = useState('')
   const [nuevosSabados, setNuevosSabados] = useState('4')
+  const [nuevoVirtual, setNuevoVirtual] = useState(false)
 
   const cohorte = cohortes.find((c) => c.id === cohorteId)
 
@@ -93,10 +95,13 @@ export function CalendarioModulos() {
     const supabase = createClient()
     Promise.all([
       supabase.from('modules').select('id, name, order_index').eq('program_id', cohorte.programId).order('order_index'),
-      supabase.from('cohort_module_calendar').select('id, module_id, start_date, end_date').eq('cohort_id', cohorte.id).order('start_date'),
+      supabase.from('cohort_module_calendar').select('id, module_id, start_date, end_date, modalidad' as 'id, module_id, start_date, end_date').eq('cohort_id', cohorte.id).order('start_date'),
     ]).then(([{ data: mods }, { data: cal }]) => {
       setModulos((mods ?? []).map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index })))
-      setTramos((cal ?? []).map((t) => ({ id: t.id, moduleId: t.module_id, inicio: t.start_date, fin: t.end_date })))
+      setTramos((cal ?? []).map((t) => ({
+        id: t.id, moduleId: t.module_id, inicio: t.start_date, fin: t.end_date,
+        modalidad: ((t as unknown as { modalidad?: string }).modalidad === 'virtual' ? 'virtual' : 'presencial'),
+      })))
     })
   }, [cohorte?.id, cohorte?.programId, version]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -124,6 +129,20 @@ export function CalendarioModulos() {
     setVersion((v) => v + 1)
   }
 
+  // Módulo virtual en paralelo (migración 223): no cambia el módulo presencial
+  // ni las clases del sábado; solo abre el módulo a los estudiantes y sus notas.
+  async function cambiarModalidad(t: Tramo) {
+    setGuardandoId(t.id)
+    setError(null)
+    const { error: fallo } = await createClient()
+      .from('cohort_module_calendar')
+      .update({ modalidad: t.modalidad === 'virtual' ? 'presencial' : 'virtual' } as never)
+      .eq('id', t.id)
+    setGuardandoId(null)
+    if (fallo) setError(fallo.message)
+    setVersion((v) => v + 1)
+  }
+
   async function borrar(t: Tramo) {
     if (!confirm(`¿Quitar este tramo de "${nombreModulo(t.moduleId)}" del calendario?`)) return
     const { error: fallo } = await createClient().from('cohort_module_calendar').delete().eq('id', t.id)
@@ -140,10 +159,11 @@ export function CalendarioModulos() {
     const fin = finPorSabados(nuevoInicio, Number(nuevosSabados) || 1)
     const { error: fallo } = await createClient()
       .from('cohort_module_calendar')
-      .insert({ cohort_id: cohorte.id, module_id: nuevoModulo, start_date: nuevoInicio, end_date: fin })
+      .insert({ cohort_id: cohorte.id, module_id: nuevoModulo, start_date: nuevoInicio, end_date: fin, modalidad: nuevoVirtual ? 'virtual' : 'presencial' } as never)
     if (fallo) { setError(fallo.message); return }
     setNuevoModulo('')
     setNuevoInicio('')
+    setNuevoVirtual(false)
     setVersion((v) => v + 1)
   }
 
@@ -196,10 +216,20 @@ export function CalendarioModulos() {
                       {repetidos.has(t.moduleId) ? ' · tramo de un módulo cortado' : ''}
                       {vigente ? ' · en curso' : ''}
                     </p>
+                    {t.modalidad === 'virtual' && (
+                      <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-zr-blue-mid">
+                        Virtual · en paralelo, sin clase el sábado
+                      </p>
+                    )}
                   </div>
-                  <button onClick={() => borrar(t)} className="shrink-0 text-xs font-bold text-zr-error">
-                    Quitar
-                  </button>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <button onClick={() => cambiarModalidad(t)} disabled={guardandoId === t.id} className="text-xs font-bold text-zr-blue-mid">
+                      {t.modalidad === 'virtual' ? 'Hacer presencial' : 'Hacer virtual'}
+                    </button>
+                    <button onClick={() => borrar(t)} className="text-xs font-bold text-zr-error">
+                      Quitar
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <div>
@@ -259,6 +289,15 @@ export function CalendarioModulos() {
             />
           </div>
         </div>
+        <label className="flex items-start gap-2 text-sm text-zr-text">
+          <input type="checkbox" checked={nuevoVirtual} onChange={(e) => setNuevoVirtual(e.target.checked)} className="mt-1" />
+          <span>
+            Virtual, en paralelo
+            <span className="block text-xs text-zr-text-muted">
+              Se cursa por la app al mismo tiempo que el módulo presencial (p. ej. Inglés Técnico). No cambia la clase del sábado ni la asistencia.
+            </span>
+          </span>
+        </label>
         <button onClick={agregar} className="min-h-11 w-full rounded-lg bg-zr-blue text-sm font-bold text-white">
           Agregar al calendario
         </button>

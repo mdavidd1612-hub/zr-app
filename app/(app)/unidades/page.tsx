@@ -33,6 +33,8 @@ export default function Unidades() {
   const [actualId, setActualId] = useState<string | null>(null)
   const [moduloSel, setModuloSel] = useState<string | null>(null)
   const [menuModulos, setMenuModulos] = useState(false)
+  // Módulos virtuales en curso en paralelo (migración 223), p. ej. Inglés Técnico.
+  const [virtuales, setVirtuales] = useState<string[]>([])
 
   useEffect(() => {
     async function cargar() {
@@ -56,7 +58,17 @@ export default function Unidades() {
         : { data: [] as { id: string; name: string; order_index: number }[] }
       setModulos(mods ?? [])
       setActualId(miActual ?? null)
+      const hoyISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' })
+      const { data: cal } = await supabase
+        .from('cohort_module_calendar')
+        .select('module_id, modalidad, start_date, end_date' as 'module_id, start_date, end_date')
+        .lte('start_date', hoyISO).gte('end_date', hoyISO)
+      setVirtuales(((cal ?? []) as unknown as { module_id: string; modalidad?: string }[])
+        .filter((k) => k.modalidad === 'virtual').map((k) => k.module_id))
+      // ?modulo=<id> (p. ej. desde "También cursas · virtual" del inicio).
+      const pedido = new URLSearchParams(window.location.search).get('modulo')
       setModuloSel(
+        (pedido && ids.includes(pedido) ? pedido : null) ??
         (miActual && ids.includes(miActual) ? miActual : null) ?? (mods && mods.length ? mods[mods.length - 1].id : null),
       )
 
@@ -122,6 +134,28 @@ export default function Unidades() {
 
         <Regla delay={60} />
 
+        {/* Cursando dos módulos a la vez (presencial + virtual): acceso directo a
+            cada uno, sin abrir el menú (19-nov-2026). */}
+        {actualId && virtuales.some((v) => v !== actualId) && (
+          <div className="grid grid-cols-2 gap-2">
+            {[actualId, ...virtuales.filter((v) => v !== actualId)].slice(0, 2).map((id) => {
+              const m = modulos.find((x) => x.id === id)
+              if (!m) return null
+              const activo = id === moduloSel
+              return (
+                <button
+                  key={id}
+                  onClick={() => setModuloSel(id)}
+                  className={`min-h-16 rounded-2xl border px-4 py-3 text-left ${activo ? 'border-zr-blue bg-zr-blue/15' : 'border-zr-border bg-zr-surface'}`}
+                >
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-zr-blue-mid">{id === actualId ? 'Presencial' : 'Virtual'}</span>
+                  <span className="mt-0.5 block text-sm font-bold leading-tight text-zr-text">{m.name}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         {modulos.length > 1 && (
           <button
             onClick={() => setMenuModulos(true)}
@@ -132,7 +166,7 @@ export default function Unidades() {
               <span className="block text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">Módulo</span>
               <span className="block truncate text-sm font-bold text-zr-text">
                 {moduloActualSel ? `${moduloActualSel.order_index}. ${moduloActualSel.name}` : 'Elegir módulo'}
-                {moduloSel && moduloSel === actualId ? ' (actual)' : ''}
+                {moduloSel && moduloSel === actualId ? ' (actual)' : moduloSel && virtuales.includes(moduloSel) ? ' (virtual)' : ''}
               </span>
             </span>
             <span className="shrink-0 text-xs font-bold text-zr-blue">Cambiar</span>
@@ -158,7 +192,8 @@ export default function Unidades() {
                       }`}
                     >
                       <span className="min-w-0 break-words">{m.order_index}. {m.name}</span>
-                      {m.id === actualId && <span className="shrink-0 text-xs font-bold text-zr-blue">Actual</span>}
+                      {m.id === actualId && <span className="shrink-0 text-xs font-bold text-zr-blue">Presencial</span>}
+                      {virtuales.includes(m.id) && <span className="shrink-0 text-xs font-bold text-zr-blue">Virtual</span>}
                     </button>
                   )
                 })}

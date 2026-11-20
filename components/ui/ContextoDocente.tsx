@@ -84,7 +84,7 @@ function VentanaElegir({ children }: { children: React.ReactNode }) {
 
 const ETIQUETA_ESTADO: Record<EstadoModulo, string | null> = {
   sin_calendario: null,
-  en_curso: null,
+  en_curso: 'En curso',
   no_empezo: 'Aún no empieza',
   terminado: 'Ya se cursó',
 }
@@ -168,7 +168,11 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
           }
         })
         .filter((x): x is ContextoSel => x !== null)
-        .sort((a, b) => a.cohorteNombre.localeCompare(b.cohorteNombre) || a.moduloOrden - b.moduloOrden)
+        .sort((a, b) =>
+          // Lo que está en curso va primero (19-nov-2026): un profesor con varios
+          // módulos (p. ej. uno presencial y Inglés virtual) ve arriba lo de hoy.
+          Number(b.estado === 'en_curso') - Number(a.estado === 'en_curso') ||
+          a.cohorteNombre.localeCompare(b.cohorteNombre) || a.moduloOrden - b.moduloOrden)
 
       setOpciones(lista)
     }

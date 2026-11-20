@@ -468,8 +468,8 @@ body::before {
   position: absolute;
   inset: 0;
   z-index: -1;
-  opacity: 0.22;
-  mix-blend-mode: overlay;
+  /* Sin mix-blend-mode (rendimiento en gama baja, 20-nov-2026). */
+  opacity: 0.10;
   pointer-events: none;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
   background-size: 160px 160px;
@@ -597,7 +597,7 @@ button:not(:disabled):active,
 /* Foco siempre visible: requisito de WCAG 2.4.7, y en la sede se usan teclados
    externos en los paneles de administración. */
 :focus-visible {
-  outline: 3px solid var(--zr-blue-deep);
+  outline: 3px solid var(--zr-blue-light);
   outline-offset: 2px;
 }
 
@@ -682,3 +682,12 @@ button, a[role='button'], input[type='submit'] {
 @media (max-width: 767px) {
   :root { --zr-glass-blur: 12px; }
 }
+
+/* Contraste AA en tema oscuro (evaluación visual, 20-nov-2026): los colores de
+   estado y el azul de marca son para fondos y bordes; usados como TEXTO pequeño
+   sobre el fondo casi negro no llegan a 4.5:1. Estas reglas, fuera de capa,
+   ganan a las utilidades de Tailwind solo para el color del texto. */
+.text-zr-error   { color: #F87171; }
+.text-zr-warning { color: #FACC15; }
+.text-zr-success { color: #4ADE80; }
+.text-zr-blue    { color: var(--zr-blue-mid); }

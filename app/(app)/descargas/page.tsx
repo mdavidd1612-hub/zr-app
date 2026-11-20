@@ -97,7 +97,7 @@ export default function Descargas() {
       <div className="space-y-7">
         <BotonVolver href="/unidades" />
         <TarjetaHero
-          sobretitulo="Aula Virtual"
+          sobretitulo="Unidades"
           titulo="Sin conexión"
           texto="Las unidades que descargaste, para leerlas aunque no haya internet. Se descargan desde cada unidad."
           icono={<IconoDocumento size={24} />}

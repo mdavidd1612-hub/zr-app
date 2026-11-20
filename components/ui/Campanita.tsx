@@ -256,7 +256,7 @@ export function Campanita() {
                 <button
                   onClick={() => setAbierta(false)}
                   aria-label="Cerrar"
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-zr-text-muted active:bg-zr-border/50"
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-zr-text-muted active:bg-zr-border/50"
                 >
                   <IconoCerrar size={18} />
                 </button>
@@ -301,7 +301,7 @@ export function Campanita() {
                       <button
                         onClick={() => descartar(n.id)}
                         aria-label="Descartar"
-                        className="flex h-7 w-7 items-center justify-center rounded-full text-zr-text-muted active:bg-zr-border/50"
+                        className="flex h-11 w-11 items-center justify-center rounded-full text-zr-text-muted active:bg-zr-border/50"
                       >
                         <IconoCerrar size={14} />
                       </button>

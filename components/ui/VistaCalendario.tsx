@@ -172,7 +172,7 @@ export function VistaCalendario({ modo }: { modo: 'estudiante' | 'profesor' }) {
         </div>
 
         <div className="px-2 sm:px-0">
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">{modo === 'profesor' ? 'Profesor' : 'Aula Virtual'}</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">{modo === 'profesor' ? 'Profesor' : 'Estudiante'}</p>
           <h1 className="zr-display text-3xl text-zr-text">Calendario</h1>
           <p className="mt-1 text-sm text-zr-text-muted">
             {modo === 'profesor'

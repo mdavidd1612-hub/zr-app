@@ -39,9 +39,11 @@ export default function Rehabilitaciones() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/login'); return }
 
-      // Solo los exámenes de este profesor
+      // Exámenes de los módulos que dicta (la RLS de `exams` ya lo acota), no
+      // solo los que creó: si cambió el profesor, el nuevo también recibe las
+      // apelaciones (evaluación del 20-nov-2026).
       const { data: misExamenes } = await supabase
-        .from('exams').select('id').eq('teacher_id', user.id)
+        .from('exams').select('id')
       const misIds = (misExamenes ?? []).map(e => e.id)
 
       if (misIds.length === 0) { setCargando(false); return }

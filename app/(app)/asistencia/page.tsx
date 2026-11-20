@@ -37,7 +37,7 @@ export default function MarcarAsistencia() {
 
       if (error) {
         const contexto = (error as { context?: Response }).context
-        let mensaje = 'No se pudo conectar. Revisa tu conexión.'
+        let mensaje = 'No se registró. Vuelve a escanear; si falla otra vez, pide que te registren a mano.'
         if (contexto) {
           try {
             const cuerpo = await contexto.json()

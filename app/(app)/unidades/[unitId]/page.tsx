@@ -216,7 +216,7 @@ export default function UnidadDetalle() {
           <PestanasUnidad unidades={unidades} activaId={unitId} hrefBase="/unidades" />
         </div>
         <div className="mt-7 space-y-6">
-          <BannerUnidad sobretitulo="Aula Virtual" titulo={titulo} imagenUrl={bannerUrl} posicionImagen={bannerPosicion} color={bannerColor} />
+          <BannerUnidad sobretitulo="Unidades" titulo={titulo} imagenUrl={bannerUrl} posicionImagen={bannerPosicion} color={bannerColor} />
           <div className="flex flex-col items-center gap-3 py-10 text-center">
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-zr-surface text-zr-text-muted ring-1 ring-zr-border">
               <IconoCandado size={26} />
@@ -269,7 +269,7 @@ export default function UnidadDetalle() {
 
       <div className="mt-7 space-y-9">
         <div data-tour-target="tour-unidad-banner">
-          <BannerUnidad sobretitulo="Aula Virtual" titulo={titulo} imagenUrl={bannerUrl} posicionImagen={bannerPosicion} color={bannerColor} />
+          <BannerUnidad sobretitulo="Unidades" titulo={titulo} imagenUrl={bannerUrl} posicionImagen={bannerPosicion} color={bannerColor} />
         </div>
 
         {/* Avance de obligatorios, tejido sin cuadro: un rótulo, una línea fina

@@ -397,7 +397,7 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
 
 export default function UnidadesDocente() {
   return (
-    <ContextoDocente sobretitulo="Aula Virtual" titulo="Unidades">
+    <ContextoDocente sobretitulo="Mi módulo" titulo="Unidades">
       {(ctx) => <UnidadesInterno ctx={ctx} />}
     </ContextoDocente>
   )

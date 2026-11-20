@@ -121,7 +121,7 @@ export default function Unidades() {
         <BotonVolver href="/" />
 
         <Encabezado
-          sobretitulo="Aula Virtual"
+          sobretitulo="Tus unidades"
           titulo="Tu recorrido"
           descripcion="El material, los exámenes y las tareas de tu módulo, paso a paso."
           accion={

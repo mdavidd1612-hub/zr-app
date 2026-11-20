@@ -703,7 +703,7 @@ export default function Inicio() {
       </div>
 
       {avisoBloqueado && (
-        <div className="fixed inset-x-5 bottom-24 z-50 animate-fade-in rounded-lg bg-zr-error px-5 py-4 text-center shadow-lg">
+        <div className="fixed inset-x-5 bottom-[calc(7rem+env(safe-area-inset-bottom))] z-[60] animate-fade-in rounded-2xl bg-zr-error px-5 py-4 text-center shadow-lg">
           <p className="text-sm font-bold text-white">Bloqueado</p>
           <p className="mt-1 text-sm text-white/90">
             No estás solvente con los pagos de tu mensualidad, por favor conversar con la

@@ -79,9 +79,9 @@ const NOVEDADES_ESTUDIANTE: PasoTour[] = [
   { id: 'nov-est-unidades', ruta: U, targetId: null, seccion: 'Unidades',
     portada: {
       titulo: 'Esto es nuevo en ZR App',
-      texto: 'Agregamos una sección nueva, Unidades, donde está todo lo de tu módulo. Lo que antes veías en “Material” ahora vive aquí, junto con tus exámenes y tareas.',
+      texto: 'Agregamos una sección nueva, Unidades, donde está todo lo de tu módulo ordenado por unidad: material, exámenes y tareas.',
       puntos: [
-        'Unidades reemplaza a Material: todo ordenado por unidad',
+        'Todo tu módulo ordenado por unidad',
         'Exámenes y tareas dentro de cada unidad',
         'Calendario con tu clase, salón, exámenes y tareas',
         'Tus notas de exámenes y tareas aparecen solas',
@@ -158,7 +158,7 @@ const NOVEDADES_ESTUDIANTE: PasoTour[] = [
 const ESTUDIANTE: PasoTour[] = [
   { id: 'estudiante-semana', ruta: '/', targetId: 'tour-semana',
     titulo: 'Tu semana',
-    texto: 'Aquí ves los días de la semana. El sábado marcas tu asistencia; los demás días, tu módulo y tu material.' },
+    texto: 'Aquí ves los días de la semana. El sábado marcas tu asistencia; entre semana avanzas en tus Unidades.' },
   { id: 'estudiante-accesos', ruta: '/', targetId: 'tour-accesos',
     titulo: 'Tu carnet, calendario y módulo',
     texto: 'Desde aquí muestras tu carnet para la asistencia y entras a tu calendario o a Mi módulo, donde ves tu avance, la malla y tu progreso.' },
@@ -187,7 +187,7 @@ const ESTUDIANTE: PasoTour[] = [
 // ───────────────────────── NOVEDADES: UNIDADES (profesor) ─────────────────────────
 const UD = '/unidades-docente'
 const NOVEDADES_PROFESOR: PasoTour[] = [
-  { id: 'nov-prof-unidades', ruta: UD, targetId: 'td-elegir', clic: 'td-elegir', seccion: 'Unidades',
+  { id: 'nov-prof-unidades', ruta: UD, targetId: 'td-elegir', clic: 'td-elegir', seccion: 'Mi módulo',
     portada: {
       titulo: 'Todo tu módulo en un solo lugar',
       texto: 'Material ya no es una sección aparte: ahora subes todo dentro de cada unidad, junto con tus exámenes y tareas. Esto es lo nuevo.',
@@ -200,15 +200,15 @@ const NOVEDADES_PROFESOR: PasoTour[] = [
         'Avisos cuando entregan, aprueban o hay algo por corregir',
       ],
     },
-    titulo: 'Unidades: tu espacio de trabajo',
+    titulo: 'Mi módulo › Unidades: tu espacio de trabajo',
     texto: 'Aquí armas el módulo. Primero eliges el módulo; toca “Siguiente” y elegimos uno por ti para ver sus unidades. Vamos a recorrerlo todo, desde crear una unidad hasta dónde quedan las notas.' },
-  { id: 'nov-prof-nueva', ruta: UD, targetId: 'td-nueva', seccion: 'Unidades',
+  { id: 'nov-prof-nueva', ruta: UD, targetId: 'td-nueva', seccion: 'Mi módulo',
     titulo: 'Nueva unidad',
     texto: '“+ Agregar unidad” crea una unidad con el nombre que le pongas. “+ Agregar unidad ya creada” copia una de tus plantillas con todo su contenido (los exámenes llegan ocultos y con 0 % para que los ajustes).' },
-  { id: 'nov-prof-lista', ruta: UD, targetId: 'td-lista', seccion: 'Unidades',
+  { id: 'nov-prof-lista', ruta: UD, targetId: 'td-lista', seccion: 'Mi módulo',
     titulo: 'Tus unidades',
     texto: 'Cada tarjeta muestra su estado: Borrador (sin fecha, nadie la ve), Programada, Abierta o Cerrada. Ahí mismo: “Corregir nombre”, “Guardar plantilla” para reutilizarla en otro módulo, y “Eliminar” (te muestra primero qué se pierde).' },
-  { id: 'nov-prof-abrir', ruta: UD, targetId: 'td-primera-unidad', clic: 'td-primera-unidad', seccion: 'Unidades',
+  { id: 'nov-prof-abrir', ruta: UD, targetId: 'td-primera-unidad', clic: 'td-primera-unidad', seccion: 'Mi módulo',
     titulo: 'Entrar a una unidad',
     texto: 'Al tocarla ves la unidad tal como la ve tu estudiante. Toca “Siguiente” y entramos a una por ti.' },
 
@@ -256,7 +256,7 @@ const NOVEDADES_PROFESOR: PasoTour[] = [
     titulo: 'Tus exámenes',
     texto: 'La lista de todos tus exámenes: publicas u ocultas, editas, borras y entras a ver quién lo presentó para corregir las respuestas de redacción. Aquí no se crean exámenes nuevos: se crean dentro de una unidad.' },
   { id: 'nov-prof-notas', ruta: '/notas-docente', targetId: null, seccion: 'Exámenes y notas',
-    titulo: 'Las notas llegan solas',
+    titulo: 'Pestaña Notas (en Mi módulo): las notas llegan solas',
     texto: 'Cada examen o tarea con su % aparece como una columna en Notas, y la nota del estudiante se llena sola cuando se califica. No tienes que registrarla dos veces.' },
   { id: 'nov-prof-dudas', ruta: '/dudas-docente', targetId: null, seccion: 'Exámenes y notas',
     titulo: 'Dudas por unidad',
@@ -288,10 +288,10 @@ const TEXTOS_DIRECCION: Record<string, Partial<PasoTour>> = {
     texto: 'Aquí ves y armas el aula de cualquier módulo. Primero eliges el módulo; toca “Siguiente” y elegimos uno por ti para ver sus unidades. Vamos a recorrerlo todo.',
   },
   'nov-prof-lista': {
-    texto: 'Cada tarjeta muestra su estado: Borrador (sin fecha, nadie la ve), Programada, Abierta o Cerrada. Ahí mismo: “Corregir nombre”, “Guardar plantilla” y “Eliminar” (te muestra primero qué se pierde). Tienes los mismos permisos que el profesor del módulo.',
+    texto: 'Cada unidad muestra su estado (Borrador, Programada, Abierta o Cerrada). Desde ahí la renombras, la guardas como plantilla o la eliminas (antes te dice qué se pierde).',
   },
   'nov-prof-u-contenido': {
-    texto: 'Mantén presionados los puntitos para arrastrar y cambiar el orden. “Quitar” saca el elemento de la unidad. En un material: “Editar” cambia título, descripción o enlace; “Obligatorio/Opcional” decide si cuenta para la certificación; y una etiqueta indica si está aprobado, en espera o rechazado.',
+    texto: 'Arrastra los puntitos para ordenar. En cada material: Editar, Obligatorio/Opcional (si cuenta para la certificación) y su estado de aprobación.',
   },
   'nov-prof-u-material': {
     texto: 'Sube un PDF, Word, presentación, imagen, video o audio, o pega un link (YouTube, Google Drive, Google Fotos u otra página). Lo que sube un profesor queda en espera hasta que tú lo apruebes en Material; te llega un aviso cuando hay algo por revisar.',
@@ -334,7 +334,7 @@ const ADMIN: PasoTour[] = [
     texto: 'El cuadro completo de asistencia por programa, en vivo — igual que la hoja de firmas, pero digital.' },
   { id: 'admin-unidades-aviso', ruta: '/panel', targetId: 'tour-nav',
     titulo: 'Nuevo: Unidades',
-    texto: 'Material ahora vive dentro de Unidades, el aula virtual de cada módulo. Si eres de Dirección Académica, al entrar a Unidades te mostramos todo lo nuevo, paso a paso.' },
+    texto: 'Ahora todo se arma dentro de Unidades, el aula de cada módulo. En Material sigues aprobando lo que suben los profesores. Al entrar a Unidades te mostramos lo nuevo, paso a paso.' },
   { id: 'admin-salones', ruta: '/salones', targetId: null,
     titulo: 'Salones',
     texto: 'Elige en qué salón tiene clase cada cohorte cada sábado. Estudiantes y profesores lo ven en su calendario. Si no cambias nada, se repite el de la semana anterior.' },

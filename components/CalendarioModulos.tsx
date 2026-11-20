@@ -228,9 +228,9 @@ export function CalendarioModulos({ cohorteFija }: { cohorteFija?: string } = {}
                     </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase text-zr-text-muted">Inicio</label>
+                    <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-zr-text-muted">Inicio</label>
                     <input
                       type="date" defaultValue={t.inicio} key={`i-${t.id}-${t.inicio}`}
                       disabled={guardandoId === t.id}
@@ -239,7 +239,7 @@ export function CalendarioModulos({ cohorteFija }: { cohorteFija?: string } = {}
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase text-zr-text-muted">Sábados</label>
+                    <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-zr-text-muted">Sábados</label>
                     <input
                       type="number" min={1} max={30} inputMode="numeric"
                       defaultValue={contarSabados(t.inicio, t.fin)} key={`s-${t.id}-${t.inicio}-${t.fin}`}
@@ -252,7 +252,7 @@ export function CalendarioModulos({ cohorteFija }: { cohorteFija?: string } = {}
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase text-zr-text-muted">Fin</label>
+                    <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-zr-text-muted">Fin</label>
                     <input
                       type="date" defaultValue={t.fin} key={`f-${t.id}-${t.fin}`}
                       disabled={guardandoId === t.id}
@@ -275,11 +275,11 @@ export function CalendarioModulos({ cohorteFija }: { cohorteFija?: string } = {}
         </select>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase text-zr-text-muted">Inicio (sábado)</label>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-zr-text-muted">Inicio (sábado)</label>
             <input type="date" value={nuevoInicio} onChange={(e) => setNuevoInicio(e.target.value)} className={CAMPO} />
           </div>
           <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase text-zr-text-muted">Cantidad de sábados</label>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-zr-text-muted">Cantidad de sábados</label>
             <input
               type="number" min={1} max={30} inputMode="numeric" value={nuevosSabados}
               onChange={(e) => setNuevosSabados(e.target.value)} className={`${CAMPO} text-center`}

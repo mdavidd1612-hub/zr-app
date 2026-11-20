@@ -242,7 +242,7 @@ export default function MiModulo() {
                     <IconoDocumento size={22} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-base font-bold text-zr-text">Entrar al Aula Virtual</span>
+                    <span className="block text-base font-bold text-zr-text">Ir a Unidades</span>
                     <span className="mt-0.5 block text-xs text-zr-text-muted">Material, exámenes y tareas</span>
                   </span>
                   <IconoChevron size={18} className="shrink-0 -rotate-90 text-zr-text-muted" />

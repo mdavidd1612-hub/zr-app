@@ -865,7 +865,7 @@ export default function UnidadDocenteDetalle() {
       </button>
 
       <BannerUnidad
-        sobretitulo="Aula Virtual"
+        sobretitulo="Unidades"
         titulo={titulo}
         imagenUrl={urlBanner}
         posicionImagen={bannerPosicion}

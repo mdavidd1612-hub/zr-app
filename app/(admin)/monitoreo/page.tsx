@@ -44,7 +44,7 @@ function semaforo(m: Metrica): Semaforo {
 
 const COLOR: Record<Semaforo, { punto: string; texto: string; etiqueta: string }> = {
   verde:    { punto: 'bg-zr-success', texto: 'text-zr-success', etiqueta: 'En meta' },
-  amarillo: { punto: 'bg-amber-400',  texto: 'text-amber-400',  etiqueta: 'Cerca' },
+  amarillo: { punto: 'bg-zr-warning',  texto: 'text-zr-warning',  etiqueta: 'Cerca' },
   rojo:     { punto: 'bg-zr-error',   texto: 'text-zr-error',   etiqueta: 'Atención' },
   gris:     { punto: 'bg-zr-text-muted/50', texto: 'text-zr-text-muted', etiqueta: '' },
 }

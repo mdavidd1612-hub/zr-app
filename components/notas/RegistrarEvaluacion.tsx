@@ -457,13 +457,13 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
 
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Tipo</label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {TIPOS.map((k) => (
               <button
                 key={k}
                 type="button"
                 onClick={() => setKind(k)}
-                className={`min-h-10 rounded-lg border px-1 text-xs font-bold ${kind === k ? 'border-zr-blue bg-zr-blue text-white' : 'border-zr-border text-zr-text-muted'}`}
+                className={`min-h-11 rounded-lg border px-1 text-xs font-bold ${kind === k ? 'border-zr-blue bg-zr-blue text-white' : 'border-zr-border text-zr-text-muted'}`}
               >
                 {ETIQUETA_KIND[k]}
               </button>

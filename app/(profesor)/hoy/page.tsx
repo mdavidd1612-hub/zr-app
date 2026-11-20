@@ -110,10 +110,13 @@ export default function Hoy() {
         setResumen({ presentes: presentes ?? 0, inscritos: inscritos ?? 0 })
       }
 
-      const [{ data: intentos }, { data: entregas }, { count: dudas }] = await Promise.all([
-        supabase.from('exam_attempts').select('exam_id, exams!inner(teacher_id)').eq('status', 'entregado').eq('exams.teacher_id', user.id).order('submitted_at', { ascending: false }).limit(200),
+      // Exámenes de sus módulos (la RLS los acota), no solo los que creó él.
+      const [{ data: intentos }, { data: entregas }, { count: dudas }, { count: apelaciones }] = await Promise.all([
+        supabase.from('exam_attempts').select('exam_id, exams!inner(id)').eq('status', 'entregado').order('submitted_at', { ascending: false }).limit(200),
         supabase.from('submissions').select('assignment_id').is('grade', null).order('submitted_at', { ascending: false }).limit(200),
         supabase.from('doubts').select('id', { count: 'exact', head: true }).eq('status', 'abierta'),
+        // "Apelar nota" del estudiante (§8.28): antes no tenía ningún acceso.
+        supabase.from('exam_rehabilitation_requests' as never).select('id', { count: 'exact', head: true }).eq('status', 'pendiente'),
       ])
       const lista: Pendiente[] = []
       const nIntentos = intentos?.length ?? 0
@@ -140,6 +143,14 @@ export default function Hoy() {
           titulo: dudas === 1 ? 'Duda abierta' : 'Dudas abiertas',
           detalle: 'Preguntas de tus estudiantes que esperan respuesta.',
           href: '/dudas-docente',
+        })
+      }
+      if ((apelaciones ?? 0) > 0) {
+        lista.push({
+          clave: 'apelaciones', cantidad: apelaciones ?? 0,
+          titulo: apelaciones === 1 ? 'Apelación pendiente' : 'Apelaciones pendientes',
+          detalle: 'Estudiantes que salieron de un examen y piden presentarlo otra vez.',
+          href: '/rehabilitaciones',
         })
       }
       setPendientes(lista)

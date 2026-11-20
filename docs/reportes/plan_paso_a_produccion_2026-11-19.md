@@ -129,3 +129,11 @@ join content_items ci on ci.module_id = n.module_id
 5. ¿Se mantiene `/contenido` (Material viejo) accesible unos días como respaldo?
 6. ¿Se contrata CloudConvert (PPTX→PDF) o se sigue con la vista externa?
 7. Inglés Técnico: ¿en PTMA y PFTA? ¿arranca en paralelo con Fluidos?
+
+
+## Actualización 20-nov-2026 (v1.78 → v1.82)
+
+- Migraciones nuevas aplicadas en staging, en este orden: 227, 228, 229, 230, 230b (registrada como `230b_compuerta_unidad_anterior_real`, el archivo 230 contiene ambas), 231. Ninguna redefine `fn_exam_attempt_prepare`.
+- Edge Functions redesplegadas en staging: `grade-answer` (v4), `respond-rehabilitation`, `approve-rehabilitation` (sin admin, con Dirección).
+- En `zr-prod` el módulo "Inglés técnico automotriz" no existe (migración 138 lo borró): crearlo antes del tramo virtual.
+- Detalle: `docs/reportes/informe_nocturno_2026-11-20.md` y `docs/reportes/evaluacion_lms_ux_visual_2026-11-20.md`.

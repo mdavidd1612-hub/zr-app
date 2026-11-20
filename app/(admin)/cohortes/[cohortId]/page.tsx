@@ -44,7 +44,7 @@ export default function FichaCorte() {
   ]
 
   return (
-    <div className="space-y-9 px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
+    <div className="mx-auto w-full max-w-[1500px] space-y-8 px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:px-8">
       <BotonVolver href="/cohortes" />
       <Encabezado
         sobretitulo="Ficha del corte"
@@ -55,16 +55,18 @@ export default function FichaCorte() {
 
       <Regla delay={60} />
 
-      <Seccion numero={1} titulo="Calendario de módulos" delay={100}>
-        <CalendarioModulos cohorteFija={cohortId} />
-      </Seccion>
+      <div className="grid items-start gap-8 xl:grid-cols-2">
+        <Seccion numero={1} titulo="Calendario de módulos" delay={100}>
+          <CalendarioModulos cohorteFija={cohortId} />
+        </Seccion>
 
-      <Seccion numero={2} titulo="Profesor de cada módulo" delay={130}>
-        <CoberturaCorte cohorteId={cohortId} />
-      </Seccion>
+        <Seccion numero={2} titulo="Profesor de cada módulo" delay={130}>
+          <CoberturaCorte cohorteId={cohortId} />
+        </Seccion>
+      </div>
 
       <Seccion numero={3} titulo="Lo demás de este corte" delay={160}>
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {accesos.map(({ href, titulo, sub, Icono }) => (
             <button key={href} onClick={() => router.push(href)} className="zr-card flex items-center gap-3 p-4 text-left">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue-mid"><Icono size={20} /></span>

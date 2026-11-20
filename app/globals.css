@@ -115,6 +115,30 @@ html::-webkit-scrollbar-thumb:hover {
   background-color: var(--zr-blue-mid);
 }
 
+/* Sensación de app, no de página web (20-nov-2026):
+   - sin el recuadro gris/azul que pinta Android al tocar un botón;
+   - sin el menú de "copiar/abrir enlace" al mantener presionado un botón o ícono;
+   - los botones y la navegación no se seleccionan como texto al tocarlos.
+   El texto normal (párrafos, notas, campos) se sigue pudiendo seleccionar. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+button, a, nav, [role="button"], [role="tab"], label, summary {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+img, svg {
+  -webkit-user-drag: none;
+}
+/* Al tocar, una respuesta inmediata (la app no espera al servidor para "sentirse"). */
+button:not(:disabled):active, a:active, [role="button"]:active {
+  transform: scale(0.98);
+}
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):active, a:active, [role="button"]:active { transform: none; }
+}
+
 /* Nada dibujado (foto de carnet, QR, PDF embebido, video) puede ser más ancho
    que su columna. Es lo que rompe la proporción en pantallas de 360 px. */
 img, svg, video, canvas, iframe {

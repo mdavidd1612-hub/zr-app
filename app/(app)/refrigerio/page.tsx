@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { BrowserQRCodeReader, type IScannerControls } from '@zxing/browser'
+// El lector de QR pesa ~480 KB: se carga solo al abrir la cámara (rendimiento, 20-nov-2026).
+import type { IScannerControls } from '@zxing/browser'
 import { createClient } from '@/lib/supabase/client'
 import { IconoFlechaAtras } from '@/components/ui/Iconos'
 
@@ -28,7 +29,6 @@ export default function ReclamarRefrigerio() {
 
   useEffect(() => {
     let cancelado = false
-    const lector = new BrowserQRCodeReader()
 
     async function procesar(qrText: string) {
       const supabase = createClient()
@@ -59,6 +59,8 @@ export default function ReclamarRefrigerio() {
 
     async function iniciar() {
       try {
+        const { BrowserQRCodeReader } = await import('@zxing/browser')
+        const lector = new BrowserQRCodeReader()
         const dispositivos = await BrowserQRCodeReader.listVideoInputDevices()
         const trasera = dispositivos.find((d) => /back|trasera|rear|environment/i.test(d.label)) ?? dispositivos[0]
 

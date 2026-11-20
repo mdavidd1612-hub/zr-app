@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     ],
     apple: `${CARPETA_ICONOS}/apple-touch-icon.png`,
   },
-  appleWebApp: { capable: true, statusBarStyle: 'default', title: `ZR App${SUFIJO_ENTORNO}` },
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: `ZR App${SUFIJO_ENTORNO}` },
   formatDetection: { telephone: false },
 }
 

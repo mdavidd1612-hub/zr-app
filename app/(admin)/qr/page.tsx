@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import QRCode from 'qrcode'
+// qrcode se carga al generar el código (rendimiento, 20-nov-2026).
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
@@ -70,7 +70,7 @@ export default function QRAdmin() {
     codigoActual.current = code
     // Margen generoso (zona de silencio) para que la cámara lo detecte
     // apenas apunte al cuadro, sin necesitar nada alrededor.
-    const url = await QRCode.toDataURL(`ZRADM|${code}`, {
+    const url = await (await import('qrcode')).default.toDataURL(`ZRADM|${code}`, {
       width: 320, margin: 3, color: { dark: '#0F1419', light: '#FFFFFF' },
     })
     setQrUrl(url)

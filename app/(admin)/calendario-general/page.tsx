@@ -164,7 +164,7 @@ export default function CalendarioGeneral() {
           ))}
         </div>
       </div>
-      {vista === 'plan' && <PlanificacionCortes />}
+      {vista === 'plan' && <PlanificacionCortes puedeEditar={puedeMover} />}
       {vista === 'semana' && (<>
 
       {/* Barra de semana y filtros */}

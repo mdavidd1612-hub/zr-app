@@ -28,7 +28,15 @@ const deISO = (s: string) => new Date(`${s}T12:00:00`)
 const aISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 function lunesDe(d: Date) { const x = new Date(d); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x }
 
-export function PlanificacionCortes() {
+interface Curso { id: string; nombre: string; sede: string | null; turno: string | null; start_date: string; end_date: string; teacher_name: string | null; class_start: string | null; class_end: string | null; notas: string | null }
+const CURSO_VACIO = { nombre: '', sede: '', turno: '', start_date: '', end_date: '', teacher_name: '', class_start: '', class_end: '', notas: '' }
+const CAMPO = 'min-h-11 w-full rounded-xl border border-zr-border bg-zr-bg px-3 text-sm text-zr-text'
+
+export function PlanificacionCortes({ puedeEditar = false }: { puedeEditar?: boolean }) {
+  const [cursos, setCursos] = useState<Curso[]>([])
+  const [form, setForm] = useState<(typeof CURSO_VACIO & { id?: string }) | null>(null)
+  const [errorForm, setErrorForm] = useState<string | null>(null)
+  const [recarga, setRecarga] = useState(0)
   const [meses, setMeses] = useState<number>(3)
   const [inicio, setInicio] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1, 12) })
   const [cortes, setCortes] = useState<Corte[]>([])
@@ -41,6 +49,8 @@ export function PlanificacionCortes() {
   useEffect(() => {
     const supabase = createClient()
     void (async () => {
+      const { data: cc } = await supabase.from('short_courses' as never).select('*').order('start_date')
+      setCursos((cc ?? []) as unknown as Curso[])
       const [c, t, m, a] = await Promise.all([
         supabase.from('cohorts').select('id, name, sede, turno, status').order('sede').order('name'),
         supabase.from('cohort_module_calendar' as never).select('cohort_id, module_id, start_date, end_date, modalidad'),
@@ -64,7 +74,7 @@ export function PlanificacionCortes() {
       setProfes(Object.fromEntries(Object.entries(pr).map(([k, v]) => [k, v.filter(Boolean).join(' / ')])))
       setCargando(false)
     })()
-  }, [])
+  }, [recarga])
 
   // Semanas visibles (columnas), de lunes a lunes.
   const semanas = useMemo(() => {
@@ -83,6 +93,31 @@ export function PlanificacionCortes() {
 
   const mover = (k: number) => { const d = new Date(inicio); d.setMonth(d.getMonth() + k * meses); setInicio(d) }
   const titulo = `${primera.toLocaleDateString('es-VE', { month: 'short', year: 'numeric' })} – ${semanas[n - 1].toLocaleDateString('es-VE', { month: 'short', year: 'numeric' })}`
+
+  async function guardarCurso() {
+    if (!form) return
+    if (!form.nombre.trim() || !form.start_date || !form.end_date) { setErrorForm('Pon nombre, fecha de inicio y de fin.'); return }
+    if (form.end_date < form.start_date) { setErrorForm('La fecha de fin no puede ser antes del inicio.'); return }
+    const fila = {
+      nombre: form.nombre.trim(), sede: form.sede || null, turno: form.turno || null,
+      start_date: form.start_date, end_date: form.end_date, teacher_name: form.teacher_name || null,
+      class_start: form.class_start || null, class_end: form.class_end || null, notas: form.notas || null,
+    }
+    const q = createClient().from('short_courses' as never)
+    const { error } = form.id ? await q.update(fila as never).eq('id', form.id) : await q.insert(fila as never)
+    if (error) { setErrorForm(error.message); return }
+    setForm(null); setRecarga((x) => x + 1)
+  }
+  async function borrarCurso() {
+    if (!form?.id || !confirm(`¿Eliminar el curso "${form.nombre}"? No se puede deshacer.`)) return
+    const { error } = await createClient().from('short_courses' as never).delete().eq('id', form.id)
+    if (error) { setErrorForm(error.message); return }
+    setForm(null); setRecarga((x) => x + 1)
+  }
+  const editar = (k: Curso) => {
+    setErrorForm(null)
+    setForm({ id: k.id, nombre: k.nombre, sede: k.sede ?? '', turno: k.turno ?? '', start_date: k.start_date, end_date: k.end_date, teacher_name: k.teacher_name ?? '', class_start: (k.class_start ?? '').slice(0, 5), class_end: (k.class_end ?? '').slice(0, 5), notas: k.notas ?? '' })
+  }
 
   if (cargando) return <p className="text-sm text-zr-text-muted">Cargando planificación…</p>
 
@@ -148,8 +183,65 @@ export function PlanificacionCortes() {
               </div>
             </div>
           ))}
+
+          {cursos.length > 0 && (
+            <div className="sticky left-0 z-10 border-b border-zr-border bg-zr-bg px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-zr-text-muted" style={{ gridColumn: `1 / span ${n + 1}` }}>Cursos cortos</div>
+          )}
+          {cursos.map((k) => {
+            const a = Math.max(0, colDe(k.start_date)); const b = Math.min(n - 1, colDe(k.end_date))
+            const visible = !(b < 0 || a > n - 1)
+            return (
+              <div key={k.id} className="contents">
+                <button type="button" disabled={!puedeEditar} onClick={() => editar(k)}
+                  className="sticky left-0 z-10 flex flex-col justify-center border-b border-r border-zr-border bg-zr-bg px-2 py-1.5 text-left">
+                  <span className="truncate font-bold text-zr-text">{k.nombre}</span>
+                  <span className="truncate text-[10px] text-zr-text-muted">{['Curso', k.sede, k.turno].filter(Boolean).join(' · ')}</span>
+                </button>
+                <div className="relative border-b border-zr-border" style={{ gridColumn: `2 / span ${n}` }}>
+                  <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}>
+                    {semanas.map((_, i) => <div key={i} className={`border-r border-zr-border/40 ${i === hoyCol ? 'bg-zr-blue/15' : ''}`} />)}
+                  </div>
+                  <div className="relative grid min-h-[38px] items-center py-1" style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}>
+                    {visible && (
+                      <div title={`${k.nombre} · ${k.start_date} a ${k.end_date}`} className="mx-px truncate rounded-md bg-[#0F766E] px-1.5 py-1 text-[11px] font-semibold text-white" style={{ gridColumn: `${a + 1} / ${b + 2}` }}>
+                        {k.nombre}{k.teacher_name ? `: ${k.teacher_name}` : ''}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
+      {puedeEditar && !form && (
+        <button onClick={() => { setErrorForm(null); setForm({ ...CURSO_VACIO }) }} className="min-h-11 rounded-full border border-zr-blue/60 px-5 text-sm font-bold text-zr-text">+ Curso corto</button>
+      )}
+      {form && (
+        <div className="max-w-2xl space-y-3 rounded-2xl border border-zr-border bg-zr-bg p-4">
+          <p className="text-sm font-bold text-zr-text">{form.id ? 'Editar curso corto' : 'Nuevo curso corto'}</p>
+          <p className="text-xs text-zr-text-muted">Un curso suelto (motos, pintura…) que no es un programa con módulos. Por ahora sirve para planificar; no inscribe estudiantes.</p>
+          <input placeholder="Nombre (ej. Mecánica de motos)" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} className={CAMPO} />
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <input placeholder="Sede" value={form.sede} onChange={(e) => setForm({ ...form, sede: e.target.value })} className={CAMPO} />
+            <select value={form.turno} onChange={(e) => setForm({ ...form, turno: e.target.value })} className={CAMPO}>
+              <option value="">Turno</option><option>Mañana</option><option>Tarde</option>
+            </select>
+            <label className="space-y-1 text-xs text-zr-text-muted">Desde<input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className={CAMPO} /></label>
+            <label className="space-y-1 text-xs text-zr-text-muted">Hasta<input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} className={CAMPO} /></label>
+            <label className="space-y-1 text-xs text-zr-text-muted">Hora de inicio<input type="time" value={form.class_start} onChange={(e) => setForm({ ...form, class_start: e.target.value })} className={CAMPO} /></label>
+            <label className="space-y-1 text-xs text-zr-text-muted">Hora de fin<input type="time" value={form.class_end} onChange={(e) => setForm({ ...form, class_end: e.target.value })} className={CAMPO} /></label>
+          </div>
+          <input placeholder="Profesor" value={form.teacher_name} onChange={(e) => setForm({ ...form, teacher_name: e.target.value })} className={CAMPO} />
+          <input placeholder="Notas (opcional)" value={form.notas} onChange={(e) => setForm({ ...form, notas: e.target.value })} className={CAMPO} />
+          {errorForm && <p className="rounded-xl bg-zr-error/10 px-3 py-2 text-xs font-semibold text-zr-error">{errorForm}</p>}
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => void guardarCurso()} className="min-h-11 rounded-full bg-zr-blue px-5 text-sm font-bold text-white">Guardar</button>
+            <button onClick={() => setForm(null)} className="min-h-11 rounded-full border border-zr-border px-5 text-sm font-bold text-zr-text">Cancelar</button>
+            {form.id && <button onClick={() => void borrarCurso()} className="min-h-11 rounded-full border border-zr-error/50 px-5 text-sm font-bold text-zr-error">Eliminar</button>}
+          </div>
+        </div>
+      )}
       <p className="text-xs text-zr-text-muted">Cada columna es una semana (fecha del sábado). La franja azul es esta semana. ◇ = módulo virtual en paralelo. Toca el nombre de un corte para abrir su ficha y cambiar su calendario.</p>
     </div>
   )

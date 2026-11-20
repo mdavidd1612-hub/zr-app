@@ -224,6 +224,7 @@ export default function Inicio() {
         }
       }
 
+      let modulosVista: string[] = []
       if (moduloId) {
         const { data: mod } = await supabase
           .from('modules')
@@ -235,13 +236,19 @@ export default function Inicio() {
 
       {
         const hoyISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' })
-        const { data: cal } = await supabase
+        // En vista de recorrido (staff) RLS deja ver todos los cortes: se acota
+        // al corte elegido en el panel para que se vea igual que lo ve ese corte.
+        const corteVista = filaEst?.cohort_id ?? leerCohorteVistaRecorridoCookie()
+        let consulta = supabase
           .from('cohort_module_calendar')
           .select('module_id, modalidad, start_date, end_date, modules(name)' as 'start_date, end_date')
           .lte('start_date', hoyISO).gte('end_date', hoyISO)
+        if (corteVista) consulta = consulta.eq('cohort_id', corteVista)
+        const { data: cal } = await consulta
         const v = ((cal ?? []) as unknown as { module_id: string; modalidad?: string; modules: { name: string } | null }[])
           .find((k) => k.modalidad === 'virtual')
         setVirtual(v ? { id: v.module_id, nombre: v.modules?.name ?? 'Módulo virtual' } : null)
+        modulosVista = [moduloId, v?.module_id].filter(Boolean) as string[]
       }
 
       // Qué días de esta semana ya se trabajaron. Fase 0 (Sprint 2) los
@@ -271,13 +278,16 @@ export default function Inicio() {
         .limit(1)
       setHayPendienteCalendario((proximoEvento ?? []).length > 0)
 
-      const { data: sigs } = await supabase
+      let consultaSigs = supabase
         .from('calendar_events')
         .select('source_id, module_id, title, event_at, source_type, modules(name)')
         .in('source_type', ['exam', 'assignment'])
         .gte('event_at', new Date().toISOString())
         .order('event_at', { ascending: true })
         .limit(5)
+      // Staff en vista de recorrido: solo los módulos del corte que está mirando.
+      if (!filaEst?.cohort_id && modulosVista.length) consultaSigs = consultaSigs.in('module_id', modulosVista)
+      const { data: sigs } = await consultaSigs
       const filas = (sigs ?? []) as unknown as { source_id: string; module_id: string; title: string; event_at: string; source_type: string; modules: { name: string } | null }[]
       const sig = filas[0]
       setSiguienteEvento(sig ? { titulo: sig.title, fecha: sig.event_at, tipo: sig.source_type } : null)

@@ -349,20 +349,6 @@ export default function Cohortes() {
               ))}
             </Select>
           </div>
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Profesor</label>
-            <Select
-              value={profesorNueva}
-              onChange={(e) => setProfesorNueva(e.target.value)}
-              className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
-            >
-              <option value="">Sin asignar</option>
-              {profesores.map((p) => (
-                <option key={p.id} value={p.id}>{p.full_name}</option>
-              ))}
-            </Select>
-          </div>
-
           {error && <p className="text-sm font-medium text-zr-error">{error}</p>}
 
           <button
@@ -414,19 +400,9 @@ export default function Cohortes() {
                 </div>
 
                 <div className="space-y-3 border-t border-zr-border bg-zr-bg/40 p-4">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-zr-text-muted">Profesor</label>
-                    <Select
-                      value={c.profesorId ?? ''}
-                      onChange={(e) => asignarProfesor(c.id, e.target.value)}
-                      className="w-full rounded-lg border border-zr-border bg-zr-surface px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
-                    >
-                      <option value="">Sin asignar</option>
-                      {profesores.map((p) => (
-                        <option key={p.id} value={p.id}>{p.full_name}</option>
-                      ))}
-                    </Select>
-                  </div>
+                  <p className="text-xs text-zr-text-muted">
+                    Los profesores se asignan por módulo dentro de la ficha del corte (Abrir ficha ›).
+                  </p>
 
                   {confirmandoAvance === c.id ? (
                     <div className="space-y-2 rounded-lg border border-zr-warning/30 bg-zr-warning/10 p-3">

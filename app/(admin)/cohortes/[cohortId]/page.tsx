@@ -7,7 +7,8 @@ import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { CalendarioModulos } from '@/components/CalendarioModulos'
-import { IconoPersonal, IconoCalendario, IconoEstudiantes, IconoNotas, IconoPanel } from '@/components/ui/Iconos'
+import { CoberturaCorte } from '@/components/CoberturaCorte'
+import { IconoCalendario, IconoEstudiantes, IconoNotas, IconoPanel } from '@/components/ui/Iconos'
 
 /**
  * Ficha única de un corte (19-nov-2026, propuesta B del estudio de unificar
@@ -36,7 +37,6 @@ export default function FichaCorte() {
   if (!corte) return <PantallaEsqueleto />
 
   const accesos = [
-    { href: '/cobertura-modulos', titulo: 'Profesores', sub: 'Quién da cada módulo', Icono: IconoPersonal },
     { href: '/salones', titulo: 'Salones', sub: 'Dónde es la clase cada sábado', Icono: IconoPanel },
     { href: '/estudiantes', titulo: 'Estudiantes', sub: `${corte.estudiantes} en este corte`, Icono: IconoEstudiantes },
     { href: `/notas-academicas/${cohortId}`, titulo: 'Notas', sub: 'Calificaciones del corte', Icono: IconoNotas },
@@ -59,7 +59,11 @@ export default function FichaCorte() {
         <CalendarioModulos cohorteFija={cohortId} />
       </Seccion>
 
-      <Seccion numero={2} titulo="Lo demás de este corte" delay={160}>
+      <Seccion numero={2} titulo="Profesor de cada módulo" delay={130}>
+        <CoberturaCorte cohorteId={cohortId} />
+      </Seccion>
+
+      <Seccion numero={3} titulo="Lo demás de este corte" delay={160}>
         <div className="grid gap-2 sm:grid-cols-2">
           {accesos.map(({ href, titulo, sub, Icono }) => (
             <button key={href} onClick={() => router.push(href)} className="zr-card flex items-center gap-3 p-4 text-left">

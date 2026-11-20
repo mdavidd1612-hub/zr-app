@@ -1,5 +1,6 @@
 'use client'
 
+import { leerCohorteVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -59,10 +60,14 @@ export default function Unidades() {
       setModulos(mods ?? [])
       setActualId(miActual ?? null)
       const hoyISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' })
-      const { data: cal } = await supabase
+      // Staff en vista de recorrido: solo el corte elegido en el panel.
+      const corteVista = leerCohorteVistaRecorridoCookie()
+      let consultaCal = supabase
         .from('cohort_module_calendar')
         .select('module_id, modalidad, start_date, end_date' as 'module_id, start_date, end_date')
         .lte('start_date', hoyISO).gte('end_date', hoyISO)
+      if (corteVista) consultaCal = consultaCal.eq('cohort_id', corteVista)
+      const { data: cal } = await consultaCal
       setVirtuales(((cal ?? []) as unknown as { module_id: string; modalidad?: string }[])
         .filter((k) => k.modalidad === 'virtual').map((k) => k.module_id))
       // ?modulo=<id> (p. ej. desde "También cursas · virtual" del inicio).

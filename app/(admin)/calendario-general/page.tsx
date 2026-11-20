@@ -224,7 +224,7 @@ export default function CalendarioGeneral() {
                       <button
                         key={`${c.cohort_id}-${k}`}
                         onClick={() => setAbierta(c)}
-                        className={`absolute overflow-hidden rounded-lg px-2 py-1.5 text-left text-white shadow-md ${malo ? 'ring-2 ring-zr-error' : ''}`}
+                        className={`absolute flex flex-col justify-start overflow-hidden rounded-lg px-2 py-1.5 text-left text-white shadow-md ${malo ? 'ring-2 ring-zr-error' : ''}`}
                         style={{ top: top + 2, height: alto, left: `calc(${pos * ancho}% + 3px)`, width: `calc(${ancho}% - 6px)`, background: colorDe(c.cohorte) }}
                       >
                         <p className="truncate text-xs font-bold">{c.cohorte}</p>

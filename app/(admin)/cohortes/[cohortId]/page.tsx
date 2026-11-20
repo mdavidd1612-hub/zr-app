@@ -42,6 +42,7 @@ export default function FichaCorte() {
     { href: '/estudiantes', titulo: 'Estudiantes', sub: `${corte.estudiantes} en este corte`, Icono: IconoEstudiantes },
     { href: `/notas-academicas/${cohortId}`, titulo: 'Notas', sub: 'Calificaciones del corte', Icono: IconoNotas },
     { href: '/asistencias', titulo: 'Asistencia', sub: 'Sábado a sábado', Icono: IconoCalendario },
+    { href: '/calendario-general', titulo: 'Calendario general', sub: 'Todas las clases de la semana', Icono: IconoCalendario },
   ]
 
   return (
@@ -59,7 +60,7 @@ export default function FichaCorte() {
       <DatosCorte cohorteId={cohortId} onGuardado={(nombre, estado) => setCorte((c) => (c ? { ...c, nombre, estado } : c))} />
 
       <Seccion numero={1} titulo="Ir a" delay={60}>
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {accesos.map(({ href, titulo, sub, Icono }) => (
             <button key={href} onClick={() => router.push(href)} className="zr-card flex items-center gap-3 p-4 text-left">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue-mid"><Icono size={20} /></span>

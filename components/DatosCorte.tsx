@@ -13,7 +13,11 @@ import { Select } from '@/components/ui/Select'
 interface Datos {
   name: string; sede: string; turno: string; location: string
   days: string; schedule: string; start_date: string; status: string
+  weekdays: number[]; start: string; end: string
 }
+
+// 0 = domingo … 6 = sábado (igual que `cohorts.class_weekdays`, migración 233).
+const DIAS = [{ n: 1, t: 'Lun' }, { n: 2, t: 'Mar' }, { n: 3, t: 'Mié' }, { n: 4, t: 'Jue' }, { n: 5, t: 'Vie' }, { n: 6, t: 'Sáb' }, { n: 0, t: 'Dom' }]
 
 const CAMPO = 'min-h-11 w-full rounded-xl border border-zr-border bg-zr-surface/40 px-3 text-sm text-zr-text outline-none focus:border-zr-blue'
 
@@ -33,14 +37,18 @@ export function DatosCorte({ cohorteId, onGuardado }: { cohorteId: string; onGua
       if (perfil?.role !== 'super_admin') return
       setEsSuper(true)
       const [{ data: c }, { data: s }] = await Promise.all([
-        supabase.from('cohorts').select('name, sede, turno, location, days, schedule, start_date, status').eq('id', cohorteId).maybeSingle(),
+        supabase.from('cohorts').select('name, sede, turno, location, days, schedule, start_date, status, class_weekdays, class_start, class_end' as 'name, sede, turno, location, days, schedule, start_date, status').eq('id', cohorteId).maybeSingle(),
         supabase.from('sedes').select('nombre').eq('activa', true).order('nombre'),
       ])
       setSedes((s ?? []).map((x) => x.nombre))
-      if (c) setD({
-        name: c.name, sede: c.sede ?? '', turno: c.turno ?? 'mañana', location: c.location ?? '',
-        days: c.days ?? '', schedule: c.schedule ?? '', start_date: c.start_date, status: c.status,
-      })
+      if (c) {
+        const x = c as typeof c & { class_weekdays: number[] | null; class_start: string | null; class_end: string | null }
+        setD({
+          name: c.name, sede: c.sede ?? '', turno: c.turno ?? 'mañana', location: c.location ?? '',
+          days: c.days ?? '', schedule: c.schedule ?? '', start_date: c.start_date, status: c.status,
+          weekdays: x.class_weekdays ?? [6], start: (x.class_start ?? '').slice(0, 5), end: (x.class_end ?? '').slice(0, 5),
+        })
+      }
     })
   }, [cohorteId])
 
@@ -51,6 +59,8 @@ export function DatosCorte({ cohorteId, onGuardado }: { cohorteId: string; onGua
   async function guardar() {
     if (!d) return
     if (!d.name.trim()) { setAviso({ ok: false, texto: 'El nombre no puede quedar vacío.' }); return }
+    if (d.weekdays.length === 0) { setAviso({ ok: false, texto: 'Elige al menos un día de clase.' }); return }
+    if (d.start && d.end && d.end <= d.start) { setAviso({ ok: false, texto: 'La hora de fin tiene que ser después de la de inicio.' }); return }
     setGuardando(true)
     setAviso(null)
     const { error } = await createClient().from('cohorts').update({
@@ -62,7 +72,10 @@ export function DatosCorte({ cohorteId, onGuardado }: { cohorteId: string; onGua
       schedule: d.schedule.trim() || null,
       start_date: d.start_date,
       status: d.status as 'activa' | 'finalizada' | 'suspendida',
-    }).eq('id', cohorteId)
+      class_weekdays: d.weekdays,
+      class_start: d.start || null,
+      class_end: d.end || null,
+    } as never).eq('id', cohorteId)
     setGuardando(false)
     if (error) {
       setAviso({ ok: false, texto: error.code === '23505' ? 'Ya existe un corte con ese nombre o número en esa sede.' : 'No se pudo guardar. Revisa los datos e inténtalo otra vez.' })
@@ -126,6 +139,35 @@ export function DatosCorte({ cohorteId, onGuardado }: { cohorteId: string; onGua
                 <option value="finalizada">Finalizada</option>
               </Select>
             </label>
+          </div>
+          <div className="space-y-2 rounded-xl border border-zr-border p-3">
+            <p className="text-xs font-semibold text-zr-text-muted">Horario de clase (lo usa el calendario general)</p>
+            <div className="flex flex-wrap gap-1.5">
+              {DIAS.map((x) => {
+                const on = d.weekdays.includes(x.n)
+                return (
+                  <button
+                    key={x.n}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setD({ ...d, weekdays: on ? d.weekdays.filter((y) => y !== x.n) : [...d.weekdays, x.n] })}
+                    className={`min-h-10 min-w-12 rounded-full border px-3 text-xs font-bold ${on ? 'border-zr-blue bg-zr-blue/20 text-zr-text' : 'border-zr-border text-zr-text-muted'}`}
+                  >
+                    {x.t}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold text-zr-text-muted">Desde</span>
+                <input type="time" value={d.start} onChange={(e) => poner('start', e.target.value)} className={CAMPO} />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold text-zr-text-muted">Hasta</span>
+                <input type="time" value={d.end} onChange={(e) => poner('end', e.target.value)} className={CAMPO} />
+              </label>
+            </div>
           </div>
           <p className="text-xs text-zr-text-muted">
             Cambiar la sede cambia los salones que se pueden elegir. El número del carnet de los estudiantes ya inscritos no se modifica.

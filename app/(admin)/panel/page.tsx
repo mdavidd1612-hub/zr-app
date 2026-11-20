@@ -81,6 +81,7 @@ const ACCESOS_FINANZAS = [
 const ACCESOS_PROGRAMAS = [
   { href: '/cohortes',          titulo: 'Programas',  sub: 'Abrir un corte nuevo, avanzar de módulo', Icono: IconoProgreso },
   { href: '/modulos',           titulo: 'Módulos',    sub: 'Resúmenes y módulos nuevos',              Icono: IconoProgreso },
+  { href: '/calendario-general', titulo: 'Calendario general', sub: 'Todas las clases de la semana, por hora', Icono: IconoCalendario },
   { href: '/salones',          titulo: 'Salones',    sub: 'En qué salón tiene clase cada cohorte',   Icono: IconoProgreso },
   { href: '/feedback-modulos',  titulo: 'Feedback',   sub: 'Abrir y revisar el feedback de módulo',   Icono: IconoDuda },
   { href: '/monitoreo',         titulo: 'Salud de la app', sub: 'Métricas contra las metas del documento maestro', Icono: IconoProgreso },

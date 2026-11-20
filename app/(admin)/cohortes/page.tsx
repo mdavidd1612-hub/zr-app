@@ -31,6 +31,7 @@ interface Cohorte {
   estudiantes: number
   estado: string
   programaId: string | null
+  moduloSinProfesor: boolean
 }
 
 interface Modulo { id: string; name: string; order_index: number; program_id: string }
@@ -79,7 +80,7 @@ export default function Cohortes() {
         return
       }
 
-      const [{ data: cohs }, { data: mods }, { data: profs }, { data: programa }, { data: sedesActivas }] = await Promise.all([
+      const [{ data: cohs }, { data: mods }, { data: profs }, { data: programa }, { data: sedesActivas }, { data: asigs }] = await Promise.all([
         supabase.from('cohorts').select('id, name, location, sede, turno, current_module_id, teacher_id, status, program_id, modules(name), teachers(profiles(full_name)), students(id)'),
         // Bug real (multi-programa, nov 2026): sin filtrar por programa, esta
         // lista mezclaba los módulos de TODOS los programas en un solo
@@ -96,6 +97,8 @@ export default function Cohortes() {
         supabase.from('programs').select('id, name').order('name'),
         // R-20: catálogo de sedes, no las que ya usaron cohortes existentes.
         supabase.from('sedes').select('nombre').eq('activa', true).order('nombre'),
+        // Para avisar si el módulo que cursa un corte no tiene profesor (20-nov-2026).
+        supabase.from('teacher_module_assignments').select('cohort_id, module_id'),
       ])
 
       if (!vigente) return
@@ -122,6 +125,7 @@ export default function Cohortes() {
           estudiantes: c.students?.length ?? 0,
           estado: c.status,
           programaId: c.program_id,
+          moduloSinProfesor: Boolean(c.current_module_id) && !(asigs ?? []).some((a) => a.cohort_id === c.id && a.module_id === c.current_module_id),
         })),
       )
 
@@ -392,6 +396,11 @@ export default function Cohortes() {
                       <p className="mt-1 text-sm font-medium text-zr-text">{c.estudiantes}</p>
                     </div>
                   </div>
+                  {c.estado === 'activa' && c.moduloSinProfesor && (
+                    <p className="mt-4 rounded-lg border border-zr-warning/40 bg-zr-warning/10 px-3 py-2 text-xs font-semibold text-zr-text">
+                      Está cursando {c.moduloNombre} sin profesor asignado. Asígnalo en la ficha del corte.
+                    </p>
+                  )}
                   {c.estado === 'activa' && !c.moduloId && (
                     <p className="mt-4 rounded-lg border border-zr-warning/40 bg-zr-warning/10 px-3 py-2 text-xs font-semibold text-zr-text">
                       Esta cohorte está activa pero no tiene módulo actual: no habrá clase de hoy ni aparecerá en el QR hasta que le inicies un módulo.

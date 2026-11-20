@@ -175,9 +175,7 @@ export function CalendarioModulos({ cohorteFija }: { cohorteFija?: string } = {}
   return (
     <div className="space-y-4">
       <p className="text-sm text-zr-text-muted">
-        El módulo de cada cohorte cambia solo según estas fechas (se revisa cada noche y al guardar).
-        Un módulo puede tener varios tramos, por ejemplo con vacaciones de por medio. Las clases son
-        los sábados.
+        El módulo cambia solo según estas fechas. Un módulo puede tener varios tramos (p. ej. con vacaciones en medio).
       </p>
 
       <div className={cohorteFija ? 'hidden' : ''}>
@@ -198,8 +196,7 @@ export function CalendarioModulos({ cohorteFija }: { cohorteFija?: string } = {}
 
       {tramos.length === 0 ? (
         <p className="rounded-lg border border-zr-border bg-zr-surface px-4 py-3 text-sm text-zr-text-muted">
-          Esta cohorte no tiene calendario. Su módulo se cambia a mano desde Cohortes. Agrega tramos
-          abajo para que cambie solo.
+          Sin calendario todavía: agrega tramos abajo para que el módulo cambie solo.
         </p>
       ) : (
         <div className="space-y-2">
@@ -294,7 +291,7 @@ export function CalendarioModulos({ cohorteFija }: { cohorteFija?: string } = {}
           <span>
             Virtual, en paralelo
             <span className="block text-xs text-zr-text-muted">
-              Se cursa por la app al mismo tiempo que el módulo presencial (p. ej. Inglés Técnico). No cambia la clase del sábado ni la asistencia.
+              Por la app, junto al presencial (p. ej. Inglés). No cambia el sábado.
             </span>
           </span>
         </label>

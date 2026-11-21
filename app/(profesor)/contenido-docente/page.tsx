@@ -164,9 +164,9 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
       const [c, m] = moduloId.split('|')
       return [c, m]
     }
-    const { data: unidad } = await supabase.from('units').select('module_id').eq('id', unitId).maybeSingle()
+    const { data: unidad } = await supabase.from('units').select('module_id, cohort_id').eq('id', unitId).maybeSingle()
     if (!unidad) { setError('No se encontró la unidad.'); return null }
-    const cohorte = await cohorteParaModulo(supabase, unidad.module_id)
+    const cohorte = await cohorteParaModulo(supabase, unidad.module_id, unidad.cohort_id)
     if (!cohorte) {
       setError('No tienes este módulo asignado en ninguna cohorte, así que no puedes subir material aquí. Avisa a Dirección Académica.')
       return null

@@ -24,6 +24,8 @@
 
 ### Nuevo trabajo antes del paso: material solo del propio corte
 
+> **Hecho en staging (21-nov-2026, v1.96):** migración 241 (`units.cohort_id`, políticas del estudiante, compuerta, avisos y plantillas por corte), pantallas del profesor y del estudiante, y el traslado nuevo de §4. Probado como estudiante de cada corte: cada uno ve solo sus unidades y su material, más las generales.
+
 Hoy una **unidad es del módulo, no del corte**, y la regla de la migración 208 deja ver el material
 enlazado en una unidad a todos los cortes del módulo. Para cumplir la respuesta 1 hay que, en
 staging primero:
@@ -47,6 +49,8 @@ Fluidos. Staging ya lo tiene corregido (migraciones 224 y 229). Opciones: espera
 arreglo puntual en producción solo de esas 2 funciones (decisión del coordinador).
 
 ### Pregunta 2, reformulada
+
+> **Respondida (20-nov, 11:05 p. m.):** es correcto, esos dos sábados no hay clase. No hace falta tocar el calendario. El coordinador pidió hacer el ensayo.
 
 En el calendario de módulos de PTMA-2026-II **no hay clase el sábado 26 de diciembre ni el sábado
 2 de enero** (vacaciones). Con lo nuevo, esos días la app no crea la clase y el QR dice "hoy no hay
@@ -184,8 +188,8 @@ abierta y sin bloqueo, y enlaza ahí cada archivo (en el orden de sus carpetas y
 copia ni borra** archivos, carpetas ni registros: solo los enlaza. La pantalla `/material` de
 Dirección sigue igual.
 
-Resultado esperado en producción (con los datos de hoy): 3 unidades (Introducción, Instrumentación,
-Fluidos) y 10 enlaces. Material subido hasta el día del paso también entra (la consulta busca lo
+Resultado esperado en producción (con los datos de hoy): **4 unidades** (Introducción de PTMA-II,
+Introducción de PTMA-III, Instrumentación y Fluidos de PTMA-II) y 10 enlaces. Cada corte ve solo la suya. Material subido hasta el día del paso también entra (la consulta busca lo
 que esté suelto en ese momento).
 
 Prueba en staging (se deshizo al final):
@@ -194,19 +198,21 @@ Prueba en staging (se deshizo al final):
 - **Como estudiante de PTMA-III**: ve 1 unidad (Introducción), 4 enlaces y 4 archivos.
 
 ```sql
--- Correr UNA vez en producción, después de todas las migraciones.
-with mods as (
-  select ci.module_id from content_items ci
+-- Correr UNA vez en producción, después de todas las migraciones (incluida la 241).
+-- Una unidad "Material del módulo" por cada (módulo, corte), marcada con su corte.
+with grupos as (
+  select ci.module_id, ci.cohort_id from content_items ci
    where ci.is_published and ci.approval_status = 'aprobado' and ci.type <> 'texto'
      and not exists (select 1 from unit_items ui where ui.content_item_id = ci.id)
-   group by ci.module_id
+   group by ci.module_id, ci.cohort_id
 ), nuevas as (
-  insert into units (module_id, title, order_index, manual_status, gate_mode)
-  select m.module_id, 'Material del módulo',
-         coalesce((select max(u.order_index) from units u where u.module_id = m.module_id), 0) + 1,
+  insert into units (module_id, cohort_id, title, order_index, manual_status, gate_mode)
+  select g.module_id, g.cohort_id, 'Material del módulo',
+         coalesce((select max(u.order_index) from units u where u.module_id = g.module_id), 0)
+           + row_number() over (partition by g.module_id order by g.cohort_id nulls first),
          'abierta', 'none'
-  from mods m
-  returning id, module_id
+  from grupos g
+  returning id, module_id, cohort_id
 )
 insert into unit_items (unit_id, type, order_index, content_item_id, required, visible)
 select n.id, 'material',
@@ -214,6 +220,7 @@ select n.id, 'material',
        ci.id, false, true
 from nuevas n
 join content_items ci on ci.module_id = n.module_id
+ and ci.cohort_id is not distinct from n.cohort_id
  and ci.is_published and ci.approval_status = 'aprobado' and ci.type <> 'texto'
  and not exists (select 1 from unit_items ui where ui.content_item_id = ci.id)
 left join content_folders f on f.id = ci.folder_id;
@@ -290,6 +297,7 @@ sin usar (no estorban). Si algo grave falla en la base, se restaura el respaldo 
 40. 216 · 41. 217 · 42. 218 · 43. 219 · 44. 220 · 45. 221 · 46. 222 · 47. 223 · 48. 224 ·
 49. 225 · 50. 226 · 51. 227 · 52. 228 · 53. 229 · 54. 230 (incluye 230b) · 55. 231 · 56. 232 ·
 57. 233 · 58. 234 (incluye 234b) · 59. 235 · 60. 236 · 61. 237 · 62. 238 · 63. 239.
+64. **240** `fix_canal_push_refrigerio_y_devolver_notas` · 65. **241** `unidades_por_corte` (incluye 241b, la vista `v_units_status` con el corte). Agregadas el 21-nov-2026: **66 archivos en total**.
 
 No van: 188/189 (se anulan entre sí), 191/192/198 (ya están en producción), 171–173 (ya están).
 

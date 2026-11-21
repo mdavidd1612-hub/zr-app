@@ -855,6 +855,12 @@ Cierra los huecos que quedaban de los Sprints 1, 2 y 3 (ver §10).
 - Datos de prueba que quedan en staging: unidad "QA Flujo completo 19-nov" con su examen, tarea, entrega y duda del estudiante V-90000001.
 - 🟡 Pendiente técnico: `npm run lint` marca 35 avisos del compilador de React (`set-state-in-effect`), sin fallas visibles; y la carpeta suelta `ZR QR/` (sin seguimiento en git) rompe `tsc` local.
 
+### 8.29bis Unidades por corte + 2 fallas de producción (21-nov-2026, v1.96, solo staging)
+
+- ✅ **Cada corte ve solo sus unidades** (decisión del coordinador: "son entornos diferentes"). Migración 241: `units.cohort_id` (vacío = general, la ven todos los cortes del módulo; así quedan las unidades de antes). El estudiante solo ve unidades de su corte o generales, y lo que cuelga de ellas (elementos, tareas, dudas frecuentes, material enlazado). La compuerta por orden busca la unidad anterior del mismo corte; los avisos de unidad abierta, tarea nueva y unidad desbloqueada van solo al corte de la unidad; importar una plantilla la deja en el corte elegido. La vista `v_units_status` expone el corte (241b). Pantallas: `/unidades-docente` lista solo las del corte elegido y guarda el corte al crear; dentro de una unidad, las pestañas y lo que se crea (material, examen, bloque de texto) usan el corte de la unidad (`cohorteParaModulo` recibe el corte de la unidad); la vista de recorrido del estudiante se acota al corte elegido. El orden (`order_index`) sigue siendo único por módulo: se toma el máximo real del módulo, no solo del corte. Probado en staging como estudiante de cada corte (con transacción deshecha). **Sin probar en pantalla.**
+- ✅ **Migración 240:** el aviso "Ya puedes pasar por tu refrigerio" (`fn_notify_hora_refrigerio`, 41 fallos en producción) y "Devolver notas" (`devolver_notas`) fallaban porque `'push'` dentro de un `select distinct` llega como texto y no como `notification_channel`. Corregido con el cast; probado en staging (2 avisos, notas devueltas). Hallado en el ensayo del paso a producción (`docs/reportes/ensayo_paso_a_produccion_2026-11-21.md`).
+- El traslado del Material a Unidades del plan de paso a producción ahora crea una unidad por (módulo, corte): con los datos de hoy, 4 unidades y 10 enlaces.
+
 ### 8.30 COSAS POR HACER (anotado, no construido)
 
 - 🔴 **Modo sin conexión (offline):** poder descargar una unidad en el teléfono (lecturas, PDF, imágenes, instrucciones) y abrirla sin internet. Ya hay service worker (`public/sw.js`, red primero con caché de respaldo) pero no guarda unidades. Ideas: botón "Descargar para ver sin conexión" por unidad que guarda los archivos en el almacenamiento del navegador (Cache API / IndexedDB), con aviso de espacio usado y opción de borrar; las URL firmadas caducan, así que hay que guardar el archivo, no el enlace; el progreso de "material visto" se guarda localmente y se sincroniza al volver la conexión; las entregas de tareas y exámenes siguen exigiendo conexión. Definir antes: cuánto espacio permitir, qué tipos (PDF/imagen sí; video pesado probablemente no) y si el progreso offline cuenta como visto.
@@ -1732,7 +1738,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
-- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.94**.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.96**.
 
 ### 12.5 Al cierre de cada sprint
 
@@ -1766,6 +1772,31 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 
 **"Pedro me pidió hacer X y no coincide con el roadmap."**
 - Aplica §12.3. No te detengas, no reclames, procede y actualiza.
+
+
+### 12.10 "Chequeo total" — qué significa (regla del coordinador, 21-nov-2026)
+
+Cuando el coordinador pide un **"chequeo total"** se refiere exactamente a esto:
+
+- **Para qué:** dejar la app perfecta antes de un día de uso. Se hace **cada viernes** o el día
+  antes de cualquier día en que estudiantes, profesores y demás usuarios vayan a usar la app
+  (sábados de clase, exámenes, inscripciones).
+- **Dónde:** en `zr-staging` salvo que se diga producción. En producción es el mismo chequeo.
+- **Perfiles, los 4 principales:** Dirección Académica, Profesor, Estudiante y Administración.
+- **Qué se revisa en cada perfil, detalladamente:** funciones, secciones, botones, acciones
+  (crear, editar, borrar, guardar, enviar, calificar, escanear...), proporciones y responsive.
+  Se revisa en **teléfono y en PC**, en pantallas de distintos tamaños (mínimo 360 px y 1440 px).
+  **Todas las secciones de la app, no solo E-Learning/Unidades.**
+- **Criterio:** que todo funcione correctamente y como está previsto en este documento, sin
+  errores en consola ni en el servidor.
+- **Cada bug encontrado:** se documenta (qué, dónde, causa) y se soluciona en ese momento, sin
+  esperar al final. Al terminar se re-prueba lo corregido.
+- **Entregable:** informe en `docs/reportes/chequeo_total_<entorno>_<fecha>.md` con lo revisado
+  por perfil, los bugs encontrados con su arreglo, y lo que NO se pudo revisar (sin dar falsa
+  sensación de cobertura). Fila en §14.1 y versión subida (§12.4).
+- **Reglas de seguridad del chequeo:** en producción no se crean ni se borran datos reales; las
+  pruebas que escriben datos se hacen en staging o se deshacen. No se cambian claves de cuentas
+  sin que el coordinador lo autorice.
 
 ---
 
@@ -1897,6 +1928,8 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-20 | **Investigación v2 del paso a producción (solo lectura, nada aplicado):** comparación objeto por objeto de `zr-prod` vs `zr-staging` (tablas, funciones, políticas, disparadores, crons, buckets), orden real de 66 migraciones + 3 sin registro (027 que producción nunca aplicó, 204 y 206 aplicadas a mano), traslado de Material a Unidades probado como estudiante de cada corte (con transacción que se deshace), error vigente de `enviar_notas` en producción, staging llamando a producción en `fn_generar_caso_del_dia`. v1.92. | `docs/reportes/plan_paso_a_produccion_2026-11-20.md` |
 | 2026-11-20 | v1.93: un solo selector de rango (Semana · Mes · Trimestre · Semestre · Año) con una barra de navegación ‹ › compartida por las 5 vistas, nueva vista Mes (cuadrícula calendario, día con nombres en computadora/puntos en teléfono, tocar el día abre la lista de sus clases) y Planificación ya no tiene sus propios botones (ahora la controla el selector único) — probado en 1440 y 375px, sin desborde horizontal en ninguna vista. Ver §8.33. | — |
 | 2026-11-20 | Respuestas del coordinador al plan de paso a producción (audio): cada corte ve solo su material (requiere `units.cohort_id` antes del paso), ensayo local aprobado, CloudConvert gratis con límite diario, PTMA-III sí tiene profesor en producción. Hallado: en producción el tope de 100 % y `enviar_notas` suman todos los cortes, PTMA-III no puede registrar evaluaciones en Introducción. v1.94. | `docs/reportes/plan_paso_a_produccion_2026-11-20.md` |
+| 2026-11-21 | **Ensayo del paso a producción en copia local de `zr-prod`** (Docker, borrada al terminar): las 64 migraciones entran sin errores, conteos y notas idénticos, traslado del material 3 unidades/10 enlaces, PTMA-III ya puede registrar % en Introducción. Hallado roto hoy en producción: aviso de refrigerio (41 fallos) y "Devolver notas" (`'push'` sin cast a `notification_channel`). v1.95. | `docs/reportes/ensayo_paso_a_produccion_2026-11-21.md` |
+| 2026-11-21 | v1.96: unidades por corte (migr. 241, cada corte ve solo sus unidades y su material) y arreglo del aviso de refrigerio y "Devolver notas" (migr. 240), solo en staging; traslado del material por corte en el plan. Ver §8.29bis. | `supabase/migrations/240_fix_canal_push_refrigerio_y_devolver_notas.sql`, `241_unidades_por_corte.sql` |
 
 ---
 

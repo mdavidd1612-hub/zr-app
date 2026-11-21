@@ -128,11 +128,13 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
       .from('units')
       .select('id, title, order_index, open_at, close_at, manual_status')
       .eq('module_id', ctx.moduleId)
+      // Unidades por corte (migr. 241): las de este corte y las generales.
+      .or(`cohort_id.is.null,cohort_id.eq.${ctx.cohortId}`)
       .order('order_index', { ascending: true })
     setUnidades((data ?? []) as UnidadFila[])
     // Certificaciones ya existentes en el módulo: la nueva unidad puede
     // depender de una (la última por defecto) o abrirse libre.
-    const cs = await certificacionesDelModulo(supabase, ctx.moduleId)
+    const cs = await certificacionesDelModulo(supabase, ctx.moduleId, undefined, ctx.cohortId)
     setCerts(cs)
     setBloqueo(cs.length > 0 ? cs[cs.length - 1].id : 'none')
     setCargando(false)
@@ -146,9 +148,14 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
     setCreando(true)
     setError(null)
     const supabase = createClient()
-    const siguienteOrden = unidades.length > 0 ? Math.max(...unidades.map((u) => u.order_index)) + 1 : 1
+    // El orden es único por MÓDULO (también cuenta las unidades de los otros
+    // cortes, que aquí no se listan), así que se toma el máximo real.
+    const { data: ultima } = await supabase.from('units').select('order_index')
+      .eq('module_id', ctx.moduleId).order('order_index', { ascending: false }).limit(1).maybeSingle()
+    const siguienteOrden = (ultima?.order_index ?? 0) + 1
     const { data: nueva, error: err } = await supabase.from('units').insert({
       module_id: ctx.moduleId,
+      cohort_id: ctx.cohortId,
       title: titulo.trim(),
       order_index: siguienteOrden,
       ...(certs.length > 0 ? valorAColumnas(bloqueo) : {}),

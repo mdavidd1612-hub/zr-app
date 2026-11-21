@@ -54,7 +54,7 @@ function DudasInterno({ ctx, unidadFiltro }: { ctx: ContextoSel; unidadFiltro: s
 
   async function cargarDudasUnidad() {
     const supabase = createClient()
-    const { data: unidades } = await supabase.from('units').select('id, title').eq('module_id', ctx.moduleId)
+    const { data: unidades } = await supabase.from('units').select('id, title').eq('module_id', ctx.moduleId).or(`cohort_id.is.null,cohort_id.eq.${ctx.cohortId}`)
     const idsUnidad = (unidades ?? []).map((u) => u.id)
     if (idsUnidad.length === 0) { setDudasUnidad([]); return }
 

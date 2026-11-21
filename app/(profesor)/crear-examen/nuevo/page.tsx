@@ -189,11 +189,11 @@ function NuevoExamenInterno() {
 
       // Viene de una unidad: su módulo manda, no el primero de la lista.
       if (unitId) {
-        const { data: unidad } = await supabase.from('units').select('title, module_id').eq('id', unitId).maybeSingle()
+        const { data: unidad } = await supabase.from('units').select('title, module_id, cohort_id').eq('id', unitId).maybeSingle()
         if (unidad) {
           setTituloUnidad(unidad.title)
           setModuloId(unidad.module_id)
-          const cohorteDeLaUnidad = await cohorteParaModulo(supabase, unidad.module_id)
+          const cohorteDeLaUnidad = await cohorteParaModulo(supabase, unidad.module_id, unidad.cohort_id)
           if (cohorteDeLaUnidad) setCohorteId(cohorteDeLaUnidad)
         }
       }

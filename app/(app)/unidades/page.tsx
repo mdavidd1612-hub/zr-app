@@ -48,7 +48,7 @@ export default function Unidades() {
 
       const { data } = await supabase
         .from('v_units_status')
-        .select('id, module_id, title, effective_status, order_index, prerequisite_met')
+        .select('id, module_id, title, effective_status, order_index, prerequisite_met, cohort_id' as 'id, module_id, title, effective_status, order_index, prerequisite_met')
         .order('order_index', { ascending: true })
 
       const { data: idsCursados } = await supabase.rpc('mis_modulos_cursados' as never) as { data: string[] | null }
@@ -99,7 +99,11 @@ export default function Unidades() {
 
       // Casteo: v_units_status gana la columna prerequisite_met en la
       // migración 185; los tipos generados se regeneran en el próximo barrido.
-      setUnidades((data ?? []) as unknown as UnidadFila[])
+      // Unidades por corte (migr. 241): el estudiante ya las recibe filtradas por
+      // la base; el personal en vista de recorrido ve todas, así que aquí se
+      // dejan solo las generales y las del corte elegido.
+      const filas = (data ?? []) as unknown as (UnidadFila & { cohort_id?: string | null })[]
+      setUnidades(corteVista ? filas.filter((u) => !u.cohort_id || u.cohort_id === corteVista) : filas)
       setCargando(false)
     }
     cargar()

@@ -203,7 +203,7 @@ export default function UnidadDocenteDetalle() {
     const supabase = createClient()
     const { data: unidad } = await supabase
       .from('units')
-      .select('title, module_id, open_at, close_at, manual_status, banner_image_path, banner_color, banner_image_position')
+      .select('title, module_id, cohort_id, open_at, close_at, manual_status, banner_image_path, banner_color, banner_image_position')
       .eq('id', unitId).maybeSingle()
     if (!unidad) { router.replace('/unidades-docente'); return }
     setTitulo(unidad.title)
@@ -217,7 +217,7 @@ export default function UnidadDocenteDetalle() {
       const fila = g as unknown as { order_index: number; gate_mode: string; gate_exam_id: string | null } | null
       if (fila) {
         setBloqueo(columnasAValor(fila.gate_mode, fila.gate_exam_id))
-        setCertsPrevias(await certificacionesDelModulo(supabase, unidad.module_id, fila.order_index))
+        setCertsPrevias(await certificacionesDelModulo(supabase, unidad.module_id, fila.order_index, unidad.cohort_id))
       }
     }
     setBannerImagePath(unidad.banner_image_path)
@@ -227,7 +227,7 @@ export default function UnidadDocenteDetalle() {
     // El bloque de texto se guarda como content_items (RLS exige cohort_id +
     // module_id que el profesor realmente dicta -- mismo requisito que el
     // material subido por archivo, policy "profesor: escribir contenido").
-    setCohortId(await cohorteParaModulo(supabase, unidad.module_id))
+    setCohortId(await cohorteParaModulo(supabase, unidad.module_id, unidad.cohort_id))
 
     const { data: filas } = await supabase
       .from('unit_items')
@@ -287,9 +287,12 @@ export default function UnidadDocenteDetalle() {
     // Fila de pestañas: TODAS las unidades del módulo (a diferencia del
     // estudiante, el profesor ve también borrador/programada, con su color
     // de siempre -- así sabe de un vistazo cuál todavía no ve nadie más).
-    const { data: hermanas } = await supabase
+    // Unidades por corte (migr. 241): solo las del mismo corte y las generales.
+    let consultaHermanas = supabase
       .from('units').select('id, title, order_index, open_at, close_at, manual_status')
-      .eq('module_id', unidad.module_id).order('order_index', { ascending: true })
+      .eq('module_id', unidad.module_id)
+    if (unidad.cohort_id) consultaHermanas = consultaHermanas.or(`cohort_id.is.null,cohort_id.eq.${unidad.cohort_id}`)
+    const { data: hermanas } = await consultaHermanas.order('order_index', { ascending: true })
     setUnidades(
       (hermanas ?? []).map((h) => ({
         id: h.id, title: h.title,

@@ -185,9 +185,12 @@ export default function Unidades() {
           </div>
         )}
 
-        {modulos.length > 1 && (
+        {/* Con un solo módulo (p. ej. el primer módulo del corte) igual se muestra cuál es,
+            sin "Cambiar": así no parece que falta el selector (coordinador, 21-nov-2026). */}
+        {modulos.length > 0 && (
           <button
-            onClick={() => setMenuModulos(true)}
+            onClick={() => modulos.length > 1 && setMenuModulos(true)}
+            disabled={modulos.length < 2}
             data-tour-target="tour-unidades-modulo"
             className="flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border border-zr-border bg-zr-surface px-5 text-left"
           >
@@ -198,7 +201,7 @@ export default function Unidades() {
                 {moduloSel && moduloSel === actualId ? ' (actual)' : moduloSel && virtuales.includes(moduloSel) ? ' (virtual)' : ''}
               </span>
             </span>
-            <span className="shrink-0 text-xs font-bold text-zr-blue">Cambiar</span>
+            {modulos.length > 1 && <span className="shrink-0 text-xs font-bold text-zr-blue">Cambiar</span>}
           </button>
         )}
 

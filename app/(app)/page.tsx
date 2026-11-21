@@ -10,7 +10,7 @@ import { TarjetaHero } from '@/components/ui/TarjetaHero'
 import { CASOS, diaSemanaISO, lunesDeLaSemana, fechaISO } from '@/lib/casos-fase0'
 import { leerSimulacionSabado } from '@/lib/demo-sabado'
 import { CASOS_HABILITADO } from '@/lib/flags'
-import { IconoCarnet, IconoCheck, IconoTaza, IconoCalendario, IconoDocumento } from '@/components/ui/Iconos'
+import { IconoCarnet, IconoCheck, IconoCalendario, IconoDocumento } from '@/components/ui/Iconos'
 import { esAdmin } from '@/lib/auth-helpers'
 import { leerCohorteVistaRecorridoCookie, leerModuloVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import type { UserRole } from '@/lib/types'
@@ -369,11 +369,23 @@ export default function Inicio() {
           </h1>
           <div className="mt-3">
             {esSabado ? (
+              // Sábado: una sola tarjeta de asistencia, con su botón (antes había otra
+              // igual en la sección 01; el coordinador la vio duplicada, 21-nov-2026).
               <TarjetaHero
                 sobretitulo="Hoy toca clase"
                 titulo={asistenciaHoy ? 'Ya estás registrado' : 'Marca tu asistencia'}
-                texto={asistenciaHoy ? 'Disfruta la clase. Más abajo está tu refrigerio.' : 'Escanea el código que se muestra en pantalla al llegar.'}
-                icono={<IconoCarnet size={24} />}
+                texto={
+                  asistenciaHoy
+                    ? 'Disfruta la clase. Cuando la cantina muestre su código, escanéalo para tu refrigerio.'
+                    : noSolvente
+                    ? 'No estás solvente con los pagos. Habla con administración.'
+                    : 'Escanea el código que administración muestra en pantalla al llegar.'
+                }
+                accion={asistenciaHoy ? (noSolvente ? undefined : 'Escanear refrigerio') : noSolvente ? 'Ver qué pasa' : 'Tomar asistencia'}
+                onAccion={() =>
+                  noSolvente ? setAvisoBloqueado(true) : router.push(asistenciaHoy ? '/refrigerio' : '/asistencia')
+                }
+                icono={asistenciaHoy ? <IconoCheck size={24} /> : <IconoCarnet size={24} />}
               />
             ) : siguienteEvento ? (
               <TarjetaHero
@@ -460,64 +472,7 @@ export default function Inicio() {
             ))}
           </div>
 
-          {esSabado ? (
-            <div className="zr-card overflow-hidden">
-              <div className="border-b border-zr-border px-6 py-5">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">Hoy toca clase</p>
-                <p className="zr-display mt-2 text-xl text-zr-text">
-                  {asistenciaHoy ? 'Ya se registró tu asistencia' : 'Marca tu asistencia'}
-                </p>
-              </div>
-              <div className="space-y-4 px-6 py-6">
-                {asistenciaHoy ? (
-                  <>
-                    <div className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg border border-zr-success/30 bg-zr-success/12 text-base font-bold text-zr-success">
-                      <IconoCheck size={20} />
-                      Ya se registró tu asistencia
-                    </div>
-                    {/* Refrigerio digital (pedido explícito del coordinador,
-                        sept. 2026): la cantina muestra el QR, se escanea desde
-                        aquí -- claim-snack-checkin valida el resto. */}
-                    <button
-                      onClick={() => (noSolvente ? setAvisoBloqueado(true) : router.push('/refrigerio'))}
-                      className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-lg border text-base font-bold ${
-                        noSolvente ? 'border-zr-border bg-zr-border text-zr-error' : 'border-zr-blue/40 text-zr-blue-mid'
-                      }`}
-                    >
-                      <IconoTaza size={20} />
-                      Escanear refrigerio
-                    </button>
-                  </>
-                ) : noSolvente ? (
-                  <>
-                    <p className="text-sm leading-relaxed text-zr-text-muted">
-                      Escanea el código que administración muestra en pantalla al llegar.
-                    </p>
-                    <button
-                      onClick={() => setAvisoBloqueado(true)}
-                      className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg bg-zr-border text-base font-bold text-zr-error"
-                    >
-                      <IconoCarnet size={20} />
-                      No estás solvente con los pagos
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm leading-relaxed text-zr-text-muted">
-                      Escanea el código que administración muestra en pantalla al llegar.
-                    </p>
-                    <button
-                      onClick={() => router.push('/asistencia')}
-                      className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg bg-zr-blue text-base font-bold text-white transition-colors active:bg-zr-blue-deep"
-                    >
-                      <IconoCarnet size={20} />
-                      Tomar asistencia
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          ) : CASOS_HABILITADO ? (
+          {esSabado ? null : CASOS_HABILITADO ? (
             <div className="zr-card overflow-hidden">
               <div className="border-b border-zr-border px-6 py-5">
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">El caso de hoy</p>

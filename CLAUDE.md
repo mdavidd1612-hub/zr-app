@@ -1956,6 +1956,7 @@ Cuando el coordinador pide un **"chequeo total"** se refiere exactamente a esto:
 | 2026-11-21 | v1.98: el carnet del estudiante deja de tener QR (decisión del coordinador): la asistencia se marca solo escaneando el QR de administración. Tutorial del carnet actualizado. | — |
 | 2026-11-21 | v1.99: pantalla de "actualización obligatoria" con animación antes del tutorial, y tutorial sin "Omitir" con lectura mínima por paso. Ver §8.29ter. | — |
 | 2026-11-21 | **v2.00: PASO A PRODUCCIÓN.** Respaldo completo, ensayo repetido sobre el respaldo (67 migraciones, app recorrida por perfil en la copia), comparación con staging (migr. 242 para alinear una política cambiada a mano), aplicación en `zr-prod`, traslado del material, 5 Edge Functions y `main` = `develop`. Producción quedó idéntica al ensayo. Ver §8.29quater. | `docs/reportes/paso_a_produccion_2026-11-21.md` |
+| 2026-11-21 | v2.01 (staging y producción): en Inicio, el sábado, una sola tarjeta de asistencia (antes salía repetida); en Unidades el nombre del módulo se ve aunque el estudiante tenga uno solo (PTMA-III). Migr. 243 (`v_exam_best_score` con `security_invoker`). | `supabase/migrations/243_v_exam_best_score_security_invoker.sql` |
 
 ---
 

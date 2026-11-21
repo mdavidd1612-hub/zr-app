@@ -28,7 +28,16 @@ interface Props {
   pasos: PasoTour[]
   incremental: boolean
   onTerminado: () => void | Promise<void>
+  /**
+   * Tutorial que sigue a la pantalla de "actualización obligatoria" (21-nov-2026,
+   * pedido del coordinador: los estudiantes tocaban "Omitir" o pasaban rapidísimo).
+   * Sin "Omitir"/"Ahora no", y "Siguiente" se habilita tras un momento en cada paso.
+   */
+  obligatorio?: boolean
 }
+
+/** Tiempo mínimo en cada paso del tutorial obligatorio antes de poder seguir. */
+const LECTURA_MINIMA_MS = 1800
 
 interface Rect { top: number; left: number; width: number; height: number }
 
@@ -51,12 +60,13 @@ function buscarElemento(clave: string): HTMLElement | null {
   return null
 }
 
-export function Tour({ pasos, incremental, onTerminado }: Props) {
+export function Tour({ pasos, incremental, onTerminado, obligatorio = false }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const [paso, setPaso] = useState(0)
   const [rect, setRect] = useState<Rect | null>(null)
   const [guardando, setGuardando] = useState(false)
+  const [leyendo, setLeyendo] = useState(false)
 
   // La bienvenida (o "funciones nuevas") es un paso sintético, sin id propio
   // -- "Siguiente" desde ahí navega directo al primer paso real.
@@ -70,8 +80,12 @@ export function Tour({ pasos, incremental, onTerminado }: Props) {
       id: '__intro__',
       ruta: pasos[0]?.ruta ?? '/',
       targetId: null,
-      titulo: incremental ? 'Aprende a usar las nuevas funciones de ZR App' : '¡Bienvenido a ZR App!',
-      texto: incremental
+      titulo: incremental
+        ? 'Aprende a usar las nuevas funciones de ZR App'
+        : obligatorio ? 'Así funciona la nueva versión' : '¡Bienvenido a ZR App!',
+      texto: obligatorio
+        ? 'Son pocos pasos. Léelos con calma: te explican dónde quedó todo y cómo se usa lo nuevo.'
+        : incremental
         ? 'Te mostramos rapidito las funciones nuevas que agregamos. Toca "Siguiente" para verlas, u "Omitir" si ya las conoces.'
         : 'Te mostramos rapidito cómo se usa. Puedes tocar "Siguiente" para seguir, o "Omitir" si ya la conoces.',
     },
@@ -225,6 +239,15 @@ export function Tour({ pasos, incremental, onTerminado }: Props) {
     }
   }
 
+  // Tutorial obligatorio: "Siguiente" espera un momento en cada paso para que
+  // de verdad se lea (antes se pasaba todo de un toque).
+  useEffect(() => {
+    if (!obligatorio || !enRutaCorrecta) return
+    setLeyendo(true) // eslint-disable-line react-hooks/set-state-in-effect
+    const t = setTimeout(() => setLeyendo(false), LECTURA_MINIMA_MS)
+    return () => clearTimeout(t)
+  }, [obligatorio, enRutaCorrecta, paso])
+
   // Red de seguridad: si por lo que sea la pantalla del paso nunca llega
   // (p. ej. no había unidades para abrir), no se deja al tour mudo para
   // siempre -- se salta al siguiente paso que sí corresponde a esta pantalla.
@@ -234,7 +257,7 @@ export function Tour({ pasos, incremental, onTerminado }: Props) {
       const j = PASOS.findIndex((p, i) => i > paso && coincide(p, pathname))
       if (j > -1) setPaso(j)
       else void terminar()
-    }, 3500)
+    }, 6000) // con internet lento la pantalla del paso tarda; antes 3,5 s cortaba el tutorial
     return () => clearTimeout(t)
   }, [enRutaCorrecta, paso, pathname]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -267,12 +290,14 @@ export function Tour({ pasos, incremental, onTerminado }: Props) {
       </ul>
       <p className="text-xs text-zr-text-muted">{total} pasos · unos 2 minutos. Te llevamos directo a lo nuevo.</p>
       <div className="flex items-center justify-between gap-3 pt-1">
-        <button onClick={terminar} disabled={guardando} className="text-sm font-semibold text-zr-text-muted disabled:opacity-50">
-          Ahora no
-        </button>
+        {obligatorio ? <span /> : (
+          <button onClick={terminar} disabled={guardando} className="text-sm font-semibold text-zr-text-muted disabled:opacity-50">
+            Ahora no
+          </button>
+        )}
         <button
           onClick={siguiente}
-          disabled={guardando}
+          disabled={guardando || leyendo}
           className="min-h-12 rounded-lg bg-zr-blue px-6 text-sm font-bold text-white disabled:opacity-50"
         >
           Ver las novedades
@@ -308,13 +333,15 @@ export function Tour({ pasos, incremental, onTerminado }: Props) {
       </div>
 
       <div className="flex items-center justify-between gap-3 pt-1">
-        <button
-          onClick={terminar}
-          disabled={guardando}
-          className="text-sm font-semibold text-zr-text-muted disabled:opacity-50"
-        >
-          Omitir
-        </button>
+        {obligatorio ? <span /> : (
+          <button
+            onClick={terminar}
+            disabled={guardando}
+            className="text-sm font-semibold text-zr-text-muted disabled:opacity-50"
+          >
+            Omitir
+          </button>
+        )}
         <div className="flex items-center gap-2">
           {paso > 1 && (
             <button
@@ -327,9 +354,16 @@ export function Tour({ pasos, incremental, onTerminado }: Props) {
           )}
           <button
             onClick={siguiente}
-            disabled={guardando}
-            className="min-h-12 rounded-lg bg-zr-blue px-6 text-sm font-bold text-white disabled:opacity-50"
+            disabled={guardando || leyendo}
+            className="relative min-h-12 overflow-hidden rounded-lg bg-zr-blue px-6 text-sm font-bold text-white disabled:opacity-50"
           >
+            {leyendo && (
+              <span
+                aria-hidden="true"
+                className="zr-lectura absolute inset-y-0 left-0 bg-white/25"
+                style={{ animationDuration: `${LECTURA_MINIMA_MS}ms` }}
+              />
+            )}
             {esUltimo ? (guardando ? 'Un momento…' : 'Terminar') : 'Siguiente'}
           </button>
         </div>

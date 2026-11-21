@@ -861,6 +861,17 @@ Cierra los huecos que quedaban de los Sprints 1, 2 y 3 (ver §10).
 - ✅ **Migración 240:** el aviso "Ya puedes pasar por tu refrigerio" (`fn_notify_hora_refrigerio`, 41 fallos en producción) y "Devolver notas" (`devolver_notas`) fallaban porque `'push'` dentro de un `select distinct` llega como texto y no como `notification_channel`. Corregido con el cast; probado en staging (2 avisos, notas devueltas). Hallado en el ensayo del paso a producción (`docs/reportes/ensayo_paso_a_produccion_2026-11-21.md`).
 - El traslado del Material a Unidades del plan de paso a producción ahora crea una unidad por (módulo, corte): con los datos de hoy, 4 unidades y 10 enlaces.
 
+### 8.29ter Pantalla de "actualización obligatoria" antes del tutorial (21-nov-2026, v1.99, solo staging)
+
+Pedido del coordinador: los estudiantes tocaban "Omitir" en el tutorial o lo pasaban rapidísimo. Es una presentación: la app ya está actualizada, nada se descarga.
+- ✅ **Pantalla que no se puede cerrar** (`components/ui/ActualizacionObligatoria.tsx`, montada en `app/(app)/layout.tsx`): "Llegó la nueva actualización de ZR App, es obligatoria" → **Actualizar** → animación de ~7 s (logo que sube entre partículas, anillo de progreso con porcentaje y mensajes) → la versión actual (`APP_VERSION`) grande con brillo → **Listo** → "Importante: mira este tutorial antes de seguir" → **Siguiente** → tutorial.
+- ✅ **Tutorial obligatorio** (`Tour.tsx`, prop `obligatorio`): sin "Omitir" ni "Ahora no", y "Siguiente" se habilita a los 1,8 s de cada paso (`LECTURA_MINIMA_MS`). Si al estudiante no le falta ningún paso, se le muestra el tutorial completo (`useTour`, `completoSiNoHayNuevos`).
+- **Quién y cuándo:** solo estudiantes reales (no vista de recorrido), validados, fuera del primer ingreso y solventes. Sale una vez por estudiante por cada valor de `ACTUALIZACION_OBLIGATORIA` en `lib/version.ts` (se guarda `actualizacion:<clave>` en `profiles.tour_pasos_vistos`, sin migración). Un estudiante nuevo (sin tutorial visto) no la ve: va directo a la bienvenida normal.
+- **REGLA:** al pasar a producción una actualización que el estudiante deba notar, cambiar `ACTUALIZACION_OBLIGATORIA` (p. ej. `prod-2026-12`). En el primer paso a producción ya sale con `prod-2026-11`.
+- Probado en local contra staging a 375 px con el estudiante de prueba: recorrido completo, sin "Omitir", "Siguiente" trabado ~2 s, la clave queda guardada y no vuelve a salir.
+- De paso: la red de seguridad del tutorial (si la pantalla de un paso no carga, salta o termina) pasó de 3,5 s a 6 s. Con el servidor lento cortaba el tutorial a la mitad al entrar a una unidad.
+- En staging, el estudiante de prueba V-90000001 quedó **sin** la clave, para que el coordinador vea la pantalla al entrar.
+
 ### 8.30 COSAS POR HACER (anotado, no construido)
 
 - 🔴 **Modo sin conexión (offline):** poder descargar una unidad en el teléfono (lecturas, PDF, imágenes, instrucciones) y abrirla sin internet. Ya hay service worker (`public/sw.js`, red primero con caché de respaldo) pero no guarda unidades. Ideas: botón "Descargar para ver sin conexión" por unidad que guarda los archivos en el almacenamiento del navegador (Cache API / IndexedDB), con aviso de espacio usado y opción de borrar; las URL firmadas caducan, así que hay que guardar el archivo, no el enlace; el progreso de "material visto" se guarda localmente y se sincroniza al volver la conexión; las entregas de tareas y exámenes siguen exigiendo conexión. Definir antes: cuánto espacio permitir, qué tipos (PDF/imagen sí; video pesado probablemente no) y si el progreso offline cuenta como visto.
@@ -1738,7 +1749,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
-- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.98**.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.99**.
 
 ### 12.5 Al cierre de cada sprint
 
@@ -1932,6 +1943,7 @@ Cuando el coordinador pide un **"chequeo total"** se refiere exactamente a esto:
 | 2026-11-21 | v1.96: unidades por corte (migr. 241, cada corte ve solo sus unidades y su material) y arreglo del aviso de refrigerio y "Devolver notas" (migr. 240), solo en staging; traslado del material por corte en el plan. Ver §8.29bis. | `supabase/migrations/240_fix_canal_push_refrigerio_y_devolver_notas.sql`, `241_unidades_por_corte.sql` |
 | 2026-11-21 | v1.97: **primer chequeo total de staging** (regla §12.10, agregada hoy): 4 perfiles × teléfono y PC, 96 cargas de pantalla sin desbordes ni errores de consola; corregidos el texto del carnet sin QR (el secreto del QR del carnet nunca se guarda, también en producción), el nombre accesible de la foto de perfil y el selector de rango del calendario general en el teléfono. | `docs/reportes/chequeo_total_staging_2026-11-21.md` |
 | 2026-11-21 | v1.98: el carnet del estudiante deja de tener QR (decisión del coordinador): la asistencia se marca solo escaneando el QR de administración. Tutorial del carnet actualizado. | — |
+| 2026-11-21 | v1.99: pantalla de "actualización obligatoria" con animación antes del tutorial, y tutorial sin "Omitir" con lectura mínima por paso. Ver §8.29ter. | — |
 
 ---
 

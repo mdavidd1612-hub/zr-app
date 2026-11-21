@@ -11,6 +11,8 @@ import { useTour } from '@/lib/useTour'
 import { PASOS_POR_ROL } from '@/lib/tour-pasos'
 import { BannerNoSolvente, ModalNoSolvente } from '@/components/ui/AvisoSolvencia'
 import { ResultadoModulo } from '@/components/ui/ResultadoModulo'
+import { ActualizacionObligatoria } from '@/components/ui/ActualizacionObligatoria'
+import { ACTUALIZACION_OBLIGATORIA } from '@/lib/version'
 import {
   IconoInicio, IconoPerfil, IconoVideo, IconoDuda, IconoNotas,
 } from '@/components/ui/Iconos'
@@ -87,8 +89,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // estudiante de verdad, que es justo para lo que existe esa vista (se
   // guarda en el propio profiles.tour_pasos_vistos de quien está
   // recorriendo; los IDs llevan el prefijo del rol, nunca chocan).
+  // Actualización obligatoria (21-nov-2026, pedido del coordinador): antes del
+  // tutorial, una pantalla que no se puede cerrar anuncia la actualización, la
+  // "instala" con una animación y lleva al tutorial sin "Omitir". Sale una vez
+  // por estudiante por cada ACTUALIZACION_OBLIGATORIA (lib/version.ts).
+  // 'revisando' pausa el tutorial hasta saber si toca mostrarla.
+  const [actualizacion, setActualizacion] = useState<'revisando' | 'mostrar' | 'no'>('revisando')
+  const [tourObligatorio, setTourObligatorio] = useState(false)
+  const claveActualizacion = `actualizacion:${ACTUALIZACION_OBLIGATORIA}`
+
   const { pasos: pasosTour, incremental: tourIncremental, terminar: terminarTour } =
-    useTour(PASOS_POR_ROL.estudiante, rol !== undefined && rol !== null && validado && !enOnboarding, simulando)
+    useTour(PASOS_POR_ROL.estudiante, rol !== undefined && rol !== null && validado && !enOnboarding, simulando, {
+      pausado: actualizacion !== 'no',
+      completoSiNoHayNuevos: tourObligatorio,
+    })
 
   useEffect(() => {
     const supabase = createClient()
@@ -207,6 +221,46 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [rol, simulando, pathname])
 
+  useEffect(() => {
+    if (rol === undefined || actualizacion !== 'revisando') return
+    if (rol !== 'estudiante' || simulando) { setActualizacion('no'); return } // eslint-disable-line react-hooks/set-state-in-effect
+    // Mientras llena su perfil, acepta términos o espera validación, el
+    // tutorial tampoco corre: se decide después.
+    if (!validado || enOnboarding) return
+    // Un estudiante sin solvencia no puede abrir lo que enseña el tutorial; la
+    // verá cuando vuelva a estar solvente.
+    if (noSolvente) { setActualizacion('no'); return }
+    const supabase = createClient()
+    async function revisarActualizacion() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: perfil } = await supabase
+        .from('profiles').select('tour_pasos_vistos').eq('id', user.id).maybeSingle()
+      const vistos: string[] = perfil?.tour_pasos_vistos ?? []
+      if (vistos.includes(claveActualizacion)) { setActualizacion('no'); return }
+      // Estudiante nuevo (nunca vio el tutorial): no hay nada que "actualizar";
+      // ve la bienvenida normal y no se le muestra esta pantalla.
+      if (vistos.length === 0) {
+        await supabase.rpc('fn_marcar_pasos_tour_vistos', { p_pasos: [claveActualizacion] })
+        setActualizacion('no')
+        return
+      }
+      setActualizacion('mostrar')
+    }
+    revisarActualizacion()
+  }, [rol, simulando, validado, enOnboarding, noSolvente, actualizacion, claveActualizacion])
+
+  async function terminarActualizacion() {
+    await createClient().rpc('fn_marcar_pasos_tour_vistos', { p_pasos: [claveActualizacion] })
+    setTourObligatorio(true)
+    setActualizacion('no')
+  }
+
+  async function terminarTutorial() {
+    await terminarTour()
+    setTourObligatorio(false)
+  }
+
   const rutaPermitidaSiBloqueado =
     pathname === '/' || pathname.startsWith('/perfil') || pathname === '/completar-perfil' || pathname === '/aceptar-terminos'
 
@@ -277,7 +331,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       )}
       {simulando && <BannerSimulacion etiqueta="Estudiante" />}
       {children}
-      {pasosTour && <Tour pasos={pasosTour} incremental={tourIncremental} onTerminado={terminarTour} />}
+      {actualizacion === 'mostrar' && <ActualizacionObligatoria onTerminar={terminarActualizacion} />}
+      {pasosTour && (
+        <Tour pasos={pasosTour} incremental={tourIncremental} onTerminado={terminarTutorial} obligatorio={tourObligatorio} />
+      )}
     </Marco>
   )
 }

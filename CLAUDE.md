@@ -1732,7 +1732,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
-- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.92**.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.94**.
 
 ### 12.5 Al cierre de cada sprint
 
@@ -1896,6 +1896,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-20 | v1.87: calendario general parte 3 — arrastrar una clase en la semana abre Mover con el destino puesto y el resumen calculado. | — |
 | 2026-11-20 | **Investigación v2 del paso a producción (solo lectura, nada aplicado):** comparación objeto por objeto de `zr-prod` vs `zr-staging` (tablas, funciones, políticas, disparadores, crons, buckets), orden real de 66 migraciones + 3 sin registro (027 que producción nunca aplicó, 204 y 206 aplicadas a mano), traslado de Material a Unidades probado como estudiante de cada corte (con transacción que se deshace), error vigente de `enviar_notas` en producción, staging llamando a producción en `fn_generar_caso_del_dia`. v1.92. | `docs/reportes/plan_paso_a_produccion_2026-11-20.md` |
 | 2026-11-20 | v1.93: un solo selector de rango (Semana · Mes · Trimestre · Semestre · Año) con una barra de navegación ‹ › compartida por las 5 vistas, nueva vista Mes (cuadrícula calendario, día con nombres en computadora/puntos en teléfono, tocar el día abre la lista de sus clases) y Planificación ya no tiene sus propios botones (ahora la controla el selector único) — probado en 1440 y 375px, sin desborde horizontal en ninguna vista. Ver §8.33. | — |
+| 2026-11-20 | Respuestas del coordinador al plan de paso a producción (audio): cada corte ve solo su material (requiere `units.cohort_id` antes del paso), ensayo local aprobado, CloudConvert gratis con límite diario, PTMA-III sí tiene profesor en producción. Hallado: en producción el tope de 100 % y `enviar_notas` suman todos los cortes, PTMA-III no puede registrar evaluaciones en Introducción. v1.94. | `docs/reportes/plan_paso_a_produccion_2026-11-20.md` |
 
 ---
 

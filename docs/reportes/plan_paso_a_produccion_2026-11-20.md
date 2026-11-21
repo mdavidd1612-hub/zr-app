@@ -5,6 +5,54 @@
 > (no quedó nada guardado). Reemplaza a `plan_paso_a_produccion_2026-11-19.md`, que quedó
 > desactualizado: desde ayer `develop` pasó de v1.65 a **v1.91** y de la migración 222 a la **239**.
 
+## Respuestas del coordinador (audio del 20-nov, noche) y lo que cambia
+
+| # | Pregunta | Respuesta | Qué cambia |
+|---|---|---|---|
+| 1 | ¿Cada corte ve el material de todo el módulo? | **No.** Cada corte ve solo el material que se le montó a su corte ("son entornos diferentes"). | **Hay que construir algo antes del paso** (ver abajo). El traslado de §4 tal como está no sirve. |
+| 2 | ¿Hay clase el 26-dic o el 2-ene en PTMA-II? | No la entendió. | Sigue pendiente (ver pregunta reformulada abajo). |
+| 3 | ¿CloudConvert? | Dejarlo aparte por ahora, salvo que sea gratis. | **Es gratis con límite diario** (entre 10 y 25 conversiones/día según la fuente; confirmar en su página). Alcanza: la app convierte cada presentación **una sola vez** y guarda el PDF. Para activarlo: crear cuenta gratis, sacar la clave y ponerla en Vercel (`CLOUDCONVERT_API_KEY`). |
+| 4 | Fecha | Entre semana en la tarde, sin clase ni examen abierto. | Sin cambio. |
+| 5 | ¿Ensayo en la computadora? | **Sí, hacerlo.** | Se hace el ensayo local (Docker + copia de producción) cuando se dé la orden. |
+| 6 | Profesor de PTMA-III en Introducción | Sí lo tiene. | **Corrección:** en producción PTMA-III sí tiene a Isaac Sánchez en Introducción (y profesores asignados en Instrumentación y Fluidos). El "0 asignaciones" era de staging. |
+| 7 | Inglés técnico | Crear el módulo; ellos ajustan las fechas. | Crear "Inglés técnico" en producción después del paso; Dirección pone el tramo virtual y el profesor. |
+| 8 | Administración ya no cambia notas | Nunca lo usaban. | Sin problema. |
+| 9 | Respaldo antes de empezar y congelar `develop` (incluida la sesión de Pedro) | De acuerdo. | Sin cambio. |
+| 10 | — | "Asegúrate de lo de las notificaciones." | Chequeo agregado: después del paso, generar un aviso de prueba y confirmar que llega al teléfono (producción tiene 20 dispositivos con avisos activados y sus claves ya funcionan). |
+| 11 | "Faltan muchísimas más migraciones" | Duda. | **Aclaración:** el paquete ya son **todas**: 64 archivos (las 66 aplicadas en staging, con 3 que vienen dentro de otro archivo), más 3 que estaban aplicadas sin registro (027, 204 y 206). No faltan otras: se verificó comparando la base completa de los dos lados, no por nombre. |
+| 12 | Pasar solo la estructura y las funciones nuevas, no lo que se hizo de prueba | Pedido explícito. | **Confirmado:** el paquete no lleva datos de staging (ningún identificador fijo de staging; lo que toca datos está dentro de funciones). Las unidades, exámenes y estudiantes de prueba se quedan en staging. |
+
+### Nuevo trabajo antes del paso: material solo del propio corte
+
+Hoy una **unidad es del módulo, no del corte**, y la regla de la migración 208 deja ver el material
+enlazado en una unidad a todos los cortes del módulo. Para cumplir la respuesta 1 hay que, en
+staging primero:
+1. Agregar el corte a la unidad (`units.cohort_id`, vacío = todos los cortes, para no romper lo
+   que ya existe) y que el estudiante solo vea las unidades de su corte (o las generales).
+2. Ajustar la regla del material: el enlace en una unidad abre el material solo si la unidad es de
+   su corte (o general).
+3. En la pantalla del profesor/Dirección, al crear una unidad, guardarla para el corte elegido.
+4. Cambiar el traslado de §4: **una unidad "Material del módulo" por cada corte y módulo**, marcada
+   con su corte. Con los datos de hoy: Introducción ×2 (PTMA-II y PTMA-III), Instrumentación y
+   Fluidos de PTMA-II → 4 unidades, 10 enlaces.
+5. Probar como estudiante de cada corte que ve solo lo suyo.
+
+### Problema que ya está pasando en producción (no espera al paso)
+
+En producción el tope de 100 % de las evaluaciones (`fn_validar_suma_pesos`) y el envío de notas
+(`enviar_notas`) suman los % de **todos los cortes del módulo**. PTMA-II ya ocupa el 100 % de
+Introducción, así que **hoy el profesor de PTMA-III no puede registrar ninguna evaluación con %
+en Introducción** ("Los porcentajes pasan de 100 %"), y le pasará igual en Instrumentación y
+Fluidos. Staging ya lo tiene corregido (migraciones 224 y 229). Opciones: esperar al paso, o un
+arreglo puntual en producción solo de esas 2 funciones (decisión del coordinador).
+
+### Pregunta 2, reformulada
+
+En el calendario de módulos de PTMA-2026-II **no hay clase el sábado 26 de diciembre ni el sábado
+2 de enero** (vacaciones). Con lo nuevo, esos días la app no crea la clase y el QR dice "hoy no hay
+clase". **¿Es correcto que esos dos sábados no haya clase?** Si sí hay, hay que agregarlos al
+calendario antes.
+
 ## 0. Resumen en 6 líneas
 
 1. Se puede pasar sin perder nada: todo lo nuevo es **aditivo** (tablas nuevas) y las tablas
@@ -222,6 +270,8 @@ sin usar (no estorban). Si algo grave falla en la base, se restaura el respaldo 
 - No se verificó en un teléfono real ni con cámara (escaneo QR) en esta pasada.
 
 ## 8. Decisiones pendientes (coordinador / Pedro)
+
+> Actualizado con el audio del coordinador (ver tabla al inicio): 1 = **no**, cada corte solo lo suyo; 2 = pendiente (reformulada); 3 = CloudConvert gratis con límite diario, se puede activar; 4 = entre semana en la tarde; 5 = **sí**, ensayo local. Queda nueva: ¿arreglo puntual en producción del tope de 100 % por corte, o esperar al paso?
 
 1. ¿Está bien que cada corte vea el material de todo el módulo (§3.2, punto 6)?
 2. ¿Ensayo con rama de Supabase (con costo) o restaurando un respaldo?

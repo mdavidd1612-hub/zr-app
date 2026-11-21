@@ -64,9 +64,16 @@ export default function ExamenPage() {
   // obligatorios sin completar (177) -- y si no, devuelve un mensaje de
   // error real que se muestra tal cual, no un genérico de "revisa tu conexión".
   const [bloqueado, setBloqueado] = useState<string | null>(null)
+  // Pantalla de resultado base al entregar (pedido del coordinador, 15-nov-2026).
+  const [resultado, setResultado] = useState<{ obtenidos: number; pendientes: number; abandonado?: boolean } | null>(null)
+  // Pantalla previa (19-nov-2026, revisión masiva): antes, con solo ABRIR el
+  // examen ya se creaba el intento y arrancaba el reloj -- tocarlo "para ver
+  // qué era" le gastaba un intento al estudiante. Ahora el intento nace al
+  // tocar "Empezar". Si ya hay uno en curso, se retoma directo.
+  const [porEmpezar, setPorEmpezar] = useState(false)
+  const [empezando, setEmpezando] = useState(false)
 
-  useEffect(() => {
-    async function initExam() {
+  async function initExam(crear: boolean) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.push('/login')
@@ -81,7 +88,7 @@ export default function ExamenPage() {
         .single()
 
       if (!examData) {
-        router.push('/examenes')
+        router.replace('/unidades')
         return
       }
 
@@ -101,6 +108,12 @@ export default function ExamenPage() {
 
       if (attempt && attempt.status !== 'en_progreso') {
         attempt = null
+      }
+
+      if (!attempt && !crear) {
+        setPorEmpezar(true)
+        setLoading(false)
+        return
       }
 
       if (!attempt) {
@@ -166,11 +179,20 @@ export default function ExamenPage() {
         setTimeLeft(restante)
       }
 
+      setPorEmpezar(false)
       setLoading(false)
     }
 
-    initExam()
+  useEffect(() => {
+    void initExam(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examId])
+
+  async function empezar() {
+    setEmpezando(true)
+    await initExam(true)
+    setEmpezando(false)
+  }
 
   // Timer effect
   useEffect(() => {
@@ -250,7 +272,10 @@ export default function ExamenPage() {
       return
     }
 
-    router.replace('/examenes')
+    // En vez de salir en silencio: se muestra la nota (cero) y la opción de apelar.
+    setConfirmandoSalir(false)
+    setAbandonando(false)
+    setResultado({ obtenidos: 0, pendientes: 0, abandonado: true })
   }
 
   async function handleSubmit() {
@@ -295,7 +320,28 @@ export default function ExamenPage() {
 
     if (data?.status === 'entregado' || data?.status === 'calificado') {
       submittingRef.current = false
-      router.push('/examenes')
+      // `replace`, no `push`: /examenes no tiene ningún acceso desde el menú
+      // del estudiante -- empujarlo ahí dejaba un callejón sin salida (bug
+      // real reportado en vivo, 8-nov-2026).
+      // Nota base al instante: lo objetivo ya está calificado por el servidor
+      // (nunca se calcula aquí); se muestra lo que devolvió y lo que falta.
+      setConfirmando(false)
+      setSubmitting(false)
+      let obtenidos = Number(data?.autoGradedPoints ?? 0)
+      // Si ya no queda nada por corregir, la nota oficial es la que dejó el
+      // servidor (con el tope del remedial aplicado), no los puntos brutos.
+      if (Number(data?.pendingManualQuestions ?? 0) === 0) {
+        const { data: oficial } = await supabase
+          .from('exam_attempts')
+          .select('total_score')
+          .eq('id', attemptId)
+          .maybeSingle()
+        if (oficial?.total_score != null) obtenidos = Number(oficial.total_score)
+      }
+      setResultado({
+        obtenidos,
+        pendientes: Number(data?.pendingManualQuestions ?? 0),
+      })
       return
     }
 
@@ -304,17 +350,94 @@ export default function ExamenPage() {
     setSubmitting(false)
   }
 
+  if (resultado) {
+    const total = questions.reduce((s, q) => s + q.points, 0)
+    const puntosAbiertas = questions
+      .filter((q) => q.type === 'redaccion_abierta')
+      .reduce((s, q) => s + q.points, 0)
+    const hayPendientes = resultado.pendientes > 0
+    const fmt = (n: number) => n.toFixed(2).replace(/\.00$/, '')
+    return (
+      <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-zr-background px-6 text-center">
+        <p className="zr-display text-xl text-zr-text">{resultado.abandonado ? 'Saliste del examen' : 'Examen entregado'}</p>
+        <p className="text-5xl font-bold text-zr-text">
+          {fmt(resultado.obtenidos)}
+          <span className="text-2xl text-zr-text-muted"> / {fmt(total)}</span>
+        </p>
+        <p className="max-w-sm text-sm leading-relaxed text-zr-text-muted">
+          {resultado.abandonado
+            ? 'Has sacado cero porque saliste antes de entregar. Si fue por un problema real (se fue la luz, falló el internet, etc.), puedes apelar tu nota y tu profesor decide si te deja presentarlo de nuevo.'
+            : hayPendientes
+            ? `Esta es tu nota base de las preguntas de selección y verdadero/falso. ${resultado.pendientes > 1 ? `Los ${fmt(puntosAbiertas)} puntos de las ${resultado.pendientes} preguntas` : `Los ${fmt(puntosAbiertas)} puntos de la pregunta`} de redacción los evalúa tu profesor; cuando los califique, tu nota se completa.`
+            : 'Tu examen ya quedó calificado por completo.'}
+        </p>
+        {resultado.abandonado && (
+          <button
+            onClick={() => router.replace('/examenes')}
+            className="mt-2 min-h-12 rounded-lg bg-zr-blue px-6 text-sm font-bold text-white"
+          >
+            Apelar nota
+          </button>
+        )}
+        <button
+          onClick={() => router.replace('/unidades')}
+          className={`min-h-12 rounded-lg px-6 text-sm font-bold ${resultado.abandonado ? 'text-zr-text-muted' : 'mt-2 bg-zr-blue text-white'}`}
+        >
+          Volver a mi aula
+        </button>
+      </div>
+    )
+  }
+
   if (bloqueado) {
     return (
       <div className="flex h-dvh flex-col items-center justify-center gap-4 bg-zr-background px-6 text-center">
         <p className="zr-display text-xl text-zr-text">No puedes presentar este examen ahora</p>
         <p className="max-w-sm text-sm leading-relaxed text-zr-text-muted">{bloqueado}</p>
         <button
-          onClick={() => router.push('/examenes')}
+          // Bug real reportado en vivo (8-nov-2026): "Volver" empujaba a
+          // /examenes, que no tiene ningún acceso desde el menú -- el
+          // estudiante quedaba en un callejón sin salida, y al tocar la
+          // flechita de atrás del teléfono volvía a caer en este mismo
+          // examen (que lo bloqueaba otra vez): un bucle. `replace` (no
+          // `push`) a /unidades corta el bucle -- también vuelve ahí la
+          // flechita de atrás del teléfono, no solo este botón.
+          onClick={() => router.replace('/unidades')}
           className="mt-2 min-h-12 rounded-lg bg-zr-blue px-6 text-sm font-bold text-white"
         >
-          Volver
+          Volver a mi aula
         </button>
+      </div>
+    )
+  }
+
+  if (porEmpezar && exam) {
+    const e = exam as unknown as { title: string; instructions?: string | null; duration_minutes?: number | null; max_score?: number | null; kind?: string | null; max_attempts?: number | null }
+    return (
+      <div className="flex min-h-dvh flex-col justify-center gap-6 bg-zr-background px-6 py-12">
+        <div className="mx-auto w-full max-w-md space-y-5">
+          <p className="zr-eyebrow">{e.kind === 'certificacion' ? 'Certificación' : 'Examen'}</p>
+          <h1 className="zr-display text-3xl text-zr-text">{e.title}</h1>
+          {e.instructions && <p className="text-sm leading-relaxed text-zr-text-muted">{e.instructions}</p>}
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="zr-card p-3"><p className="cifra text-lg font-bold text-zr-text">{e.duration_minutes ? `${e.duration_minutes} min` : 'Libre'}</p><p className="text-[11px] text-zr-text-muted">Tiempo</p></div>
+            <div className="zr-card p-3"><p className="cifra text-lg font-bold text-zr-text">{e.max_score ?? '—'}</p><p className="text-[11px] text-zr-text-muted">Puntos</p></div>
+            <div className="zr-card p-3"><p className="cifra text-lg font-bold text-zr-text">{e.max_attempts ?? 1}</p><p className="text-[11px] text-zr-text-muted">Intentos</p></div>
+          </div>
+          <p className="text-xs leading-relaxed text-zr-text-muted">
+            Al tocar «Empezar» corre el tiempo y cuenta como un intento. Si sales sin entregar, el intento se pierde.
+          </p>
+          <button
+            onClick={empezar}
+            disabled={empezando}
+            className="min-h-12 w-full rounded-xl bg-zr-blue text-sm font-bold text-white disabled:opacity-50"
+          >
+            {empezando ? 'Preparando…' : 'Empezar'}
+          </button>
+          <button onClick={() => router.replace('/unidades')} className="min-h-11 w-full text-sm font-semibold text-zr-text-muted">
+            Ahora no
+          </button>
+        </div>
       </div>
     )
   }

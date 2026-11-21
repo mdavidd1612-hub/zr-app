@@ -451,7 +451,7 @@ export default function ZRCoffee() {
   }
 
   return (
-    <div className="space-y-11 px-5 pt-14 pb-16">
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-16">
       <Encabezado
         sobretitulo="ZR Coffee"
         titulo="Inventario y ventas"

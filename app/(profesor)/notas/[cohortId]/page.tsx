@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BotonVolver } from '@/components/ui/BotonVolver'
+import { PestanasModulo } from '@/components/ui/ContextoDocente'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
@@ -127,7 +127,7 @@ export default function NotasCohorteProfesor() {
           .eq('module_id', modulo),
         supabase
           .from('manual_exam_definitions')
-          .select('id, title, exam_date, kind, scale_max, passing_min, weight_pct')
+          .select('id, title, exam_date, kind, scale_max, passing_min, weight_pct, exams:source_exam_id(status)')
           .eq('module_id', modulo)
           // Solo de esta cohorte, o compartidas (migr. 198).
           .or(`cohort_id.is.null,cohort_id.eq.${cohortId}`)
@@ -140,7 +140,10 @@ export default function NotasCohorteProfesor() {
           .maybeSingle(),
       ])
 
-      const defs = (exs ?? []) as { id: string; title: string; exam_date: string; kind: string; scale_max: number; passing_min: number; weight_pct: number }[]
+      // Bug real reportado en vivo (8-nov-2026): un examen todavía en
+      // borrador (status='oculto') ya aparecía como columna en Notas.
+      const defs = ((exs ?? []) as { id: string; title: string; exam_date: string; kind: string; scale_max: number; passing_min: number; weight_pct: number; exams: { status: string } | null }[])
+        .filter((e) => e.exams?.status !== 'oculto')
       const { data: scores } = defs.length
         ? await supabase.from('manual_exam_scores').select('definition_id, student_id, score').in('definition_id', defs.map((d) => d.id))
         : { data: [] }
@@ -284,8 +287,9 @@ export default function NotasCohorteProfesor() {
   const faltaPorcentaje = Math.round(sumaPct * 100) !== 10000
 
   return (
-    <div className="space-y-6 px-5 pt-14 pb-10">
-      <BotonVolver href="/hoy" />
+    <>
+    <PestanasModulo conMargenArriba />
+    <div className="space-y-6 px-5 pt-6 pb-10">
 
       <header>
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">Notas</p>
@@ -443,5 +447,6 @@ export default function NotasCohorteProfesor() {
         </>
       )}
     </div>
+    </>
   )
 }

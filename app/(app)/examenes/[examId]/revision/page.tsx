@@ -51,7 +51,7 @@ export default function RevisionExamen() {
         if (!res.ok) {
           const body = await res.json().catch(() => ({}))
           if (body.error === 'not_found') {
-            router.replace('/examenes')
+            router.replace('/unidades')
           } else {
             setError('No se pudo cargar la revisión.')
           }
@@ -83,8 +83,8 @@ export default function RevisionExamen() {
   const maxPuntos = data.preguntas.reduce((s, q) => s + q.points, 0)
 
   return (
-    <div className="space-y-11 px-5 pt-14 pb-24">
-      <BotonVolver href="/examenes" />
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-24">
+      <BotonVolver href="/unidades" />
 
       <Encabezado
         sobretitulo="Revisión"

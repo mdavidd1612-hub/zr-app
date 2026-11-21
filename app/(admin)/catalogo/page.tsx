@@ -180,7 +180,7 @@ export default function Catalogo() {
   const sedeCompleta = Boolean(nombreSede.trim() && siglasValidas && nombrePrograma.trim())
 
   return (
-    <div className="space-y-11 px-5 pt-14 pb-10">
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-10">
       <BotonVolver href="/panel" />
       <Encabezado sobretitulo="Super admin" titulo="Catálogo de programas" descripcion="Todos los programas de la academia, con sus sedes" />
       <Regla delay={60} />

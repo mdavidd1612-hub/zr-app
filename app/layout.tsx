@@ -1,9 +1,11 @@
+import { ReportarErrores } from '@/components/ui/ReportarErrores'
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import ServiceWorkerInit from './service-worker-init'
 import InstalarApp from '@/components/ui/InstalarApp'
 import EtiquetaEntorno from '@/components/ui/EtiquetaEntorno'
 import { SplashZR } from '@/components/ui/SplashZR'
+import { ArrastrarParaActualizar } from '@/components/ui/ArrastrarParaActualizar'
 import { ES_ENTORNO_PRUEBA, SUFIJO_ENTORNO } from '@/lib/entorno'
 
 // En el entorno de prueba todos los iconos llevan una etiqueta amarilla STAGING
@@ -21,7 +23,7 @@ export const metadata: Metadata = {
     ],
     apple: `${CARPETA_ICONOS}/apple-touch-icon.png`,
   },
-  appleWebApp: { capable: true, statusBarStyle: 'default', title: `ZR App${SUFIJO_ENTORNO}` },
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: `ZR App${SUFIJO_ENTORNO}` },
   formatDetection: { telephone: false },
 }
 
@@ -49,12 +51,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es" className="h-full antialiased" style={{ backgroundColor: '#0F1419' }}>
       {/* Fondo oscuro en línea: evita el destello blanco en el teléfono entre
           la pantalla nativa de la PWA y la primera pintura (antes de cargar el CSS). */}
-      <body className="flex min-h-full flex-col bg-zr-bg" style={{ backgroundColor: '#0F1419' }}>
+      <body className="flex min-h-full flex-col">
         <EtiquetaEntorno />
         {children}
         <ServiceWorkerInit />
         <InstalarApp />
         <SplashZR />
+        <ArrastrarParaActualizar />
+        <ReportarErrores />
       </body>
     </html>
   )

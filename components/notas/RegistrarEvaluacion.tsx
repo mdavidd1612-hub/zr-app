@@ -25,7 +25,7 @@ import type { UserRole } from '@/lib/types'
  * se filtra por Programa y luego por Módulo.
  */
 
-type Tipo = 'examen' | 'practica' | 'prepractica' | 'exposicion' | 'participacion' | 'otro'
+type Tipo = 'examen' | 'practica' | 'prepractica' | 'exposicion' | 'participacion' | 'otro' | 'tarea'
 
 interface Cohorte {
   id: string
@@ -65,6 +65,10 @@ const ETIQUETA_KIND: Record<Tipo, string> = {
   exposicion: 'Exposición',
   participacion: 'Participación',
   otro: 'Otro',
+  // "tarea" no se crea a mano desde aquí -- llega sola desde una tarea de
+  // Aula Virtual (migración 193, H.33). Solo falta la etiqueta para que se
+  // vea bien donde ya se lista junto a las demás.
+  tarea: 'Tarea (Aula Virtual)',
 }
 const TIPOS: Tipo[] = ['examen', 'practica', 'prepractica', 'exposicion', 'participacion', 'otro']
 
@@ -314,8 +318,26 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
   async function borrar(id: string) {
     if (!confirm('¿Quitar esta evaluación? También se borran las notas que ya tenga cargadas.')) return
     const supabase = createClient()
+    // Reunión 14-nov-2026: si la evaluación viene de Unidades (examen o tarea),
+    // borrarla aquí también la borra allá -- todo es una sola conexión.
+    const { data: origen } = await supabase
+      .from('manual_exam_definitions' as never)
+      .select('source_exam_id, source_assignment_id')
+      .eq('id', id)
+      .maybeSingle() as { data: { source_exam_id: string | null; source_assignment_id: string | null } | null }
+    if (origen?.source_exam_id) {
+      const r = await fetch('/api/delete-exams', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [origen.source_exam_id] }),
+      })
+      if (!r.ok) { setError('No se pudo borrar el examen de Unidades. Intenta de nuevo.'); return }
+    } else if (origen?.source_assignment_id) {
+      const { error: fa } = await supabase.from('assignments').delete().eq('id', origen.source_assignment_id)
+      if (fa) { setError('No se pudo borrar la tarea de Unidades. Intenta de nuevo.'); return }
+    }
     const { error: fallo } = await supabase.from('manual_exam_definitions').delete().eq('id', id)
-    if (!fallo) {
+    if (!fallo || origen?.source_exam_id) {
       setEvaluaciones((ex) => ex.filter((e) => e.id !== id))
       setTocadas((prev) => { const s = new Set(prev); s.delete(id); return s })
     }
@@ -367,7 +389,7 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
   )
 
   return (
-    <div className="space-y-8 px-5 pt-14 pb-10">
+    <div className="space-y-8 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-10">
       <BotonVolver href={modo === 'profesor' ? '/notas-docente' : '/notas-academicas'} />
 
       <header>
@@ -435,13 +457,13 @@ export function RegistrarEvaluacion({ modo }: { modo: 'direccion' | 'profesor' }
 
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Tipo</label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {TIPOS.map((k) => (
               <button
                 key={k}
                 type="button"
                 onClick={() => setKind(k)}
-                className={`min-h-10 rounded-lg border px-1 text-xs font-bold ${kind === k ? 'border-zr-blue bg-zr-blue text-white' : 'border-zr-border text-zr-text-muted'}`}
+                className={`min-h-11 rounded-lg border px-1 text-xs font-bold ${kind === k ? 'border-zr-blue bg-zr-blue text-white' : 'border-zr-border text-zr-text-muted'}`}
               >
                 {ETIQUETA_KIND[k]}
               </button>

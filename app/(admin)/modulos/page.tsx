@@ -55,6 +55,15 @@ export default function EditarModulos() {
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
   const [version, setVersion] = useState(0)
+  const [programas, setProgramas] = useState<{ id: string; name: string; siglas: string | null }[]>([])
+  const [nuevoAbierto, setNuevoAbierto] = useState(false)
+  const [nuevoPrograma, setNuevoPrograma] = useState('todos')
+  const [nuevoCorte, setNuevoCorte] = useState('todos')
+  const [cortes, setCortes] = useState<{ id: string; name: string; program_id: string }[]>([])
+  const [nuevoNombre, setNuevoNombre] = useState('')
+  const [nuevoCorto, setNuevoCorto] = useState('')
+  const [nuevoSemanas, setNuevoSemanas] = useState(4)
+  const [creando, setCreando] = useState(false)
 
   useEffect(() => {
     let vigente = true
@@ -78,6 +87,11 @@ export default function EditarModulos() {
         setCargando(false)
         return
       }
+
+      const { data: progs } = await supabase.from('programs').select('id, name, siglas, tipo' as 'id, name, siglas').neq('tipo' as never, 'curso' as never).order('name')
+      if (vigente) setProgramas((progs ?? []) as { id: string; name: string; siglas: string | null }[])
+      const { data: cos } = await supabase.from('cohorts').select('id, name, program_id').order('name')
+      if (vigente) setCortes((cos ?? []) as { id: string; name: string; program_id: string }[])
 
       const [{ data: mods }, { data: config }] = await Promise.all([
         supabase
@@ -155,6 +169,43 @@ export default function EditarModulos() {
     setVersion((v) => v + 1)
   }
 
+  async function crearModulo() {
+    const nombre = nuevoNombre.trim()
+    if (!nombre) { setError('Escribe el nombre del módulo.'); return }
+    setCreando(true)
+    setError(null)
+    setExito(null)
+    const supabase = createClient()
+    const destino = nuevoPrograma === 'todos' ? programas : programas.filter((p) => p.id === nuevoPrograma)
+    if (destino.length === 0) { setCreando(false); setError('Elige un programa.'); return }
+
+    // Cada programa lleva su propio orden: el módulo nuevo va al final de ese programa.
+    for (const prog of destino) {
+      const { data: ultimo } = await supabase
+        .from('modules').select('order_index').eq('program_id', prog.id)
+        .order('order_index', { ascending: false }).limit(1).maybeSingle()
+      const { error: fallo } = await supabase.from('modules').insert({
+        program_id: prog.id,
+        order_index: (ultimo?.order_index ?? 0) + 1,
+        name: nombre,
+        description: nuevoCorto.trim() || null,
+        duration_weeks: nuevoSemanas,
+      })
+      if (fallo) {
+        setCreando(false)
+        setError(`No se pudo crear en ${prog.siglas ?? prog.name}: ${fallo.message}`)
+        return
+      }
+    }
+    setCreando(false)
+    setNuevoAbierto(false)
+    setNuevoNombre('')
+    setNuevoCorto('')
+    setNuevoSemanas(4)
+    setExito(`Módulo "${nombre}" creado en ${destino.length === 1 ? (destino[0].siglas ?? destino[0].name) : 'todos los programas'}.`)
+    setVersion((v) => v + 1)
+  }
+
   if (cargando) {
     return (
       <PantallaEsqueleto />
@@ -177,7 +228,7 @@ export default function EditarModulos() {
   }
 
   return (
-    <div className="space-y-11 px-5 pt-14 pb-10">
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-10">
       <BotonVolver href="/panel" />
       <Encabezado
         sobretitulo={rol === 'super_admin' ? 'Super admin' : 'Dirección académica'}
@@ -188,7 +239,87 @@ export default function EditarModulos() {
 
       {exito && <Aviso tipo="exito">{exito}</Aviso>}
 
-      <Seccion numero={1} titulo="Los 14 módulos" delay={100}>
+      <Seccion numero={1} titulo="Agregar un módulo nuevo" delay={80}>
+        {!nuevoAbierto ? (
+          <button
+            onClick={() => { setNuevoAbierto(true); setError(null); setExito(null) }}
+            className="min-h-12 rounded-full bg-zr-blue px-5 text-sm font-bold text-white hover:bg-zr-blue-deep"
+          >
+            + Nuevo módulo
+          </button>
+        ) : (
+          <div className="zr-card space-y-4 p-5">
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zr-text-muted">Tipo de programa</label>
+              <select
+                value={nuevoPrograma}
+                onChange={(e) => { setNuevoPrograma(e.target.value); setNuevoCorte('todos') }}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+              >
+                <option value="todos">Todos los tipos</option>
+                {programas.map((p) => (
+                  <option key={p.id} value={p.id}>{p.siglas ? `${p.siglas} · ` : ''}{p.name}</option>
+                ))}
+              </select>
+              {nuevoPrograma !== 'todos' && (
+                <div className="mt-3">
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zr-text-muted">Programa</label>
+                  <select
+                    value={nuevoCorte}
+                    onChange={(e) => setNuevoCorte(e.target.value)}
+                    className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+                  >
+                    <option value="todos">Todos los programas de este tipo</option>
+                    {cortes.filter((c) => c.program_id === nuevoPrograma).map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <p className="mt-1.5 text-xs text-zr-text-muted">
+                El módulo se agrega al final del tipo elegido. Los módulos son del tipo (PTMA o PFTA), así que lo ven todos sus programas.
+              </p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zr-text-muted">Nombre del módulo</label>
+              <input
+                value={nuevoNombre}
+                onChange={(e) => setNuevoNombre(e.target.value)}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zr-text-muted">Resumen corto (opcional)</label>
+              <textarea
+                value={nuevoCorto}
+                onChange={(e) => setNuevoCorto(e.target.value)}
+                rows={2}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zr-text-muted">Duración (sábados)</label>
+              <input
+                type="number" min={1} max={12} value={nuevoSemanas}
+                onChange={(e) => setNuevoSemanas(Math.min(12, Math.max(1, Number(e.target.value) || 1)))}
+                className="w-28 rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+              />
+            </div>
+            {error && <Aviso tipo="error">{error}</Aviso>}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setNuevoAbierto(false)}
+                className="min-h-14 flex-1 rounded-lg border border-zr-border text-base font-semibold text-zr-text"
+              >
+                Cancelar
+              </button>
+              <Boton onClick={crearModulo} cargando={creando} className="flex-1">Crear módulo</Boton>
+            </div>
+          </div>
+        )}
+      </Seccion>
+
+      <Seccion numero={2} titulo="Los módulos" delay={100}>
         <div className="space-y-3">
           {modulos.map((m) => (
             <div key={m.nombre} className="zr-card p-5">

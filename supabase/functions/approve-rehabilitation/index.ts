@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
     .select('role')
     .eq('id', userData.user.id)
     .single()
-  if (!profile || (profile.role !== 'profesor' && profile.role !== 'admin' && profile.role !== 'super_admin')) {
+  if (!profile || !['profesor', 'super_admin', 'direccion_academica'].includes(profile.role)) {
     return errorResponse('NO_AUTORIZADO', 'Solo personal', 403)
   }
 

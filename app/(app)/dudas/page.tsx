@@ -3,9 +3,11 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
+import { Seccion, Etiqueta } from '@/components/ui/Editorial'
+import { TarjetaHero } from '@/components/ui/TarjetaHero'
+import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { BotonVolver } from '@/components/ui/BotonVolver'
-import { IconoAviso } from '@/components/ui/Iconos'
+import { IconoAviso, IconoDuda } from '@/components/ui/Iconos'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 
 /**
@@ -57,6 +59,7 @@ function DudasInterno() {
   const [userId, setUserId] = useState<string | null>(null)
   const [texto, setTexto] = useState('')
   const [dudas, setDudas] = useState<Duda[]>([])
+  const [unidadNombre, setUnidadNombre] = useState<Record<string, string>>({})
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [textoEdicion, setTextoEdicion] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -70,13 +73,21 @@ function DudasInterno() {
       .eq('student_id', uid)
       .order('created_at', { ascending: false })
 
-    setDudas(
-      (data ?? []).map((d) => ({
-        id: d.id, body: d.body, createdAt: d.created_at, status: d.status, unitId: d.unit_id,
-        respuestas: ((d.doubt_responses ?? []) as unknown as Array<{ id: string; body: string; is_official: boolean; created_at: string }>)
-          .map((r) => ({ id: r.id, body: r.body, isOfficial: r.is_official, createdAt: r.created_at })),
-      })),
-    )
+    const filas = (data ?? []).map((d) => ({
+      id: d.id, body: d.body, createdAt: d.created_at, status: d.status, unitId: d.unit_id,
+      respuestas: ((d.doubt_responses ?? []) as unknown as Array<{ id: string; body: string; is_official: boolean; created_at: string }>)
+        .map((r) => ({ id: r.id, body: r.body, isOfficial: r.is_official, createdAt: r.created_at })),
+    }))
+    setDudas(filas)
+
+    // Nombre de la unidad ligada, para mostrarlo en cada duda (antes la
+    // conexión existía pero no se veía desde el estudiante).
+    const ids = Array.from(new Set(filas.map((d) => d.unitId).filter((x): x is string => !!x)))
+    if (unidadPreseleccionada) ids.push(unidadPreseleccionada)
+    if (ids.length > 0) {
+      const { data: unidades } = await supabase.from('units').select('id, title').in('id', ids)
+      setUnidadNombre(Object.fromEntries((unidades ?? []).map((u) => [u.id, u.title])))
+    }
   }
 
   useEffect(() => {
@@ -149,15 +160,25 @@ function DudasInterno() {
   }
 
   return (
-    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
-      <div className="space-y-11">
+    <div className="px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
+      <div className="space-y-8">
         <BotonVolver href="/" />
+
+        <div className="animate-rise">
+          <TarjetaHero
+            sobretitulo="Dudas"
+            titulo="Pregunta sin pena"
+            texto="Lo que no te quedó claro, tu profesor lo responde. Las más repetidas se resuelven el sábado en clase."
+            icono={<IconoDuda size={24} />}
+          />
+        </div>
 
         <Seccion numero={1} titulo="Mandar una duda" delay={60}>
           <div id="tour-dudas" className="zr-card space-y-4 p-5">
             {unidadPreseleccionada && (
-              <p className="rounded-lg border border-zr-blue/25 bg-zr-blue/10 px-4 py-2.5 text-xs font-semibold text-zr-blue-mid">
-                Se va a ligar a la unidad desde la que entraste.
+              <p className="flex items-center gap-2 text-xs font-semibold text-zr-blue-mid">
+                <IconoDuda size={15} className="shrink-0" />
+                Se va a ligar a la unidad{unidadNombre[unidadPreseleccionada] ? `: ${unidadNombre[unidadPreseleccionada]}` : ' desde la que entraste'}.
               </p>
             )}
             <div>
@@ -169,38 +190,38 @@ function DudasInterno() {
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
                 placeholder="Por ejemplo: ¿por qué se revisa primero lo que está a la vista?"
-                className="min-h-[96px] w-full rounded-lg border border-zr-border bg-zr-bg p-4 text-sm text-zr-text outline-none focus:border-zr-blue"
+                className="min-h-[96px] w-full rounded-2xl border border-zr-border bg-zr-surface/40 p-4 text-base text-zr-text outline-none transition-colors focus:border-zr-blue"
               />
             </div>
             <button
               onClick={enviarDuda}
               disabled={!texto.trim() || enviando}
-              className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white transition-colors active:bg-zr-blue-deep disabled:cursor-not-allowed disabled:opacity-40"
+              className="min-h-14 w-full rounded-2xl bg-zr-blue text-base font-bold text-white transition-colors active:bg-zr-blue-deep disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Enviar mi duda
+              {enviando ? 'Enviando…' : 'Enviar mi duda'}
             </button>
           </div>
 
-          <div className="flex gap-3 rounded-lg border border-zr-blue/25 bg-zr-blue/10 p-4">
-            <IconoAviso size={18} className="mt-0.5 shrink-0 text-zr-blue-mid" />
-            <p className="text-sm leading-relaxed text-zr-text">
-              Tu profesor las agrupa y responde las más repetidas el sábado.{' '}
-              <b>No es anónima</b>, para que pueda volver contigo.
-            </p>
-          </div>
+          <p className="flex items-start gap-2 text-xs leading-relaxed text-zr-text-muted">
+            <IconoAviso size={15} className="mt-0.5 shrink-0 text-zr-blue-mid" />
+            <span>Tu profesor las agrupa y responde las más repetidas el sábado. <b className="text-zr-text">No es anónima</b>, para que pueda volver contigo.</span>
+          </p>
         </Seccion>
-
-        <Regla delay={100} />
 
         <Seccion numero={2} titulo="Las que has mandado" delay={140}>
           {dudas.length === 0 ? (
-            <p className="text-sm text-zr-text-muted">Todavía no has mandado ninguna duda.</p>
+            <EstadoVacio
+              Icono={IconoDuda}
+              titulo="Todavía no has mandado ninguna"
+              explicacion="Cuando mandes una duda, aquí verás su estado y la respuesta de tu profesor."
+            />
           ) : (
             <div className="space-y-3">
               {dudas.map((d) => {
                 const estado = ETIQUETA_ESTADO[d.status] ?? ETIQUETA_ESTADO.abierta
+                const unidad = d.unitId ? unidadNombre[d.unitId] : null
                 return (
-                  <div key={d.id} className="zr-card space-y-3 p-4">
+                  <div key={d.id} className="zr-card space-y-3 p-5">
                     {editandoId === d.id ? (
                       <div className="space-y-3">
                         <textarea
@@ -226,13 +247,18 @@ function DudasInterno() {
                       </div>
                     ) : (
                       <>
+                        {unidad && (
+                          <p className="text-[11px] font-bold uppercase tracking-wider text-zr-blue-mid">
+                            Unidad · {unidad}
+                          </p>
+                        )}
                         <div className="flex items-start justify-between gap-3">
                           <p className="text-sm leading-relaxed text-zr-text">{d.body}</p>
                           <Etiqueta tono={estado.tono}>{estado.texto}</Etiqueta>
                         </div>
 
                         {d.respuestas.length > 0 && (
-                          <div className="space-y-2 border-l-2 border-zr-blue/30 pl-3">
+                          <div className="space-y-2 rounded-2xl bg-zr-blue/8 p-3 ring-1 ring-zr-blue/15">
                             {d.respuestas.map((r) => (
                               <div key={r.id}>
                                 {r.isOfficial && <Etiqueta tono="exito">Respuesta del profesor</Etiqueta>}
@@ -254,18 +280,25 @@ function DudasInterno() {
                                 Marcar resuelta
                               </button>
                             )}
-                            <button
-                              onClick={() => empezarEdicion(d)}
-                              className="text-xs font-bold text-zr-blue-mid"
-                            >
-                              Editar
-                            </button>
-                            <button
-                              onClick={() => eliminarDuda(d.id)}
-                              className="text-xs font-bold text-zr-error"
-                            >
-                              Eliminar
-                            </button>
+                            {/* L-8: una vez respondida, no se puede editar ni
+                                borrar — si no, el profesor pierde el contexto
+                                de lo que respondió. */}
+                            {d.respuestas.length === 0 && (
+                              <>
+                                <button
+                                  onClick={() => empezarEdicion(d)}
+                                  className="text-xs font-bold text-zr-blue-mid"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={() => eliminarDuda(d.id)}
+                                  className="text-xs font-bold text-zr-error"
+                                >
+                                  Eliminar
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       </>

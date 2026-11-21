@@ -176,8 +176,8 @@ export default function MarcarDominio() {
   const competenciaActual = competencias.find((c) => c.id === competenciaId)
 
   return (
-    <div className="space-y-8 px-5 pt-14 pb-8">
-      <BotonVolver href="/sesiones" />
+    <div className="space-y-8 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-8">
+      <BotonVolver href="/hoy" />
 
       <Encabezado sobretitulo={nombreCohorte || 'Cohorte'} titulo="Marcar dominio" />
 

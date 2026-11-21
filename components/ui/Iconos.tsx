@@ -140,6 +140,17 @@ export function IconoPanel(p: IconoProps) {
   )
 }
 
+export function IconoAjustes(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="4" y1="17" x2="20" y2="17" />
+      <circle cx="9" cy="7" r="2.5" fill="var(--zr-bg, #0b1220)" />
+      <circle cx="15" cy="17" r="2.5" fill="var(--zr-bg, #0b1220)" />
+    </Base>
+  )
+}
+
 export function IconoEstudiantes(p: IconoProps) {
   return (
     <Base {...p}>
@@ -181,6 +192,26 @@ export function IconoVideo(p: IconoProps) {
     <Base {...p}>
       <rect x="3" y="5.5" width="13" height="13" rx="2" />
       <path d="m16 10.5 5-3v9l-5-3" />
+    </Base>
+  )
+}
+
+export function IconoImagen(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.5" />
+      <path d="m4 17 5-5 3 3 4-5 4 5" />
+    </Base>
+  )
+}
+
+export function IconoAudio(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <path d="M9 17V5l10-2v12" />
+      <circle cx="6.5" cy="17" r="2.5" />
+      <circle cx="16.5" cy="15" r="2.5" />
     </Base>
   )
 }
@@ -250,6 +281,15 @@ export function IconoAviso(p: IconoProps) {
   )
 }
 
+/** Carpeta: para el explorador de material, tipo Classroom. */
+export function IconoCarpeta(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <path d="M3.5 7a1.5 1.5 0 0 1 1.5-1.5h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 19.5H5A1.5 1.5 0 0 1 3.5 18V7Z" />
+    </Base>
+  )
+}
+
 export function IconoCandado(p: IconoProps) {
   return (
     <Base {...p}>
@@ -282,6 +322,20 @@ export function IconoChevron(p: IconoProps) {
   return (
     <Base {...p}>
       <path d="m6 9 6 6 6-6" />
+    </Base>
+  )
+}
+
+/** Asa de arrastrar (6 puntos) -- pedido explícito del coordinador, 8-nov-2026. */
+export function IconoArrastrar(p: IconoProps) {
+  return (
+    <Base {...p}>
+      <circle cx="9" cy="6" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="6" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="9" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="12" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="9" cy="18" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="18" r="1.4" fill="currentColor" stroke="none" />
     </Base>
   )
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
@@ -66,6 +66,45 @@ interface Props {
 
 // Ventana flotante con el fondo borroso: la elección es obligatoria, así que no
 // se cierra tocando afuera (solo con «Volver»).
+
+// Pestañas de "Mi módulo" del profesor (19-nov-2026): las 4 pantallas que usan
+// este mismo selector de módulo se ven como un solo lugar. Como la elección se
+// guarda (sessionStorage), cambiar de pestaña no vuelve a pedir el módulo.
+const PESTANAS_MODULO = [
+  { href: '/unidades-docente', label: 'Unidades' },
+  { href: '/notas-docente', label: 'Notas' },
+  { href: '/dudas-docente', label: 'Dudas' },
+  { href: '/feedback-modulo-docente', label: 'Feedback' },
+]
+
+export function PestanasModulo({ conMargenArriba }: { conMargenArriba: boolean }) {
+  const pathname = usePathname()
+  const router = useRouter()
+  const esActiva = (h: string) => pathname === h || (h === '/notas-docente' && pathname.startsWith('/notas/'))
+  const enModulo = PESTANAS_MODULO.some((p) => esActiva(p.href))
+  if (!enModulo) return null
+  return (
+    <nav className={`${conMargenArriba ? 'pt-[calc(3.5rem+env(safe-area-inset-top))]' : 'pt-4'} px-5`}>
+      <div className="mx-auto flex w-full max-w-md gap-1 rounded-full sm:w-fit border border-zr-border bg-zr-surface/70 p-1 backdrop-blur-md">
+        {PESTANAS_MODULO.map((p) => {
+          const on = esActiva(p.href)
+          return (
+            <button
+              key={p.href}
+              onClick={() => router.push(p.href)}
+              className={`min-w-0 flex-1 truncate rounded-full px-2 py-2 text-[13px] font-bold transition-colors sm:flex-none sm:px-5 sm:text-sm ${
+                on ? 'bg-zr-blue text-white shadow-[0_2px_10px_rgba(37,99,235,0.35)]' : 'text-zr-text-muted hover:text-zr-text'
+              }`}
+            >
+              {p.label}
+            </button>
+          )
+        })}
+      </div>
+    </nav>
+  )
+}
+
 function VentanaElegir({ children }: { children: React.ReactNode }) {
   if (typeof document === 'undefined') return null
   return createPortal(
@@ -84,16 +123,48 @@ function VentanaElegir({ children }: { children: React.ReactNode }) {
 
 const ETIQUETA_ESTADO: Record<EstadoModulo, string | null> = {
   sin_calendario: null,
-  en_curso: null,
+  en_curso: 'En curso',
   no_empezo: 'Aún no empieza',
   terminado: 'Ya se cursó',
+}
+
+// Bug real reportado por el coordinador (7-nov-2026, video): a mitad de
+// trabajo, sin tocar nada, la pantalla volvía a "¿qué módulo quieres
+// revisar?" -- perdía la elección de programa/módulo ya hecha. No se pudo
+// confirmar la causa exacta (candidato más fuerte: lib/use-recargar-al-
+// volver.ts, que recarga la página si estuvo oculta 60s+, puede estar
+// disparando de más en esta app empaquetada como PWA de escritorio). Lo que
+// sí se corrige, pase lo que pase: la elección se guarda en sessionStorage,
+// así que si la pantalla se remonta, recupera dónde estaba en vez de
+// mandar a elegir de nuevo desde cero.
+const CLAVE_COHORTE = 'zr_ctx_cohort'
+const CLAVE_MODULO = 'zr_ctx_module'
+
+function leerGuardado(clave: string): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    return window.sessionStorage.getItem(clave)
+  } catch {
+    return null
+  }
+}
+
+function guardar(clave: string, valor: string | null) {
+  if (typeof window === 'undefined') return
+  try {
+    if (valor) window.sessionStorage.setItem(clave, valor)
+    else window.sessionStorage.removeItem(clave)
+  } catch {
+    // Privado/incógnito puede bloquear sessionStorage -- sin esto no se
+    // recuerda la elección, pero la pantalla sigue funcionando igual.
+  }
 }
 
 export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nivel = 'modulo', children }: Props) {
   const router = useRouter()
   const [opciones, setOpciones] = useState<ContextoSel[] | null>(null)
-  const [cohortId, setCohortId] = useState<string | null>(null)
-  const [moduleId, setModuleId] = useState<string | null>(null)
+  const [cohortId, setCohortId] = useState<string | null>(() => leerGuardado(CLAVE_COHORTE))
+  const [moduleId, setModuleId] = useState<string | null>(() => leerGuardado(CLAVE_MODULO))
 
   useEffect(() => {
     let vigente = true
@@ -136,7 +207,11 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
           }
         })
         .filter((x): x is ContextoSel => x !== null)
-        .sort((a, b) => a.cohorteNombre.localeCompare(b.cohorteNombre) || a.moduloOrden - b.moduloOrden)
+        .sort((a, b) =>
+          // Lo que está en curso va primero (19-nov-2026): un profesor con varios
+          // módulos (p. ej. uno presencial y Inglés virtual) ve arriba lo de hoy.
+          Number(b.estado === 'en_curso') - Number(a.estado === 'en_curso') ||
+          a.cohorteNombre.localeCompare(b.cohorteNombre) || a.moduloOrden - b.moduloOrden)
 
       setOpciones(lista)
     }
@@ -154,7 +229,7 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
 
   if (opciones.length === 0) {
     return (
-      <div className="space-y-6 px-5 pb-10 pt-14">
+      <div className="space-y-6 px-5 pb-10 pt-[calc(3.5rem+env(safe-area-inset-top))]">
         <BotonVolver href={volverHref} />
         <EstadoVacio titulo="Sin programa asignado" explicacion="Dirección Académica es quien te asigna los programas y módulos." />
       </div>
@@ -176,6 +251,8 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
   function cambiar() {
     setCohortId(null)
     setModuleId(null)
+    guardar(CLAVE_COHORTE, null)
+    guardar(CLAVE_MODULO, null)
   }
 
   // ── Ya hay selección: la sección + una franja para cambiar ──
@@ -183,16 +260,25 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
     return (
       <>
         {hayQueElegir && (
-          <div className="flex items-center justify-between gap-3 border-b border-zr-border bg-zr-surface px-5 pb-3 pt-12">
-            <p className="min-w-0 truncate text-xs font-semibold text-zr-text-muted">
-              {seleccion.cohorteNombre}{seleccion.sede ? ` · ${seleccion.sede}` : ''}
-              {nivel === 'modulo' ? ` · Módulo ${seleccion.moduloOrden} · ${seleccion.moduloNombre}` : ''}
-            </p>
-            <button onClick={cambiar} className="shrink-0 rounded-lg px-3 py-2 text-xs font-bold text-zr-blue-mid">
-              Cambiar
-            </button>
+          <div className="px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
+            <div className="zr-card mx-auto flex max-w-3xl items-center justify-between gap-3 rounded-2xl px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">
+                  {seleccion.cohorteNombre}{seleccion.sede ? ` · ${seleccion.sede}` : ''}
+                </p>
+                {nivel === 'modulo' && (
+                  <p className="truncate text-base font-bold text-zr-text">
+                    Módulo {seleccion.moduloOrden} · {seleccion.moduloNombre}
+                  </p>
+                )}
+              </div>
+              <button onClick={cambiar} className="shrink-0 rounded-full border border-zr-blue/50 px-4 py-2 text-xs font-bold text-zr-blue-mid transition-colors hover:bg-zr-blue/15">
+                Cambiar
+              </button>
+            </div>
           </div>
         )}
+        {nivel === 'modulo' && <PestanasModulo conMargenArriba={!hayQueElegir} />}
         {children(seleccion)}
       </>
     )
@@ -216,6 +302,7 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
                 key={p.cohortId}
                 onClick={() => {
                   setCohortId(p.cohortId)
+                  guardar(CLAVE_COHORTE, p.cohortId)
                 }}
                 className="zr-card zr-card-interactive flex w-full items-center justify-between gap-3 p-5 text-left"
               >
@@ -256,11 +343,13 @@ export function ContextoDocente({ sobretitulo, titulo, volverHref = '/hoy', nive
         </p>
       </header>
       <div className="space-y-3">
-        {delPrograma.map((o) => (
+        {delPrograma.map((o, idx) => (
           <button
             key={o.moduleId}
+            data-tour-target={idx === 0 ? 'td-elegir' : undefined}
             onClick={() => {
               setModuleId(o.moduleId)
+              guardar(CLAVE_MODULO, o.moduleId)
             }}
             className="zr-card zr-card-interactive flex w-full items-center justify-between gap-3 p-5 text-left"
           >

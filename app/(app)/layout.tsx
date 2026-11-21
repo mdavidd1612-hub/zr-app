@@ -11,8 +11,10 @@ import { useTour } from '@/lib/useTour'
 import { PASOS_POR_ROL } from '@/lib/tour-pasos'
 import { BannerNoSolvente, ModalNoSolvente } from '@/components/ui/AvisoSolvencia'
 import { ResultadoModulo } from '@/components/ui/ResultadoModulo'
+import { ActualizacionObligatoria } from '@/components/ui/ActualizacionObligatoria'
+import { ACTUALIZACION_OBLIGATORIA } from '@/lib/version'
 import {
-  IconoInicio, IconoPerfil, IconoProgreso, IconoDocumento, IconoDuda, IconoNotas,
+  IconoInicio, IconoPerfil, IconoVideo, IconoDuda, IconoNotas,
 } from '@/components/ui/Iconos'
 import type { UserRole } from '@/lib/types'
 
@@ -25,18 +27,21 @@ import type { UserRole } from '@/lib/types'
 // viejas siguen existiendo en el código — no se borran — para retomarlas en
 // la fase siguiente sin rehacer nada.
 //
-// AULA VIRTUAL FUERA DE PRODUCCIÓN (hotfix 7-nov-2026): el módulo de Unidades
-// (Aula Virtual) está construido pero SOLO validado en staging (zr-staging);
-// sus tablas (units, unit_items, material_progress...) NO están aplicadas en
-// zr-prod, así que "/unidades" en producción muestra una pantalla vacía/rota.
-// Por eso el menú del estudiante vuelve a "Material" (/contenido), como estaba
-// antes del 31-oct. El código del Aula se queda (no se borra) para cuando el
-// módulo completo se mergee a producción; aquí solo se le quita la entrada del
-// menú. Lo mismo en /clases, en Inicio y en el menú del profesor.
+// "Aula" (Aula Virtual, migraciones 174-182): antes solo se llegaba por un
+// enlace escondido dentro de "Mi módulo" -- el estudiante no tenía forma de
+// saber que ahí vivía lo que el profesor organizaba (reporte real del
+// coordinador, oct. 2026: "el estudiante no ve nada de lo que hace el
+// profesor"). Se saca a la barra, igual que en el menú del profesor.
+//
+// "Material" se retira del menú en la reunión del 31-oct-2026 -- redundante
+// con Aula Virtual, que ya muestra todos los materiales organizados por
+// unidad. La pantalla /contenido sigue existiendo en el código (no se
+// borra), solo deja de ser pestaña del menú.
 const NAV: ItemBarra[] = [
-  { href: '/',          label: 'Inicio',    Icono: IconoInicio },
-  { href: '/clases',    label: 'Mi módulo', Icono: IconoProgreso },
-  { href: '/contenido', label: 'Material',  Icono: IconoDocumento },
+  // Barra de 5 (19-nov-2026, propuesta E): "Mi módulo" (con Malla y Mi
+  // progreso como pestañas) se abre desde una tarjeta de Inicio.
+  { href: '/',          label: 'Inicio',    Icono: IconoInicio, tambienEn: ['/clases', '/malla', '/progreso'] },
+  { href: '/unidades',  label: 'Unidades',  Icono: IconoVideo, tambienEn: ['/examenes', '/descargas', '/calendario'] },
   { href: '/notas',     label: 'Notas',     Icono: IconoNotas },
   { href: '/dudas',     label: 'Dudas',     Icono: IconoDuda },
   { href: '/perfil',    label: 'Perfil',    Icono: IconoPerfil },
@@ -84,8 +89,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // estudiante de verdad, que es justo para lo que existe esa vista (se
   // guarda en el propio profiles.tour_pasos_vistos de quien está
   // recorriendo; los IDs llevan el prefijo del rol, nunca chocan).
+  // Actualización obligatoria (21-nov-2026, pedido del coordinador): antes del
+  // tutorial, una pantalla que no se puede cerrar anuncia la actualización, la
+  // "instala" con una animación y lleva al tutorial sin "Omitir". Sale una vez
+  // por estudiante por cada ACTUALIZACION_OBLIGATORIA (lib/version.ts).
+  // 'revisando' pausa el tutorial hasta saber si toca mostrarla.
+  const [actualizacion, setActualizacion] = useState<'revisando' | 'mostrar' | 'no'>('revisando')
+  const [tourObligatorio, setTourObligatorio] = useState(false)
+  const claveActualizacion = `actualizacion:${ACTUALIZACION_OBLIGATORIA}`
+
   const { pasos: pasosTour, incremental: tourIncremental, terminar: terminarTour } =
-    useTour(PASOS_POR_ROL.estudiante, rol !== undefined && rol !== null && validado && !enOnboarding, simulando)
+    useTour(PASOS_POR_ROL.estudiante, rol !== undefined && rol !== null && validado && !enOnboarding, simulando, {
+      pausado: actualizacion !== 'no',
+      completoSiNoHayNuevos: tourObligatorio,
+    })
 
   useEffect(() => {
     const supabase = createClient()
@@ -204,6 +221,46 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [rol, simulando, pathname])
 
+  useEffect(() => {
+    if (rol === undefined || actualizacion !== 'revisando') return
+    if (rol !== 'estudiante' || simulando) { setActualizacion('no'); return } // eslint-disable-line react-hooks/set-state-in-effect
+    // Mientras llena su perfil, acepta términos o espera validación, el
+    // tutorial tampoco corre: se decide después.
+    if (!validado || enOnboarding) return
+    // Un estudiante sin solvencia no puede abrir lo que enseña el tutorial; la
+    // verá cuando vuelva a estar solvente.
+    if (noSolvente) { setActualizacion('no'); return }
+    const supabase = createClient()
+    async function revisarActualizacion() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: perfil } = await supabase
+        .from('profiles').select('tour_pasos_vistos').eq('id', user.id).maybeSingle()
+      const vistos: string[] = perfil?.tour_pasos_vistos ?? []
+      if (vistos.includes(claveActualizacion)) { setActualizacion('no'); return }
+      // Estudiante nuevo (nunca vio el tutorial): no hay nada que "actualizar";
+      // ve la bienvenida normal y no se le muestra esta pantalla.
+      if (vistos.length === 0) {
+        await supabase.rpc('fn_marcar_pasos_tour_vistos', { p_pasos: [claveActualizacion] })
+        setActualizacion('no')
+        return
+      }
+      setActualizacion('mostrar')
+    }
+    revisarActualizacion()
+  }, [rol, simulando, validado, enOnboarding, noSolvente, actualizacion, claveActualizacion])
+
+  async function terminarActualizacion() {
+    await createClient().rpc('fn_marcar_pasos_tour_vistos', { p_pasos: [claveActualizacion] })
+    setTourObligatorio(true)
+    setActualizacion('no')
+  }
+
+  async function terminarTutorial() {
+    await terminarTour()
+    setTourObligatorio(false)
+  }
+
   const rutaPermitidaSiBloqueado =
     pathname === '/' || pathname.startsWith('/perfil') || pathname === '/completar-perfil' || pathname === '/aceptar-terminos'
 
@@ -274,7 +331,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       )}
       {simulando && <BannerSimulacion etiqueta="Estudiante" />}
       {children}
-      {pasosTour && <Tour pasos={pasosTour} incremental={tourIncremental} onTerminado={terminarTour} />}
+      {actualizacion === 'mostrar' && <ActualizacionObligatoria onTerminar={terminarActualizacion} />}
+      {pasosTour && (
+        <Tour pasos={pasosTour} incremental={tourIncremental} onTerminado={terminarTutorial} obligatorio={tourObligatorio} />
+      )}
     </Marco>
   )
 }

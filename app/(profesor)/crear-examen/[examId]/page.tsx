@@ -4,10 +4,18 @@ import { Select } from '@/components/ui/Select'
 import { useRouter, useParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { PoliticaRemedialCampos, type PoliticaRemedial } from '@/components/ui/PoliticaRemedial'
 import { QuestionEditor } from '@/components/QuestionEditor'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
+import { ModalEvaluacionAgregada } from '@/components/ui/ModalEvaluacionAgregada'
+import { sumaPesoOcupado, mensajeSiExcedePeso } from '@/lib/peso-notas'
+import { ImportarPreguntas } from '@/components/ui/ImportarPreguntas'
+import type { PreguntaImportada } from '@/lib/importar-preguntas'
+import { InputNota } from '@/components/ui/InputNota'
+import { isoAInputLocal } from '@/lib/fecha-local'
+import { mensajeError } from '@/lib/errores'
 
 type TipoPregunta = 'opcion_multiple' | 'verdadero_falso' | 'redaccion_abierta'
 
@@ -48,14 +56,24 @@ export default function EditarExamen() {
   const [cohortes, setCohortes] = useState<{ id: string; name: string }[]>([])
   const [puntajeMaximo, setPuntajeMaximo] = useState(20)
   const [duracion, setDuracion] = useState<number | ''>('')
+  // Fecha propia del examen (pendiente de la reunión 7-nov-2026, §8.12).
+  const [abreEl, setAbreEl] = useState('')
+  const [cierraEl, setCierraEl] = useState('')
   // Modelo de evaluación (migración 176) -- mismos campos que "Crear examen".
   const [tipo, setTipo] = useState<'formativo' | 'certificacion'>('formativo')
   const [notaMinima, setNotaMinima] = useState<number | ''>(10)
   const [intentos, setIntentos] = useState<number | ''>(2)
   const [enfriamiento, setEnfriamiento] = useState<number | ''>(24)
+  const [politicaRemedial, setPoliticaRemedial] = useState<PoliticaRemedial>('mejor')
+  const [topeRemedial, setTopeRemedial] = useState<number | ''>(80)
+  // Fusión con Notas (H.33, migración 193): este % es lo que vale en la nota
+  // del módulo -- se guarda junto con el resto del examen.
+  const [peso, setPeso] = useState<number | ''>(0)
+  const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false)
   const [preguntas, setPreguntas] = useState<Pregunta[]>([])
   const [editorAbierto, setEditorAbierto] = useState<TipoPregunta | null>(null)
   const [eligiendoTipo, setEligiendoTipo] = useState(false)
+  const [importando, setImportando] = useState(false)
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -72,7 +90,16 @@ export default function EditarExamen() {
       if (!user) { router.replace('/login'); return }
 
       const [{ data: examen }, { data: mods }, { data: cohs }, { data: asig }, { data: pregs }] = await Promise.all([
-        supabase.from('exams').select('*').eq('id', examId).eq('teacher_id', user.id).single(),
+        // Sin filtrar por teacher_id: la RLS (migración 165, is_admin_up())
+        // ya permite a Dirección Académica/super_admin ver y editar
+        // CUALQUIER examen, no solo los propios. El filtro .eq('teacher_id',
+        // user.id) que había aquí los bloqueaba en el cliente aunque la base
+        // sí los dejara entrar -- al entrar a un examen de certificación que
+        // no era suyo, la consulta no devolvía nada y la pantalla los
+        // regresaba a /crear-examen (bug real reportado por el coordinador,
+        // 7-nov-2026). Para un profesor normal, la RLS sigue restringiendo
+        // igual que antes (teacher_id propio o módulo que imparte).
+        supabase.from('exams').select('*').eq('id', examId).single(),
         supabase.from('modules').select('id, name').order('order_index'),
         // Sin filtrar por dueño: la base entrega las cohortes de los programas donde
         // este profesor tiene módulos asignados (migración 150).
@@ -90,10 +117,15 @@ export default function EditarExamen() {
       setCohorteId(examen.cohort_id ?? '')
       setPuntajeMaximo(Number(examen.max_score) || 20)
       setDuracion(examen.duration_minutes ?? '')
+      setAbreEl(isoAInputLocal(examen.opens_at))
+      setCierraEl(isoAInputLocal(examen.closes_at))
       setTipo(examen.kind === 'certificacion' ? 'certificacion' : 'formativo')
       setNotaMinima(examen.passing_score != null ? Number(examen.passing_score) : 10)
       setIntentos(examen.max_attempts ?? 2)
       setEnfriamiento(examen.cooldown_hours ?? 24)
+      setPoliticaRemedial((examen as { retake_policy?: PoliticaRemedial }).retake_policy ?? 'mejor')
+      setTopeRemedial((examen as { retake_cap_pct?: number | null }).retake_cap_pct ?? 80)
+      setPeso(examen.weight != null ? Number(examen.weight) : 0)
       // Solo los módulos que dicta (más el del propio examen); si no tiene asignados, todos.
       const suyos = new Set((asig ?? []).map((x) => x.module_id))
       setModulos(suyos.size > 0 ? (mods ?? []).filter((m) => suyos.has(m.id) || m.id === examen.module_id) : (mods ?? []))
@@ -133,6 +165,22 @@ export default function EditarExamen() {
     setEditorAbierto(null)
   }
 
+  function importarPreguntas(leidas: PreguntaImportada[]) {
+    setPreguntas((qs) => [
+      ...qs,
+      ...leidas.map((p, i) => ({
+        id: `qimp${Date.now()}-${i}`,
+        type: p.type,
+        statement: p.statement,
+        points: p.points,
+        options: p.options,
+        correct_answer: p.correct_answer ?? undefined,
+        rubric: p.rubric,
+      })),
+    ])
+    setImportando(false)
+  }
+
   function iniciarEdicion(pregunta: Pregunta) {
     setEditandoId(pregunta.id)
     setEditorAbierto(pregunta.type)
@@ -147,10 +195,45 @@ export default function EditarExamen() {
 
   async function guardar() {
     if (!sePuedeGuardar) return
-    setGuardando(true)
     setError(null)
 
+    const pesoNuevo = peso === '' ? 0 : peso
+
+    // Pedido explícito del coordinador (reunión 7-nov-2026): una certificación
+    // no tiene sentido que valga 0% -- una práctica sí puede.
+    if (tipo === 'certificacion' && pesoNuevo <= 0) {
+      setError('Una certificación tiene que valer más de 0% en la nota del módulo.')
+      return
+    }
+
+    // Decisión del coordinador (20-nov-2026): el 2.º intento tiene tope (por
+    // defecto 80 %). Si la nota mínima pasa ese tope, el remedial nunca podría
+    // aprobar: no se deja guardar ese caso imposible.
+    {
+      const intentosN = intentos === '' ? (tipo === 'certificacion' ? 1 : 2) : intentos
+      const topeN = topeRemedial === '' ? 80 : topeRemedial
+      const minimaN = notaMinima === '' ? 10 : notaMinima
+      const techo = Math.round(puntajeMaximo * topeN) / 100
+      if (tipo === 'certificacion' && intentosN > 1 && minimaN > techo) {
+        setError(`Con el tope del remedial (${topeN} %), lo máximo que se puede sacar en el 2.º intento es ${techo}. Baja la nota mínima a ${techo} o menos, o sube el tope.`)
+        return
+      }
+    }
+
+    setGuardando(true)
+
     const supabase = createClient()
+
+    if (pesoNuevo > 0) {
+      const { data: definicion } = await supabase
+        .from('manual_exam_definitions')
+        .select('id')
+        .eq('source_exam_id', examId)
+        .maybeSingle()
+      const ocupado = await sumaPesoOcupado(supabase, moduloId, cohorteId || null, definicion?.id)
+      const msg = mensajeSiExcedePeso(ocupado, pesoNuevo)
+      if (msg) { setError(msg); setGuardando(false); return }
+    }
 
     // 1. Actualizar metadatos del examen
     const { error: falloExamen } = await supabase
@@ -162,15 +245,20 @@ export default function EditarExamen() {
         cohort_id: cohorteId || null,
         max_score: puntajeMaximo,
         duration_minutes: duracion === '' ? null : duracion,
+        opens_at: abreEl ? new Date(abreEl).toISOString() : null,
+        closes_at: cierraEl ? new Date(cierraEl).toISOString() : null,
         kind: tipo,
         passing_score: tipo === 'certificacion' ? (notaMinima === '' ? 10 : notaMinima) : 10,
-        max_attempts: intentos === '' ? 2 : intentos,
+        max_attempts: intentos === '' ? (tipo === 'certificacion' ? 1 : 2) : intentos,
         cooldown_hours: enfriamiento === '' ? 24 : enfriamiento,
+        retake_policy: politicaRemedial as never,
+        retake_cap_pct: (topeRemedial === '' ? null : topeRemedial) as never,
+        weight: peso === '' ? 0 : peso,
       })
       .eq('id', examId)
 
     if (falloExamen) {
-      setError(falloExamen.message)
+      setError(mensajeError(falloExamen.message))
       setGuardando(false)
       return
     }
@@ -194,17 +282,36 @@ export default function EditarExamen() {
       rubric: q.rubric ?? null,
     }))
 
-    const { error: falloPregs } = await supabase
-      .from('exam_questions')
-      .upsert(preguntasParaUpsert, { onConflict: 'id' })
+    // Se separan existentes (con id) y nuevas (sin id): mezclarlas en un solo
+    // upsert hace que PostgREST mande id = null para las nuevas y la base
+    // rechace todo ("null value in column id of relation exam_questions",
+    // reportado por el profesor Arjona el 18-nov-2026).
+    const existentes = preguntasParaUpsert.filter((q) => 'id' in q)
+    const nuevas = preguntasParaUpsert.filter((q) => !('id' in q))
 
-    if (falloPregs) {
-      setError(falloPregs.message)
-      setGuardando(false)
-      return
+    if (existentes.length > 0) {
+      const { error: falloExist } = await supabase
+        .from('exam_questions')
+        .upsert(existentes as typeof preguntasParaUpsert, { onConflict: 'id' })
+      if (falloExist) {
+        setError(mensajeError(falloExist.message))
+        setGuardando(false)
+        return
+      }
+    }
+    if (nuevas.length > 0) {
+      const { error: falloNuevas } = await supabase
+        .from('exam_questions')
+        .insert(nuevas)
+      if (falloNuevas) {
+        setError(mensajeError(falloNuevas.message))
+        setGuardando(false)
+        return
+      }
     }
 
-    router.push('/crear-examen')
+    setGuardando(false)
+    setMostrarConfirmacion(true)
   }
 
   if (cargando) {
@@ -216,7 +323,7 @@ export default function EditarExamen() {
   }
 
   return (
-    <div className="space-y-11 px-5 pt-14 pb-10">
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-10">
       <BotonVolver href="/crear-examen" />
 
       <Encabezado
@@ -276,11 +383,7 @@ export default function EditarExamen() {
 
             <div>
               <label className="mb-2 block text-sm font-semibold text-zr-text">Puntaje máximo</label>
-              <input
-                type="number" min={1} value={puntajeMaximo}
-                onChange={(e) => setPuntajeMaximo(Number(e.target.value) || 0)}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
-              />
+              <InputNota value={puntajeMaximo} onChange={(v) => setPuntajeMaximo(v === '' ? 0 : v)} min={1} className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none" />
             </div>
 
             <div>
@@ -293,6 +396,32 @@ export default function EditarExamen() {
                 placeholder="Sin límite"
                 className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
               />
+            </div>
+          </div>
+
+          {/* Fecha propia del examen (pendiente de la reunión 7-nov-2026). */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-zr-text">
+                Se abre <span className="font-normal text-zr-text-muted">(opcional)</span>
+              </label>
+              <input
+                type="datetime-local" value={abreEl}
+                onChange={(e) => setAbreEl(e.target.value)}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+              />
+              <p className="mt-1.5 text-xs text-zr-text-muted">Antes de esta fecha, el examen se ve bloqueado.</p>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-zr-text">
+                Se cierra <span className="font-normal text-zr-text-muted">(opcional)</span>
+              </label>
+              <input
+                type="datetime-local" value={cierraEl}
+                onChange={(e) => setCierraEl(e.target.value)}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+              />
+              <p className="mt-1.5 text-xs text-zr-text-muted">Pasada esta fecha, ya no se puede empezar un intento.</p>
             </div>
           </div>
 
@@ -329,30 +458,49 @@ export default function EditarExamen() {
                 <label className="mb-2 block text-sm font-semibold text-zr-text">
                   Nota mínima <span className="font-normal text-zr-text-muted">(sobre {puntajeMaximo})</span>
                 </label>
-                <input
-                  type="number" min={1} max={puntajeMaximo} value={notaMinima}
-                  onChange={(e) => setNotaMinima(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
-                />
+                <InputNota value={notaMinima} onChange={setNotaMinima} min={1} max={puntajeMaximo} className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none" />
               </div>
             )}
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-zr-text">Intentos</label>
-              <input
-                type="number" min={1} value={intentos}
-                onChange={(e) => setIntentos(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+            {/* Pedido explícito del coordinador (8-nov-2026): una certificación
+                siempre es un solo intento -- no se preguntan estos dos campos. */}
+            {(
+              <>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-zr-text">{tipo === 'certificacion' ? 'Intentos (el 2.º es el remedial)' : 'Intentos'}</label>
+                  <input
+                    type="number" min={1} value={intentos}
+                    onChange={(e) => setIntentos(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-zr-text">
+                    Espera entre intentos <span className="font-normal text-zr-text-muted">(h)</span>
+                  </label>
+                  <input
+                    type="number" min={0} value={enfriamiento}
+                    onChange={(e) => setEnfriamiento(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+                  />
+                </div>
+            {(intentos === '' || Number(intentos) > 1) && (
+              <PoliticaRemedialCampos
+                politica={politicaRemedial}
+                onPolitica={setPoliticaRemedial}
+                tope={topeRemedial}
+                onTope={setTopeRemedial}
               />
-            </div>
+            )}
+              </>
+            )}
             <div>
               <label className="mb-2 block text-sm font-semibold text-zr-text">
-                Espera entre intentos <span className="font-normal text-zr-text-muted">(h)</span>
+                % que vale en la nota del módulo
               </label>
-              <input
-                type="number" min={0} value={enfriamiento}
-                onChange={(e) => setEnfriamiento(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
-              />
+              <InputNota value={peso} onChange={setPeso} min={0} max={100} className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none" />
+              <p className="mt-1.5 text-xs text-zr-text-muted">
+                Este examen ya es una evaluación en Notas -- no hay que crearla ahí aparte.
+              </p>
             </div>
           </div>
         </div>
@@ -434,12 +582,20 @@ export default function EditarExamen() {
             </button>
           </div>
         ) : (
-          <button
-            onClick={() => setEligiendoTipo(true)}
-            className="w-full rounded-lg border border-dashed border-zr-border px-6 py-5 text-sm font-semibold text-zr-blue transition-colors hover:border-zr-blue/45 hover:bg-zr-blue/5"
-          >
-            + Agregar pregunta
-          </button>
+          <div className="space-y-3">
+            <button
+              onClick={() => setEligiendoTipo(true)}
+              className="w-full rounded-lg border border-dashed border-zr-border px-6 py-5 text-sm font-semibold text-zr-blue transition-colors hover:border-zr-blue/45 hover:bg-zr-blue/5"
+            >
+              + Agregar pregunta
+            </button>
+            <button
+              onClick={() => setImportando(true)}
+              className="w-full rounded-lg px-4 py-2 text-xs font-bold text-zr-text-muted"
+            >
+              Importar preguntas desde Word/Excel/CSV
+            </button>
+          </div>
         )}
       </Seccion>
 
@@ -465,6 +621,18 @@ export default function EditarExamen() {
           </button>
         </div>
       </div>
+
+      {mostrarConfirmacion && (
+        <ModalEvaluacionAgregada
+          peso={typeof peso === 'number' ? peso : 0}
+          modo="actualizada"
+          onCerrar={() => router.push('/crear-examen')}
+        />
+      )}
+
+      {importando && (
+        <ImportarPreguntas onImportar={importarPreguntas} onCerrar={() => setImportando(false)} />
+      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -41,13 +41,22 @@ export function Campanita() {
   const [notis, setNotis] = useState<Notificacion[]>([])
   const [rol, setRol] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
+  const [agita, setAgita] = useState(false)
+  const prevSinLeer = useRef<number | null>(null)
+  // Última notificación conocida: el sondeo pregunta solo por esa fila y baja la
+  // lista completa únicamente si cambió (ahorro de datos, 20-nov-2026).
+  const ultimaRef = useRef<string | null>(null)
 
   useEffect(() => {
     let vigente = true
     const supabase = createClient()
 
     async function cargar() {
-      const { data: { user } } = await supabase.auth.getUser()
+      // Si la pestaña está oculta no se consulta (ahorra red y base con muchos usuarios).
+      if (typeof document !== 'undefined' && document.hidden) return
+      // getSession lee la sesión local; getUser haría una llamada al servidor cada 30 s.
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user) return
 
       if (rol === null) {
@@ -64,6 +73,7 @@ export function Campanita() {
 
       if (!vigente) return
 
+      ultimaRef.current = data?.[0]?.id ?? null
       setNotis(
         (data ?? []).map((n) => ({
           id: n.id,
@@ -78,13 +88,38 @@ export function Campanita() {
       setCargando(false)
     }
 
+    // Sondeo liviano: una sola fila (id) en vez de 30 notificaciones completas.
+    async function revisar() {
+      if (typeof document !== 'undefined' && document.hidden) return
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) return
+      const { data } = await supabase
+        .from('notifications').select('id')
+        .eq('profile_id', session.user.id)
+        .order('created_at', { ascending: false }).limit(1)
+      const top = data?.[0]?.id ?? null
+      if (vigente && top !== ultimaRef.current) void cargar()
+    }
+
     cargar()
-    // Refresco periódico simple: cada 60s basta para algo que no es un chat.
-    const intervalo = setInterval(cargar, 60_000)
-    return () => { vigente = false; clearInterval(intervalo) }
+    const intervalo = setInterval(revisar, 30_000)
+    const alVolver = () => { if (!document.hidden) void cargar() }
+    document.addEventListener('visibilitychange', alVolver)
+    return () => { vigente = false; clearInterval(intervalo); document.removeEventListener('visibilitychange', alVolver) }
   }, [rol])
 
   const sinLeer = notis.filter((n) => !n.leida).length
+
+  // La campanita se sacude cuando llega una notificación nueva (no en la primera carga).
+  useEffect(() => {
+    const antes = prevSinLeer.current
+    prevSinLeer.current = sinLeer
+    if (antes !== null && sinLeer > antes) {
+      const a = setTimeout(() => setAgita(true), 0)
+      const b = setTimeout(() => setAgita(false), 2000)
+      return () => { clearTimeout(a); clearTimeout(b) }
+    }
+  }, [sinLeer])
 
   // A dónde lleva el botón "Ver", según el tipo y a quién le llegó.
   function destino(n: Notificacion): string | null {
@@ -95,9 +130,53 @@ export function Campanita() {
       case 'nota_publicada':
         return rol === 'estudiante' ? '/notas' : null
       case 'material_nuevo':
-        return '/contenido'
+        // Bug real reportado en vivo (8-nov-2026): llevaba a /contenido, el
+        // explorador viejo que se retiró del menú -- ahora todo vive en
+        // Aula Virtual.
+        return '/unidades'
+      case 'tarea_nueva': {
+        const unitId = p.unit_id as string | undefined
+        return unitId ? `/unidades/${unitId}` : '/unidades'
+      }
+      case 'tarea_calificada':
+        return '/unidades'
+      case 'examen_por_corregir': {
+        // Le llega al profesor: un estudiante entregó un examen con respuestas
+        // abiertas que esperan su corrección.
+        const examId = p.exam_id as string | undefined
+        const attemptId = p.attempt_id as string | undefined
+        return examId && attemptId ? `/calificar/${examId}/${attemptId}` : examId ? `/calificar/${examId}` : '/crear-examen'
+      }
+      case 'material_aprobado':
+      case 'material_rechazado': {
+        // Le llega al profesor que subió el material (el único destinatario
+        // de este tipo) -- lo manda a su propia Unidades, no a la del
+        // estudiante.
+        const unitId = p.unit_id as string | undefined
+        return unitId ? `/unidades-docente/${unitId}` : '/unidades-docente'
+      }
+      case 'tarea_entregada': {
+        const aid = p.assignment_id as string | undefined
+        return aid ? `/unidades-docente/tarea/${aid}` : '/unidades-docente'
+      }
+      case 'material_por_aprobar':
+        return '/material'
+      case 'unidad_desbloqueada':
+      case 'unidad_abierta': {
+        const uid = p.unit_id as string | undefined
+        return uid ? `/unidades/${uid}` : '/unidades'
+      }
+      case 'recordatorio_entrega':
+        return '/calendario'
+      case 'resumen_semanal':
+        return '/monitoreo'
+      case 'clase_movida':
+        // Calendario general, parte 2 (migración 234): lleva al calendario de cada quien.
+        return rol === 'profesor' ? '/calendario-docente' : '/calendario'
       case 'examen_habilitado':
-        return '/examenes'
+        // Sin exam_id en el payload (no debería pasar, pero por si acaso):
+        // /examenes (la lista) no tiene acceso desde el menú del estudiante.
+        return '/unidades'
       case 'modulo_cambiado':
         return '/clases'
       case 'hora_clase':
@@ -148,11 +227,11 @@ export function Campanita() {
       <button
         onClick={() => setAbierta(true)}
         aria-label="Notificaciones"
-        className="relative flex h-10 w-10 items-center justify-center rounded-full text-zr-text-muted transition-colors active:bg-zr-border/40"
+        className={`relative flex h-10 w-10 items-center justify-center rounded-full text-zr-text-muted transition-colors active:bg-zr-border/40 ${agita ? 'zr-campana-agita text-zr-text' : ''}`}
       >
         <IconoCampana size={22} />
         {sinLeer > 0 && (
-          <span className="absolute right-0.5 top-0.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-zr-error px-1 text-[10px] font-bold text-white">
+          <span className={`absolute right-0.5 top-0.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-zr-error px-1 text-[10px] font-bold text-white ${agita ? 'zr-latido' : ''}`}>
             {sinLeer > 9 ? '9+' : sinLeer}
           </span>
         )}
@@ -180,7 +259,7 @@ export function Campanita() {
                 <button
                   onClick={() => setAbierta(false)}
                   aria-label="Cerrar"
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-zr-text-muted active:bg-zr-border/50"
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-zr-text-muted active:bg-zr-border/50"
                 >
                   <IconoCerrar size={18} />
                 </button>
@@ -225,7 +304,7 @@ export function Campanita() {
                       <button
                         onClick={() => descartar(n.id)}
                         aria-label="Descartar"
-                        className="flex h-7 w-7 items-center justify-center rounded-full text-zr-text-muted active:bg-zr-border/50"
+                        className="flex h-11 w-11 items-center justify-center rounded-full text-zr-text-muted active:bg-zr-border/50"
                       >
                         <IconoCerrar size={14} />
                       </button>

@@ -32,7 +32,7 @@ import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
  */
 
 interface Cohorte { id: string; nombre: string; dias: string | null }
-interface Sesion { id: string; fecha: string; status: string }
+interface Sesion { id: string; fecha: string; status: string; moduloId: string | null; moduloNombre: string | null }
 interface Estudiante { id: string; nombre: string; cedula: string; telefono: string | null }
 
 type Estado = 'presente' | 'tarde' | 'ausente' | 'justificado'
@@ -62,6 +62,7 @@ export default function Asistencias() {
   const [cohortes, setCohortes] = useState<Cohorte[]>([])
   const [cohorteId, setCohorteId] = useState('')
   const [sesiones, setSesiones] = useState<Sesion[]>([])
+  const [moduloFiltro, setModuloFiltro] = useState('')
   const [estudiantes, setEstudiantes] = useState<Estudiante[]>([])
   const [eventos, setEventos] = useState<Map<string, { hora: string; estado: Estado }>>(new Map())
   const [justificaciones, setJustificaciones] = useState<Map<string, string>>(new Map())
@@ -74,7 +75,21 @@ export default function Asistencias() {
   const hoyISO = hoyLocalISO()
   const sesionHoy = sesiones.find((s) => s.fecha === hoyISO) ?? null
   const diasCohorte = cohortes.find((c) => c.id === cohorteId)?.dias ?? null
-  const hoyEsDiaDeClase = esDiaDeClase(diasCohorte, hoyISO)
+  // Si hoy hay clase lo decide la base (`fn_clase_del_dia`, migración 235), que
+  // ya conoce el calendario de módulos y las clases movidas o repuestas. El
+  // texto "Sábados" queda solo como respaldo mientras responde.
+  const [moduloDeHoy, setModuloDeHoy] = useState<string | null | undefined>(undefined)
+  const hoyEsDiaDeClase = moduloDeHoy === undefined ? esDiaDeClase(diasCohorte, hoyISO) : moduloDeHoy !== null
+
+  useEffect(() => {
+    if (!cohorteId) return
+    setModuloDeHoy(undefined)
+    void createClient()
+      .rpc('fn_clase_del_dia' as never, { p_cohort: cohorteId, p_fecha: hoyISO } as never)
+      .then(({ data, error }: { data: unknown; error: unknown }) => {
+        if (!error) setModuloDeHoy((data as string | null) ?? null)
+      })
+  }, [cohorteId, hoyISO])
 
   useEffect(() => {
     async function cargar() {
@@ -106,7 +121,8 @@ export default function Asistencias() {
 
     const { data: cohorte } = await supabase
       .from('cohorts').select('current_module_id').eq('id', cohorteId).single()
-    if (!cohorte?.current_module_id) return null
+    const moduloSesion = moduloDeHoy ?? cohorte?.current_module_id
+    if (!moduloSesion) return null
 
     const { data: ultima } = await supabase
       .from('class_sessions').select('week_number').eq('cohort_id', cohorteId)
@@ -116,7 +132,7 @@ export default function Asistencias() {
       .from('class_sessions')
       .insert({
         cohort_id: cohorteId,
-        module_id: cohorte.current_module_id,
+        module_id: moduloSesion,
         session_date: hoyISO,
         week_number: (ultima?.week_number ?? 0) + 1,
         status: 'programada',
@@ -135,7 +151,7 @@ export default function Asistencias() {
     const [{ data: sesionesRaw }, { data: alumnosRaw }] = await Promise.all([
       supabase
         .from('class_sessions')
-        .select('id, session_date, status')
+        .select('id, session_date, status, module_id, modules(name)')
         .eq('cohort_id', cohorteId)
         .order('session_date', { ascending: true }),
       supabase
@@ -144,7 +160,8 @@ export default function Asistencias() {
         .eq('cohort_id', cohorteId),
     ])
 
-    const listaSesiones = (sesionesRaw ?? []).map((s) => ({ id: s.id, fecha: s.session_date, status: s.status }))
+    const listaSesiones = ((sesionesRaw ?? []) as unknown as { id: string; session_date: string; status: string; module_id: string | null; modules: { name: string } | null }[])
+      .map((s) => ({ id: s.id, fecha: s.session_date, status: s.status, moduloId: s.module_id, moduloNombre: s.modules?.name ?? null }))
     setSesiones(listaSesiones)
 
     setEstudiantes(
@@ -264,12 +281,22 @@ export default function Asistencias() {
     setCambiandoEstado(false)
   }
 
+  const modulosDisponibles = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const x of sesiones) if (x.moduloId && x.moduloNombre) m.set(x.moduloId, x.moduloNombre)
+    return [...m.entries()].map(([id, nombre]) => ({ id, nombre }))
+  }, [sesiones])
+  const sesionesVista = useMemo(
+    () => (moduloFiltro ? sesiones.filter((x) => x.moduloId === moduloFiltro) : sesiones),
+    [sesiones, moduloFiltro],
+  )
+
   // El cruce estudiante × sesión: la ausencia no es una fila en la base, es
   // la falta de un evento. Si esa ausencia tiene justificación, se muestra
   // "justificado" en vez de "ausente".
   const filas = useMemo(() => estudiantes.map((e) => ({
     ...e,
-    celdas: sesiones.map((s): Celda => {
+    celdas: sesionesVista.map((s): Celda => {
       const clave = `${s.id}|${e.id}`
       const evento = eventos.get(clave)
       const justificacion = justificaciones.get(clave) ?? null
@@ -282,7 +309,7 @@ export default function Asistencias() {
         esHoy: s.fecha === hoyISO,
       }
     }),
-  })), [estudiantes, sesiones, eventos, justificaciones, hoyISO])
+  })), [estudiantes, sesionesVista, eventos, justificaciones, hoyISO])
 
   const texto = busqueda.trim().toLowerCase()
   const filasFiltradas = filas.filter(
@@ -302,7 +329,7 @@ export default function Asistencias() {
     const escapar = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
     const encabezados = `<th>Nombre y apellido</th><th>Cédula</th><th>Teléfono</th>`
-      + sesiones.map((s) => `<th>${s.fecha}</th>`).join('')
+      + sesionesVista.map((s) => `<th>${s.fecha}</th>`).join('')
 
     const filasHTML = filasFiltradas
       .map((f) => `<tr>
@@ -348,11 +375,11 @@ export default function Asistencias() {
   }
 
   return (
-    <div className="space-y-11 px-5 pt-14">
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <BotonVolver href="/panel" />
 
       <Encabezado
-        sobretitulo="Administración"
+        sobretitulo="Gestión académica"
         titulo="Asistencia"
         descripcion="Todas las fechas, de un vistazo — igual que la hoja de firmas."
       />
@@ -408,7 +435,7 @@ export default function Asistencias() {
             {cohortes.map((c) => (
               <button
                 key={c.id}
-                onClick={() => setCohorteId(c.id)}
+                onClick={() => { setCohorteId(c.id); setModuloFiltro('') }}
                 className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
                   cohorteId === c.id
                     ? 'border-zr-blue bg-zr-blue/15 text-zr-blue'
@@ -419,6 +446,22 @@ export default function Asistencias() {
               </button>
             ))}
           </div>
+
+          {modulosDisponibles.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-1 zr-scroll-x">
+              {[{ id: '', nombre: 'Todos los módulos' }, ...modulosDisponibles].map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setModuloFiltro(m.id)}
+                  className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                    moduloFiltro === m.id ? 'border-zr-blue bg-zr-blue/15 text-zr-blue' : 'border-zr-border text-zr-text-muted'
+                  }`}
+                >
+                  {m.nombre}
+                </button>
+              ))}
+            </div>
+          )}
 
           <input
             type="text"
@@ -444,7 +487,7 @@ export default function Asistencias() {
               titulo="Sin resultados"
               explicacion={filas.length === 0 ? 'Este programa todavía no tiene estudiantes.' : 'Nadie coincide con la búsqueda.'}
             />
-          ) : sesiones.length === 0 ? (
+          ) : sesionesVista.length === 0 ? (
             <EstadoVacio
               titulo="Todavía no hay sesiones"
               explicacion="En cuanto exista la primera sesión de este programa, aquí aparece la primera columna."
@@ -453,14 +496,14 @@ export default function Asistencias() {
             <>
               {/* Computadora (≥1024px): tabla completa, columna de nombre
                   fija, fechas deslizables. */}
-              <TiraDeFechas className="hidden max-h-[65dvh] overflow-auto rounded-lg border border-zr-border lg:block" cantidad={sesiones.length}>
+              <TiraDeFechas className="hidden max-h-[65dvh] overflow-auto rounded-lg border border-zr-border lg:block" cantidad={sesionesVista.length}>
                 <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="bg-zr-surface">
                       <th className="sticky left-0 top-0 z-20 min-w-[220px] border-b border-r border-zr-border bg-zr-surface px-4 py-3 text-left font-bold text-zr-text">
                         Estudiante
                       </th>
-                      {sesiones.map((s) => (
+                      {sesionesVista.map((s) => (
                         <th
                           key={s.id}
                           className={`sticky top-0 z-10 min-w-[92px] border-b border-zr-border bg-zr-surface px-3 py-3 text-center font-bold text-zr-text-muted ${

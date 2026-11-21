@@ -1,6 +1,7 @@
 'use client'
 
 import { Select } from '@/components/ui/Select'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -17,6 +18,8 @@ import {
   urlDelVisor, visorDe,
 } from '@/lib/material'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+import { VisorMaterial } from '@/components/ui/VisorMaterial'
+import type { TipoMaterial } from '@/lib/material'
 
 /**
  * Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, Sprint C): material que sube
@@ -59,6 +62,9 @@ interface Material {
 }
 
 export default function MaterialAdmin() {
+  // Revisar antes de aprobar (19-nov-2026, propuesta D): se ve dentro de la app,
+  // sin tener que descargarlo.
+  const [viendo, setViendo] = useState<Material | null>(null)
   const router = useRouter()
   const [rol, setRol] = useState<UserRole | null>(null)
   const [pendientes, setPendientes] = useState<Material[]>([])
@@ -715,11 +721,11 @@ export default function MaterialAdmin() {
   }
 
   return (
-    <div className="space-y-11 px-5 pb-28 pt-14">
+    <div className="space-y-11 px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <BotonVolver href="/panel" />
 
       <Encabezado
-        sobretitulo="Administración"
+        sobretitulo="Gestión académica"
         titulo="Material"
         descripcion="Organizado en carpetas por programa, como Classroom."
         accion={
@@ -743,10 +749,45 @@ export default function MaterialAdmin() {
         </a>
       )}
 
-      {/* El atajo "Organizar directo en Aula Virtual" se oculta en producción
-          (hotfix 7-nov-2026): el módulo de Unidades está solo en staging. Se
-          retoma cuando el Aula se mergee a prod. */}
+      {/* Pedido explícito del coordinador (reunión 31-oct-2026): Dirección
+          Académica sigue viendo "Material" en su menú (esta pantalla, para
+          revisar/aprobar carpetas), pero necesita un atajo directo a Aula
+          Virtual sin el recorrido completo (programa → módulo → unidad →
+          agregar), que le resulta engorroso cuando solo quiere montar algo
+          rápido en una unidad. */}
+      {puedeCrearCarpetas && (
+        <Link
+          href="/unidades-docente"
+          className="zr-card zr-card-interactive flex min-h-14 items-center justify-between gap-3 p-5 text-base font-bold text-zr-text"
+        >
+          Organizar directo en Aula Virtual
+          <span aria-hidden className="text-zr-text-muted">›</span>
+        </Link>
+      )}
 
+      {viendo && viendo.rutaStorage && (
+        <div className="fixed inset-0 z-[80] overflow-y-auto bg-zr-bg px-4 pb-10 pt-[calc(1rem+env(safe-area-inset-top))]">
+          <div className="mx-auto max-w-3xl space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="min-w-0 truncate text-base font-bold text-zr-text">{viendo.titulo}</p>
+              <button onClick={() => setViendo(null)} className="shrink-0 rounded-lg border border-zr-border px-4 py-2 text-sm font-bold text-zr-text">
+                Cerrar
+              </button>
+            </div>
+            <VisorMaterial
+              contentItemId={viendo.id}
+              tipo={viendo.tipo as TipoMaterial}
+              storagePath={viendo.rutaStorage}
+              registrarProgreso={false}
+            />
+            <div className="flex gap-2">
+              <button onClick={() => { const m = viendo; setViendo(null); void aprobar(m) }} className="flex-1 rounded-lg bg-zr-success py-3 text-sm font-bold text-white">Aprobar</button>
+              <button onClick={() => { const m = viendo; setViendo(null); void rechazar(m) }} className="flex-1 rounded-lg border border-zr-error/40 py-3 text-sm font-bold text-zr-error">Rechazar</button>
+              <button onClick={() => descargar(viendo)} className="rounded-lg border border-zr-border px-4 py-3 text-sm font-semibold text-zr-text">Descargar</button>
+            </div>
+          </div>
+        </div>
+      )}
       <Regla delay={60} />
 
       {puedeCrearCarpetas && pendientes.length > 0 && (
@@ -764,11 +805,11 @@ export default function MaterialAdmin() {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => descargar(m)}
+                    onClick={() => (m.rutaStorage ? setViendo(m) : descargar(m))}
                     disabled={descargando === m.id}
                     className="flex-1 rounded-lg border border-zr-border py-2.5 text-sm font-semibold text-zr-text disabled:opacity-50"
                   >
-                    Descargar
+                    Ver
                   </button>
                   <button
                     onClick={() => aprobar(m)}

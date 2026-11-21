@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.17"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activity_log: {
@@ -223,6 +248,33 @@ export type Database = {
           },
         ]
       }
+      app_errors: {
+        Row: {
+          created_at: string
+          id: string
+          mensaje: string
+          ruta: string | null
+          user_id: string | null
+          version: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mensaje: string
+          ruta?: string | null
+          user_id?: string | null
+          version?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mensaje?: string
+          ruta?: string | null
+          user_id?: string | null
+          version?: string | null
+        }
+        Relationships: []
+      }
       assignments: {
         Row: {
           created_at: string
@@ -234,6 +286,7 @@ export type Database = {
           title: string
           unit_id: string
           updated_at: string
+          weight: number | null
         }
         Insert: {
           created_at?: string
@@ -245,6 +298,7 @@ export type Database = {
           title: string
           unit_id: string
           updated_at?: string
+          weight?: number | null
         }
         Update: {
           created_at?: string
@@ -256,6 +310,7 @@ export type Database = {
           title?: string
           unit_id?: string
           updated_at?: string
+          weight?: number | null
         }
         Relationships: [
           {
@@ -751,12 +806,74 @@ export type Database = {
           },
         ]
       }
+      cohort_class_exceptions: {
+        Row: {
+          cohort_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          new_date: string | null
+          new_end: string | null
+          new_start: string | null
+          original_date: string
+          reason: string | null
+          room_id: string | null
+        }
+        Insert: {
+          cohort_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          new_date?: string | null
+          new_end?: string | null
+          new_start?: string | null
+          original_date: string
+          reason?: string | null
+          room_id?: string | null
+        }
+        Update: {
+          cohort_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          new_date?: string | null
+          new_end?: string | null
+          new_start?: string | null
+          original_date?: string
+          reason?: string | null
+          room_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cohort_class_exceptions_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cohort_class_exceptions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cohort_class_exceptions_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cohort_module_calendar: {
         Row: {
           cohort_id: string
           created_at: string
           end_date: string
           id: string
+          modalidad: string
           module_id: string
           start_date: string
         }
@@ -765,6 +882,7 @@ export type Database = {
           created_at?: string
           end_date: string
           id?: string
+          modalidad?: string
           module_id: string
           start_date: string
         }
@@ -773,6 +891,7 @@ export type Database = {
           created_at?: string
           end_date?: string
           id?: string
+          modalidad?: string
           module_id?: string
           start_date?: string
         }
@@ -793,8 +912,57 @@ export type Database = {
           },
         ]
       }
+      cohort_room_days: {
+        Row: {
+          class_date: string
+          cohort_id: string
+          created_at: string
+          room_id: string
+          set_by: string | null
+        }
+        Insert: {
+          class_date: string
+          cohort_id: string
+          created_at?: string
+          room_id: string
+          set_by?: string | null
+        }
+        Update: {
+          class_date?: string
+          cohort_id?: string
+          created_at?: string
+          room_id?: string
+          set_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cohort_room_days_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cohort_room_days_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cohort_room_days_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cohorts: {
         Row: {
+          class_end: string | null
+          class_start: string | null
+          class_weekdays: number[] | null
           code_number: number | null
           created_at: string
           created_by: string | null
@@ -813,6 +981,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          class_end?: string | null
+          class_start?: string | null
+          class_weekdays?: number[] | null
           code_number?: number | null
           created_at?: string
           created_by?: string | null
@@ -831,6 +1002,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          class_end?: string | null
+          class_start?: string | null
+          class_weekdays?: number[] | null
           code_number?: number | null
           created_at?: string
           created_by?: string | null
@@ -1594,7 +1768,7 @@ export type Database = {
             foreignKeyName: "exam_answers_graded_by_fkey"
             columns: ["graded_by"]
             isOneToOne: false
-            referencedRelation: "teachers"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1851,7 +2025,7 @@ export type Database = {
             foreignKeyName: "exam_rehabilitation_requests_responded_by_fkey"
             columns: ["responded_by"]
             isOneToOne: false
-            referencedRelation: "teachers"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1905,6 +2079,41 @@ export type Database = {
           },
         ]
       }
+      exam_templates: {
+        Row: {
+          created_at: string
+          id: string
+          owner_id: string
+          payload: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_id: string
+          payload: Json
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          payload?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_templates_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exams: {
         Row: {
           closes_at: string | null
@@ -1923,6 +2132,8 @@ export type Database = {
           published_at: string | null
           published_by: string | null
           questions_per_attempt: number | null
+          retake_cap_pct: number | null
+          retake_policy: string
           show_answers_after_close: boolean
           status: Database["public"]["Enums"]["exam_status"]
           teacher_id: string | null
@@ -1948,6 +2159,8 @@ export type Database = {
           published_at?: string | null
           published_by?: string | null
           questions_per_attempt?: number | null
+          retake_cap_pct?: number | null
+          retake_policy?: string
           show_answers_after_close?: boolean
           status?: Database["public"]["Enums"]["exam_status"]
           teacher_id?: string | null
@@ -1973,6 +2186,8 @@ export type Database = {
           published_at?: string | null
           published_by?: string | null
           questions_per_attempt?: number | null
+          retake_cap_pct?: number | null
+          retake_policy?: string
           show_answers_after_close?: boolean
           status?: Database["public"]["Enums"]["exam_status"]
           teacher_id?: string | null
@@ -2000,14 +2215,14 @@ export type Database = {
             foreignKeyName: "exams_published_by_fkey"
             columns: ["published_by"]
             isOneToOne: false
-            referencedRelation: "teachers"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "exams_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
-            referencedRelation: "teachers"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2438,7 +2653,7 @@ export type Database = {
             foreignKeyName: "intervention_grants_granted_by_fkey"
             columns: ["granted_by"]
             isOneToOne: false
-            referencedRelation: "teachers"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2552,6 +2767,8 @@ export type Database = {
           passing_min: number
           scale_max: number
           sort_order: number | null
+          source_assignment_id: string | null
+          source_exam_id: string | null
           title: string
           weight_pct: number
         }
@@ -2567,6 +2784,8 @@ export type Database = {
           passing_min?: number
           scale_max?: number
           sort_order?: number | null
+          source_assignment_id?: string | null
+          source_exam_id?: string | null
           title: string
           weight_pct?: number
         }
@@ -2582,6 +2801,8 @@ export type Database = {
           passing_min?: number
           scale_max?: number
           sort_order?: number | null
+          source_assignment_id?: string | null
+          source_exam_id?: string | null
           title?: string
           weight_pct?: number
         }
@@ -2605,6 +2826,27 @@ export type Database = {
             columns: ["module_id"]
             isOneToOne: false
             referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_exam_definitions_source_assignment_id_fkey"
+            columns: ["source_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_exam_definitions_source_assignment_id_fkey"
+            columns: ["source_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "v_assignment_status"
+            referencedColumns: ["assignment_id"]
+          },
+          {
+            foreignKeyName: "manual_exam_definitions_source_exam_id_fkey"
+            columns: ["source_exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
             referencedColumns: ["id"]
           },
         ]
@@ -2763,7 +3005,7 @@ export type Database = {
             foreignKeyName: "mastery_map_marked_by_fkey"
             columns: ["marked_by"]
             isOneToOne: false
-            referencedRelation: "teachers"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2906,6 +3148,41 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "v_students_blocked"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      material_templates: {
+        Row: {
+          created_at: string
+          id: string
+          owner_id: string
+          payload: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_id: string
+          payload?: Json
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          payload?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_templates_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3399,6 +3676,7 @@ export type Database = {
           name: string
           sede_id: string
           siglas: string
+          tipo: string
           total_duration_months: number
           total_modules: number
         }
@@ -3408,6 +3686,7 @@ export type Database = {
           name: string
           sede_id: string
           siglas: string
+          tipo?: string
           total_duration_months?: number
           total_modules?: number
         }
@@ -3417,6 +3696,7 @@ export type Database = {
           name?: string
           sede_id?: string
           siglas?: string
+          tipo?: string
           total_duration_months?: number
           total_modules?: number
         }
@@ -3424,7 +3704,7 @@ export type Database = {
           {
             foreignKeyName: "programs_sede_id_fkey"
             columns: ["sede_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "sedes"
             referencedColumns: ["id"]
           },
@@ -3464,6 +3744,38 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rooms: {
+        Row: {
+          activo: boolean
+          created_at: string
+          id: string
+          nombre: string
+          sede_id: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre: string
+          sede_id: string
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre?: string
+          sede_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rooms_sede_id_fkey"
+            columns: ["sede_id"]
+            isOneToOne: false
+            referencedRelation: "sedes"
             referencedColumns: ["id"]
           },
         ]
@@ -3896,7 +4208,7 @@ export type Database = {
             foreignKeyName: "submissions_graded_by_fkey"
             columns: ["graded_by"]
             isOneToOne: false
-            referencedRelation: "teachers"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -4242,11 +4554,49 @@ export type Database = {
           },
         ]
       }
+      unit_templates: {
+        Row: {
+          created_at: string
+          id: string
+          owner_id: string
+          payload: Json
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_id: string
+          payload: Json
+          title: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          payload?: Json
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unit_templates_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       units: {
         Row: {
+          banner_color: string | null
+          banner_image_path: string | null
+          banner_image_position: number
           close_at: string | null
+          cohort_id: string | null
           created_at: string
           created_by: string | null
+          gate_exam_id: string | null
+          gate_mode: string
           id: string
           manual_status:
             | Database["public"]["Enums"]["unit_manual_status"]
@@ -4259,9 +4609,15 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          banner_color?: string | null
+          banner_image_path?: string | null
+          banner_image_position?: number
           close_at?: string | null
+          cohort_id?: string | null
           created_at?: string
           created_by?: string | null
+          gate_exam_id?: string | null
+          gate_mode?: string
           id?: string
           manual_status?:
             | Database["public"]["Enums"]["unit_manual_status"]
@@ -4274,9 +4630,15 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          banner_color?: string | null
+          banner_image_path?: string | null
+          banner_image_position?: number
           close_at?: string | null
+          cohort_id?: string | null
           created_at?: string
           created_by?: string | null
+          gate_exam_id?: string | null
+          gate_mode?: string
           id?: string
           manual_status?:
             | Database["public"]["Enums"]["unit_manual_status"]
@@ -4290,10 +4652,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "units_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "units_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "units_gate_exam_id_fkey"
+            columns: ["gate_exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
             referencedColumns: ["id"]
           },
           {
@@ -4804,6 +5180,7 @@ export type Database = {
       v_units_status: {
         Row: {
           close_at: string | null
+          cohort_id: string | null
           created_at: string | null
           created_by: string | null
           effective_status: string | null
@@ -4814,12 +5191,14 @@ export type Database = {
           module_id: string | null
           open_at: string | null
           order_index: number | null
+          prerequisite_met: boolean | null
           prerequisite_unit_id: string | null
           title: string | null
           updated_at: string | null
         }
         Insert: {
           close_at?: string | null
+          cohort_id?: string | null
           created_at?: string | null
           created_by?: string | null
           effective_status?: never
@@ -4830,12 +5209,14 @@ export type Database = {
           module_id?: string | null
           open_at?: string | null
           order_index?: number | null
+          prerequisite_met?: never
           prerequisite_unit_id?: string | null
           title?: string | null
           updated_at?: string | null
         }
         Update: {
           close_at?: string | null
+          cohort_id?: string | null
           created_at?: string | null
           created_by?: string | null
           effective_status?: never
@@ -4846,11 +5227,19 @@ export type Database = {
           module_id?: string | null
           open_at?: string | null
           order_index?: number | null
+          prerequisite_met?: never
           prerequisite_unit_id?: string | null
           title?: string | null
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "units_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "units_created_by_fkey"
             columns: ["created_by"]
@@ -4921,6 +5310,16 @@ export type Database = {
       cfg_num: { Args: { p_default: number; p_key: string }; Returns: number }
       cfg_turno: { Args: { p_key: string; p_turno: string }; Returns: Json }
       cohorte_esta_vacia: { Args: { p_cohort_id: string }; Returns: boolean }
+      crear_curso: {
+        Args: {
+          p_descripcion?: string
+          p_nombre: string
+          p_sede: string
+          p_semanas: number
+          p_siglas: string
+        }
+        Returns: string
+      }
       crear_sede_con_programa: {
         Args: {
           p_nombre_programa: string
@@ -4943,6 +5342,18 @@ export type Database = {
         Returns: string
       }
       estudiante_solvente: { Args: never; Returns: boolean }
+      fn_agenda_clases: {
+        Args: { p_semanas?: number }
+        Returns: {
+          class_date: string
+          cohort_id: string
+          cohort_name: string
+          hora: string
+          modulo: string
+          profesor: string
+          salon: string
+        }[]
+      }
       fn_aplicar_calendario_cohorte: {
         Args: { p_cohort: string }
         Returns: undefined
@@ -4970,12 +5381,36 @@ export type Database = {
         }
       }
       fn_avanzar_modulos_por_calendario: { Args: never; Returns: undefined }
+      fn_avisar_unidades_abiertas: { Args: never; Returns: undefined }
       fn_avisos_de_clase: { Args: never; Returns: undefined }
       fn_calendar_ical: { Args: { p_student_id: string }; Returns: string }
+      fn_calendario_general: {
+        Args: { p_desde: string; p_hasta: string }
+        Returns: {
+          cohort_id: string
+          cohorte: string
+          fecha: string
+          fecha_original: string
+          hora_fin: string
+          hora_inicio: string
+          module_id: string
+          modulo: string
+          modulo_orden: number
+          movida: boolean
+          profesores: string
+          salon: string
+          sede: string
+        }[]
+      }
       fn_cambiar_mi_rol: {
         Args: { nuevo_rol: Database["public"]["Enums"]["user_role"] }
         Returns: undefined
       }
+      fn_clase_del_dia: {
+        Args: { p_cohort: string; p_fecha: string }
+        Returns: string
+      }
+      fn_eliminar_unidad: { Args: { p_unit_id: string }; Returns: undefined }
       fn_feedback_modulos_docente: {
         Args: never
         Returns: {
@@ -4987,6 +5422,11 @@ export type Database = {
       }
       fn_generar_caso_del_dia: { Args: never; Returns: undefined }
       fn_generar_sesion_semanal: { Args: never; Returns: undefined }
+      fn_guardar_plantilla_unidad: { Args: { p_unit: string }; Returns: string }
+      fn_importar_plantilla_unidad: {
+        Args: { p_cohort: string; p_module: string; p_template: string }
+        Returns: string
+      }
       fn_log_activity: {
         Args: {
           p_action: string
@@ -5001,7 +5441,25 @@ export type Database = {
         Returns: undefined
       }
       fn_marcar_tour_visto: { Args: never; Returns: undefined }
+      fn_metricas_app: { Args: never; Returns: Json }
+      fn_mover_clase: {
+        Args: {
+          p_cohort: string
+          p_fecha: string
+          p_fin?: string
+          p_inicio?: string
+          p_motivo?: string
+          p_nueva: string
+          p_room?: string
+          p_simular?: boolean
+        }
+        Returns: Json
+      }
       fn_notify_hora_refrigerio: { Args: never; Returns: undefined }
+      fn_parsear_horario: {
+        Args: { p: string }
+        Returns: Record<string, unknown>
+      }
       fn_recalc_evaluacion_general: {
         Args: { p_module_id: string; p_student_id: string }
         Returns: undefined
@@ -5012,7 +5470,13 @@ export type Database = {
       }
       fn_recalc_puntualidad_todos: { Args: never; Returns: undefined }
       fn_recordar_cargar_notas: { Args: never; Returns: undefined }
+      fn_recordar_entregas: { Args: never; Returns: undefined }
       fn_recordar_solvencia_pendiente: { Args: never; Returns: undefined }
+      fn_resumen_semanal: { Args: never; Returns: undefined }
+      fn_salon_de_clase: {
+        Args: { p_cohort: string; p_fecha: string }
+        Returns: string
+      }
       fn_submit_expired_attempts: { Args: never; Returns: undefined }
       fn_unit_required_complete: {
         Args: { p_student_id: string; p_unit_id: string }
@@ -5172,6 +5636,7 @@ export type Database = {
         | "documento"
         | "video"
         | "audio"
+        | "texto"
       doubt_status: "abierta" | "respondida" | "resuelta"
       enrollment_status: "en_curso" | "aprobado" | "reprobado" | "retirado"
       exam_status: "oculto" | "habilitado" | "cerrado" | "calificado"
@@ -5326,6 +5791,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       attempt_status: ["en_progreso", "entregado", "calificado", "abandonado"],
@@ -5342,6 +5810,7 @@ export const Constants = {
         "documento",
         "video",
         "audio",
+        "texto",
       ],
       doubt_status: ["abierta", "respondida", "resuelta"],
       enrollment_status: ["en_curso", "aprobado", "reprobado", "retirado"],

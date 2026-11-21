@@ -67,3 +67,6 @@ material-modulos/
 
 # Salidas de scripts operativos: llevan datos personales de estudiantes
 scripts/salida/
+
+# Ensayo del paso a produccion: copia con datos reales, nunca a git
+/ensayo/

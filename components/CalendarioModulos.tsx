@@ -19,6 +19,7 @@ interface Tramo {
   moduleId: string
   inicio: string
   fin: string
+  modalidad: 'presencial' | 'virtual'
 }
 
 interface Modulo { id: string; nombre: string; orden: number }
@@ -59,7 +60,7 @@ function formatear(iso: string): string {
   return aFecha(iso).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-export function CalendarioModulos() {
+export function CalendarioModulos({ cohorteFija }: { cohorteFija?: string } = {}) {
   const [cohortes, setCohortes] = useState<Cohorte[]>([])
   const [cohorteId, setCohorteId] = useState('')
   const [modulos, setModulos] = useState<Modulo[]>([])
@@ -70,6 +71,7 @@ export function CalendarioModulos() {
   const [nuevoModulo, setNuevoModulo] = useState('')
   const [nuevoInicio, setNuevoInicio] = useState('')
   const [nuevosSabados, setNuevosSabados] = useState('4')
+  const [nuevoVirtual, setNuevoVirtual] = useState(false)
 
   const cohorte = cohortes.find((c) => c.id === cohorteId)
 
@@ -84,7 +86,7 @@ export function CalendarioModulos() {
           id: c.id, nombre: c.name, programId: c.program_id, moduloActual: c.current_module_id,
         }))
         setCohortes(lista)
-        setCohorteId((actual) => actual || lista.find((c) => c.nombre === 'PTMA-2026-II')?.id || lista[0]?.id || '')
+        setCohorteId((actual) => cohorteFija || actual || lista.find((c) => c.nombre === 'PTMA-2026-II')?.id || lista[0]?.id || '')
       })
   }, [version])
 
@@ -93,10 +95,13 @@ export function CalendarioModulos() {
     const supabase = createClient()
     Promise.all([
       supabase.from('modules').select('id, name, order_index').eq('program_id', cohorte.programId).order('order_index'),
-      supabase.from('cohort_module_calendar').select('id, module_id, start_date, end_date').eq('cohort_id', cohorte.id).order('start_date'),
+      supabase.from('cohort_module_calendar').select('id, module_id, start_date, end_date, modalidad' as 'id, module_id, start_date, end_date').eq('cohort_id', cohorte.id).order('start_date'),
     ]).then(([{ data: mods }, { data: cal }]) => {
       setModulos((mods ?? []).map((m) => ({ id: m.id, nombre: m.name, orden: m.order_index })))
-      setTramos((cal ?? []).map((t) => ({ id: t.id, moduleId: t.module_id, inicio: t.start_date, fin: t.end_date })))
+      setTramos((cal ?? []).map((t) => ({
+        id: t.id, moduleId: t.module_id, inicio: t.start_date, fin: t.end_date,
+        modalidad: ((t as unknown as { modalidad?: string }).modalidad === 'virtual' ? 'virtual' : 'presencial'),
+      })))
     })
   }, [cohorte?.id, cohorte?.programId, version]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -124,6 +129,20 @@ export function CalendarioModulos() {
     setVersion((v) => v + 1)
   }
 
+  // Módulo virtual en paralelo (migración 223): no cambia el módulo presencial
+  // ni las clases del sábado; solo abre el módulo a los estudiantes y sus notas.
+  async function cambiarModalidad(t: Tramo) {
+    setGuardandoId(t.id)
+    setError(null)
+    const { error: fallo } = await createClient()
+      .from('cohort_module_calendar')
+      .update({ modalidad: t.modalidad === 'virtual' ? 'presencial' : 'virtual' } as never)
+      .eq('id', t.id)
+    setGuardandoId(null)
+    if (fallo) setError(fallo.message)
+    setVersion((v) => v + 1)
+  }
+
   async function borrar(t: Tramo) {
     if (!confirm(`¿Quitar este tramo de "${nombreModulo(t.moduleId)}" del calendario?`)) return
     const { error: fallo } = await createClient().from('cohort_module_calendar').delete().eq('id', t.id)
@@ -140,10 +159,11 @@ export function CalendarioModulos() {
     const fin = finPorSabados(nuevoInicio, Number(nuevosSabados) || 1)
     const { error: fallo } = await createClient()
       .from('cohort_module_calendar')
-      .insert({ cohort_id: cohorte.id, module_id: nuevoModulo, start_date: nuevoInicio, end_date: fin })
+      .insert({ cohort_id: cohorte.id, module_id: nuevoModulo, start_date: nuevoInicio, end_date: fin, modalidad: nuevoVirtual ? 'virtual' : 'presencial' } as never)
     if (fallo) { setError(fallo.message); return }
     setNuevoModulo('')
     setNuevoInicio('')
+    setNuevoVirtual(false)
     setVersion((v) => v + 1)
   }
 
@@ -155,12 +175,10 @@ export function CalendarioModulos() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-zr-text-muted">
-        El módulo de cada cohorte cambia solo según estas fechas (se revisa cada noche y al guardar).
-        Un módulo puede tener varios tramos, por ejemplo con vacaciones de por medio. Las clases son
-        los sábados.
+        El módulo cambia solo según estas fechas. Un módulo puede tener varios tramos (p. ej. con vacaciones en medio).
       </p>
 
-      <div>
+      <div className={cohorteFija ? 'hidden' : ''}>
         <label className="mb-1.5 block text-xs font-semibold uppercase text-zr-text-muted">Cohorte</label>
         <select value={cohorteId} onChange={(e) => setCohorteId(e.target.value)} className={CAMPO}>
           {cohortes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
@@ -178,8 +196,7 @@ export function CalendarioModulos() {
 
       {tramos.length === 0 ? (
         <p className="rounded-lg border border-zr-border bg-zr-surface px-4 py-3 text-sm text-zr-text-muted">
-          Esta cohorte no tiene calendario. Su módulo se cambia a mano desde Cohortes. Agrega tramos
-          abajo para que cambie solo.
+          Sin calendario todavía: agrega tramos abajo para que el módulo cambie solo.
         </p>
       ) : (
         <div className="space-y-2">
@@ -196,14 +213,24 @@ export function CalendarioModulos() {
                       {repetidos.has(t.moduleId) ? ' · tramo de un módulo cortado' : ''}
                       {vigente ? ' · en curso' : ''}
                     </p>
+                    {t.modalidad === 'virtual' && (
+                      <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-zr-blue-mid">
+                        Virtual · en paralelo, sin clase el sábado
+                      </p>
+                    )}
                   </div>
-                  <button onClick={() => borrar(t)} className="shrink-0 text-xs font-bold text-zr-error">
-                    Quitar
-                  </button>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <button onClick={() => cambiarModalidad(t)} disabled={guardandoId === t.id} className="text-xs font-bold text-zr-blue-mid">
+                      {t.modalidad === 'virtual' ? 'Hacer presencial' : 'Hacer virtual'}
+                    </button>
+                    <button onClick={() => borrar(t)} className="text-xs font-bold text-zr-error">
+                      Quitar
+                    </button>
+                  </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase text-zr-text-muted">Inicio</label>
+                    <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-zr-text-muted">Inicio</label>
                     <input
                       type="date" defaultValue={t.inicio} key={`i-${t.id}-${t.inicio}`}
                       disabled={guardandoId === t.id}
@@ -212,7 +239,7 @@ export function CalendarioModulos() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase text-zr-text-muted">Sábados</label>
+                    <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-zr-text-muted">Sábados</label>
                     <input
                       type="number" min={1} max={30} inputMode="numeric"
                       defaultValue={contarSabados(t.inicio, t.fin)} key={`s-${t.id}-${t.inicio}-${t.fin}`}
@@ -225,7 +252,7 @@ export function CalendarioModulos() {
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-[10px] font-semibold uppercase text-zr-text-muted">Fin</label>
+                    <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-zr-text-muted">Fin</label>
                     <input
                       type="date" defaultValue={t.fin} key={`f-${t.id}-${t.fin}`}
                       disabled={guardandoId === t.id}
@@ -248,17 +275,26 @@ export function CalendarioModulos() {
         </select>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase text-zr-text-muted">Inicio (sábado)</label>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-zr-text-muted">Inicio (sábado)</label>
             <input type="date" value={nuevoInicio} onChange={(e) => setNuevoInicio(e.target.value)} className={CAMPO} />
           </div>
           <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase text-zr-text-muted">Cantidad de sábados</label>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.08em] text-zr-text-muted">Cantidad de sábados</label>
             <input
               type="number" min={1} max={30} inputMode="numeric" value={nuevosSabados}
               onChange={(e) => setNuevosSabados(e.target.value)} className={`${CAMPO} text-center`}
             />
           </div>
         </div>
+        <label className="flex items-start gap-2 text-sm text-zr-text">
+          <input type="checkbox" checked={nuevoVirtual} onChange={(e) => setNuevoVirtual(e.target.checked)} className="mt-1" />
+          <span>
+            Virtual, en paralelo
+            <span className="block text-xs text-zr-text-muted">
+              Por la app, junto al presencial (p. ej. Inglés). No cambia el sábado.
+            </span>
+          </span>
+        </label>
         <button onClick={agregar} className="min-h-11 w-full rounded-lg bg-zr-blue text-sm font-bold text-white">
           Agregar al calendario
         </button>

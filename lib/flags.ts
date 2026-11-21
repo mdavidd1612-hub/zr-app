@@ -13,3 +13,8 @@
 // igual; solo se deja de mostrar en la interfaz. Se reactiva cambiando esto
 // a `true` y desplegando — nada más.
 export const CASOS_HABILITADO = false
+
+// Simulador Electude (/electude): el coordinador pidió ocultarlo (18-nov-2026) porque
+// no está funcionando. Solo se oculta el acceso del Inicio; la pantalla y su código
+// quedan intactos. Se reactiva con `true`.
+export const ELECTUDE_HABILITADO = false

@@ -4,9 +4,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Seccion, Regla } from '@/components/ui/Editorial'
+import { Seccion } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
-import { IconoCheck } from '@/components/ui/Iconos'
+import { PestanasMiModulo } from '@/components/ui/PestanasMiModulo'
+import { TarjetaHero } from '@/components/ui/TarjetaHero'
+import { EstadoVacio } from '@/components/ui/EstadoVacio'
+import { IconoCheck, IconoAviso, IconoChevron, IconoProgreso, IconoDocumento, IconoCarpeta } from '@/components/ui/Iconos'
 import { esAdmin } from '@/lib/auth-helpers'
 import { leerCohorteVistaRecorridoCookie, leerModuloVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import type { UserRole } from '@/lib/types'
@@ -133,8 +136,14 @@ export default function MiModulo() {
         // la primera clase se muestra la semana 1, no un error.
         const hoy = new Date().toISOString().slice(0, 10)
         const filas = sesiones ?? []
-        const proxima = filas.find((s) => s.session_date >= hoy)
-        const semanaActual = proxima?.week_number ?? filas[filas.length - 1]?.week_number ?? 1
+        // week_number es la semana del PROGRAMA completo (p. ej. 13), no la del
+        // módulo: la semana del módulo es la posición de la clase dentro de
+        // las sesiones de ese módulo (19-nov-2026, mostraba "Semana 13 de 4").
+        const idxProxima = filas.findIndex((s) => s.session_date >= hoy)
+        const semanaActual = Math.min(
+          Math.max(1, mod.duration_weeks ?? 1),
+          idxProxima >= 0 ? idxProxima + 1 : Math.max(1, filas.length),
+        )
 
         // Primer párrafo del resumen largo como resumen "medio" -- ver nota
         // arriba del componente. Si el módulo todavía no tiene resumen
@@ -163,82 +172,93 @@ export default function MiModulo() {
     )
   }
 
+  const avance = modulo
+    ? Math.min(100, Math.round((modulo.semanaActual / Math.max(1, modulo.duracionSemanas)) * 100))
+    : 0
+
   return (
-    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
-      <div className="space-y-11">
+    <div className="px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
+      <div className="space-y-7">
         <BotonVolver href="/" />
+        <PestanasMiModulo />
 
         {!modulo ? (
-          <div className="zr-card p-7">
-            <p className="text-base font-semibold text-zr-text">Todavía no tienes módulo asignado</p>
-            <p className="mt-2 text-sm text-zr-text-muted">
-              Cuando la academia te asigne un programa, aquí vas a ver en qué módulo estás y qué
-              vas a aprender.
-            </p>
-          </div>
+          <EstadoVacio
+            Icono={IconoProgreso}
+            titulo="Todavía no tienes módulo asignado"
+            explicacion="Cuando la academia te asigne un programa, aquí vas a ver en qué módulo estás y qué vas a aprender."
+          />
         ) : (
           <>
-            <div id="tour-modulo" className="animate-rise overflow-hidden rounded-xl bg-gradient-to-br from-zr-blue-deep to-zr-blue p-6 text-white">
-              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">
-                Módulo · Semana {modulo.semanaActual} de {modulo.duracionSemanas}
-              </p>
-              <p className="zr-display text-xl">{modulo.nombre}</p>
+            <div id="tour-modulo" className="animate-rise">
+              <TarjetaHero
+                sobretitulo={`Mi avance · Semana ${modulo.semanaActual} de ${modulo.duracionSemanas}`}
+                titulo={modulo.nombre}
+                icono={<IconoProgreso size={24} />}
+              >
+                <div className="mt-5">
+                  <div className="h-2 overflow-hidden rounded-full bg-white/20" role="progressbar" aria-valuenow={avance} aria-valuemin={0} aria-valuemax={100}>
+                    <div className="h-full rounded-full bg-white transition-all" style={{ width: `${avance}%` }} />
+                  </div>
+                  <p className="mt-2 text-xs font-semibold text-white/75">{avance}% del módulo</p>
+                </div>
+              </TarjetaHero>
             </div>
 
-            <Regla delay={60} />
-
             <Seccion numero={1} titulo="Lo que se aprende aquí" delay={120}>
-              {modulo.resumen ? (
-                <p className="zr-card p-5 text-sm leading-relaxed text-zr-text-muted">
-                  {modulo.resumen}
-                </p>
-              ) : !modulo.competencias?.length ? (
-                <p className="text-sm text-zr-text-muted">
-                  Todavía no se ha cargado el contenido de este módulo.
-                </p>
-              ) : null}
+              <div className="zr-card space-y-4 p-5">
+                {modulo.resumen ? (
+                  <p className="text-[15px] leading-relaxed text-zr-text-muted">{modulo.resumen}</p>
+                ) : !modulo.competencias?.length ? (
+                  <p className="text-sm text-zr-text-muted">
+                    Todavía no se ha cargado el contenido de este módulo.
+                  </p>
+                ) : null}
 
-              {modulo.competencias && modulo.competencias.length > 0 && (
-                <ul className="space-y-1.5">
-                  {modulo.competencias.map((c, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-zr-text">
-                      <IconoCheck size={14} className="mt-0.5 shrink-0 text-zr-blue-mid" />
-                      <span>{c}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              <div className="flex gap-3 rounded-lg border border-zr-blue/25 bg-zr-blue/10 p-4">
-                <IconoCheck size={18} className="mt-0.5 shrink-0 text-zr-blue-mid" />
-                <p className="text-sm leading-relaxed text-zr-text">
-                  Las competencias <b>no se califican en esta fase</b>. Están aquí para que sepas
-                  hacia dónde vas.
-                </p>
+                {modulo.competencias && modulo.competencias.length > 0 && (
+                  <ul className="space-y-3">
+                    {modulo.competencias.map((c, i) => (
+                      <li key={i} className="flex items-start gap-3 text-[15px] text-zr-text">
+                        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zr-blue/15 text-zr-blue-mid ring-1 ring-zr-blue/25">
+                          <IconoCheck size={13} />
+                        </span>
+                        <span className="min-w-0 break-words">{c}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
+
+              <p className="flex items-start gap-2 text-xs leading-relaxed text-zr-text-muted">
+                <IconoAviso size={15} className="mt-0.5 shrink-0 text-zr-blue-mid" />
+                Las competencias no se califican en esta fase. Están aquí para que sepas hacia dónde vas.
+              </p>
             </Seccion>
 
-            {/* Material del módulo. El Aula Virtual (unidades) está solo en
-                staging por ahora (hotfix 7-nov-2026, ver app/(app)/layout.tsx):
-                en producción este enlace vuelve a /contenido, el repositorio
-                de material de siempre. */}
-            <Link
-              href="/contenido"
-              className="flex min-h-14 items-center justify-between rounded-lg border border-zr-border bg-zr-surface px-5 text-base font-bold text-zr-text"
-            >
-              Ver el material de este módulo
-              <span aria-hidden className="text-zr-text-muted">›</span>
-            </Link>
-
-            {/* Módulo 7 de la spec funcional: el camino completo del programa,
-                no solo el módulo de esta semana. */}
-            <Link
-              href="/malla"
-              className="flex min-h-14 items-center justify-between rounded-lg border border-zr-border bg-zr-surface px-5 text-base font-bold text-zr-text"
-            >
-              Ver la malla curricular completa
-              <span aria-hidden className="text-zr-text-muted">›</span>
-            </Link>
+            <Seccion numero={2} titulo="Sigue por aquí" delay={200}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Link href="/unidades" className="zr-card flex items-center gap-4 p-5">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-zr-blue/15 text-zr-blue-mid ring-1 ring-zr-blue/25">
+                    <IconoDocumento size={22} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-base font-bold text-zr-text">Ir a Unidades</span>
+                    <span className="mt-0.5 block text-xs text-zr-text-muted">Material, exámenes y tareas</span>
+                  </span>
+                  <IconoChevron size={18} className="shrink-0 -rotate-90 text-zr-text-muted" />
+                </Link>
+                <Link href="/malla" className="zr-card flex items-center gap-4 p-5">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-zr-blue/15 text-zr-blue-mid ring-1 ring-zr-blue/25">
+                    <IconoCarpeta size={22} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-base font-bold text-zr-text">Malla curricular</span>
+                    <span className="mt-0.5 block text-xs text-zr-text-muted">Todos los módulos del programa</span>
+                  </span>
+                  <IconoChevron size={18} className="shrink-0 -rotate-90 text-zr-text-muted" />
+                </Link>
+              </div>
+            </Seccion>
           </>
         )}
       </div>

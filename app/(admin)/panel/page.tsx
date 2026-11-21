@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, SeccionColegable, Regla, Dato } from '@/components/ui/Editorial'
-import { IconoEstudiantes, IconoNotas, IconoPanel, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoCalificar } from '@/components/ui/Iconos'
+import { IconoEstudiantes, IconoNotas, IconoPanel, IconoPersonal, IconoExamen, IconoDocumento, IconoCalendario, IconoCarnet, IconoCalificar, IconoVideo, IconoProgreso, IconoDuda, IconoAjustes } from '@/components/ui/Iconos'
 import { esDireccionAcademica } from '@/lib/auth-helpers'
 import { leerSimulacionSabado } from '@/lib/demo-sabado'
 import { activarVistaRecorrido, type VistaRecorrido } from '@/lib/vista-recorrido'
@@ -45,6 +45,7 @@ const ACCESOS = [
   { href: '/estudiantes',     titulo: 'Estudiantes',      sub: 'Ver y gestionar registros',  Icono: IconoEstudiantes },
   { href: '/asistencias',     titulo: 'Asistencia',       sub: 'Por programa, en vivo',        Icono: IconoCalendario },
   { href: '/qr',              titulo: 'QR de asistencia', sub: 'Mostrar en pantalla',          Icono: IconoCarnet },
+  { href: '/inscribir',       titulo: 'Inscribir',        sub: 'Registrar un estudiante nuevo', Icono: IconoEstudiantes },
 ]
 
 // Exclusivo de Dirección Académica y super_admin: profesores, notas y
@@ -55,20 +56,41 @@ const ACCESOS = [
 // Dirección Académica/super_admin) — ese flujo de solicitud nunca se llegó
 // a construir del lado del estudiante y quedaba como un enlace muerto.
 const ACCESOS_DIRECCION = [
+  // "Unidades" (Aula Virtual) es el centro del día a día académico — va de
+  // primero. "Material" baja a explorador tipo Classroom (pedido del
+  // coordinador, nov 2026).
+  { href: '/unidades-docente',     titulo: 'Unidades',                sub: 'Aula Virtual: material, exámenes y tareas por unidad', Icono: IconoVideo },
   { href: '/personal',             titulo: 'Personal',                sub: 'Profesores y administradores',      Icono: IconoPersonal },
-  { href: '/material',             titulo: 'Material',                sub: 'Subir por programa',                Icono: IconoDocumento },
+  { href: '/material',             titulo: 'Material',                sub: 'Explorador de archivos por programa', Icono: IconoDocumento },
   { href: '/notas-academicas',     titulo: 'Notas',                   sub: 'Calificaciones de cualquier programa', Icono: IconoNotas },
   { href: '/examenes-academicos',  titulo: 'Exámenes',                sub: 'Supervisar evaluaciones',           Icono: IconoExamen },
+  { href: '/dudas-docente',        titulo: 'Dudas',                   sub: 'Dudas de los estudiantes por módulo', Icono: IconoDuda },
 ]
 
 // Finanzas -- excepción explícita de Fase 1 aprobada por el coordinador
 // (sept. 2026, mismo mecanismo que ZR Coffee). Solo admin y super_admin --
 // pedido explícito de que Dirección Académica no entra aquí.
+const ACCESO_PERSONAL = { href: '/personal', titulo: 'Personal', sub: 'Crear y gestionar cuentas del personal', Icono: IconoPersonal }
+
 const ACCESOS_FINANZAS = [
   { href: '/finanzas', titulo: 'Finanzas', sub: 'Inscripción y mensualidad por estudiante', Icono: IconoCalificar },
 ]
 
-const ACCESO_CONFIG = { href: '/configuracion', titulo: 'Configuración', sub: 'Umbrales y reglas de negocio', Icono: IconoPanel }
+// Programas, módulos y seguimiento (pedido del coordinador, nov 2026): antes solo
+// se llegaba a estas pantallas por el menú ☰, que en el teléfono casi nadie abre.
+const ACCESOS_PROGRAMAS = [
+  { href: '/cohortes',          titulo: 'Programas',  sub: 'Abrir un corte nuevo, avanzar de módulo', Icono: IconoProgreso },
+  { href: '/modulos',           titulo: 'Módulos',    sub: 'Resúmenes y módulos nuevos',              Icono: IconoProgreso },
+  { href: '/calendario-general', titulo: 'Calendario general', sub: 'Todas las clases de la semana, por hora', Icono: IconoCalendario },
+  { href: '/salones',          titulo: 'Salones',    sub: 'En qué salón tiene clase cada cohorte',   Icono: IconoProgreso },
+  { href: '/feedback-modulos',  titulo: 'Feedback',   sub: 'Abrir y revisar el feedback de módulo',   Icono: IconoDuda },
+  { href: '/monitoreo',         titulo: 'Salud de la app', sub: 'Métricas contra las metas del documento maestro', Icono: IconoProgreso },
+]
+
+const ACCESOS_SUPER = [
+  { href: '/configuracion', titulo: 'Configuración', sub: 'Horarios, notas mínimas, textos y reglas de la academia', Icono: IconoAjustes },
+  { href: '/catalogo',      titulo: 'Catálogo',      sub: 'Crear sedes y programas nuevos',                          Icono: IconoDocumento },
+]
 
 // A pedido explícito del coordinador: entrar a recorrer la app como la ve
 // cada rol, sin crear cuentas de prueba aparte. Quién ve cuál (reafirmado en
@@ -91,6 +113,9 @@ export default function Panel() {
   const [rol, setRol] = useState<UserRole | null>(null)
   const [sesionesHoy, setSesionesHoy] = useState<SesionHoy[]>([])
   const [cargando, setCargando] = useState(true)
+  // Lo que espera acción (19-nov-2026): material por aprobar y estudiantes por validar.
+  const [porAprobar, setPorAprobar] = useState(0)
+  const [porValidar, setPorValidar] = useState(0)
   // PRUEBA TEMPORAL: interruptor de simulación de sábado, controlado desde
   // Perfil (docs/15_FASE0_PLAN_ADMIN.md). Ojo: la fecha que se usa para
   // BUSCAR las sesiones de hoy sigue siendo la real.
@@ -124,6 +149,16 @@ export default function Panel() {
 
       const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).single()
       setRol((perfil?.role as UserRole) ?? null)
+
+      const rolActual = perfil?.role as UserRole | undefined
+      const [{ count: nAprobar }, { count: nValidar }] = await Promise.all([
+        supabase.from('content_items').select('id', { count: 'exact', head: true }).eq('approval_status', 'pendiente'),
+        rolActual === 'admin' || rolActual === 'super_admin'
+          ? supabase.from('students').select('id', { count: 'exact', head: true }).is('validated_at', null)
+          : Promise.resolve({ count: 0 }),
+      ])
+      setPorAprobar(nAprobar ?? 0)
+      setPorValidar(nValidar ?? 0)
 
       // Fase 0 (docs/15_FASE0_PLAN_ADMIN.md, Sprint D): el sábado, calendario
       // de las sesiones de hoy, una tarjeta por cohorte, con registrados
@@ -168,14 +203,43 @@ export default function Panel() {
   }
 
   return (
-    <div className="space-y-11 px-5 pt-14">
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <header className="animate-rise">
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
-          Administración
+          {rol === 'direccion_academica' ? 'Dirección Académica' : rol === 'super_admin' ? 'Super admin' : 'Administración'}
         </p>
-        <h1 className="zr-display mt-3 text-4xl text-zr-text">Panel de administración</h1>
+        <h1 className="zr-display mt-3 text-4xl text-zr-text">
+          {rol === 'direccion_academica' ? 'Panel académico' : 'Panel de administración'}
+        </h1>
         <p className="mt-3 text-base text-zr-text-muted">Academia ZR Mecademy</p>
       </header>
+
+      {(porAprobar > 0 || porValidar > 0) && (
+        <section className="animate-rise space-y-3">
+          <p className="zr-eyebrow">Lo que te espera</p>
+          <div className="space-y-2">
+            {[
+              porAprobar > 0 && { n: porAprobar, t: porAprobar === 1 ? 'Material por aprobar' : 'Materiales por aprobar', d: 'Los estudiantes no lo ven hasta que lo apruebes.', href: '/material' },
+              porValidar > 0 && { n: porValidar, t: porValidar === 1 ? 'Estudiante por validar' : 'Estudiantes por validar', d: 'Revisa firma y pago para activarlos.', href: '/estudiantes' },
+            ].filter((x): x is { n: number; t: string; d: string; href: string } => Boolean(x)).map((p) => (
+              <button
+                key={p.href}
+                onClick={() => router.push(p.href)}
+                className="zr-card flex w-full items-center gap-4 p-4 text-left transition-colors hover:border-zr-blue/50"
+              >
+                <span className="cifra flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zr-warning/15 text-lg font-bold text-zr-warning">
+                  {p.n > 99 ? '99+' : p.n}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-zr-text">{p.t}</span>
+                  <span className="mt-0.5 block text-xs text-zr-text-muted">{p.d}</span>
+                </span>
+                <span className="text-zr-text-muted">›</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       <Regla delay={60} />
 
@@ -186,9 +250,13 @@ export default function Panel() {
       {(() => {
         let n = 0
         const nHoy = esSabado ? ++n : 0
-        const nEstudiantes = ++n
+        // Dirección ve estudiantes y asistencia (consulta) pero no inscribe
+        // (pedido del coordinador, 17-nov-2026); inscribir es de Administración.
+        const verOperativo = true
+        const nEstudiantes = verOperativo ? ++n : 0
         const nFinanzas = (rol === 'admin' || rol === 'super_admin') ? ++n : 0
         const nDireccion = esDireccionAcademica(rol) ? ++n : 0
+        const nProgramas = esDireccionAcademica(rol) ? ++n : 0
         const nSuper = rol === 'super_admin' ? ++n : 0
         // "Vista de recorrido" ya no aparece para administración normal
         // (pedido explícito del coordinador, sept. 2026) -- se queda solo
@@ -221,20 +289,33 @@ export default function Panel() {
             {/* Agrupado por qué resuelve cada cosa, no una sola lista de once
                 botones seguidos — a pedido explícito del coordinador ("no se
                 explica para qué"). */}
-            <div id="tour-panel-accesos">
-              <GrupoAccesos numero={nEstudiantes} titulo="Estudiantes" accesos={ACCESOS} delay={200} />
-            </div>
+            {verOperativo && (
+              <div id="tour-panel-accesos">
+                <GrupoAccesos numero={nEstudiantes} titulo="Estudiantes y clase de hoy" accesos={rol === 'direccion_academica' ? ACCESOS.filter((a) => a.href !== '/inscribir') : ACCESOS} delay={200} />
+              </div>
+            )}
 
             {(rol === 'admin' || rol === 'super_admin') && (
-              <GrupoAccesos numero={nFinanzas} titulo="Finanzas" accesos={ACCESOS_FINANZAS} delay={220} />
+              <GrupoAccesos
+                numero={nFinanzas}
+                titulo="Administración"
+                accesos={rol === 'admin' ? [...ACCESOS_FINANZAS, ACCESO_PERSONAL] : ACCESOS_FINANZAS}
+                delay={220}
+              />
             )}
 
             {esDireccionAcademica(rol) && (
-              <GrupoAccesos numero={nDireccion} titulo="Dirección académica" accesos={ACCESOS_DIRECCION} delay={240} />
+              <div id={verOperativo ? undefined : 'tour-panel-accesos'}>
+                <GrupoAccesos numero={nDireccion} titulo="Dirección académica" accesos={ACCESOS_DIRECCION} delay={240} />
+              </div>
+            )}
+
+            {esDireccionAcademica(rol) && (
+              <GrupoAccesos numero={nProgramas} titulo="Programas y seguimiento" accesos={ACCESOS_PROGRAMAS} delay={260} />
             )}
 
             {rol === 'super_admin' && (
-              <GrupoAccesos numero={nSuper} titulo="Solo super admin" accesos={[ACCESO_CONFIG]} delay={280} />
+              <GrupoAccesos numero={nSuper} titulo="Solo super admin" accesos={ACCESOS_SUPER} delay={280} />
             )}
 
             {/* Vista de recorrido: quién ve cuál, reafirmado explícitamente
@@ -448,7 +529,7 @@ function GrupoAccesos({
   return (
     <ContenedorSeccion numero={numero} titulo={titulo} delay={delay}>
       {descripcion && <p className="text-sm text-zr-text-muted">{descripcion}</p>}
-      <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {accesos.map((a) => (
           <button
             key={a.href}

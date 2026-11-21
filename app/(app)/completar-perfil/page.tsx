@@ -98,7 +98,7 @@ export default function CompletarPerfil() {
   }
 
   return (
-    <div className="space-y-11 px-5 pb-32 pt-14">
+    <div className="space-y-11 px-5 pb-32 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <Encabezado
         sobretitulo="Antes de empezar"
         titulo="Completa tu perfil"

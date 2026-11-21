@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { EstadoVacio } from '@/components/ui/EstadoVacio'
+import { IconoNotas } from '@/components/ui/Iconos'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { useEsqueletoVisible } from '@/lib/useEsqueletoVisible'
 
@@ -84,7 +86,7 @@ export default function Notas() {
         supabase.from('modules').select('id, name, order_index').in('id', ids),
         supabase
           .from('manual_exam_definitions')
-          .select('id, module_id, title, kind, kind_detail, exam_date, scale_max, passing_min, weight_pct')
+          .select('id, module_id, title, kind, kind_detail, exam_date, scale_max, passing_min, weight_pct, exams:source_exam_id(status)')
           .in('module_id', ids)
           .order('exam_date'),
         supabase.from('manual_exam_scores').select('definition_id, score').eq('student_id', user.id),
@@ -107,7 +109,11 @@ export default function Notas() {
 
       const porDef = new Map((scores ?? []).map((x) => [x.definition_id, Number(x.score)]))
       const porModulo: Record<string, Detalle[]> = {}
+      // Bug real reportado en vivo (8-nov-2026): un examen todavía en
+      // borrador (status='oculto') ya aparecía en Notas -- un borrador no
+      // debería contar ni mostrarse hasta que se publique.
       for (const e of defs ?? []) {
+        if ((e.exams as unknown as { status: string } | null)?.status === 'oculto') continue
         ;(porModulo[e.module_id] ??= []).push({
           id: e.id,
           titulo: e.title,
@@ -134,7 +140,7 @@ export default function Notas() {
   const tono = (v: number, min: number) => (v < min ? 'text-zr-error' : 'text-zr-success')
 
   return (
-    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
+    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <div className="space-y-11">
         <BotonVolver href="/" />
 
@@ -148,12 +154,11 @@ export default function Notas() {
         <Regla delay={60} />
 
         {notas.length === 0 ? (
-          <div className="zr-card animate-rise p-8" style={{ animationDelay: '120ms' }}>
-            <p className="text-base font-semibold text-zr-text">Todavía no tienes notas</p>
-            <p className="mt-2 text-sm text-zr-text-muted">
-              Aparecerán cuando tu profesor las cargue y Dirección Académica las valide.
-            </p>
-          </div>
+          <EstadoVacio
+            Icono={IconoNotas}
+            titulo="Todavía no tienes notas"
+            explicacion="Aparecerán aquí cuando tus exámenes y tareas estén calificados."
+          />
         ) : (
           notas.map((n, i) => {
             const e = ETIQUETA[n.estado]
@@ -178,7 +183,10 @@ export default function Notas() {
                             sin calificar todavía se veía con un guion -- se ve el
                             mínimo (0.00) de referencia, igual que ya ven profesor y
                             Dirección Académica. */}
-                        <p className={`shrink-0 text-lg font-bold ${tono(d.nota ?? 0, d.minimo)}`}>
+                        {/* Sin nota todavía: 0.00 en gris, no en rojo (19-nov-2026) --
+                            el rojo le hacía creer al estudiante que reprobó algo
+                            que ni siquiera ha presentado. */}
+                        <p className={`shrink-0 text-lg font-bold ${d.nota == null ? 'text-zr-text-muted' : tono(d.nota, d.minimo)}`}>
                           {cifra(d.nota ?? 0)}
                           <span className="text-xs font-normal text-zr-text-muted"> / {d.escala}</span>
                         </p>
@@ -197,6 +205,12 @@ export default function Notas() {
                         <p className="mt-1 text-sm text-zr-text-muted">
                           de {cifra(Math.round(posibles * 100) / 100)} puntos evaluados · {cifra(n.evaluadoPct)} % del módulo
                         </p>
+                      )}
+                      {/* Decisión del coordinador (20-nov-2026): las notas digitales se ven al
+                          instante y todavía pueden cambiar (una redacción por corregir, un
+                          ajuste de Dirección), así que se rotulan como provisionales. */}
+                      {!completo && (
+                        <p className="mt-1 text-xs font-semibold text-zr-warning">Provisional hasta el cierre del módulo</p>
                       )}
                       {/* El umbral siempre visible: cambia por módulo. */}
                       <p className="mt-2 text-sm text-zr-text-muted">Aprueba con {n.umbral}</p>

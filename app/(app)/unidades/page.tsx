@@ -1,36 +1,41 @@
 'use client'
 
+import { leerCohorteVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Seccion, Regla, Encabezado, Etiqueta } from '@/components/ui/Editorial'
+import { Encabezado, Regla, Etiqueta } from '@/components/ui/Editorial'
+import { Recorrido, Paso, type EstadoPaso } from '@/components/ui/Recorrido'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
-import { IconoChevron, IconoCandado } from '@/components/ui/Iconos'
+import { IconoCalendario, IconoExamen, IconoDocumento } from '@/components/ui/Iconos'
 
 /**
- * Aula Virtual — lista de unidades del módulo que cursa el estudiante.
- * RLS ya filtra: solo unidades en estado 'abierta' o 'cerrada' de SU módulo
- * (migración 174) -- aquí no se repite ese filtro, solo se pide y se pinta.
+ * Aula Virtual — las unidades del módulo como un recorrido, no una lista de
+ * cuadros. RLS ya filtra: solo unidades 'abierta' o 'cerrada' de SU módulo
+ * (migración 174); aquí solo se pide y se dibuja el camino.
  */
 
 interface UnidadFila {
   id: string
+  module_id: string
   title: string
   effective_status: string
   prerequisite_met: boolean
-}
-
-const ETIQUETA_ESTADO: Record<string, { texto: string; tono: 'exito' | 'neutro' }> = {
-  abierta: { texto: 'Abierta', tono: 'exito' },
-  cerrada: { texto: 'Cerrada · repaso', tono: 'neutro' },
 }
 
 export default function Unidades() {
   const router = useRouter()
   const [unidades, setUnidades] = useState<UnidadFila[]>([])
   const [cargando, setCargando] = useState(true)
+  // Módulos que ya cursó + el actual (los futuros no aparecen). Reunión 14-nov-2026.
+  const [modulos, setModulos] = useState<{ id: string; name: string; order_index: number }[]>([])
+  const [actualId, setActualId] = useState<string | null>(null)
+  const [moduloSel, setModuloSel] = useState<string | null>(null)
+  const [menuModulos, setMenuModulos] = useState(false)
+  // Módulos virtuales en curso en paralelo (migración 223), p. ej. Inglés Técnico.
+  const [virtuales, setVirtuales] = useState<string[]>([])
 
   useEffect(() => {
     async function cargar() {
@@ -43,12 +48,62 @@ export default function Unidades() {
 
       const { data } = await supabase
         .from('v_units_status')
-        .select('id, title, effective_status, order_index, prerequisite_met')
+        .select('id, module_id, title, effective_status, order_index, prerequisite_met, cohort_id' as 'id, module_id, title, effective_status, order_index, prerequisite_met')
         .order('order_index', { ascending: true })
+
+      const { data: idsCursados } = await supabase.rpc('mis_modulos_cursados' as never) as { data: string[] | null }
+      let { data: miActual } = await supabase.rpc('my_module_id' as never) as { data: string | null }
+      let ids = (idsCursados ?? []) as string[]
+      // Vista de recorrido (staff): la base no tiene fila de estudiante para
+      // calcular sus módulos, así que se calcula con el corte elegido en el
+      // panel y la MISMA regla de mis_modulos_cursados (migr. 209/223): todos los
+      // del programa hasta el actual + los del calendario que ya empezaron.
+      const corteRecorrido = ids.length === 0 ? leerCohorteVistaRecorridoCookie() : null
+      if (corteRecorrido) {
+        const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' })
+        const { data: c } = await supabase
+          .from('cohorts').select('program_id, current_module_id, modules:current_module_id(order_index)')
+          .eq('id', corteRecorrido).maybeSingle()
+        const fila = c as unknown as { program_id: string; current_module_id: string | null; modules: { order_index: number } | null } | null
+        if (fila) {
+          const [{ data: hasta }, { data: calEmp }] = await Promise.all([
+            supabase.from('modules').select('id').eq('program_id', fila.program_id).lte('order_index', fila.modules?.order_index ?? 0),
+            supabase.from('cohort_module_calendar').select('module_id').eq('cohort_id', corteRecorrido).lte('start_date', hoy),
+          ])
+          ids = [...new Set([...(hasta ?? []).map((m) => m.id), ...(calEmp ?? []).map((m) => m.module_id)])]
+          miActual = fila.current_module_id
+        }
+      }
+      const { data: mods } = ids.length
+        ? await supabase.from('modules').select('id, name, order_index').in('id', ids).order('order_index')
+        : { data: [] as { id: string; name: string; order_index: number }[] }
+      setModulos(mods ?? [])
+      setActualId(miActual ?? null)
+      const hoyISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' })
+      // Staff en vista de recorrido: solo el corte elegido en el panel.
+      const corteVista = leerCohorteVistaRecorridoCookie()
+      let consultaCal = supabase
+        .from('cohort_module_calendar')
+        .select('module_id, modalidad, start_date, end_date' as 'module_id, start_date, end_date')
+        .lte('start_date', hoyISO).gte('end_date', hoyISO)
+      if (corteVista) consultaCal = consultaCal.eq('cohort_id', corteVista)
+      const { data: cal } = await consultaCal
+      setVirtuales(((cal ?? []) as unknown as { module_id: string; modalidad?: string }[])
+        .filter((k) => k.modalidad === 'virtual').map((k) => k.module_id))
+      // ?modulo=<id> (p. ej. desde "También cursas · virtual" del inicio).
+      const pedido = new URLSearchParams(window.location.search).get('modulo')
+      setModuloSel(
+        (pedido && ids.includes(pedido) ? pedido : null) ??
+        (miActual && ids.includes(miActual) ? miActual : null) ?? (mods && mods.length ? mods[mods.length - 1].id : null),
+      )
 
       // Casteo: v_units_status gana la columna prerequisite_met en la
       // migración 185; los tipos generados se regeneran en el próximo barrido.
-      setUnidades((data ?? []) as unknown as UnidadFila[])
+      // Unidades por corte (migr. 241): el estudiante ya las recibe filtradas por
+      // la base; el personal en vista de recorrido ve todas, así que aquí se
+      // dejan solo las generales y las del corte elegido.
+      const filas = (data ?? []) as unknown as (UnidadFila & { cohort_id?: string | null })[]
+      setUnidades(corteVista ? filas.filter((u) => !u.cohort_id || u.cohort_id === corteVista) : filas)
       setCargando(false)
     }
     cargar()
@@ -56,81 +111,171 @@ export default function Unidades() {
 
   if (cargando) return <PantallaEsqueleto variante="lista" />
 
+  // "Dónde vas": la primera unidad abierta y no bloqueada se marca como activa
+  // (nodo resaltado), para que el recorrido tenga un punto de atención claro.
+  const moduloActualSel = modulos.find((m) => m.id === moduloSel) ?? null
+  const unidadesDelModulo = moduloSel ? unidades.filter((u) => u.module_id === moduloSel) : unidades
+  const indiceActiva = unidadesDelModulo.findIndex(
+    (u) => u.effective_status === 'abierta' && u.prerequisite_met !== false,
+  )
+
   return (
-    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
-      <div className="space-y-11">
+    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
+      <div className="space-y-9">
         <BotonVolver href="/" />
 
         <Encabezado
-          sobretitulo="Aula Virtual"
-          titulo="Unidades"
-          descripcion="El material, los exámenes y las tareas de tu módulo, organizados por tema."
+          sobretitulo="Tus unidades"
+          titulo="Tu recorrido"
+          descripcion="El material, los exámenes y las tareas de tu módulo, paso a paso."
           accion={
-            <Link
-              href="/calendario"
-              className="rounded-lg border border-zr-border px-4 py-2.5 text-xs font-bold text-zr-text"
-            >
-              Ver calendario
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              {/* Sin esto, /examenes (notas, revisión, rehabilitación) no
+                  tenía ningún acceso desde el menú -- bug real reportado en
+                  vivo (8-nov-2026). */}
+              <Link
+                href="/examenes"
+                data-tour-target="tour-unidades-examenes"
+                className="inline-flex items-center gap-2 rounded-full border border-zr-border px-4 py-2.5 text-xs font-bold text-zr-text transition-colors hover:border-zr-blue/40"
+              >
+                <IconoExamen size={16} />
+                Mis exámenes
+              </Link>
+              <Link
+                href="/descargas"
+                data-tour-target="tour-unidades-sinconexion"
+                className="inline-flex items-center gap-2 rounded-full border border-zr-border px-4 py-2.5 text-xs font-bold text-zr-text transition-colors hover:border-zr-blue/40"
+              >
+                <IconoDocumento size={16} />
+                Sin conexión
+              </Link>
+              <Link
+                href="/calendario"
+                data-tour-target="tour-unidades-calendario"
+                className="inline-flex items-center gap-2 rounded-full border border-zr-border px-4 py-2.5 text-xs font-bold text-zr-text transition-colors hover:border-zr-blue/40"
+              >
+                <IconoCalendario size={16} />
+                Calendario
+              </Link>
+            </div>
           }
         />
 
         <Regla delay={60} />
 
-        <Seccion numero={1} titulo="Tus unidades" delay={100}>
-          {unidades.length === 0 ? (
-            <p className="text-sm text-zr-text-muted">
-              Todavía no hay unidades abiertas para tu módulo. Cuando tu profesor publique una, aparece aquí sola.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {unidades.map((u, i) => {
-                const estado = ETIQUETA_ESTADO[u.effective_status] ?? ETIQUETA_ESTADO.cerrada
-                const bloqueada = u.prerequisite_met === false
+        {/* Cursando dos módulos a la vez (presencial + virtual): acceso directo a
+            cada uno, sin abrir el menú (19-nov-2026). */}
+        {actualId && virtuales.some((v) => v !== actualId) && (
+          <div className="grid grid-cols-2 gap-2">
+            {[actualId, ...virtuales.filter((v) => v !== actualId)].slice(0, 2).map((id) => {
+              const m = modulos.find((x) => x.id === id)
+              if (!m) return null
+              const activo = id === moduloSel
+              return (
+                <button
+                  key={id}
+                  onClick={() => setModuloSel(id)}
+                  className={`min-h-16 rounded-2xl border px-4 py-3 text-left ${activo ? 'border-zr-blue bg-zr-blue/15' : 'border-zr-border bg-zr-surface'}`}
+                >
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-zr-blue-mid">{id === actualId ? 'Presencial' : 'Virtual'}</span>
+                  <span className="mt-0.5 block text-sm font-bold leading-tight text-zr-text">{m.name}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
 
-                // Compuerta (migración 185): una unidad bloqueada se VE con
-                // candado y no deja entrar, hasta aprobar la certificación de
-                // la unidad anterior. No se oculta -- el estudiante sabe que
-                // existe y qué le falta.
-                if (bloqueada) {
+        {modulos.length > 1 && (
+          <button
+            onClick={() => setMenuModulos(true)}
+            data-tour-target="tour-unidades-modulo"
+            className="flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border border-zr-border bg-zr-surface px-5 text-left"
+          >
+            <span className="min-w-0">
+              <span className="block text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">Módulo</span>
+              <span className="block truncate text-sm font-bold text-zr-text">
+                {moduloActualSel ? `${moduloActualSel.order_index}. ${moduloActualSel.name}` : 'Elegir módulo'}
+                {moduloSel && moduloSel === actualId ? ' (actual)' : moduloSel && virtuales.includes(moduloSel) ? ' (virtual)' : ''}
+              </span>
+            </span>
+            <span className="shrink-0 text-xs font-bold text-zr-blue">Cambiar</span>
+          </button>
+        )}
+
+        {menuModulos && (
+          <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60" onClick={() => setMenuModulos(false)}>
+            <div
+              className="max-h-[75dvh] w-full max-w-md overflow-y-auto rounded-t-3xl border border-zr-border bg-zr-bg p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="mb-3 text-sm font-bold text-zr-text">Elige un módulo</p>
+              <div className="space-y-2">
+                {modulos.map((m) => {
+                  const activo = m.id === moduloSel
                   return (
-                    <div key={u.id} className="zr-card flex items-center justify-between gap-3 p-5 opacity-70">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold uppercase tracking-wider text-zr-text-muted">
-                          Unidad {i + 1}
-                        </p>
-                        <p className="mt-1 break-words text-base font-bold text-zr-text-muted">{u.title}</p>
-                        <div className="mt-2">
-                          <Etiqueta tono="neutro">Se abre al aprobar la unidad anterior</Etiqueta>
-                        </div>
-                      </div>
-                      <IconoCandado size={20} className="shrink-0 text-zr-text-muted" />
-                    </div>
+                    <button
+                      key={m.id}
+                      onClick={() => { setModuloSel(m.id); setMenuModulos(false) }}
+                      className={`flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border px-4 text-left text-sm font-semibold ${
+                        activo ? 'border-zr-blue bg-zr-blue/15 text-zr-text' : 'border-zr-border text-zr-text'
+                      }`}
+                    >
+                      <span className="min-w-0 break-words">{m.order_index}. {m.name}</span>
+                      {m.id === actualId && <span className="shrink-0 text-xs font-bold text-zr-blue">Presencial</span>}
+                      {virtuales.includes(m.id) && <span className="shrink-0 text-xs font-bold text-zr-blue">Virtual</span>}
+                    </button>
                   )
-                }
-
-                return (
-                  <Link
-                    key={u.id}
-                    href={`/unidades/${u.id}`}
-                    className="zr-card zr-card-interactive flex items-center justify-between gap-3 p-5"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold uppercase tracking-wider text-zr-text-muted">
-                        Unidad {i + 1}
-                      </p>
-                      <p className="mt-1 break-words text-base font-bold text-zr-text">{u.title}</p>
-                      <div className="mt-2">
-                        <Etiqueta tono={estado.tono}>{estado.texto}</Etiqueta>
-                      </div>
-                    </div>
-                    <IconoChevron size={20} className="shrink-0 text-zr-text-muted" />
-                  </Link>
-                )
-              })}
+                })}
+              </div>
             </div>
-          )}
-        </Seccion>
+          </div>
+        )}
+
+        {unidadesDelModulo.length === 0 ? (
+          <p className="text-sm text-zr-text-muted">
+            Todavía no hay unidades abiertas en este módulo. Cuando tu profesor publique una, aparece aquí sola.
+          </p>
+        ) : (
+          <div data-tour-target="tour-unidades-lista">
+          <Recorrido>
+            {unidadesDelModulo.map((u, i) => {
+              const bloqueada = u.prerequisite_met === false
+              const cerrada = u.effective_status === 'cerrada'
+              const activa = i === indiceActiva
+
+              const estado: EstadoPaso = bloqueada
+                ? 'bloqueado'
+                : activa
+                  ? 'activo'
+                  : 'disponible'
+
+              const meta = bloqueada ? (
+                <Etiqueta tono="neutro">Se abre al aprobar la unidad anterior</Etiqueta>
+              ) : cerrada ? (
+                <Etiqueta tono="neutro">Cerrada · repaso</Etiqueta>
+              ) : activa ? (
+                <Etiqueta tono="info">Vas aquí</Etiqueta>
+              ) : (
+                <Etiqueta tono="exito">Abierta</Etiqueta>
+              )
+
+              return (
+                <Paso
+                  key={u.id}
+                  estado={estado}
+                  indice={i + 1}
+                  eyebrow={`Unidad ${i + 1}`}
+                  titulo={u.title}
+                  meta={meta}
+                  href={bloqueada ? undefined : `/unidades/${u.id}`}
+                  ultimo={i === unidadesDelModulo.length - 1}
+                  delay={80 + i * 50}
+                />
+              )
+            })}
+          </Recorrido>
+          </div>
+        )}
       </div>
     </div>
   )

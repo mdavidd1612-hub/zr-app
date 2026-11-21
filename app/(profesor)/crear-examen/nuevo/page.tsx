@@ -2,15 +2,39 @@
 
 import { Select } from '@/components/ui/Select'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { PoliticaRemedialCampos, type PoliticaRemedial } from '@/components/ui/PoliticaRemedial'
+import { siguienteOrdenUnidad } from '@/lib/unidad-orden'
+import { cohorteParaModulo } from '@/lib/cohorte-unidad'
 import { QuestionEditor } from '@/components/QuestionEditor'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
+import { ModalEvaluacionAgregada } from '@/components/ui/ModalEvaluacionAgregada'
+import { sumaPesoOcupado, mensajeSiExcedePeso } from '@/lib/peso-notas'
+import { ImportarPreguntas } from '@/components/ui/ImportarPreguntas'
+import { mensajeError } from '@/lib/errores'
+import type { PreguntaImportada } from '@/lib/importar-preguntas'
+import { InputNota } from '@/components/ui/InputNota'
 
 type TipoPregunta = 'opcion_multiple' | 'verdadero_falso' | 'redaccion_abierta'
+
+interface PlantillaExamen {
+  titulo: string
+  instrucciones: string
+  puntajeMaximo: number
+  duracion: number | ''
+  tipo: 'formativo' | 'certificacion'
+  notaMinima: number | ''
+  intentos: number | ''
+  enfriamiento: number | ''
+  peso: number | ''
+  politicaRemedial?: PoliticaRemedial
+  topeRemedial?: number | ''
+  preguntas: Pregunta[]
+}
 
 interface Pregunta {
   id: string
@@ -63,6 +87,14 @@ function NuevoExamenInterno() {
   const [puntajeMaximo, setPuntajeMaximo] = useState(20)
   const [duracion, setDuracion] = useState<number | ''>(10)
 
+  // Fecha propia del examen (pendiente de la reunión 7-nov-2026, §8.12): ya
+  // existía en la base (opens_at/closes_at, migración 176/179 -- alimenta el
+  // calendario solo) pero nunca se podía fijar desde la app ni bloqueaba
+  // nada. Ambas opcionales: sin opens_at, el examen está disponible en
+  // cuanto se publica (igual que siempre).
+  const [abreEl, setAbreEl] = useState('')
+  const [cierraEl, setCierraEl] = useState('')
+
   // Modelo de evaluación (migración 176). Antes solo se podía configurar por
   // SQL; ahora el profesor elige desde la app si el examen abre la siguiente
   // unidad (certificación) y con qué reglas.
@@ -70,15 +102,62 @@ function NuevoExamenInterno() {
   const [notaMinima, setNotaMinima] = useState<number | ''>(10)
   const [intentos, setIntentos] = useState<number | ''>(2)
   const [enfriamiento, setEnfriamiento] = useState<number | ''>(24)
+  const [politicaRemedial, setPoliticaRemedial] = useState<PoliticaRemedial>('mejor')
+  const [topeRemedial, setTopeRemedial] = useState<number | ''>(80)
+
+  // Fusión con Notas (H.33, pedido del coordinador 7-nov-2026): el examen,
+  // al crearse, YA es una evaluación de Notas (migración 193) -- este % es
+  // lo que vale en la nota del módulo. Se fija aquí mismo, sin volver a
+  // Notas a registrarlo aparte.
+  const [peso, setPeso] = useState<number | ''>(0)
+  // Pedido explícito del coordinador (8-nov-2026): antes el examen SIEMPRE
+  // nacía oculto -- había que acordarse de ir a /crear-examen (que ni
+  // siquiera tenía acceso en el menú) a publicarlo. Ahora se elige aquí
+  // mismo, con "Publicar de una vez" como opción por defecto.
+  const [publicarDeUnaVez, setPublicarDeUnaVez] = useState(true)
+  const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false)
+  const [destinoTrasConfirmar, setDestinoTrasConfirmar] = useState<string | null>(null)
 
   const [preguntas, setPreguntas] = useState<Pregunta[]>([])
   const [editorAbierto, setEditorAbierto] = useState<TipoPregunta | null>(null)
   const [eligiendoTipo, setEligiendoTipo] = useState(false)
+  const [importando, setImportando] = useState(false)
   const [editandoId, setEditandoId] = useState<string | null>(null)
 
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tituloUnidad, setTituloUnidad] = useState('')
+
+  // Plantillas de examen (reunión 14-nov-2026): cada examen que el profesor
+  // guarda (borrador o publicado) queda como plantilla suya; al crear otro
+  // puede traer una ya hecha ("Usar examen ya creado") y ajustarla.
+  const [plantillas, setPlantillas] = useState<{ id: string; title: string; payload: PlantillaExamen }[]>([])
+  const [plantillasAbierto, setPlantillasAbierto] = useState(false)
+
+  useEffect(() => {
+    createClient()
+      .from('exam_templates' as never)
+      .select('id, title, payload')
+      .order('updated_at', { ascending: false })
+      .then(({ data }) => setPlantillas((data ?? []) as unknown as { id: string; title: string; payload: PlantillaExamen }[]))
+  }, [])
+
+  function usarPlantilla(t: { title: string; payload: PlantillaExamen }) {
+    const d = t.payload
+    setTitulo(d.titulo ?? t.title)
+    setInstrucciones(d.instrucciones ?? '')
+    setPuntajeMaximo(d.puntajeMaximo ?? 20)
+    setDuracion(d.duracion ?? '')
+    setTipo(d.tipo ?? 'formativo')
+    setNotaMinima(d.notaMinima ?? 10)
+    setIntentos(d.intentos ?? 2)
+    setEnfriamiento(d.enfriamiento ?? 24)
+    setPoliticaRemedial(d.politicaRemedial ?? 'mejor')
+    setTopeRemedial(d.topeRemedial ?? 80)
+    setPeso(d.peso ?? 0)
+    setPreguntas((d.preguntas ?? []).map((q, i) => ({ ...q, id: `qtpl${Date.now()}-${i}` })))
+    setPlantillasAbierto(false)
+  }
 
 
   useEffect(() => {
@@ -110,10 +189,12 @@ function NuevoExamenInterno() {
 
       // Viene de una unidad: su módulo manda, no el primero de la lista.
       if (unitId) {
-        const { data: unidad } = await supabase.from('units').select('title, module_id').eq('id', unitId).maybeSingle()
+        const { data: unidad } = await supabase.from('units').select('title, module_id, cohort_id').eq('id', unitId).maybeSingle()
         if (unidad) {
           setTituloUnidad(unidad.title)
           setModuloId(unidad.module_id)
+          const cohorteDeLaUnidad = await cohorteParaModulo(supabase, unidad.module_id, unidad.cohort_id)
+          if (cohorteDeLaUnidad) setCohorteId(cohorteDeLaUnidad)
         }
       }
     }
@@ -125,6 +206,18 @@ function NuevoExamenInterno() {
   const puntosCuadran = puntosAsignados === puntajeMaximo
   const sePuedeGuardar = titulo.trim() !== '' && moduloId !== '' && preguntas.length > 0
 
+  // Si deja de cuadrar (se agregó/quitó una pregunta) mientras "Publicar de
+  // una vez" estaba elegido, se cae sola a "Guardar como borrador" -- no se
+  // puede dejar seleccionada una opción que ya está deshabilitada.
+  // Y al volver a cuadrar regresa sola a "Publicar de una vez", salvo que el
+  // profesor haya elegido el borrador a propósito (19-nov-2026: se quedaba en
+  // borrador y el examen terminaba oculto sin que nadie lo notara).
+  const eligioBorrador = useRef(false)
+  useEffect(() => {
+    if (!puntosCuadran && publicarDeUnaVez) setPublicarDeUnaVez(false)
+    else if (puntosCuadran && !publicarDeUnaVez && !eligioBorrador.current) setPublicarDeUnaVez(true)
+  }, [puntosCuadran, publicarDeUnaVez])
+
   function agregarPregunta(datos: Omit<Pregunta, 'id'>) {
     if (editandoId) {
       setPreguntas((qs) => qs.map((q) => q.id === editandoId ? { ...datos, id: editandoId } : q))
@@ -133,6 +226,22 @@ function NuevoExamenInterno() {
       setPreguntas((qs) => [...qs, { id: `q${Date.now()}`, ...datos }])
     }
     setEditorAbierto(null)
+  }
+
+  function importarPreguntas(leidas: PreguntaImportada[]) {
+    setPreguntas((qs) => [
+      ...qs,
+      ...leidas.map((p, i) => ({
+        id: `qimp${Date.now()}-${i}`,
+        type: p.type,
+        statement: p.statement,
+        points: p.points,
+        options: p.options,
+        correct_answer: p.correct_answer ?? undefined,
+        rubric: p.rubric,
+      })),
+    ])
+    setImportando(false)
   }
 
   function iniciarEdicion(pregunta: Pregunta) {
@@ -145,7 +254,47 @@ function NuevoExamenInterno() {
     if (!sePuedeGuardar) return
     setError(null)
 
+    const pesoNuevo = peso === '' ? 0 : peso
+
+    // Pedido explícito del coordinador (reunión 7-nov-2026): una certificación
+    // no tiene sentido que valga 0% -- si no vale nada, no tiene sentido que
+    // tenga intentos ni enfriamiento. Una práctica sí puede valer 0.
+    if (tipo === 'certificacion' && pesoNuevo <= 0) {
+      setError('Una certificación tiene que valer más de 0% en la nota del módulo.')
+      return
+    }
+
+    // Decisión del coordinador (20-nov-2026): el 2.º intento tiene tope (por
+    // defecto 80 %). Si la nota mínima pasa ese tope, el remedial nunca podría
+    // aprobar: no se deja guardar ese caso imposible.
+    {
+      const intentosN = intentos === '' ? (tipo === 'certificacion' ? 1 : 2) : intentos
+      const topeN = topeRemedial === '' ? 80 : topeRemedial
+      const minimaN = notaMinima === '' ? 10 : notaMinima
+      const techo = Math.round(puntajeMaximo * topeN) / 100
+      if (tipo === 'certificacion' && intentosN > 1 && minimaN > techo) {
+        setError(`Con el tope del remedial (${topeN} %), lo máximo que se puede sacar en el 2.º intento es ${techo}. Baja la nota mínima a ${techo} o menos, o sube el tope.`)
+        return
+      }
+    }
+
     const supabase = createClient()
+
+    // Bug real reportado en vivo (8-nov-2026): guardar como BORRADOR fallaba
+    // con "ya hay 100% ocupado" aunque un borrador todavía no cuenta de
+    // verdad en Notas -- no tiene sentido bloquear guardar algo que ni
+    // siquiera se publicó. El tope de 100% solo tiene sentido cuando el
+    // examen SÍ va a pesar en la nota del módulo (al publicarlo de una vez,
+    // o después al editarlo desde /crear-examen/[examId]).
+    // Reunión 14-nov-2026: si el % ya no cabe, no se bloquea -- se guarda como
+    // borrador (sin peso) para no perder el trabajo; se publica luego al ajustar.
+    let publicar = publicarDeUnaVez
+    let avisoPeso: string | null = null
+    if (publicar && pesoNuevo > 0) {
+      const ocupado = await sumaPesoOcupado(supabase, moduloId, cohorteId || null)
+      const msg = mensajeSiExcedePeso(ocupado, pesoNuevo)
+      if (msg) { publicar = false; avisoPeso = msg }
+    }
 
     // Mismo caso que el material (reunión 31-oct-2026): crear dos veces un
     // examen con el mismo nombre en la misma unidad no debe duplicarlo.
@@ -183,15 +332,34 @@ function NuevoExamenInterno() {
         duration_minutes: duracion === '' ? null : duracion,
         kind: tipo,
         passing_score: tipo === 'certificacion' ? (notaMinima === '' ? 10 : notaMinima) : 10,
-        max_attempts: intentos === '' ? 2 : intentos,
+        // Una certificación siempre es un solo intento, sin espera -- los
+        // campos ni se muestran cuando tipo==='certificacion' (arriba), pero
+        // se fuerza igual aquí por si el estado se quedó con otro valor.
+        max_attempts: intentos === '' ? (tipo === 'certificacion' ? 1 : 2) : intentos,
         cooldown_hours: enfriamiento === '' ? 24 : enfriamiento,
-        status: 'oculto',   // Nace como borrador. Publicar es un paso aparte.
+        retake_policy: politicaRemedial as never,
+        retake_cap_pct: (topeRemedial === '' ? null : topeRemedial) as never,
+        // Si se guarda como borrador, el % no se registra todavía en Notas
+        // (0 -- no cuenta para el tope de 100% de nadie más) -- se aplica de
+        // verdad recién al publicar (aquí mismo o después, editando).
+        weight: publicar ? pesoNuevo : 0,
+        opens_at: abreEl ? new Date(abreEl).toISOString() : null,
+        closes_at: cierraEl ? new Date(cierraEl).toISOString() : null,
+        // Bug real reportado en vivo (8-nov-2026): exams.unit_id nunca se
+        // guardaba aquí (solo en la fila de unit_items) -- fn_calendar_sync_exam
+        // depende de este campo para decidir si el examen entra al calendario,
+        // así que un examen con fecha pero sin unit_id nunca aparecía ahí.
+        unit_id: unitId || null,
+        // Nace oculto siempre (con o sin preguntas aún no hay nada que
+        // publicar). Si se eligió "Publicar de una vez", se publica más
+        // abajo, ya con las preguntas puestas.
+        status: 'oculto',
       })
       .select()
       .single()
 
     if (falloExamen || !examen) {
-      setError(falloExamen?.message ?? 'No se pudo crear el examen.')
+      setError(mensajeError(falloExamen?.message ?? 'No se pudo crear el examen.'))
       setGuardando(false)
       return
     }
@@ -210,31 +378,79 @@ function NuevoExamenInterno() {
     )
 
     if (falloPreguntas) {
-      setError(falloPreguntas.message)
+      setError(mensajeError(falloPreguntas.message))
       setGuardando(false)
       return
     }
 
+    // Plantilla del examen (reunión 14-nov-2026): queda guardada en el perfil del
+    // profesor, publicado o en borrador. Si ya había una con el mismo nombre, se actualiza.
+    const payloadPlantilla: PlantillaExamen = {
+      titulo: titulo.trim(), instrucciones, puntajeMaximo, duracion, tipo, notaMinima, intentos,
+      enfriamiento, peso: pesoNuevo, politicaRemedial, topeRemedial, preguntas,
+    }
+    const { data: yaPlantilla } = await supabase
+      .from('exam_templates' as never)
+      .select('id')
+      .eq('owner_id', user.id)
+      .ilike('title', titulo.trim())
+      .maybeSingle() as { data: { id: string } | null }
+    if (yaPlantilla) {
+      await supabase.from('exam_templates' as never)
+        .update({ payload: payloadPlantilla, updated_at: new Date().toISOString() } as never)
+        .eq('id', yaPlantilla.id)
+    } else {
+      await supabase.from('exam_templates' as never)
+        .insert({ owner_id: user.id, title: titulo.trim(), payload: payloadPlantilla } as never)
+    }
+
+    // "Publicar de una vez" (pedido explícito, 8-nov-2026, elegido por
+    // defecto): recién AHORA que ya existen las preguntas, se publica --
+    // antes de esto el examen siempre nacía oculto y había que acordarse de
+    // ir a /crear-examen (que ni tenía acceso en el menú) a publicarlo. La
+    // garantía real sigue siendo trg_validate_exam_publish; si rechaza, el
+    // examen queda creado como borrador (nada se pierde) y se avisa.
+    if (publicar) {
+      const { error: falloPublicar } = await supabase
+        .from('exams')
+        .update({ status: 'habilitado', published_at: new Date().toISOString() })
+        .eq('id', examen.id)
+      if (falloPublicar) {
+        setError(`El examen se creó como borrador -- no se pudo publicar solo: ${falloPublicar.message}`)
+        setGuardando(false)
+        return
+      }
+    }
+
+    if (avisoPeso) window.alert(`Se guardó como borrador (sin publicar). ${avisoPeso}`)
+
     // Viene de una unidad: se engancha solo (unit_items) y se vuelve ahí --
     // el profesor no tiene que ir a buscarlo a la lista para agregarlo.
     if (unitId) {
-      const { count } = await supabase
-        .from('unit_items').select('id', { count: 'exact', head: true }).eq('unit_id', unitId)
-      await supabase.from('unit_items').insert({
+      const { error: falloEnlace } = await supabase.from('unit_items').insert({
         unit_id: unitId,
         type: 'quiz',
-        order_index: (count ?? 0) + 1,
+        order_index: await siguienteOrdenUnidad(supabase, unitId),
         exam_id: examen.id,
       })
-      router.push(`/unidades-docente/${unitId}`)
+      if (falloEnlace) {
+        setError(`El examen se creó pero no se pudo agregar a la unidad: ${falloEnlace.message}`)
+        setGuardando(false)
+        return
+      }
+      setGuardando(false)
+      setDestinoTrasConfirmar(`/unidades-docente/${unitId}`)
+      setMostrarConfirmacion(true)
       return
     }
 
-    router.push('/crear-examen')
+    setGuardando(false)
+    setDestinoTrasConfirmar('/crear-examen')
+    setMostrarConfirmacion(true)
   }
 
   return (
-    <div className="space-y-11 px-5 pt-14">
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <BotonVolver href={unitId ? `/unidades-docente/${unitId}` : '/crear-examen'} />
 
       <Encabezado
@@ -251,6 +467,38 @@ function NuevoExamenInterno() {
 
       {/* 01 — DATOS */}
       <Seccion numero={1} titulo="Datos del examen" delay={120}>
+        {(
+          <div className="mb-4 space-y-2">
+            <button
+              type="button"
+              onClick={() => setPlantillasAbierto((v) => !v)}
+              className="min-h-12 w-full rounded-lg border border-dashed border-zr-border text-sm font-bold text-zr-text-muted"
+            >
+              Empezar desde una plantilla ({plantillas.length})
+            </button>
+            {plantillasAbierto && plantillas.length === 0 && (
+              <p className="zr-card p-4 text-sm text-zr-text-muted">
+                Todavía no hay plantillas. Cada examen que guardes queda aquí como plantilla para reusarlo en otras unidades.
+              </p>
+            )}
+            {plantillasAbierto && plantillas.length > 0 && (
+              <div className="zr-card space-y-2 p-4">
+                {plantillas.map((t) => (
+                  <div key={t.id} className="flex items-center justify-between gap-3 border-b border-zr-border pb-2 last:border-0 last:pb-0">
+                    <p className="min-w-0 break-words text-sm font-semibold text-zr-text">{t.title}</p>
+                    <button
+                      type="button"
+                      onClick={() => usarPlantilla(t)}
+                      className="shrink-0 rounded-lg bg-zr-blue px-4 py-2 text-xs font-bold text-white"
+                    >
+                      Usar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <div className="zr-card space-y-5 p-6">
           <div>
             <label htmlFor="titulo" className="mb-2 block text-sm font-semibold text-zr-text">
@@ -278,55 +526,58 @@ function NuevoExamenInterno() {
             />
           </div>
 
+          {/* Pedido explícito del coordinador (reunión 7-nov-2026): viniendo de
+              una unidad, el módulo y el programa ya quedaron elegidos antes de
+              entrar -- no tiene sentido volver a mostrarlos como si hubiera
+              algo que decidir aquí. Solo se informan en texto. */}
+          {unitId ? (
+            <p className="text-xs text-zr-text-muted">
+              Unidad: <span className="font-semibold text-zr-text">{tituloUnidad || '…'}</span>
+            </p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="modulo" className="mb-2 block text-sm font-semibold text-zr-text">
+                  Módulo
+                </label>
+                <Select
+                  id="modulo"
+                  value={moduloId}
+                  onChange={(e) => setModuloId(e.target.value)}
+                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+                >
+                  {modulos.length === 0 && <option value="">Sin módulos cargados</option>}
+                  {modulos.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </Select>
+              </div>
+
+              <div>
+                <label htmlFor="cohorte" className="mb-2 block text-sm font-semibold text-zr-text">
+                  Programa
+                </label>
+                <Select
+                  id="cohorte"
+                  value={cohorteId}
+                  onChange={(e) => setCohorteId(e.target.value)}
+                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+                >
+                  <option value="">Todos los programas</option>
+                  {cohortes.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="modulo" className="mb-2 block text-sm font-semibold text-zr-text">
-                Módulo
-              </label>
-              <Select
-                id="modulo"
-                value={moduloId}
-                onChange={(e) => setModuloId(e.target.value)}
-                disabled={!!unitId}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none disabled:opacity-60"
-              >
-                {modulos.length === 0 && <option value="">Sin módulos cargados</option>}
-                {modulos.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </Select>
-              {unitId && <p className="mt-1 text-xs text-zr-text-muted">El de esta unidad.</p>}
-            </div>
-
-            <div>
-              <label htmlFor="cohorte" className="mb-2 block text-sm font-semibold text-zr-text">
-                Programa
-              </label>
-              <Select
-                id="cohorte"
-                value={cohorteId}
-                onChange={(e) => setCohorteId(e.target.value)}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
-              >
-                <option value="">Todos los programas</option>
-                {cohortes.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </Select>
-            </div>
-
             <div>
               <label htmlFor="maximo" className="mb-2 block text-sm font-semibold text-zr-text">
                 Puntaje máximo
               </label>
-              <input
-                id="maximo"
-                type="number"
-                min={1}
-                value={puntajeMaximo}
-                onChange={(e) => setPuntajeMaximo(Number(e.target.value) || 0)}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
-              />
+              <InputNota id="maximo" value={puntajeMaximo} onChange={(v) => setPuntajeMaximo(v === '' ? 0 : v)} min={1} className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none" />
             </div>
 
             <div>
@@ -342,6 +593,39 @@ function NuevoExamenInterno() {
                 placeholder="Sin límite"
                 className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
               />
+            </div>
+          </div>
+
+          {/* Fecha propia del examen (pendiente de la reunión 7-nov-2026):
+              opcional -- sin "Se abre", el examen queda disponible en cuanto
+              se publica, igual que siempre. Con fecha, el servidor la valida
+              de verdad al empezar un intento (migración 200), no solo aquí. */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="abre-el" className="mb-2 block text-sm font-semibold text-zr-text">
+                Se abre <span className="font-normal text-zr-text-muted">(opcional)</span>
+              </label>
+              <input
+                id="abre-el"
+                type="datetime-local"
+                value={abreEl}
+                onChange={(e) => setAbreEl(e.target.value)}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+              />
+              <p className="mt-1.5 text-xs text-zr-text-muted">Antes de esta fecha, el examen se ve bloqueado.</p>
+            </div>
+            <div>
+              <label htmlFor="cierra-el" className="mb-2 block text-sm font-semibold text-zr-text">
+                Se cierra <span className="font-normal text-zr-text-muted">(opcional)</span>
+              </label>
+              <input
+                id="cierra-el"
+                type="datetime-local"
+                value={cierraEl}
+                onChange={(e) => setCierraEl(e.target.value)}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
+              />
+              <p className="mt-1.5 text-xs text-zr-text-muted">Pasada esta fecha, ya no se puede empezar un intento.</p>
             </div>
           </div>
 
@@ -379,44 +663,63 @@ function NuevoExamenInterno() {
                 <label htmlFor="nota-minima" className="mb-2 block text-sm font-semibold text-zr-text">
                   Nota mínima <span className="font-normal text-zr-text-muted">(sobre {puntajeMaximo})</span>
                 </label>
-                <input
-                  id="nota-minima"
-                  type="number"
-                  min={1}
-                  max={puntajeMaximo}
-                  value={notaMinima}
-                  onChange={(e) => setNotaMinima(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
-                />
+                <InputNota id="nota-minima" value={notaMinima} onChange={setNotaMinima} min={1} max={puntajeMaximo} className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none" />
               </div>
             )}
 
-            <div>
-              <label htmlFor="intentos" className="mb-2 block text-sm font-semibold text-zr-text">
-                Intentos
-              </label>
-              <input
-                id="intentos"
-                type="number"
-                min={1}
-                value={intentos}
-                onChange={(e) => setIntentos(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+            {/* Pedido explícito del coordinador (8-nov-2026): una certificación
+                siempre es un solo intento -- no tiene sentido preguntar
+                "cuántos intentos" ni "cuánto esperar entre intentos" cuando
+                nunca va a haber un segundo. Solo se piden para práctica. */}
+            {(
+              <>
+                <div>
+                  <label htmlFor="intentos" className="mb-2 block text-sm font-semibold text-zr-text">
+                    {tipo === 'certificacion' ? 'Intentos (el 2.º es el remedial)' : 'Intentos'}
+                  </label>
+                  <input
+                    id="intentos"
+                    type="number"
+                    min={1}
+                    value={intentos}
+                    onChange={(e) => setIntentos(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="enfriamiento" className="mb-2 block text-sm font-semibold text-zr-text">
+                    Espera entre intentos <span className="font-normal text-zr-text-muted">(h)</span>
+                  </label>
+                  <input
+                    id="enfriamiento"
+                    type="number"
+                    min={0}
+                    value={enfriamiento}
+                    onChange={(e) => setEnfriamiento(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
+                  />
+                </div>
+              </>
+            )}
+
+            {(intentos === '' || Number(intentos) > 1) && (
+              <PoliticaRemedialCampos
+                politica={politicaRemedial}
+                onPolitica={setPoliticaRemedial}
+                tope={topeRemedial}
+                onTope={setTopeRemedial}
               />
-            </div>
+            )}
 
             <div>
-              <label htmlFor="enfriamiento" className="mb-2 block text-sm font-semibold text-zr-text">
-                Espera entre intentos <span className="font-normal text-zr-text-muted">(h)</span>
+              <label htmlFor="peso" className="mb-2 block text-sm font-semibold text-zr-text">
+                % que vale en la nota del módulo
               </label>
-              <input
-                id="enfriamiento"
-                type="number"
-                min={0}
-                value={enfriamiento}
-                onChange={(e) => setEnfriamiento(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none"
-              />
+              <InputNota id="peso" value={peso} onChange={setPeso} min={0} max={100} className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text focus:border-zr-blue focus:outline-none" />
+              <p className="mt-1.5 text-xs text-zr-text-muted">
+                Este examen ya queda registrado como evaluación en Notas -- no hay que volver a crearlo ahí.
+              </p>
             </div>
           </div>
         </div>
@@ -510,14 +813,58 @@ function NuevoExamenInterno() {
             </button>
           </div>
         ) : (
-          <button
-            onClick={() => setEligiendoTipo(true)}
-            className="w-full rounded-lg border border-dashed border-zr-border px-6 py-5 text-sm font-semibold text-zr-blue transition-colors hover:border-zr-blue/45 hover:bg-zr-blue/5"
-          >
-            + Agregar pregunta
-          </button>
+          <div className="space-y-3">
+            <button
+              onClick={() => setEligiendoTipo(true)}
+              className="w-full rounded-lg border border-dashed border-zr-border px-6 py-5 text-sm font-semibold text-zr-blue transition-colors hover:border-zr-blue/45 hover:bg-zr-blue/5"
+            >
+              + Agregar pregunta
+            </button>
+            <button
+              onClick={() => setImportando(true)}
+              className="w-full rounded-lg px-4 py-2 text-xs font-bold text-zr-text-muted"
+            >
+              Importar preguntas desde Word/Excel/CSV
+            </button>
+          </div>
         )}
       </Seccion>
+
+      {/* ¿Publicar de una vez o guardar como borrador? -- pedido explícito
+          del coordinador (8-nov-2026), elegido por defecto "Publicar de
+          una vez". Si los puntos no cuadran, esa opción no se puede elegir
+          -- igual que ya impedía publicar desde la lista de exámenes. */}
+      <div className="zr-card space-y-3 p-5">
+        <p className="text-sm font-semibold text-zr-text">¿Qué quieres hacer con este examen?</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => { eligioBorrador.current = false; setPublicarDeUnaVez(true) }}
+            disabled={!puntosCuadran}
+            className={`rounded-lg border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+              publicarDeUnaVez ? 'border-zr-blue bg-zr-blue/8' : 'border-zr-border bg-zr-bg'
+            }`}
+          >
+            <p className="text-sm font-bold text-zr-text">Publicar de una vez</p>
+            <p className="mt-1 text-xs text-zr-text-muted">Tus estudiantes lo ven apenas lo crees.</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => { eligioBorrador.current = true; setPublicarDeUnaVez(false) }}
+            className={`rounded-lg border p-4 text-left transition-colors ${
+              !publicarDeUnaVez ? 'border-zr-blue bg-zr-blue/8' : 'border-zr-border bg-zr-bg'
+            }`}
+          >
+            <p className="text-sm font-bold text-zr-text">Guardar como borrador</p>
+            <p className="mt-1 text-xs text-zr-text-muted">Nadie lo ve hasta que lo publiques desde «Exámenes».</p>
+          </button>
+        </div>
+        {!puntosCuadran && (
+          <p className="text-xs text-zr-warning">
+            Los puntos tienen que sumar el puntaje máximo para poder publicarlo de una vez.
+          </p>
+        )}
+      </div>
 
       {/* Guardar */}
       <div className="space-y-4">
@@ -539,14 +886,27 @@ function NuevoExamenInterno() {
             disabled={!sePuedeGuardar || guardando}
             className="flex-1 rounded-lg bg-zr-blue px-6 py-4 text-base font-bold text-white transition-colors hover:bg-zr-blue-deep disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {guardando ? 'Guardando…' : 'Guardar borrador'}
+            {guardando ? 'Guardando…' : publicarDeUnaVez ? 'Crear y publicar' : 'Guardar borrador'}
           </button>
         </div>
 
         <p className="text-center text-xs text-zr-text-muted">
-          El examen se guarda oculto. Para que los estudiantes lo vean, publícalo desde la lista.
+          {publicarDeUnaVez
+            ? 'Tus estudiantes podrán verlo apenas lo crees.'
+            : 'El examen se guarda oculto. Para que los estudiantes lo vean, publícalo desde «Exámenes».'}
         </p>
       </div>
+
+      {mostrarConfirmacion && destinoTrasConfirmar && (
+        <ModalEvaluacionAgregada
+          peso={typeof peso === 'number' ? peso : 0}
+          onCerrar={() => router.push(destinoTrasConfirmar)}
+        />
+      )}
+
+      {importando && (
+        <ImportarPreguntas onImportar={importarPreguntas} onCerrar={() => setImportando(false)} />
+      )}
     </div>
   )
 }

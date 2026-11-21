@@ -123,7 +123,14 @@ export default function Calificar() {
     })
 
     if (fallo) {
-      setError('No se pudo guardar. Revisa tu conexión e inténtalo otra vez.')
+      // El servidor explica por qué (p. ej. notas cerradas del módulo); solo si no
+      // hay respuesta se asume problema de conexión.
+      let motivo = 'No se pudo guardar. Revisa tu conexión e inténtalo otra vez.'
+      try {
+        const cuerpo = await (fallo as { context?: Response }).context?.json()
+        if (cuerpo?.error?.message) motivo = cuerpo.error.message
+      } catch { /* sin cuerpo legible */ }
+      setError(motivo)
       setGuardando(false)
       return
     }
@@ -144,7 +151,7 @@ export default function Calificar() {
 
   if (!actual) {
     return (
-      <div className="px-5 pt-14">
+      <div className="px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
         <Encabezado sobretitulo="Calificación" titulo="Todo al día" />
         <Regla delay={60} />
         <div className="zr-card mt-10 animate-rise p-10 text-center" style={{ animationDelay: '120ms' }}>
@@ -171,7 +178,7 @@ export default function Calificar() {
   const avance = Math.round((indice / cola.length) * 100)
 
   return (
-    <div className="px-5 pt-14">
+    <div className="px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <Encabezado
         sobretitulo="Calificación"
         titulo="Redacciones"

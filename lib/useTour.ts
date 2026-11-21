@@ -60,7 +60,19 @@ interface EstadoTour {
  * de pasos pendientes al entrar, pero el evento de "Cómo usar la app"
  * sigue funcionando igual.
  */
-export function useTour(pasosDelRol: PasoTour[], activo: boolean, soloManual = false) {
+export function useTour(
+  pasosDelRol: PasoTour[],
+  activo: boolean,
+  soloManual = false,
+  /**
+   * Actualización obligatoria (21-nov-2026): `pausado` espera a que la persona
+   * termine esa pantalla antes de revisar el tutorial; `completoSiNoHayNuevos`
+   * muestra el tutorial entero si no le falta ningún paso, para que el
+   * "Siguiente" de esa pantalla siempre lleve a un tutorial.
+   */
+  opciones: { pausado?: boolean; completoSiNoHayNuevos?: boolean } = {},
+) {
+  const { pausado = false, completoSiNoHayNuevos = false } = opciones
   const [estado, setEstado] = useState<EstadoTour>({ cargando: true, pasos: null, incremental: false })
   // Mientras el tour ya está abierto, una revisión disparada por otra causa
   // (p. ej. `activo` cambiando de valor) no debe pisarlo a mitad de camino.
@@ -95,6 +107,12 @@ export function useTour(pasosDelRol: PasoTour[], activo: boolean, soloManual = f
     const vistos = new Set(perfil?.tour_pasos_vistos ?? [])
     const pendientes = pasosDelRol.filter((p) => !vistos.has(p.id))
 
+    if (pendientes.length === 0 && completoSiNoHayNuevos) {
+      abiertoRef.current = true
+      setEstado({ cargando: false, pasos: pasosDelRol, incremental: false })
+      return
+    }
+
     if (pendientes.length === 0) {
       setEstado({ cargando: false, pasos: null, incremental: false })
       return
@@ -108,10 +126,11 @@ export function useTour(pasosDelRol: PasoTour[], activo: boolean, soloManual = f
     // El lint de "falta pasosDelRol como dependencia" es a propósito: se
     // depende del CONTENIDO (clavePasos), no de la referencia -- ver nota
     // de clavePasos arriba sobre por qué.
-  }, [clavePasos, activo]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clavePasos, activo, completoSiNoHayNuevos]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (abiertoRef.current) return // ver nota de abiertoRef arriba
+    if (pausado) return // nada que mostrar todavía; el estado inicial ya es "sin pasos"
     let manual = false
     try {
       manual = sessionStorage.getItem(BANDERA_MANUAL) === '1'
@@ -132,7 +151,7 @@ export function useTour(pasosDelRol: PasoTour[], activo: boolean, soloManual = f
       return
     }
     revisarPendientes()
-  }, [revisarPendientes, activo, clavePasos, soloManual]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [revisarPendientes, activo, clavePasos, soloManual, pausado]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     function alPedirCompleto() {

@@ -1,5 +1,6 @@
 'use client'
 
+import { APP_VERSION } from '@/lib/version'
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import type { ItemBarra } from '@/components/ui/BarraFlotante'
@@ -48,8 +49,11 @@ export function BarraLateral({ items, alTocarBloqueado }: { items: ItemBarra[]; 
     })
   }
 
-  const activo = (href: string) =>
-    href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/')
+  const coincide = (h: string) => (h === '/' ? pathname === '/' : pathname === h || pathname.startsWith(h + '/'))
+  const activo = (href: string) => {
+    const extra = items.find((i) => i.href === href)?.tambienEn ?? []
+    return [href, ...extra].some(coincide)
+  }
 
   return (
     // `data-tour-target="tour-nav"` (bug real de producción, reportado por
@@ -72,7 +76,7 @@ export function BarraLateral({ items, alTocarBloqueado }: { items: ItemBarra[]; 
       }`}
     >
       <div className={`flex items-center pb-4 ${colapsada ? 'justify-center' : 'justify-between px-3'}`}>
-        {!colapsada && <p className="zr-display text-xl text-zr-text">ZR App</p>}
+        {!colapsada && <p className="zr-display text-xl text-zr-text">ZR App V {APP_VERSION}</p>}
         <button
           onClick={alternar}
           title={colapsada ? 'Expandir menú' : 'Recoger menú'}

@@ -43,7 +43,7 @@ Deno.serve(async (req: Request) => {
     const { data: perfil } = await adminSupabase
       .from('profiles').select('role').eq('id', user.id).single()
 
-    if (!perfil || !['profesor', 'admin', 'super_admin', 'direccion_academica'].includes(perfil.role)) {
+    if (!perfil || !['profesor', 'super_admin', 'direccion_academica'].includes(perfil.role)) {
       return errorResponse('NO_AUTORIZADO', 'Solo el personal docente puede responder solicitudes', 403)
     }
 

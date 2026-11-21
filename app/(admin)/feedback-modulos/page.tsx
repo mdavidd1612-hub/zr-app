@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Encabezado, Regla, Seccion } from '@/components/ui/Editorial'
+import { Seccion, SeccionColegable } from '@/components/ui/Editorial'
+import { TarjetaHero } from '@/components/ui/TarjetaHero'
+import { IconoDuda } from '@/components/ui/Iconos'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EstadoVacio } from '@/components/ui/EstadoVacio'
 import { ResultadosFeedback, type FilaResumenFeedback } from '@/components/ui/ResultadosFeedback'
@@ -258,7 +260,7 @@ export default function FeedbackModulos() {
 
   if (!autorizado) {
     return (
-      <div className="space-y-5 px-5 pt-14">
+      <div className="space-y-5 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
         <BotonVolver href="/panel" />
         <p className="text-sm text-zr-text-muted">Solo Dirección Académica o super_admin pueden entrar aquí.</p>
       </div>
@@ -268,7 +270,7 @@ export default function FeedbackModulos() {
   const cohorteActual = cohortes.find((c) => c.id === cohorteId) ?? null
 
   return (
-    <div className="space-y-9 px-5 pb-16 pt-14">
+    <div className="space-y-8 px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       {notificacion && (
         <div
           role="status"
@@ -289,16 +291,17 @@ export default function FeedbackModulos() {
         <BotonVolver href="/panel" />
       )}
 
-      <Encabezado
-        sobretitulo="Dirección académica"
-        titulo="Feedback de módulo"
-        descripcion={cohorteActual ? cohorteActual.nombre : 'Elige la cohorte para abrir o revisar su formulario.'}
-      />
-
-      <Regla delay={60} />
+      <div className="animate-rise">
+        <TarjetaHero
+          sobretitulo="Dirección académica"
+          titulo="Feedback de módulo"
+          texto={cohorteActual ? cohorteActual.nombre : 'Elige la cohorte para abrir o revisar su formulario.'}
+          icono={<IconoDuda size={24} />}
+        />
+      </div>
 
       {!cohorteActual && (
-        <Seccion numero={1} titulo="Preguntas del formulario" delay={90}>
+        <SeccionColegable numero={2} titulo="Preguntas del formulario (editar)" delay={90}>
           <p className="text-xs text-zr-text-muted">
             Las mismas preguntas aplican para todas las cohortes. Cada una se responde en escala
             de 1 a 5. Máximo {maxPreguntas} preguntas.
@@ -360,7 +363,7 @@ export default function FeedbackModulos() {
           >
             {guardandoPreguntas ? 'Guardando…' : 'Guardar cambios'}
           </button>
-        </Seccion>
+        </SeccionColegable>
       )}
 
       {!cohorteActual ? (
@@ -421,9 +424,9 @@ export default function FeedbackModulos() {
             </p>
             {bloques.map((b) => (
               <div key={b.moduloId} className="space-y-4">
-                <div className="flex items-baseline justify-between gap-3 border-b border-zr-border pb-2">
-                  <h2 className="text-lg font-bold text-zr-text [overflow-wrap:anywhere]">{b.nombre}</h2>
-                  {b.actual && <span className="shrink-0 text-xs font-bold text-zr-blue-mid">Módulo actual</span>}
+                <div className="flex items-center justify-between gap-3 pt-2">
+                  <h2 className="zr-display text-xl text-zr-text [overflow-wrap:anywhere]">{b.nombre}</h2>
+                  {b.actual && <span className="shrink-0 rounded-full bg-zr-blue/15 px-3 py-1 text-xs font-bold text-zr-blue-mid ring-1 ring-zr-blue/30">Módulo actual</span>}
                 </div>
 
                 <ResultadosFeedback filas={b.filas} />
@@ -432,22 +435,51 @@ export default function FeedbackModulos() {
                   <p className="text-xs text-zr-text-muted">Sin comentarios para mostrar todavía.</p>
                 ) : (
                   [...new Set(b.comentarios.map((c) => c.pregunta))].map((pregunta) => (
-                    <div key={pregunta} className="zr-card space-y-3 p-5">
-                      <p className="text-sm font-semibold text-zr-text [overflow-wrap:anywhere]">{pregunta}</p>
-                      <ul className="space-y-2">
-                        {b.comentarios.filter((c) => c.pregunta === pregunta).map((c, i) => (
-                          <li key={i} className="whitespace-pre-wrap rounded-lg bg-zr-bg px-3 py-2.5 text-sm leading-relaxed text-zr-text [overflow-wrap:anywhere]">
-                            {c.texto}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    <ComentariosPregunta
+                      key={pregunta}
+                      pregunta={pregunta}
+                      textos={b.comentarios.filter((c) => c.pregunta === pregunta).map((c) => c.texto)}
+                    />
                   ))
                 )}
               </div>
             ))}
           </Seccion>
         </>
+      )}
+    </div>
+  )
+}
+
+const VISIBLES = 3
+
+/** Comentarios de una pregunta: burbujas con acento, solo las primeras y un
+ *  "Ver todos" para no aglomerar la pantalla. */
+function ComentariosPregunta({ pregunta, textos }: { pregunta: string; textos: string[] }) {
+  const [todos, setTodos] = useState(false)
+  const lista = todos ? textos : textos.slice(0, VISIBLES)
+  return (
+    <div className="zr-card space-y-4 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <p className="min-w-0 text-sm font-bold text-zr-text [overflow-wrap:anywhere]">{pregunta}</p>
+        <span className="shrink-0 rounded-full bg-zr-blue/15 px-2.5 py-1 text-xs font-bold text-zr-blue-mid">
+          {textos.length} {textos.length === 1 ? 'comentario' : 'comentarios'}
+        </span>
+      </div>
+      <ul className="space-y-3">
+        {lista.map((t, i) => (
+          <li
+            key={i}
+            className="whitespace-pre-wrap rounded-2xl rounded-tl-md bg-zr-blue/8 px-4 py-3 text-sm leading-relaxed text-zr-text ring-1 ring-zr-blue/15 [overflow-wrap:anywhere]"
+          >
+            {t}
+          </li>
+        ))}
+      </ul>
+      {textos.length > VISIBLES && (
+        <button onClick={() => setTodos((v) => !v)} className="min-h-11 w-full rounded-xl text-sm font-bold text-zr-blue-mid">
+          {todos ? 'Ver menos' : `Ver los ${textos.length} comentarios`}
+        </button>
       )}
     </div>
   )

@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/client'
  * la extensión.
  */
 
-export type TipoMaterial = 'pdf' | 'presentacion' | 'documento' | 'imagen' | 'video' | 'audio'
+export type TipoMaterial = 'pdf' | 'presentacion' | 'documento' | 'imagen' | 'video' | 'audio' | 'enlace'
 
 const POR_EXTENSION: Record<string, TipoMaterial> = {
   pdf: 'pdf',
@@ -51,7 +51,85 @@ export function tipoDeArchivo(archivo: File): TipoMaterial | null {
 }
 
 export const ETIQUETA_TIPO: Record<string, string> = {
-  pdf: 'PDF', presentacion: 'PPT', documento: 'DOC', imagen: 'IMG', video: 'VIDEO', audio: 'AUDIO',
+  pdf: 'PDF', presentacion: 'PPT', documento: 'DOC', imagen: 'IMG', video: 'VIDEO', audio: 'AUDIO', enlace: 'VIDEO',
+}
+
+/**
+ * Texto del botón "Ver" según el tipo de material (pedido del coordinador,
+ * nov. 2026): una presentación dice "Ver presentación", no "Ver documento".
+ */
+export const ACCION_VER_TIPO: Record<string, string> = {
+  pdf: 'Ver documento',
+  documento: 'Ver documento',
+  presentacion: 'Ver presentación',
+  imagen: 'Ver imagen',
+  video: 'Ver video',
+  audio: 'Escuchar audio',
+  enlace: 'Ver video',
+}
+
+export function accionVerMaterial(tipo: string): string {
+  return ACCION_VER_TIPO[tipo] ?? 'Ver material'
+}
+
+/** Eyebrow (rótulo pequeño) del material según su tipo, para el recorrido. */
+export const EYEBROW_TIPO: Record<string, string> = {
+  pdf: 'Documento',
+  documento: 'Documento',
+  presentacion: 'Presentación',
+  imagen: 'Imagen',
+  video: 'Video',
+  audio: 'Audio',
+  enlace: 'Video (enlace)',
+}
+
+export function eyebrowMaterial(tipo: string): string {
+  return EYEBROW_TIPO[tipo] ?? 'Material'
+}
+
+/**
+ * YouTube embed (pedido explícito del coordinador, 8-nov-2026): como
+ * alternativa a subir el archivo de video, el profesor pega el link (puede
+ * ser "no listado" -- solo quien tiene el link lo ve). Se guarda en
+ * content_items.external_url con type='enlace' (columna y valor del enum que
+ * ya existían en la base, sin usarse). Se extrae el id del video para
+ * armar la URL de embed de youtube-nocookie.com (sin cookies de rastreo).
+ */
+export function idDeYoutube(url: string): string | null {
+  const m = url.match(
+    /(?:youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+  )
+  return m ? m[1] : null
+}
+
+export function urlEmbedYoutube(videoId: string): string {
+  return `https://www.youtube-nocookie.com/embed/${videoId}`
+}
+
+/**
+ * Google Drive (acuerdo de la reunión del 9-nov-2026): los videos y audios pesan
+ * demasiado para subirlos directo, así que además de YouTube se acepta un link de
+ * Drive. El archivo debe estar compartido como "cualquier persona con el enlace";
+ * se reproduce con el visor de Drive (/preview) dentro de la app.
+ */
+export function idDeDrive(url: string): string | null {
+  const m =
+    url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]{10,})/) ??
+    url.match(/drive\.google\.com\/(?:open|uc)\?(?:[^#]*&)?id=([a-zA-Z0-9_-]{10,})/)
+  return m ? m[1] : null
+}
+
+export function urlEmbedDrive(fileId: string): string {
+  return `https://drive.google.com/file/d/${fileId}/preview`
+}
+
+/** Link de video/audio que el profesor pega: YouTube o Google Drive. */
+export function embedDeEnlace(url: string): { proveedor: 'youtube' | 'drive'; src: string } | null {
+  const yt = idDeYoutube(url)
+  if (yt) return { proveedor: 'youtube', src: urlEmbedYoutube(yt) }
+  const dr = idDeDrive(url)
+  if (dr) return { proveedor: 'drive', src: urlEmbedDrive(dr) }
+  return null
 }
 
 /** Ruta en Storage: el nombre se limpia SOLO para la ruta; el original va en la fila. */
@@ -118,5 +196,35 @@ export async function registrarEvento(e: {
     })
   } catch {
     // las métricas jamás bloquean al estudiante
+  }
+}
+
+/** Cualquier link http(s) (Google Fotos, una página, etc.): se muestra como tarjeta "Abrir enlace". */
+export function enlaceWebValido(url: string): string | null {
+  try {
+    const u = new URL(url.trim())
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u.toString() : null
+  } catch {
+    return null
+  }
+}
+
+/** Link directo a una imagen (.jpg, .png, ... o un servidor de imágenes de Google). */
+export function esImagenDirecta(url: string): boolean {
+  try {
+    const u = new URL(url.trim())
+    return /\.(jpe?g|png|gif|webp|avif|bmp)$/i.test(u.pathname) || u.hostname.endsWith('googleusercontent.com')
+  } catch {
+    return false
+  }
+}
+
+/** Link compartido de Google Fotos (se resuelve a la imagen en el servidor). */
+export function esGoogleFotos(url: string): boolean {
+  try {
+    const h = new URL(url.trim()).hostname
+    return h === 'photos.app.goo.gl' || h === 'photos.google.com'
+  } catch {
+    return false
   }
 }

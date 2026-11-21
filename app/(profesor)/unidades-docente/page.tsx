@@ -2,12 +2,15 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { SelectorBloqueo } from '@/components/ui/SelectorBloqueo'
+import { certificacionesDelModulo, valorAColumnas, type OpcionCertificacion } from '@/lib/bloqueo-unidad'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla, Etiqueta } from '@/components/ui/Editorial'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { ContextoDocente, type ContextoSel } from '@/components/ui/ContextoDocente'
 import { IconoChevron } from '@/components/ui/Iconos'
 import { estadoUnidad } from '@/lib/estado-unidad'
+import { eliminarUnidad, renombrarUnidad, resumenAntesDeEliminar, type ResumenUnidad } from '@/lib/eliminar-unidad'
 
 /**
  * Aula Virtual — el profesor crea y administra las unidades de su módulo.
@@ -30,7 +33,94 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
   const [creando, setCreando] = useState(false)
   const [titulo, setTitulo] = useState('')
   const [formAbierto, setFormAbierto] = useState(false)
+  const [certs, setCerts] = useState<OpcionCertificacion[]>([])
+  const [bloqueo, setBloqueo] = useState('none')
   const [error, setError] = useState<string | null>(null)
+
+  // Renombrar/eliminar unidad (pedido explícito del coordinador, 7-nov-2026:
+  // "si quiero eliminar inglés 1 etcétera").
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [tituloEdicion, setTituloEdicion] = useState('')
+  const [borrandoId, setBorrandoId] = useState<string | null>(null)
+  const [resumenBorrado, setResumenBorrado] = useState<ResumenUnidad | null>(null)
+  const [cargandoResumen, setCargandoResumen] = useState(false)
+  const [guardandoAccion, setGuardandoAccion] = useState(false)
+  const [errorAccion, setErrorAccion] = useState<string | null>(null)
+
+  // Plantillas de unidad (reunión 14-nov-2026): guardar una unidad como
+  // plantilla propia y traerla a otro programa/módulo con todo su contenido.
+  const [plantillas, setPlantillas] = useState<{ id: string; title: string; created_at: string }[]>([])
+  const [plantillasAbierto, setPlantillasAbierto] = useState(false)
+  const [importandoId, setImportandoId] = useState<string | null>(null)
+  const [guardandoPlantillaId, setGuardandoPlantillaId] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
+
+  async function cargarPlantillas() {
+    const { data } = await createClient()
+      .from('unit_templates' as never)
+      .select('id, title, created_at')
+      .order('created_at', { ascending: false }) as { data: { id: string; title: string; created_at: string }[] | null }
+    setPlantillas(data ?? [])
+  }
+
+  async function guardarPlantilla(u: UnidadFila) {
+    setGuardandoPlantillaId(u.id)
+    setAviso(null)
+    const { error: err } = await createClient().rpc('fn_guardar_plantilla_unidad' as never, { p_unit: u.id } as never)
+    setGuardandoPlantillaId(null)
+    if (err) { setAviso(`No se pudo guardar la plantilla: ${err.message}`); return }
+    setAviso(`Plantilla de "${u.title}" guardada en tu perfil.`)
+    await cargarPlantillas()
+  }
+
+  async function importarPlantilla(id: string) {
+    setImportandoId(id)
+    setError(null)
+    const { error: err } = await createClient().rpc('fn_importar_plantilla_unidad' as never, {
+      p_template: id, p_module: ctx.moduleId, p_cohort: ctx.cohortId,
+    } as never)
+    setImportandoId(null)
+    if (err) { setError(err.message); return }
+    setPlantillasAbierto(false)
+    setAviso('Unidad agregada desde tu plantilla. Los exámenes llegan sin publicar y las tareas con 0 %: ajústalos antes de abrirla.')
+    await cargar()
+  }
+
+  function limpiarAcciones() {
+    setEditandoId(null)
+    setBorrandoId(null)
+    setResumenBorrado(null)
+    setErrorAccion(null)
+  }
+
+  async function abrirBorrado(u: UnidadFila) {
+    setEditandoId(null)
+    setBorrandoId(u.id)
+    setErrorAccion(null)
+    setCargandoResumen(true)
+    setResumenBorrado(await resumenAntesDeEliminar(u.id))
+    setCargandoResumen(false)
+  }
+
+  async function confirmarRenombrar() {
+    if (!editandoId) return
+    setGuardandoAccion(true)
+    const { error: err } = await renombrarUnidad(editandoId, tituloEdicion)
+    setGuardandoAccion(false)
+    if (err) { setErrorAccion(err); return }
+    limpiarAcciones()
+    await cargar()
+  }
+
+  async function confirmarBorrado() {
+    if (!borrandoId) return
+    setGuardandoAccion(true)
+    const { error: err } = await eliminarUnidad(borrandoId)
+    setGuardandoAccion(false)
+    if (err) { setErrorAccion(err); return }
+    limpiarAcciones()
+    await cargar()
+  }
 
   async function cargar() {
     const supabase = createClient()
@@ -38,11 +128,19 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
       .from('units')
       .select('id, title, order_index, open_at, close_at, manual_status')
       .eq('module_id', ctx.moduleId)
+      // Unidades por corte (migr. 241): las de este corte y las generales.
+      .or(`cohort_id.is.null,cohort_id.eq.${ctx.cohortId}`)
       .order('order_index', { ascending: true })
     setUnidades((data ?? []) as UnidadFila[])
+    // Certificaciones ya existentes en el módulo: la nueva unidad puede
+    // depender de una (la última por defecto) o abrirse libre.
+    const cs = await certificacionesDelModulo(supabase, ctx.moduleId, undefined, ctx.cohortId)
+    setCerts(cs)
+    setBloqueo(cs.length > 0 ? cs[cs.length - 1].id : 'none')
     setCargando(false)
   }
 
+  useEffect(() => { cargarPlantillas() }, []) // eslint-disable-line react-hooks/set-state-in-effect
   useEffect(() => { cargar() }, [ctx.moduleId]) // eslint-disable-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
 
   async function crearUnidad() {
@@ -50,17 +148,27 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
     setCreando(true)
     setError(null)
     const supabase = createClient()
-    const siguienteOrden = unidades.length > 0 ? Math.max(...unidades.map((u) => u.order_index)) + 1 : 1
-    const { error: err } = await supabase.from('units').insert({
+    // El orden es único por MÓDULO (también cuenta las unidades de los otros
+    // cortes, que aquí no se listan), así que se toma el máximo real.
+    const { data: ultima } = await supabase.from('units').select('order_index')
+      .eq('module_id', ctx.moduleId).order('order_index', { ascending: false }).limit(1).maybeSingle()
+    const siguienteOrden = (ultima?.order_index ?? 0) + 1
+    const { data: nueva, error: err } = await supabase.from('units').insert({
       module_id: ctx.moduleId,
+      cohort_id: ctx.cohortId,
       title: titulo.trim(),
       order_index: siguienteOrden,
-    })
+      ...(certs.length > 0 ? valorAColumnas(bloqueo) : {}),
+    } as never).select('id').single()
     if (err) {
       setError(err.message)
     } else {
       setTitulo('')
       setFormAbierto(false)
+      // Directo a armarla (19-nov-2026): antes se quedaba en la lista y había
+      // que buscarla y abrirla para empezar a cargarle contenido.
+      const id = (nueva as { id: string } | null)?.id
+      if (id) { window.location.href = `/unidades-docente/${id}?editar=1`; return }
       await cargar()
     }
     setCreando(false)
@@ -69,19 +177,56 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
   if (cargando) return <PantallaEsqueleto variante="lista" />
 
   return (
-    <div className="space-y-11">
+    <div className="space-y-11 px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
+      {/* Bug real reportado en la reunión del 7-nov-2026: esta pantalla no
+          tenía NINGÚN padding propio -- a diferencia de las otras pantallas
+          de docencia que también usan ContextoDocente (contenido-docente,
+          dudas-docente, feedback-modulo-docente, temario-docente), esta le
+          dejaba el margen entero a ContextoDocente, que no le da ninguno
+          cuando el programa/módulo ya está elegido. El texto quedaba pegado
+          a los bordes de la pantalla. */}
       {/* Pedido explícito del coordinador (reunión 31-oct-2026): examen y
           material se crean DENTRO de la unidad -- no hacen falta botones de
           crear/subir fuera de ella. (Los que estaban aquí, de la tarde
           anterior, se quitan.) */}
-      <Seccion numero={1} titulo="Nueva unidad" delay={60}>
+      <Seccion numero={1} titulo="Nueva unidad" delay={60} tourId="td-nueva">
+        {aviso && <p className="mb-3 rounded-lg border border-zr-border bg-zr-surface p-3 text-sm text-zr-text">{aviso}</p>}
         {!formAbierto ? (
+          <div className="space-y-3">
           <button
             onClick={() => setFormAbierto(true)}
             className="min-h-14 w-full rounded-lg border border-dashed border-zr-border text-sm font-bold text-zr-text-muted"
           >
             + Agregar unidad
           </button>
+          <button
+            onClick={() => setPlantillasAbierto((v) => !v)}
+            className="min-h-14 w-full rounded-lg border border-dashed border-zr-border text-sm font-bold text-zr-text-muted"
+          >
+            + Agregar unidad ya creada (mis plantillas)
+          </button>
+          {plantillasAbierto && (
+            <div className="zr-card space-y-2 p-4">
+              {plantillas.length === 0 ? (
+                <p className="text-sm text-zr-text-muted">
+                  Aún no tienes plantillas. En cualquier unidad toca &quot;Guardar plantilla&quot; y aparecerá aquí.
+                </p>
+              ) : plantillas.map((t) => (
+                <div key={t.id} className="flex items-center justify-between gap-3 border-b border-zr-border pb-2 last:border-0 last:pb-0">
+                  <p className="min-w-0 break-words text-sm font-semibold text-zr-text">{t.title}</p>
+                  <button
+                    onClick={() => importarPlantilla(t.id)}
+                    disabled={importandoId !== null}
+                    className="shrink-0 rounded-lg bg-zr-blue px-4 py-2 text-xs font-bold text-white disabled:opacity-40"
+                  >
+                    {importandoId === t.id ? 'Agregando…' : 'Agregar'}
+                  </button>
+                </div>
+              ))}
+              {error && <p className="text-sm text-zr-error">{error}</p>}
+            </div>
+          )}
+          </div>
         ) : (
           <div className="zr-card space-y-4 p-5">
             <div>
@@ -93,6 +238,14 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
                 className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
               />
             </div>
+            {certs.length > 0 && (
+              <div className="rounded-xl border border-zr-border bg-zr-surface/40 p-4">
+                <p className="mb-3 text-sm text-zr-text">
+                  Este módulo ya tiene {certs.length === 1 ? 'una certificación' : `${certs.length} certificaciones`}. ¿Cómo la enlazamos con esta unidad nueva?
+                </p>
+                <SelectorBloqueo opciones={certs} valor={bloqueo} onChange={setBloqueo} />
+              </div>
+            )}
             <p className="text-xs text-zr-text-muted">
               Se crea como borrador (no la ve ningún estudiante). Entra a la unidad para agregar
               material, examen o tarea, y para programar cuándo se abre.
@@ -119,26 +272,127 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
 
       <Regla delay={100} />
 
-      <Seccion numero={2} titulo="Unidades de este módulo" delay={140}>
+      <Seccion numero={2} titulo="Unidades de este módulo" delay={140} tourId="td-lista">
         {unidades.length === 0 ? (
           <p className="text-sm text-zr-text-muted">Todavía no has creado ninguna unidad.</p>
         ) : (
           <div className="space-y-3">
             {unidades.map((u, i) => {
               const estado = estadoUnidad(u.open_at, u.close_at, u.manual_status)
+              const editandoEsta = editandoId === u.id
+              const borrandoEsta = borrandoId === u.id
               return (
-                <Link
-                  key={u.id}
-                  href={`/unidades-docente/${u.id}`}
-                  className="zr-card zr-card-interactive flex items-center justify-between gap-3 p-5"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold uppercase tracking-wider text-zr-text-muted">Unidad {i + 1}</p>
-                    <p className="mt-1 break-words text-base font-bold text-zr-text">{u.title}</p>
-                    <div className="mt-2"><Etiqueta tono={estado.tono}>{estado.texto}</Etiqueta></div>
+                <div key={u.id} className="zr-card space-y-3 p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <Link href={`/unidades-docente/${u.id}`} className="min-w-0 flex-1" data-tour-target={i === 0 ? 'td-primera-unidad' : undefined}>
+                      <p className="text-xs font-bold uppercase tracking-wider text-zr-text-muted">Unidad {i + 1}</p>
+                      <p className="mt-1 break-words text-base font-bold text-zr-text">{u.title}</p>
+                      <div className="mt-2"><Etiqueta tono={estado.tono}>{estado.texto}</Etiqueta></div>
+                    </Link>
+                    <Link href={`/unidades-docente/${u.id}`}>
+                      <IconoChevron size={20} className="shrink-0 text-zr-text-muted" />
+                    </Link>
                   </div>
-                  <IconoChevron size={20} className="shrink-0 text-zr-text-muted" />
-                </Link>
+
+                  {!editandoEsta && !borrandoEsta && (
+                    <div className="flex flex-wrap gap-3 border-t border-zr-border pt-3">
+                      <button
+                        onClick={() => { limpiarAcciones(); setEditandoId(u.id); setTituloEdicion(u.title) }}
+                        className="min-h-10 flex-1 rounded-lg border border-zr-border text-sm font-semibold text-zr-text"
+                      >
+                        Corregir nombre
+                      </button>
+                      <button
+                        onClick={() => guardarPlantilla(u)}
+                        disabled={guardandoPlantillaId !== null}
+                        className="min-h-10 flex-1 rounded-lg border border-zr-border text-sm font-semibold text-zr-text disabled:opacity-40"
+                      >
+                        {guardandoPlantillaId === u.id ? 'Guardando…' : 'Guardar plantilla'}
+                      </button>
+                      <button
+                        onClick={() => abrirBorrado(u)}
+                        className="min-h-10 flex-1 rounded-lg border border-zr-error/40 text-sm font-semibold text-zr-error"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  )}
+
+                  {editandoEsta && (
+                    <div className="space-y-3 border-t border-zr-border pt-3">
+                      <input
+                        value={tituloEdicion}
+                        onChange={(e) => setTituloEdicion(e.target.value)}
+                        className="min-h-12 w-full rounded-lg border border-zr-border bg-zr-bg px-4 text-sm text-zr-text outline-none focus:border-zr-blue"
+                      />
+                      {errorAccion && <p className="text-sm font-medium text-zr-error">{errorAccion}</p>}
+                      <div className="flex gap-3">
+                        <button
+                          onClick={limpiarAcciones}
+                          className="min-h-11 flex-1 rounded-lg border border-zr-border text-sm font-semibold text-zr-text"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={confirmarRenombrar}
+                          disabled={!tituloEdicion.trim() || guardandoAccion}
+                          className="min-h-11 flex-1 rounded-lg bg-zr-blue text-sm font-bold text-white disabled:opacity-40"
+                        >
+                          {guardandoAccion ? 'Guardando…' : 'Guardar'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {borrandoEsta && (
+                    <div className="space-y-3 border-t border-zr-border pt-3">
+                      <div className="rounded-lg border border-zr-error/30 bg-zr-error/10 p-4">
+                        <p className="text-sm font-medium text-zr-error">
+                          ¿Eliminar &quot;{u.title}&quot;? No se puede deshacer.
+                        </p>
+                        {cargandoResumen ? (
+                          <p className="mt-2 text-xs text-zr-text-muted">Revisando qué tiene dentro…</p>
+                        ) : resumenBorrado && (
+                          <ul className="mt-2 space-y-1 text-xs text-zr-text-muted">
+                            {resumenBorrado.materialesEnlazados > 0 && (
+                              <li>{resumenBorrado.materialesEnlazados} material{resumenBorrado.materialesEnlazados === 1 ? '' : 'es'} enlazado{resumenBorrado.materialesEnlazados === 1 ? '' : 's'} (no se borra, solo se desenlaza)</li>
+                            )}
+                            {resumenBorrado.examenesEnlazados > 0 && (
+                              <li>{resumenBorrado.examenesEnlazados} examen{resumenBorrado.examenesEnlazados === 1 ? '' : 'es'} enlazado{resumenBorrado.examenesEnlazados === 1 ? '' : 's'} (no se borra, solo se desenlaza)</li>
+                            )}
+                            {resumenBorrado.tareas > 0 && (
+                              <li className="font-semibold text-zr-error">
+                                {resumenBorrado.tareas} tarea{resumenBorrado.tareas === 1 ? '' : 's'} con {resumenBorrado.entregas} entrega{resumenBorrado.entregas === 1 ? '' : 's'} de estudiantes -- se borran para siempre
+                              </li>
+                            )}
+                            {resumenBorrado.bloquesTexto > 0 && (
+                              <li>{resumenBorrado.bloquesTexto} bloque{resumenBorrado.bloquesTexto === 1 ? '' : 's'} de texto -- se borra{resumenBorrado.bloquesTexto === 1 ? '' : 'n'}</li>
+                            )}
+                            {resumenBorrado.dudas > 0 && (
+                              <li>{resumenBorrado.dudas} duda{resumenBorrado.dudas === 1 ? '' : 's'} -- se queda{resumenBorrado.dudas === 1 ? '' : 'n'}, sin esta unidad</li>
+                            )}
+                          </ul>
+                        )}
+                      </div>
+                      {errorAccion && <p className="text-sm font-medium text-zr-error">{errorAccion}</p>}
+                      <div className="flex gap-3">
+                        <button
+                          onClick={limpiarAcciones}
+                          className="min-h-11 flex-1 rounded-lg border border-zr-border text-sm font-semibold text-zr-text"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={confirmarBorrado}
+                          disabled={guardandoAccion || cargandoResumen}
+                          className="min-h-11 flex-1 rounded-lg bg-zr-error text-sm font-bold text-white disabled:opacity-40"
+                        >
+                          {guardandoAccion ? 'Eliminando…' : 'Sí, eliminar'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )
             })}
           </div>
@@ -150,7 +404,7 @@ function UnidadesInterno({ ctx }: { ctx: ContextoSel }) {
 
 export default function UnidadesDocente() {
   return (
-    <ContextoDocente sobretitulo="Aula Virtual" titulo="Unidades">
+    <ContextoDocente sobretitulo="Mi módulo" titulo="Unidades">
       {(ctx) => <UnidadesInterno ctx={ctx} />}
     </ContextoDocente>
   )

@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
-import { BotonVolver } from '@/components/ui/BotonVolver'
 
 type EstadoExamen = 'oculto' | 'habilitado' | 'cerrado' | 'calificado'
 
@@ -62,11 +61,16 @@ export default function ExamenesProfesor() {
         return
       }
 
-      const { data } = await supabase
+      // Dirección Académica y super_admin ven los de todos (la RLS ya se lo
+      // permite); el profesor, solo los suyos.
+      const { data: perfil } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      const veTodos = perfil?.role === 'direccion_academica' || perfil?.role === 'super_admin' || perfil?.role === 'admin'
+      let consulta = supabase
         .from('exams')
         .select('id, title, status, max_score, module_id, modules(name), exam_questions(points)')
-        .eq('teacher_id', user.id)
         .order('created_at', { ascending: false })
+      if (!veTodos) consulta = consulta.eq('teacher_id', user.id)
+      const { data } = await consulta
 
       if (!vigente) return
 
@@ -149,56 +153,63 @@ export default function ExamenesProfesor() {
     setOcupado(null)
   }
 
+  // "Usar en otro corte" (19-nov-2026). Antes "Duplicar para otro programa"
+  // copiaba en el MISMO corte y perdía tipo, intentos, % y el enlace con la
+  // unidad. Como los exámenes son por corte y las unidades se comparten entre
+  // cortes del mismo módulo, un corte nuevo (p. ej. Inglés virtual para
+  // PTMA-2026-II) necesita su propia copia enganchada en la misma unidad.
+  const [destino, setDestino] = useState<{ examen: Examen; opciones: { id: string; nombre: string }[]; origen: string | null } | null>(null)
+
   async function duplicar(examen: Examen) {
+    setError(null)
+    const supabase = createClient()
+    const { data: original } = await supabase.from('exams').select('cohort_id, module_id').eq('id', examen.id).single()
+    if (!original) return
+    const { data: mod } = await supabase.from('modules').select('program_id').eq('id', original.module_id).single()
+    const { data: cohs } = await supabase
+      .from('cohorts').select('id, name').eq('status', 'activa').eq('program_id', mod?.program_id ?? '').order('name')
+    setDestino({ examen, opciones: (cohs ?? []).map((c) => ({ id: c.id, nombre: c.name })), origen: original.cohort_id })
+  }
+
+  async function duplicarEn(examen: Examen, cohortId: string) {
     setOcupado(examen.id)
     setError(null)
-
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    const { data: original } = await supabase.from('exams').select('*').eq('id', examen.id).single()
+    if (!original) { setOcupado(null); return }
 
-    const { data: original } = await supabase
-      .from('exams')
-      .select('*')
-      .eq('id', examen.id)
-      .single()
-
-    if (!original) {
-      setOcupado(null)
-      return
+    const mismoCorte = cohortId === original.cohort_id
+    // Copia completa: todo lo del examen salvo identidad y fechas de sistema.
+    const { id: _id, created_at: _c, updated_at: _u, published_at: _p, published_by: _pb, ...resto } =
+      original as unknown as Record<string, unknown> & { id: string; created_at?: string; updated_at?: string; published_at?: string; published_by?: string }
+    void _id; void _c; void _u; void _p; void _pb
+    const base = {
+      ...resto,
+      title: mismoCorte ? `${original.title} (copia)` : original.title,
+      cohort_id: cohortId,
+      teacher_id: user.id,
+      status: 'oculto',
     }
-
-    const { data: copia, error: falloExamen } = await supabase
-      .from('exams')
-      .insert({
-        title: `${original.title} (copia)`,
-        module_id: original.module_id,
-        cohort_id: original.cohort_id,
-        teacher_id: user.id,
-        instructions: original.instructions,
-        max_score: original.max_score,
-        passing_score: original.passing_score,
-        duration_minutes: original.duration_minutes,
-        status: 'oculto',
-      })
-      .select()
-      .single()
-
+    let { data: copia, error: falloExamen } = await supabase.from('exams').insert(base as never).select().single()
+    let avisoPeso = false
+    if (falloExamen && /100|suma|porcentaje|%/i.test(falloExamen.message)) {
+      // El % no cabe en Notas de ese corte: se crea igual, con 0 %, y se avisa.
+      ;({ data: copia, error: falloExamen } = await supabase.from('exams').insert({ ...base, weight: 0 } as never).select().single())
+      avisoPeso = true
+    }
     if (falloExamen || !copia) {
-      setError(falloExamen?.message ?? 'No se pudo duplicar el examen.')
+      setError(falloExamen?.message ?? 'No se pudo copiar el examen.')
       setOcupado(null)
       return
     }
 
-    const { data: preguntas } = await supabase
-      .from('exam_questions')
-      .select('*')
-      .eq('exam_id', examen.id)
-
+    const { data: preguntas } = await supabase.from('exam_questions').select('*').eq('exam_id', examen.id)
     if (preguntas?.length) {
       await supabase.from('exam_questions').insert(
         preguntas.map((q) => ({
-          exam_id: copia.id,
+          exam_id: copia!.id,
           order_index: q.order_index,
           type: q.type,
           statement: q.statement,
@@ -211,6 +222,22 @@ export default function ExamenesProfesor() {
       )
     }
 
+    // Se engancha en la misma unidad, justo donde estaba el original.
+    const unidad = (original as unknown as { unit_id: string | null }).unit_id
+    if (unidad) {
+      const { siguienteOrdenUnidad } = await import('@/lib/unidad-orden')
+      await supabase.from('unit_items').insert({
+        unit_id: unidad, type: 'quiz', exam_id: copia.id, order_index: await siguienteOrdenUnidad(supabase, unidad),
+      } as never)
+    }
+
+    // Publicado si el original lo estaba (los puntos ya cuadraban).
+    if (original.status === 'habilitado' && !mismoCorte) {
+      await supabase.from('exams').update({ status: 'habilitado' }).eq('id', copia.id)
+    }
+
+    if (avisoPeso) setError('Se copió, pero con 0 % en Notas: el % del original no cabía en ese corte. Ajústalo en «Editar».')
+    setDestino(null)
     setVersion((v) => v + 1)
     setOcupado(null)
   }
@@ -301,7 +328,7 @@ export default function ExamenesProfesor() {
                 disabled={ocupado === e.id}
                 className="flex-1 rounded-lg border border-zr-border px-4 py-3 text-sm font-semibold text-zr-text transition-colors hover:border-zr-blue/45 disabled:opacity-40"
               >
-                {ocupado === e.id ? 'Duplicando…' : 'Duplicar para otro programa'}
+                {ocupado === e.id ? 'Copiando…' : 'Usar en otro corte'}
               </button>
               <button
                 onClick={async () => {
@@ -336,24 +363,46 @@ export default function ExamenesProfesor() {
   }
 
   return (
-    <div className="space-y-11 px-5 pt-14">
-      {/* Vuelve a Material. En producción el Aula Virtual está solo en staging
-          (hotfix 7-nov-2026), así que el "volver" apunta a /contenido-docente
-          en vez de /unidades-docente. */}
-      <BotonVolver href="/contenido-docente" />
-
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
+      {destino && (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60" onClick={() => setDestino(null)}>
+          <div
+            className="w-full max-w-md space-y-3 rounded-t-3xl border border-zr-border bg-zr-bg p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            <p className="text-sm font-bold text-zr-text">¿Para qué corte es «{destino.examen.titulo}»?</p>
+            <p className="text-xs text-zr-text-muted">
+              Se copia completo (preguntas, tipo, intentos y %) y queda en la misma unidad. Cada corte ve solo su examen.
+            </p>
+            <div className="space-y-2">
+              {destino.opciones.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => duplicarEn(destino.examen, c.id)}
+                  disabled={ocupado === destino.examen.id}
+                  className="flex min-h-12 w-full items-center justify-between rounded-xl border border-zr-border px-4 text-left text-sm font-semibold text-zr-text disabled:opacity-50"
+                >
+                  <span>{c.nombre}</span>
+                  {c.id === destino.origen && <span className="text-xs text-zr-text-muted">copia en el mismo corte</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Bug real reportado en vivo (8-nov-2026): no había ningún acceso a
+          esta pantalla desde el menú -- un examen creado dentro de una
+          unidad se quedaba sin publicar porque no había forma de
+          encontrar dónde publicarlo. Ahora es una pestaña fija ("Exámenes"
+          en app/(profesor)/layout.tsx), así que ya no hace falta
+          BotonVolver (las pestañas principales no lo llevan).
+          Pedido explícito, mismo reporte: aquí SOLO se ve/edita/publica/
+          borra lo que ya existe -- crear un examen nuevo sigue siendo
+          solo desde dentro de una unidad, en Aula Virtual. */}
       <Encabezado
         sobretitulo="Docencia"
         titulo="Exámenes"
         descripcion={`${examenes.length} en total · ${borradores.length} sin publicar`}
-        accion={
-          <button
-            onClick={() => router.push('/crear-examen/nuevo')}
-            className="rounded-lg bg-zr-blue px-6 py-3.5 text-sm font-bold text-white transition-colors hover:bg-zr-blue-deep"
-          >
-            Crear examen
-          </button>
-        }
       />
 
       {/* Barra de selección masiva */}
@@ -392,14 +441,14 @@ export default function ExamenesProfesor() {
         <div className="zr-card animate-rise p-12 text-center" style={{ animationDelay: '120ms' }}>
           <p className="text-lg font-semibold text-zr-text">Todavía no has creado exámenes</p>
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-zr-text-muted">
-            Un examen se arma una vez y se duplica para cada programa. Las preguntas de opción
-            múltiple y verdadero/falso se califican solas; tú solo revisas las redacciones.
+            Un examen se crea desde dentro de una unidad, en Aula Virtual -- aquí aparece apenas
+            lo crees, para que lo publiques, lo edites o lo borres.
           </p>
           <button
-            onClick={() => router.push('/crear-examen/nuevo')}
+            onClick={() => router.push('/unidades-docente')}
             className="mt-8 rounded-lg bg-zr-blue px-6 py-3.5 text-sm font-bold text-white transition-colors hover:bg-zr-blue-deep"
           >
-            Crear el primero
+            Ir a Aula Virtual
           </button>
         </div>
       ) : (

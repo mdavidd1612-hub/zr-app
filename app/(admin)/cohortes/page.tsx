@@ -9,6 +9,7 @@ import { BotonVolver } from '@/components/ui/BotonVolver'
 import { EtiquetaSede } from '@/components/ui/EtiquetaSede'
 import { ordenarCohortesPorPrioridad } from '@/lib/cohortes'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
+import { NuevoCurso } from '@/components/NuevoCurso'
 
 /**
  * T-211 · Gestión de cohortes.
@@ -31,6 +32,7 @@ interface Cohorte {
   estudiantes: number
   estado: string
   programaId: string | null
+  moduloSinProfesor: boolean
 }
 
 interface Modulo { id: string; name: string; order_index: number; program_id: string }
@@ -41,7 +43,7 @@ export default function Cohortes() {
   const [cohortes, setCohortes] = useState<Cohorte[]>([])
   const [modulos, setModulos] = useState<Modulo[]>([])
   const [profesores, setProfesores] = useState<Profesor[]>([])
-  const [programas, setProgramas] = useState<{ id: string; name: string }[]>([])
+  const [programas, setProgramas] = useState<{ id: string; name: string; tipo?: string }[]>([])
   const [programaId, setProgramaId] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const [version, setVersion] = useState(0)
@@ -65,6 +67,12 @@ export default function Cohortes() {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [creada, setCreada] = useState<string | null>(null)
+  // Un curso corto tiene un solo módulo: se elige solo como inicial.
+  useEffect(() => {
+    if (programas.find((x) => x.id === programaId)?.tipo !== 'curso') return
+    const unico = modulos.find((m) => m.program_id === programaId)
+    if (unico) setModuloNueva(unico.id)
+  }, [programaId, programas, modulos])
 
   const [confirmandoAvance, setConfirmandoAvance] = useState<string | null>(null)
 
@@ -79,7 +87,7 @@ export default function Cohortes() {
         return
       }
 
-      const [{ data: cohs }, { data: mods }, { data: profs }, { data: programa }, { data: sedesActivas }] = await Promise.all([
+      const [{ data: cohs }, { data: mods }, { data: profs }, { data: programa }, { data: sedesActivas }, { data: asigs }] = await Promise.all([
         supabase.from('cohorts').select('id, name, location, sede, turno, current_module_id, teacher_id, status, program_id, modules(name), teachers(profiles(full_name)), students(id)'),
         // Bug real (multi-programa, nov 2026): sin filtrar por programa, esta
         // lista mezclaba los módulos de TODOS los programas en un solo
@@ -93,9 +101,11 @@ export default function Cohortes() {
         // el primer programa que devolviera la base, así que una cohorte de PFTA
         // podía quedar colgada de PTMA — y el prefijo del carnet sale del
         // programa. Ahora se eligen todos y el usuario dice cuál.
-        supabase.from('programs').select('id, name').order('name'),
+        supabase.from('programs').select('id, name, tipo').order('name'),
         // R-20: catálogo de sedes, no las que ya usaron cohortes existentes.
         supabase.from('sedes').select('nombre').eq('activa', true).order('nombre'),
+        // Para avisar si el módulo que cursa un corte no tiene profesor (20-nov-2026).
+        supabase.from('teacher_module_assignments').select('cohort_id, module_id'),
       ])
 
       if (!vigente) return
@@ -122,6 +132,7 @@ export default function Cohortes() {
           estudiantes: c.students?.length ?? 0,
           estado: c.status,
           programaId: c.program_id,
+          moduloSinProfesor: Boolean(c.current_module_id) && !(asigs ?? []).some((a) => a.cohort_id === c.id && a.module_id === c.current_module_id),
         })),
       )
 
@@ -129,8 +140,9 @@ export default function Cohortes() {
       const listaProfes = (profs as unknown as { id: string; profiles: { full_name: string } | null }[] | null) ?? []
       setProfesores(listaProfes.map((p) => ({ id: p.id, full_name: p.profiles?.full_name ?? 'Sin nombre' })))
 
-      setProgramas(programa ?? [])
-      setProgramaId((actual) => actual ?? programa?.[0]?.id ?? null)
+      const progs = (programa ?? []) as unknown as { id: string; name: string; tipo?: string }[]
+      setProgramas(progs)
+      setProgramaId((actual) => actual ?? progs[0]?.id ?? null)
 
       setSedesConocidas((sedesActivas ?? []).map((s) => s.nombre))
 
@@ -213,11 +225,11 @@ export default function Cohortes() {
   }
 
   return (
-    <div className="space-y-11 px-5 pt-14">
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <BotonVolver href="/panel" />
 
       <Encabezado
-        sobretitulo="Administración"
+        sobretitulo="Gestión académica"
         titulo="Programas"
         descripcion={`${cohortes.length} en total`}
         accion={
@@ -231,6 +243,16 @@ export default function Cohortes() {
       />
 
       <Regla delay={60} />
+
+      <NuevoCurso onCreado={(p) => {
+        setProgramas((lista) => [...lista, p])
+        // El módulo del curso se creó recién: se agrega a la lista para poder elegirlo como inicial.
+        void createClient().from('modules').select('id, name, order_index, program_id').eq('program_id', p.id)
+          .then(({ data }) => setModulos((lista) => [...lista, ...((data ?? []) as Modulo[])]))
+        setProgramaId(p.id)
+        setCreando(true)
+        setCreada(`Curso "${p.name}" creado. Ahora ábrele su primer corte aquí abajo.`)
+      }} />
 
       {creada && (
         <p className="rounded-lg border border-zr-success/30 bg-zr-success/12 px-4 py-3 text-sm font-medium text-zr-success">
@@ -248,11 +270,11 @@ export default function Cohortes() {
               className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
             >
               {programas.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+                <option key={p.id} value={p.id}>{p.tipo === 'curso' ? `Curso corto · ${p.name}` : p.name}</option>
               ))}
             </Select>
             <p className="mt-1.5 text-xs text-zr-text-muted">
-              Define el prefijo del carnet de sus estudiantes (PTMA o PFTA).
+              Define el prefijo del carnet de sus estudiantes (PTMA, PFTA o las siglas del curso).
             </p>
           </div>
           <div>
@@ -349,20 +371,6 @@ export default function Cohortes() {
               ))}
             </Select>
           </div>
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Profesor</label>
-            <Select
-              value={profesorNueva}
-              onChange={(e) => setProfesorNueva(e.target.value)}
-              className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text focus:border-zr-blue focus:outline-none"
-            >
-              <option value="">Sin asignar</option>
-              {profesores.map((p) => (
-                <option key={p.id} value={p.id}>{p.full_name}</option>
-              ))}
-            </Select>
-          </div>
-
           {error && <p className="text-sm font-medium text-zr-error">{error}</p>}
 
           <button
@@ -387,7 +395,9 @@ export default function Cohortes() {
                 <div className="p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-base font-semibold text-zr-text">{c.nombre}</p>
+                      <button onClick={() => router.push(`/cohortes/${c.id}`)} className="text-left text-base font-semibold text-zr-text hover:text-zr-blue-mid">
+                        {c.nombre} <span className="text-xs font-bold text-zr-blue-mid">· Abrir ficha ›</span>
+                      </button>
                       <div className="mt-1.5"><EtiquetaSede sede={c.sede} turno={c.turno} /></div>
                       <p className="mt-1.5 text-sm text-zr-text-muted">{c.ubicacion ?? 'Sin ubicación'}</p>
                     </div>
@@ -404,22 +414,22 @@ export default function Cohortes() {
                       <p className="mt-1 text-sm font-medium text-zr-text">{c.estudiantes}</p>
                     </div>
                   </div>
+                  {c.estado === 'activa' && c.moduloSinProfesor && (
+                    <p className="mt-4 rounded-lg border border-zr-warning/40 bg-zr-warning/10 px-3 py-2 text-xs font-semibold text-zr-text">
+                      Está cursando {c.moduloNombre} sin profesor asignado. Asígnalo en la ficha del corte.
+                    </p>
+                  )}
+                  {c.estado === 'activa' && !c.moduloId && (
+                    <p className="mt-4 rounded-lg border border-zr-warning/40 bg-zr-warning/10 px-3 py-2 text-xs font-semibold text-zr-text">
+                      Esta cohorte está activa pero no tiene módulo actual: no habrá clase de hoy ni aparecerá en el QR hasta que le inicies un módulo.
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-3 border-t border-zr-border bg-zr-bg/40 p-4">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-zr-text-muted">Profesor</label>
-                    <Select
-                      value={c.profesorId ?? ''}
-                      onChange={(e) => asignarProfesor(c.id, e.target.value)}
-                      className="w-full rounded-lg border border-zr-border bg-zr-surface px-3 py-2.5 text-sm text-zr-text focus:border-zr-blue focus:outline-none"
-                    >
-                      <option value="">Sin asignar</option>
-                      {profesores.map((p) => (
-                        <option key={p.id} value={p.id}>{p.full_name}</option>
-                      ))}
-                    </Select>
-                  </div>
+                  <p className="text-xs text-zr-text-muted">
+                    Los profesores se asignan por módulo dentro de la ficha del corte (Abrir ficha ›).
+                  </p>
 
                   {confirmandoAvance === c.id ? (
                     <div className="space-y-2 rounded-lg border border-zr-warning/30 bg-zr-warning/10 p-3">

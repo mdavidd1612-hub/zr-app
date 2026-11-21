@@ -102,7 +102,7 @@ export default function TrabajarCaso() {
 
   if (!caso) {
     return (
-      <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
+      <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
         <button onClick={() => router.push('/')} className="mb-6 text-zr-blue-mid">
           <IconoFlechaAtras size={22} />
         </button>

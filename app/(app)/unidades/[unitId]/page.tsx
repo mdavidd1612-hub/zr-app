@@ -1,26 +1,30 @@
 'use client'
 
-import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Seccion, Etiqueta } from '@/components/ui/Editorial'
+import { Etiqueta } from '@/components/ui/Editorial'
+import { Recorrido, Paso, type EstadoPaso } from '@/components/ui/Recorrido'
 import { BotonVolver } from '@/components/ui/BotonVolver'
+import { TextoRico } from '@/components/ui/TextoRico'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
-import { BannerUnidad } from '@/components/ui/BannerUnidad'
+import { BannerUnidad, type ColorBanner } from '@/components/ui/BannerUnidad'
+import { acentoDe } from '@/lib/banner-unidad'
 import { PestanasUnidad, type PestanaUnidad } from '@/components/ui/PestanasUnidad'
-import { IconoDocumento, IconoExamen, IconoDuda, IconoCheck, IconoChevron, IconoCandado } from '@/components/ui/Iconos'
+import { IconoDocumento, IconoExamen, IconoDuda, IconoLapiz, IconoCandado } from '@/components/ui/Iconos'
+import { iconoDeMaterial } from '@/components/ui/IconoMaterial'
+import { eyebrowMaterial } from '@/lib/material'
+import { BotonDescargarUnidad } from '@/components/ui/BotonDescargarUnidad'
 
 /**
  * Aula Virtual — detalle de una unidad: sus elementos en orden (material,
- * examen, tarea, dudas). RLS de unit_items (migración 174) ya decide qué
- * elementos están visibles ahora mismo; aquí solo se pintan.
+ * examen, tarea, dudas) como un recorrido conectado. RLS de unit_items
+ * (migración 174) ya decide qué está visible ahora; aquí solo se dibuja.
  *
- * Pedido explícito del coordinador (reunión 31-oct-2026, con video de
- * referencia de un aula virtual real): que se parezca "demasiado" a eso,
- * con nuestra identidad -- de ahí la fila de pestañas arriba (una por
- * unidad, como el video) y el banner de marca en vez de foto de archivo
- * (ver components/ui/PestanasUnidad.tsx y BannerUnidad.tsx).
+ * Pedido del coordinador (reunión 31-oct-2026, con video de referencia de un
+ * aula virtual real): que se parezca a eso con nuestra identidad — de ahí la
+ * fila de pestañas arriba (una por unidad) y el banner de marca. El contenido
+ * baja como un camino de pasos, no como cuadros apilados.
  */
 
 interface ItemFila {
@@ -34,14 +38,27 @@ interface ItemFila {
   completado: boolean
   esCertificacion: boolean
   esTexto: boolean
+  visible: boolean
   cuerpoTexto: string | null
+  materialTipo: string | null
+  examAbreEl: string | null
 }
 
-const ICONO: Record<ItemFila['type'], typeof IconoDocumento> = {
-  material: IconoDocumento,
-  quiz: IconoExamen,
-  tarea: IconoDocumento,
-  dudas: IconoDuda,
+function iconoDe(item: ItemFila) {
+  if (item.type === 'quiz') return IconoExamen
+  if (item.type === 'tarea') return IconoLapiz
+  if (item.type === 'dudas') return IconoDuda
+  return iconoDeMaterial(item.materialTipo)
+}
+
+// Pedido explícito del coordinador (reunión 7-nov-2026): el rótulo debe
+// decir el tipo real del archivo ("Documento"/"Presentación"/"Imagen"/
+// "Video"/"Audio"), no "Material" genérico para todo.
+function eyebrowDe(item: ItemFila): string {
+  if (item.type === 'quiz') return item.esCertificacion ? 'Certificación' : 'Examen'
+  if (item.type === 'tarea') return 'Tarea'
+  if (item.type === 'dudas') return 'Dudas'
+  return item.esTexto ? 'Lectura' : eyebrowMaterial(item.materialTipo ?? '')
 }
 
 export default function UnidadDetalle() {
@@ -54,6 +71,11 @@ export default function UnidadDetalle() {
   const [items, setItems] = useState<ItemFila[]>([])
   const [bloqueada, setBloqueada] = useState(false)
   const [cargando, setCargando] = useState(true)
+  // Banner personalizable (migración 194): lo configura el profesor desde
+  // "Editar unidad"; aquí solo se lee y se dibuja igual.
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null)
+  const [bannerPosicion, setBannerPosicion] = useState(50)
+  const [bannerColor, setBannerColor] = useState<ColorBanner | null>(null)
 
   useEffect(() => {
     async function cargar() {
@@ -64,18 +86,31 @@ export default function UnidadDetalle() {
         return
       }
 
-      const { data: unidad } = await supabase.from('units').select('title').eq('id', unitId).maybeSingle()
+      const { data: unidad } = await supabase
+        .from('units')
+        .select('title, module_id, cohort_id, banner_image_path, banner_color, banner_image_position')
+        .eq('id', unitId).maybeSingle()
       if (!unidad) {
         router.replace('/unidades')
         return
       }
       setTitulo(unidad.title)
+      setBannerColor(unidad.banner_color as ColorBanner | null)
+      setBannerPosicion(unidad.banner_image_position ?? 50)
+      setBannerUrl(
+        unidad.banner_image_path
+          ? supabase.storage.from('banners-unidad').getPublicUrl(unidad.banner_image_path).data.publicUrl
+          : null,
+      )
 
       // Fila de pestañas: todas las unidades que RLS ya le deja ver (abierta
       // o cerrada) a este estudiante, en su módulo -- v_units_status aplica
       // la misma política que la lista de /unidades, no hace falta repetirla.
       const { data: todasRaw } = await supabase
-        .from('v_units_status').select('id, title, order_index, prerequisite_met').order('order_index', { ascending: true })
+        .from('v_units_status').select('id, title, order_index, prerequisite_met').eq('module_id', unidad.module_id)
+        // Unidades por corte (migr. 241): para la vista de recorrido del personal.
+        .or(unidad.cohort_id ? `cohort_id.is.null,cohort_id.eq.${unidad.cohort_id}` : 'id.not.is.null')
+        .order('order_index', { ascending: true })
       // Casteo: prerequisite_met entra en la vista en la migración 185.
       const todas = (todasRaw ?? []) as unknown as { id: string; title: string; order_index: number; prerequisite_met: boolean }[]
       setUnidades(
@@ -97,7 +132,7 @@ export default function UnidadDetalle() {
         .select(`
           id, type, required, content_item_id, exam_id, assignment_id, order_index,
           content_items ( title, type, description ),
-          exams ( title, kind ),
+          exams ( title, kind, opens_at ),
           assignments ( title )
         `)
         .eq('unit_id', unitId)
@@ -113,11 +148,43 @@ export default function UnidadDetalle() {
         : { data: [] }
       const completos = new Set((progresos ?? []).filter((p) => p.completed_at).map((p) => p.content_item_id))
 
+      // Pedido explícito del coordinador (8-nov-2026): el check de
+      // "completado" solo se calculaba para material (material_progress).
+      // Un examen entregado/calificado o una tarea ya enviada se quedaban
+      // con el mismo color/ícono de siempre, sin ninguna marca -- fácil
+      // confundirse sobre qué ya se hizo. Dudas y lecturas (bloque de
+      // texto) a propósito NO llevan check: no son algo que se "complete".
+      const examIds = (filas ?? []).map((f) => f.exam_id).filter((x): x is string => !!x)
+      const { data: intentos } = examIds.length
+        ? await supabase
+            .from('exam_attempts')
+            .select('exam_id, status')
+            .eq('student_id', user.id)
+            .in('exam_id', examIds)
+            .in('status', ['entregado', 'calificado'])
+        : { data: [] }
+      const examenesCompletos = new Set((intentos ?? []).map((i) => i.exam_id))
+
+      const assignmentIds = (filas ?? []).map((f) => f.assignment_id).filter((x): x is string => !!x)
+      const { data: entregas } = assignmentIds.length
+        ? await supabase
+            .from('submissions')
+            .select('assignment_id')
+            .eq('student_id', user.id)
+            .in('assignment_id', assignmentIds)
+        : { data: [] }
+      const tareasCompletas = new Set((entregas ?? []).map((e) => e.assignment_id))
+
       setItems(
         (filas ?? []).map((f) => {
           const ci = f.content_items as unknown as { title: string; type: string; description: string | null } | null
-          const ex = f.exams as unknown as { title: string; kind: string } | null
+          const ex = f.exams as unknown as { title: string; kind: string; opens_at: string | null } | null
           const ta = f.assignments as unknown as { title: string } | null
+          const completado =
+            f.type === 'material' ? (f.content_item_id ? completos.has(f.content_item_id) : false) :
+            f.type === 'quiz' ? (f.exam_id ? examenesCompletos.has(f.exam_id) : false) :
+            f.type === 'tarea' ? (f.assignment_id ? tareasCompletas.has(f.assignment_id) : false) :
+            false
           return {
             id: f.id,
             type: f.type,
@@ -125,11 +192,14 @@ export default function UnidadDetalle() {
             content_item_id: f.content_item_id,
             exam_id: f.exam_id,
             assignment_id: f.assignment_id,
-            titulo: ci?.title ?? ex?.title ?? ta?.title ?? (f.type === 'dudas' ? 'Dudas de esta unidad' : 'Sin título'),
-            completado: f.content_item_id ? completos.has(f.content_item_id) : false,
+            titulo: ci?.title ?? ex?.title ?? ta?.title ?? (f.type === 'dudas' ? 'Dudas de esta unidad' : 'Todavía no disponible'),
+            completado,
             esCertificacion: f.type === 'quiz' && ex?.kind === 'certificacion',
             esTexto: ci?.type === 'texto',
+            visible: !!ci,
             cuerpoTexto: ci?.type === 'texto' ? (ci.description ?? '') : null,
+            materialTipo: ci?.type ?? null,
+            examAbreEl: f.type === 'quiz' ? (ex?.opens_at ?? null) : null,
           }
         }),
       )
@@ -143,17 +213,19 @@ export default function UnidadDetalle() {
   // Compuerta: unidad bloqueada por no aprobar la certificación anterior.
   if (bloqueada) {
     return (
-      <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
+      <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
         <div className="space-y-7">
           <BotonVolver href="/unidades" />
           <PestanasUnidad unidades={unidades} activaId={unitId} hrefBase="/unidades" />
         </div>
         <div className="mt-7 space-y-6">
-          <BannerUnidad sobretitulo="Aula Virtual" titulo={titulo} />
-          <div className="zr-card flex flex-col items-center gap-3 p-8 text-center">
-            <IconoCandado size={32} className="text-zr-text-muted" />
+          <BannerUnidad sobretitulo="Unidades" titulo={titulo} imagenUrl={bannerUrl} posicionImagen={bannerPosicion} color={bannerColor} />
+          <div className="flex flex-col items-center gap-3 py-10 text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-zr-surface text-zr-text-muted ring-1 ring-zr-border">
+              <IconoCandado size={26} />
+            </span>
             <p className="text-base font-bold text-zr-text">Esta unidad todavía está cerrada</p>
-            <p className="text-sm text-zr-text-muted">
+            <p className="max-w-xs text-sm text-zr-text-muted">
               Se abre cuando apruebes la certificación de la unidad anterior. Vuelve cuando la tengas lista.
             </p>
           </div>
@@ -164,15 +236,20 @@ export default function UnidadDetalle() {
 
   // Barra de obligatorios: hasta no completar los materiales obligatorios, no
   // se puede presentar la certificación (lo valida el servidor; aquí se avisa
-  // antes, con una barra, para que el estudiante sepa qué le falta).
+  // antes para que el estudiante sepa qué le falta).
   // Los bloques de texto no pasan por material_progress (no hay visor que
   // marque "visto"), así que nunca cuentan como obligatorio -- quedaría
   // trabada la certificación para siempre si se incluyeran.
-  const obligatorios = items.filter((i) => i.type === 'material' && i.required && !i.esTexto)
+  // Un material que el estudiante todavía no puede ver (sin aprobar/publicar) no
+  // cuenta: si no, la certificación quedaría trabada sin que pueda hacer nada.
+  const obligatorios = items.filter((i) => i.type === 'material' && i.required && !i.esTexto && i.visible)
   const obligatoriosCompletos = obligatorios.filter((i) => i.completado).length
   const faltanObligatorios = obligatorios.length - obligatoriosCompletos
   const hayCertificacion = items.some((i) => i.esCertificacion)
-  const certificacionTrabada = faltanObligatorios > 0
+  // Si ya presentó la certificación (p. ej. el material obligatorio se aprobó
+  // DESPUÉS de su examen), no se le muestra como trabada (19-nov-2026).
+  const certificacionHecha = items.some((i) => i.esCertificacion && i.completado)
+  const certificacionTrabada = faltanObligatorios > 0 && !certificacionHecha
   const pctObligatorios = obligatorios.length === 0 ? 100 : Math.round((obligatoriosCompletos / obligatorios.length) * 100)
 
   function hrefDe(item: ItemFila): string {
@@ -184,104 +261,185 @@ export default function UnidadDetalle() {
   }
 
   return (
-    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
+    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <div className="space-y-7">
         <BotonVolver href="/unidades" />
 
-        <PestanasUnidad unidades={unidades} activaId={unitId} hrefBase="/unidades" />
+        <div data-tour-target="tour-unidad-pestanas">
+          <PestanasUnidad unidades={unidades} activaId={unitId} hrefBase="/unidades" />
+        </div>
       </div>
 
-      <div className="mt-7 space-y-11">
-        <BannerUnidad sobretitulo="Aula Virtual" titulo={titulo} />
+      <div className="mt-7 space-y-9">
+        <div data-tour-target="tour-unidad-banner">
+          <BannerUnidad sobretitulo="Unidades" titulo={titulo} imagenUrl={bannerUrl} posicionImagen={bannerPosicion} color={bannerColor} />
+        </div>
 
-        {hayCertificacion && obligatorios.length > 0 && (
-          <div className="zr-card space-y-3 p-5">
+        {/* Avance de obligatorios, tejido sin cuadro: un rótulo, una línea fina
+            y el texto de lo que falta. */}
+        {obligatorios.length > 0 && (
+          <div className="space-y-2.5" data-tour-target="tour-unidad-progreso">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-bold text-zr-text">
-                {certificacionTrabada ? 'Antes de la certificación' : '¡Materiales obligatorios listos!'}
+              <p className="text-[11px] font-bold uppercase tracking-wider text-zr-text-muted">
+                {hayCertificacion && !certificacionHecha ? (certificacionTrabada ? 'Para la certificación' : 'Materiales obligatorios listos') : 'Tu avance en la unidad'}
               </p>
-              <span className="text-sm font-bold tabular-nums text-zr-blue-mid">
+              <span className="cifra text-sm text-zr-blue-mid">
                 {obligatoriosCompletos}/{obligatorios.length}
               </span>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-zr-border">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-zr-border/60">
               <div
-                className={`h-full rounded-full transition-all ${certificacionTrabada ? 'bg-zr-warning' : 'bg-zr-success'}`}
+                className={`h-full rounded-full transition-all duration-500 ${certificacionTrabada ? 'bg-zr-warning' : 'bg-zr-success'}`}
                 style={{ width: `${pctObligatorios}%` }}
               />
             </div>
             <p className="text-xs text-zr-text-muted">
               {certificacionTrabada
-                ? `Completa ${faltanObligatorios} material${faltanObligatorios === 1 ? '' : 'es'} obligatorio${faltanObligatorios === 1 ? '' : 's'} para poder presentar la certificación.`
-                : 'Ya puedes presentar la certificación de esta unidad.'}
+                ? `Te falta${faltanObligatorios === 1 ? '' : 'n'} ${faltanObligatorios} material${faltanObligatorios === 1 ? '' : 'es'} obligatorio${faltanObligatorios === 1 ? '' : 's'}${hayCertificacion ? ' para presentar la certificación.' : '.'}`
+                : certificacionHecha
+                  ? (faltanObligatorios > 0 ? `Ya presentaste la certificación. Te falta${faltanObligatorios === 1 ? '' : 'n'} ${faltanObligatorios} material${faltanObligatorios === 1 ? '' : 'es'} por ver.` : 'Ya viste todo lo obligatorio.')
+                  : hayCertificacion ? 'Ya puedes presentar la certificación de esta unidad.' : 'Ya viste todo lo obligatorio.'}
             </p>
           </div>
         )}
 
-        <Seccion numero={1} titulo="Contenido de la unidad" delay={100}>
+        <section className="animate-rise space-y-6" data-tour-target="tour-unidad-contenido">
+          <p className="zr-eyebrow">01 — CONTENIDO DE LA UNIDAD</p>
+
           {items.length === 0 ? (
             <p className="text-sm text-zr-text-muted">Tu profesor todavía no agregó nada aquí.</p>
           ) : (
-            <div className="space-y-3">
-              {items.map((item) => {
-                const Icono = ICONO[item.type]
-                // Certificación trabada por materiales obligatorios pendientes:
-                // se ve con candado y no deja entrar (el servidor igual lo
-                // bloquea; esto evita que choque contra el error).
+            <Recorrido>
+              {items.map((item, idx) => {
+                const Icono = iconoDe(item)
+                const ultimo = idx === items.length - 1
                 const trabada = item.esCertificacion && certificacionTrabada
+                // Pendiente de la reunión 7-nov-2026: examen con fecha de
+                // apertura propia (exams.opens_at) todavía no alcanzada. El
+                // servidor ya lo rechaza de verdad (migración 200) -- esto
+                // solo evita que el estudiante toque algo que va a fallar.
+                const examNoAbre = item.examAbreEl && new Date(item.examAbreEl) > new Date()
+
+                // Bloque de texto (migración 187): sin archivo que abrir, se
+                // muestra completo aquí mismo, como una lectura del camino.
+                if (item.esTexto) {
+                  // Pedido explícito del coordinador (nov 2026): un bloque de
+                  // texto no debe verse "como un cuadro más" -- se saca del
+                  // patrón de tarjeta-de-archivo (icono + caja) y se trata
+                  // como una nota editorial: borde de acento, sin icono.
+                  return (
+                    <Paso
+                      key={item.id}
+                      estado="disponible"
+                      icono={Icono}
+                      eyebrow={eyebrowDe(item)}
+                      titulo={item.titulo}
+                      meta={item.required ? <Etiqueta tono="aviso">Obligatorio</Etiqueta> : undefined}
+                      ultimo={ultimo}
+                      delay={80 + idx * 50}
+                      acento={acentoDe(bannerColor)}
+                    >
+                      <TextoRico texto={item.cuerpoTexto ?? ''} />
+                    </Paso>
+                  )
+                }
+
+                // Certificación trabada por materiales obligatorios pendientes:
+                // nodo con candado y sin navegar (el servidor igual lo bloquea).
                 if (trabada) {
                   return (
-                    <div key={item.id} className="zr-card flex items-center gap-4 p-5 opacity-70">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zr-border/60 text-zr-text-muted">
-                        <IconoCandado size={20} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="break-words text-base font-bold text-zr-text-muted">{item.titulo}</p>
-                        <div className="mt-1">
-                          <Etiqueta tono="neutro">Completa los materiales obligatorios</Etiqueta>
-                        </div>
-                      </div>
-                    </div>
+                    <Paso
+                      key={item.id}
+                      estado="bloqueado"
+                      eyebrow={eyebrowDe(item)}
+                      titulo={item.titulo}
+                      meta={<Etiqueta tono="neutro">Completa los materiales obligatorios</Etiqueta>}
+                      ultimo={ultimo}
+                      delay={80 + idx * 50}
+                    />
                   )
                 }
-                // Bloque de texto (migración 187): sin archivo que abrir, se
-                // muestra completo aquí mismo -- no tiene sentido llevarlo a
-                // un visor aparte para mostrar un párrafo.
-                if (item.esTexto) {
+
+                if (examNoAbre) {
+                  const fecha = new Date(item.examAbreEl as string).toLocaleString('es-VE', { dateStyle: 'long', timeStyle: 'short' })
                   return (
-                    <div key={item.id} className="zr-card space-y-2 p-5">
-                      <div className="flex items-center gap-2">
-                        <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
-                        {item.required && <Etiqueta tono="aviso">Obligatorio</Etiqueta>}
-                      </div>
-                      <p className="whitespace-pre-wrap break-words text-sm text-zr-text-muted">{item.cuerpoTexto}</p>
-                    </div>
+                    <Paso
+                      key={item.id}
+                      estado="bloqueado"
+                      eyebrow={eyebrowDe(item)}
+                      titulo={item.titulo}
+                      meta={<Etiqueta tono="neutro">Se abre el {fecha}</Etiqueta>}
+                      ultimo={ultimo}
+                      delay={80 + idx * 50}
+                    />
                   )
                 }
+
+                // Bug real de la reunión 7-nov-2026: si el join a content_items/
+                // exams/assignments no trae nada (RLS -- el material sigue
+                // pendiente de revisión, o la fecha/cohorte no coincide), el
+                // ítem se veía "Sin título" y, al tocarlo, devolvía en bucle a
+                // la unidad sin explicar nada. Ahora se muestra bloqueado con
+                // el motivo, en vez de navegar a algo que no va a cargar.
+                const sinResolver = item.type !== 'dudas' && item.titulo === 'Todavía no disponible'
+                // Un examen que el estudiante no ve es de OTRO corte (las unidades se
+                // comparten entre cortes del mismo módulo) o un borrador: no se le
+                // muestra un hueco que nunca se va a llenar (19-nov-2026).
+                if (sinResolver && item.type === 'quiz') return null
+                if (sinResolver) {
+                  return (
+                    <Paso
+                      key={item.id}
+                      estado="bloqueado"
+                      eyebrow={eyebrowDe(item)}
+                      titulo={item.titulo}
+                      meta={<Etiqueta tono="neutro">En preparación: aparece aquí cuando esté listo</Etiqueta>}
+                      ultimo={ultimo}
+                      delay={80 + idx * 50}
+                    />
+                  )
+                }
+
+                const estado: EstadoPaso = item.completado ? 'completado' : 'disponible'
+                const meta = (
+                  <>
+                    {item.required && !item.completado && <Etiqueta tono="aviso">Obligatorio</Etiqueta>}
+                    {item.esCertificacion && <Etiqueta tono="info">Certificación</Etiqueta>}
+                    {item.completado && <Etiqueta tono="exito">Completado</Etiqueta>}
+                  </>
+                )
+
                 return (
-                  <Link
+                  <Paso
                     key={item.id}
+                    estado={estado}
+                    icono={item.completado ? undefined : Icono}
+                    eyebrow={eyebrowDe(item)}
+                    titulo={item.titulo}
+                    meta={meta}
                     href={hrefDe(item)}
-                    className="zr-card zr-card-interactive flex items-center gap-4 p-5"
-                  >
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue">
-                      {item.completado ? <IconoCheck size={20} className="text-zr-success" /> : <Icono size={20} />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="break-words text-base font-bold text-zr-text">{item.titulo}</p>
-                      <div className="mt-1 flex items-center gap-2">
-                        {item.required && <Etiqueta tono="aviso">Obligatorio</Etiqueta>}
-                        {item.completado && <Etiqueta tono="exito">Completado</Etiqueta>}
-                        {item.esCertificacion && <Etiqueta tono="info">Certificación</Etiqueta>}
-                      </div>
-                    </div>
-                    <IconoChevron size={18} className="shrink-0 text-zr-text-muted" />
-                  </Link>
+                    ultimo={ultimo}
+                    delay={80 + idx * 50}
+                    acento={acentoDe(bannerColor)}
+                  />
                 )
               })}
-            </div>
+            </Recorrido>
           )}
-        </Seccion>
+        </section>
+
+        {/* Descargar va al final: primero lo que el estudiante tiene que hacer. */}
+        {items.length > 0 && (
+          <div data-tour-target="tour-unidad-descargar">
+          <BotonDescargarUnidad
+            unitId={unitId}
+            titulo={titulo}
+            items={items.filter((i) => i.type === 'material' && i.content_item_id).map((i) => ({
+              contentItemId: i.content_item_id!, titulo: i.titulo, tipo: i.materialTipo, esTexto: i.esTexto, cuerpoTexto: i.cuerpoTexto,
+            }))}
+          />
+          </div>
+        )}
       </div>
     </div>
   )

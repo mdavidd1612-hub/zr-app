@@ -1,17 +1,21 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { siguienteOrdenUnidad } from '@/lib/unidad-orden'
+import { cohorteParaModulo } from '@/lib/cohorte-unidad'
 import { Encabezado, Regla, Seccion, Etiqueta } from '@/components/ui/Editorial'
 import { BotonVolver } from '@/components/ui/BotonVolver'
 import { prepararArchivo, subirAlBucket } from '@/lib/subida'
 import { EtiquetaTipoArchivo } from '@/components/ui/EtiquetaTipoArchivo'
 import {
-  ACCEPT_MATERIAL, MENSAJE_FORMATOS, nombreDescarga, rutaDeStorage, tipoDeArchivo,
+  ACCEPT_MATERIAL, MENSAJE_FORMATOS, nombreDescarga, rutaDeStorage, tipoDeArchivo, enlaceWebValido,
 } from '@/lib/material'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
-import { ContextoDocente, AvisoModuloBloqueado, moduloVigente, type ContextoSel } from '@/components/ui/ContextoDocente'
+import { ContextoDocente, type ContextoSel } from '@/components/ui/ContextoDocente'
+import { IconoCerrar, IconoDescargar, IconoChevron, IconoDocumento } from '@/components/ui/Iconos'
 
 /**
  * T-401 · Subida de material de estudio por el profesor.
@@ -47,9 +51,44 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
   const [comprimiendo, setComprimiendo] = useState(false)
   const [archivo, setArchivo] = useState<File | null>(null)
   const [titulo, setTitulo] = useState('')
+  const [descripcionMat, setDescripcionMat] = useState('')
   const [moduloId, setModuloId] = useState('')
   const [semana, setSemana] = useState<number | ''>('')
+  // Pedido del coordinador (16-nov-2026): marcarlo obligatorio desde aquí mismo
+  // y guardar los datos como plantilla para reusarlos.
+  const [obligatorio, setObligatorio] = useState(false)
+  const [guardarPlantilla, setGuardarPlantilla] = useState(false)
+  const [plantillasMat, setPlantillasMat] = useState<{ id: string; title: string; payload: { titulo?: string; descripcion?: string; obligatorio?: boolean } }[]>([])
+  const [esAcademico, setEsAcademico] = useState(false)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.from('material_templates' as never).select('id, title, payload').order('updated_at', { ascending: false })
+      .then(({ data }) => setPlantillasMat((data ?? []) as never))
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      const { data: pf } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      setEsAcademico(pf?.role === 'direccion_academica' || pf?.role === 'super_admin')
+    })
+  }, [])
+
+  async function guardarComoPlantilla() {
+    if (!guardarPlantilla || !titulo.trim()) return
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const payload = { titulo: titulo.trim(), descripcion: descripcionMat.trim(), obligatorio }
+    const { data: ya } = await supabase.from('material_templates' as never).select('id').eq('owner_id', user.id).ilike('title', titulo.trim()).maybeSingle() as { data: { id: string } | null }
+    if (ya) await supabase.from('material_templates' as never).update({ payload, updated_at: new Date().toISOString() } as never).eq('id', ya.id)
+    else await supabase.from('material_templates' as never).insert({ owner_id: user.id, title: titulo.trim(), payload } as never)
+  }
   const [error, setError] = useState<string | null>(null)
+  // Video de YouTube (pedido explícito del coordinador, 8-nov-2026): alternativa
+  // a subir un archivo -- para videos muy largos/pesados. No pasa por revisión
+  // de administración (no hay archivo que revisar, igual que el bloque de texto).
+  const [modoYoutube, setModoYoutube] = useState(false)
+  const [linkYoutube, setLinkYoutube] = useState('')
+  const [subiendoYoutube, setSubiendoYoutube] = useState(false)
   // Resultado de la compresión automática del último archivo subido.
   const [avisoSubida, setAvisoSubida] = useState<string | null>(null)
   // Viene de "+ Subir material nuevo" dentro de una unidad: el formulario se
@@ -118,6 +157,29 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
     return () => { vigente = false }
   }, [router, version, ctx.cohortId, ctx.moduleId])
 
+  // Desde una unidad manda el módulo de la unidad (no el del selector, que puede
+  // ser otro) y la cohorte se saca de las asignaciones reales de quien sube.
+  async function destinoDeSubida(supabase: ReturnType<typeof createClient>): Promise<[string, string] | null> {
+    if (!unitId) {
+      const [c, m] = moduloId.split('|')
+      return [c, m]
+    }
+    const { data: unidad } = await supabase.from('units').select('module_id, cohort_id').eq('id', unitId).maybeSingle()
+    if (!unidad) { setError('No se encontró la unidad.'); return null }
+    const cohorte = await cohorteParaModulo(supabase, unidad.module_id, unidad.cohort_id)
+    if (!cohorte) {
+      setError('No tienes este módulo asignado en ninguna cohorte, así que no puedes subir material aquí. Avisa a Dirección Académica.')
+      return null
+    }
+    return [cohorte, unidad.module_id]
+  }
+
+  function mensajeDeError(mensaje: string): string {
+    return /row-level security/i.test(mensaje)
+      ? 'No tienes permiso para subir material en este módulo todavía: se habilita solo cuando el módulo empieza según el calendario de tu cohorte, y debe estar asignado a ti.'
+      : mensaje
+  }
+
   async function subir() {
     if (!archivo || !titulo.trim() || !moduloId) return
     const tipo = tipoDeArchivo(archivo)
@@ -162,13 +224,15 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
       return
     }
 
-    const [cohorteSel, moduloSel] = moduloId.split('|')
+    const destino = await destinoDeSubida(supabase)
+    if (!destino) { setSubiendo(false); return }
+    const [cohorteSel, moduloSel] = destino
     const ruta = rutaDeStorage(moduloSel, aSubir.name)
 
     const { error: falloSubida } = await subirAlBucket(ruta, aSubir)
 
     if (falloSubida) {
-      setError(`No se pudo subir el archivo: ${falloSubida.message}`)
+      setError(`No se pudo subir el archivo: ${mensajeDeError(falloSubida.message)}`)
       setSubiendo(false)
       return
     }
@@ -176,25 +240,31 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
     // Fase 0 (docs/16_FASE0_PLAN_PROFESOR.md, Sprint E): lo que sube el
     // profesor queda pendiente hasta que administración lo revise — nunca
     // se publica solo, aunque el profesor lo marque como listo.
+    // Excepción (pedido del coordinador, 16-nov-2026): Dirección Académica y
+    // super_admin SON quienes aprueban -- lo que ellos suben se publica solo.
+    const { data: perfilSube } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    const apruebaSolo = perfilSube?.role === 'direccion_academica' || perfilSube?.role === 'super_admin'
+
     const { data: nuevoItem, error: falloRegistro } = await supabase.from('content_items').insert({
       module_id: moduloSel,
       cohort_id: cohorteSel,
       week_number: semana === '' ? null : semana,
       title: titulo.trim(),
+      description: descripcionMat.trim() || null,
       type: tipo,
       storage_path: ruta,
       original_name: archivo.name,
       mime_type: aSubir.type || null,
       size_bytes: aSubir.size,
       uploaded_by: user.id,
-      is_published: false,
-      approval_status: 'pendiente',
+      is_published: apruebaSolo,
+      approval_status: apruebaSolo ? 'aprobado' : 'pendiente',
     }).select('id').single()
 
     if (falloRegistro || !nuevoItem) {
       // El archivo ya se subió; se limpia para no dejar huérfanos en el bucket.
       await supabase.storage.from('contenido').remove([ruta])
-      setError(falloRegistro?.message ?? 'No se pudo registrar el material.')
+      setError(falloRegistro ? mensajeDeError(falloRegistro.message) : 'No se pudo registrar el material.')
       setSubiendo(false)
       return
     }
@@ -203,24 +273,99 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
     // unidad (Aula Virtual) -- se engancha solo y se vuelve ahí, sin tener
     // que ir a buscarlo después en "Agregar material ya subido".
     if (unitId) {
-      const { count } = await supabase
-        .from('unit_items').select('id', { count: 'exact', head: true }).eq('unit_id', unitId)
-      await supabase.from('unit_items').insert({
+      const { error: falloEnlace } = await supabase.from('unit_items').insert({
         unit_id: unitId,
         type: 'material',
-        order_index: (count ?? 0) + 1,
+        order_index: await siguienteOrdenUnidad(supabase, unitId),
         content_item_id: nuevoItem.id,
-      })
+        required: obligatorio,
+      } as never)
+      if (falloEnlace) {
+        setError(`El archivo se subió pero no se pudo agregar a la unidad: ${falloEnlace.message}`)
+        setSubiendo(false)
+        return
+      }
+      await guardarComoPlantilla()
       router.push(`/unidades-docente/${unitId}`)
       return
     }
 
     setArchivo(null)
     setTitulo('')
+    setDescripcionMat('')
     setSemana('')
     setAvisoSubida(prep.mensaje)
     setFormAbierto(false)
+    await guardarComoPlantilla()
     setSubiendo(false)
+    setVersion((v) => v + 1)
+  }
+
+  async function subirYoutube() {
+    if (!titulo.trim() || !moduloId) return
+    const enlaceValido = enlaceWebValido(linkYoutube.trim())
+    if (!enlaceValido) {
+      setError('Ese link no es válido. Pega la URL completa (YouTube, Google Drive, Google Fotos u otra página).')
+      return
+    }
+    setSubiendoYoutube(true)
+    setError(null)
+
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setSubiendoYoutube(false); return }
+
+    const destino = await destinoDeSubida(supabase)
+    if (!destino) { setSubiendoYoutube(false); return }
+    const [cohorteSel, moduloSel] = destino
+
+    // Sin archivo que revisar (ningún riesgo de contenido subido): se publica
+    // directo, igual que el bloque de texto (migración 187).
+    const { data: nuevoItem, error: falloRegistro } = await supabase.from('content_items').insert({
+      module_id: moduloSel,
+      cohort_id: cohorteSel,
+      week_number: semana === '' ? null : semana,
+      title: titulo.trim(),
+      description: descripcionMat.trim() || null,
+      type: 'enlace',
+      external_url: linkYoutube.trim(),
+      uploaded_by: user.id,
+      is_published: true,
+      approval_status: 'aprobado',
+    }).select('id').single()
+
+    if (falloRegistro || !nuevoItem) {
+      setError(falloRegistro ? mensajeDeError(falloRegistro.message) : 'No se pudo registrar el video.')
+      setSubiendoYoutube(false)
+      return
+    }
+
+    if (unitId) {
+      const { error: falloEnlace } = await supabase.from('unit_items').insert({
+        unit_id: unitId,
+        type: 'material',
+        order_index: await siguienteOrdenUnidad(supabase, unitId),
+        content_item_id: nuevoItem.id,
+        required: obligatorio,
+      } as never)
+      if (falloEnlace) {
+        setError(`El video se registró pero no se pudo agregar a la unidad: ${falloEnlace.message}`)
+        setSubiendoYoutube(false)
+        return
+      }
+      await guardarComoPlantilla()
+      router.push(`/unidades-docente/${unitId}`)
+      return
+    }
+
+    setTitulo('')
+    setDescripcionMat('')
+    setSemana('')
+    setLinkYoutube('')
+    setModoYoutube(false)
+    setFormAbierto(false)
+    await guardarComoPlantilla()
+    setSubiendoYoutube(false)
     setVersion((v) => v + 1)
   }
 
@@ -263,21 +408,33 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
         sobretitulo={`${ctx.cohorteNombre}${ctx.sede ? ` · ${ctx.sede}` : ''} · Módulo ${ctx.moduloOrden}`}
         titulo="Material de estudio"
         descripcion={`${materiales.length} archivo${materiales.length === 1 ? '' : 's'} subido${materiales.length === 1 ? '' : 's'}`}
-        accion={!moduloVigente(ctx.estado) ? undefined : (
+        accion={(
           <button
             onClick={() => setFormAbierto((f) => !f)}
-            className="rounded-lg bg-zr-blue px-5 py-3.5 text-sm font-bold text-white"
+            className="inline-flex items-center gap-2 rounded-full bg-zr-blue px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-zr-blue-deep"
           >
-            {formAbierto ? 'Cancelar' : '+ Subir archivo'}
+            {formAbierto ? <IconoCerrar size={16} /> : <IconoDescargar size={16} className="rotate-180" />}
+            {formAbierto ? 'Cancelar' : 'Subir archivo'}
           </button>
         )}
       />
 
-      <AvisoModuloBloqueado estado={ctx.estado} />
-
-      {/* El enlace "Organizar en unidades (Aula Virtual)" se oculta en
-          producción (hotfix 7-nov-2026): el módulo de Unidades está solo en
-          staging. Se retoma cuando el Aula se mergee a prod. */}
+      {/* Aula Virtual: organizar este material (y exámenes y tareas) en
+          unidades. Enlace desde aquí en vez de un botón nuevo en la barra
+          -- ya tenía 6 secciones. */}
+      <Link
+        href="/unidades-docente"
+        className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-zr-blue-deep to-zr-blue px-5 py-4 text-white transition-all hover:shadow-lg hover:shadow-zr-blue/25"
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
+          <IconoDocumento size={20} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-base font-bold">Organizar en unidades</span>
+          <span className="mt-0.5 block text-xs text-white/70">Arma el Aula Virtual con este material, exámenes y tareas</span>
+        </span>
+        <IconoChevron size={18} className="shrink-0 -rotate-90 text-white/80" />
+      </Link>
 
       <Regla delay={60} />
 
@@ -308,18 +465,73 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
               aria-label="Cerrar"
               className="flex h-9 w-9 items-center justify-center rounded-full border border-zr-border text-zr-text-muted disabled:opacity-40"
             >
-              ✕
+              <IconoCerrar size={16} />
             </button>
           </div>
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-zr-text">Archivo (PDF, PowerPoint, Word, Excel, imagen, video o audio)</label>
-            <input
-              type="file"
-              accept={ACCEPT_MATERIAL}
-              onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
-              className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-sm text-zr-text file:mr-4 file:rounded file:border-0 file:bg-zr-blue file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
-            />
+          {/* Video de YouTube (pedido explícito del coordinador, 8-nov-2026):
+              alternativa a subir el archivo -- para videos muy pesados o
+              muy largos de grabar y subir directo. */}
+          <div className="flex gap-2 rounded-lg bg-zr-bg p-1">
+            <button
+              type="button"
+              onClick={() => { setModoYoutube(false); setError(null) }}
+              className={`flex-1 rounded-lg py-2 text-sm font-bold ${!modoYoutube ? 'bg-zr-blue text-white' : 'text-zr-text-muted'}`}
+            >
+              Archivo
+            </button>
+            <button
+              type="button"
+              onClick={() => { setModoYoutube(true); setError(null) }}
+              className={`flex-1 rounded-lg py-2 text-sm font-bold ${modoYoutube ? 'bg-zr-blue text-white' : 'text-zr-text-muted'}`}
+            >
+              Video por enlace
+            </button>
           </div>
+
+          {modoYoutube ? (
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-zr-text">Link del video</label>
+              <input
+                value={linkYoutube}
+                onChange={(e) => setLinkYoutube(e.target.value)}
+                placeholder="https://youtube.com/watch?v=... o https://drive.google.com/file/d/..."
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
+              />
+              <p className="mt-1.5 text-xs text-zr-text-muted">
+                YouTube (puede ser &quot;no listado&quot;), Google Drive o cualquier otro enlace (Google Fotos, una página...). Los de YouTube y Drive se ven dentro de la app; los demás se abren en su propia pestaña. En Drive, compártelo como &quot;cualquier persona con el enlace&quot; para que tus estudiantes puedan verlo. También sirve para audios.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-zr-text">Archivo (PDF, PowerPoint, Word, Excel, imagen, video o audio)</label>
+              <input
+                type="file"
+                accept={ACCEPT_MATERIAL}
+                onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
+                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-sm text-zr-text file:mr-4 file:rounded file:border-0 file:bg-zr-blue file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white"
+              />
+            </div>
+          )}
+
+          {plantillasMat.length > 0 && (
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-zr-text">Empezar desde una plantilla</label>
+              <select
+                defaultValue=""
+                onChange={(e) => {
+                  const t = plantillasMat.find((x) => x.id === e.target.value)
+                  if (!t) return
+                  setTitulo(t.payload.titulo ?? t.title)
+                  setDescripcionMat(t.payload.descripcion ?? '')
+                  setObligatorio(!!t.payload.obligatorio)
+                }}
+                className="min-h-12 w-full min-w-0 rounded-lg border border-zr-border bg-zr-bg px-3 text-sm text-zr-text"
+              >
+                <option value="" disabled>Elige una plantilla…</option>
+                {plantillasMat.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="mb-2 block text-sm font-semibold text-zr-text">Título</label>
@@ -331,14 +543,63 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-zr-text">Módulo</label>
-              <p className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text">
-                {ctx.cohorteNombre}{ctx.sede ? ` · ${ctx.sede}` : ''} · Módulo {ctx.moduloOrden} · {ctx.moduloNombre}
-              </p>
-            </div>
-            <div>
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Descripción (opcional)</label>
+            <textarea
+              value={descripcionMat}
+              onChange={(e) => setDescripcionMat(e.target.value)}
+              rows={3}
+              placeholder="Un texto que el estudiante verá debajo del título."
+              className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-zr-text">Módulo</label>
+            <p className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base text-zr-text">
+              {ctx.cohorteNombre}{ctx.sede ? ` · ${ctx.sede}` : ''} · Módulo {ctx.moduloOrden} · {ctx.moduloNombre}
+            </p>
+          </div>
+
+          {unitId && (
+            <button
+              type="button"
+              onClick={() => setObligatorio((v) => !v)}
+              aria-pressed={obligatorio}
+              className={`flex w-full items-center justify-between gap-3 rounded-lg border p-4 text-left ${obligatorio ? 'border-zr-warning/50 bg-zr-warning/10' : 'border-zr-border bg-zr-bg'}`}
+            >
+              <span>
+                <span className="block text-sm font-bold text-zr-text">Material obligatorio</span>
+                <span className="block text-xs text-zr-text-muted">
+                  {obligatorio
+                    ? 'Los estudiantes tienen que verlo completo antes de presentar la certificación.'
+                    : 'Opcional: pueden verlo, pero no es requisito.'}
+                </span>
+              </span>
+              <span className={`flex h-7 w-12 shrink-0 items-center rounded-full p-0.5 transition-colors ${obligatorio ? 'bg-zr-warning' : 'bg-zr-border'}`}>
+                <span className={`h-6 w-6 rounded-full bg-white transition-transform ${obligatorio ? 'translate-x-5' : ''}`} />
+              </span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setGuardarPlantilla((v) => !v)}
+            aria-pressed={guardarPlantilla}
+            className={`flex w-full items-center justify-between gap-3 rounded-lg border p-4 text-left ${guardarPlantilla ? 'border-zr-blue bg-zr-blue/10' : 'border-zr-border bg-zr-bg'}`}
+          >
+            <span>
+              <span className="block text-sm font-bold text-zr-text">Guardar como plantilla</span>
+              <span className="block text-xs text-zr-text-muted">Guarda el título y la descripción para usarlos de base en otros materiales.</span>
+            </span>
+            <span className={`flex h-7 w-12 shrink-0 items-center rounded-full p-0.5 transition-colors ${guardarPlantilla ? 'bg-zr-blue' : 'bg-zr-border'}`}>
+              <span className={`h-6 w-6 rounded-full bg-white transition-transform ${guardarPlantilla ? 'translate-x-5' : ''}`} />
+            </span>
+          </button>
+
+          <details className="rounded-lg border border-zr-border bg-zr-bg p-4">
+            <summary className="cursor-pointer select-none text-sm font-semibold text-zr-text">Más opciones</summary>
+            <div className="mt-3">
               <label className="mb-2 block text-sm font-semibold text-zr-text">
                 Semana <span className="font-normal text-zr-text-muted">(opcional)</span>
               </label>
@@ -348,41 +609,61 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
                 value={semana}
                 onChange={(e) => setSemana(e.target.value === '' ? '' : Number(e.target.value))}
                 placeholder="1"
-                className="w-full rounded-lg border border-zr-border bg-zr-bg px-4 py-3.5 text-base tabular-nums text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
+                className="w-full rounded-lg border border-zr-border bg-zr-surface px-4 py-3.5 text-base tabular-nums text-zr-text placeholder-zr-text-muted focus:border-zr-blue focus:outline-none"
               />
             </div>
-          </div>
+          </details>
 
-          <p className="rounded-lg border border-zr-blue/25 bg-zr-blue/10 p-4 text-sm leading-relaxed text-zr-text">
-            Administración revisa lo que subas antes de publicarlo. Te avisa aquí mismo cuando lo
-            apruebe o si necesita algún cambio.
-          </p>
+          {modoYoutube ? (
+            <p className="rounded-lg border border-zr-blue/25 bg-zr-blue/10 p-4 text-sm leading-relaxed text-zr-text">
+              Un video por enlace se publica directo -- no hay archivo que administración tenga que revisar.
+            </p>
+          ) : (
+            <p className="rounded-lg border border-zr-blue/25 bg-zr-blue/10 p-4 text-sm leading-relaxed text-zr-text">
+              {esAcademico
+                ? 'Como Dirección Académica, lo que subas se publica directo: no necesita aprobación.'
+                : 'Administración revisa lo que subas antes de publicarlo. Te avisa aquí mismo cuando lo apruebe o si necesita algún cambio.'}
+            </p>
+          )}
 
           {error && <p className="text-sm font-medium text-zr-error">{error}</p>}
 
-          <button
-            onClick={subir}
-            disabled={!archivo || !titulo.trim() || !moduloId || subiendo}
-            className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-40"
-          >
-            {subiendo ? (comprimiendo ? 'Comprimiendo y subiendo…' : 'Subiendo…') : 'Subir material'}
-          </button>
+          {modoYoutube ? (
+            <button
+              onClick={subirYoutube}
+              disabled={!linkYoutube.trim() || !titulo.trim() || !moduloId || subiendoYoutube}
+              className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-40"
+            >
+              {subiendoYoutube ? 'Agregando…' : 'Agregar video'}
+            </button>
+          ) : (
+            <button
+              onClick={subir}
+              disabled={!archivo || !titulo.trim() || !moduloId || subiendo}
+              className="min-h-14 w-full rounded-lg bg-zr-blue text-base font-bold text-white disabled:opacity-40"
+            >
+              {subiendo ? (comprimiendo ? 'Comprimiendo y subiendo…' : 'Subiendo…') : 'Subir material'}
+            </button>
+          )}
         </div>
         </div>
       )}
 
       {materiales.length === 0 ? (
-        <div className="zr-card p-8 text-center">
-          <p className="text-base font-semibold text-zr-text">Todavía no has subido material</p>
-          <p className="mt-2 text-sm text-zr-text-muted">
+        <div className="flex flex-col items-center gap-3 py-12 text-center">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-zr-blue/12 text-zr-blue-mid">
+            <IconoDocumento size={26} />
+          </span>
+          <p className="text-base font-bold text-zr-text">Todavía no has subido material</p>
+          <p className="max-w-xs text-sm text-zr-text-muted">
             Sube guías en PDF o PowerPoint para que tus estudiantes las consulten antes de cada clase.
           </p>
         </div>
       ) : (
         <Seccion numero={1} titulo="Archivos" delay={120}>
-          <div className="space-y-3">
+          <div className="divide-y divide-zr-border/60">
             {materiales.map((m) => (
-              <div key={m.id} className="zr-card space-y-3 p-5">
+              <div key={m.id} className="space-y-3 py-4 first:pt-0">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                   <div className="min-w-0">
                     <div className="mb-1"><EtiquetaTipoArchivo tipo={m.tipo} nombre={m.rutaStorage} /></div>
@@ -394,13 +675,15 @@ function ContenidoInterno({ ctx, unitId }: { ctx: ContextoSel; unitId: string | 
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-                    <button
-                      onClick={() => descargar(m)}
-                      disabled={descargando === m.id || !m.rutaStorage}
-                      className="rounded-full border border-zr-border px-3 py-1.5 text-xs font-bold text-zr-text disabled:opacity-50"
-                    >
-                      {descargando === m.id ? '…' : 'Descargar'}
-                    </button>
+                    {m.tipo !== 'enlace' && (
+                      <button
+                        onClick={() => descargar(m)}
+                        disabled={descargando === m.id || !m.rutaStorage}
+                        className="rounded-full border border-zr-border px-3 py-1.5 text-xs font-bold text-zr-text disabled:opacity-50"
+                      >
+                        {descargando === m.id ? '…' : 'Descargar'}
+                      </button>
+                    )}
                     <Etiqueta
                       tono={
                         m.estadoAprobacion === 'aprobado' ? 'exito'

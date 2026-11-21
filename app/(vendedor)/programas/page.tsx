@@ -274,7 +274,7 @@ export default function ProgramasVendedor() {
   }
 
   return (
-    <div className="space-y-11 px-5 pt-14 pb-10">
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-10">
       <Encabezado sobretitulo="Ventas" titulo="Programas" descripcion="PTMA y PFTA, con sus programas activos" />
       <Regla delay={60} />
 

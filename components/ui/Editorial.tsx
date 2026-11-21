@@ -24,14 +24,17 @@ interface SeccionProps {
   /** Retraso de entrada, en milisegundos. */
   delay?: number
   className?: string
+  /** Marca la sección para el tutorial guiado (data-tour-target). */
+  tourId?: string
 }
 
 /** Bloque de contenido con su rótulo numerado. */
-export function Seccion({ numero, titulo, children, delay = 0, className = '' }: SeccionProps) {
+export function Seccion({ numero, titulo, children, delay = 0, className = '', tourId }: SeccionProps) {
   return (
     <section
       className={`animate-rise space-y-5 ${className}`}
       style={{ animationDelay: `${delay}ms` }}
+      data-tour-target={tourId}
     >
       <p className="zr-eyebrow">
         {String(numero).padStart(2, '0')} — {titulo}
@@ -95,8 +98,13 @@ interface EncabezadoProps {
 export function Encabezado({ sobretitulo, titulo, descripcion, accion, delay = 0 }: EncabezadoProps) {
   return (
     <header className="animate-rise" style={{ animationDelay: `${delay}ms` }}>
-      <div className="flex flex-wrap items-end justify-between gap-5">
-        <div className="min-w-0 flex-1">
+      {/* Bug real reportado en vivo (8-nov-2026): en móvil, `accion` (p. ej.
+          "Mis exámenes" + "Calendario") y el texto compartían la misma fila
+          flex -- el texto se quedaba con un ancho angosto y se partía
+          palabra por línea. Ahora `accion` baja debajo del texto en
+          pantallas chicas y vuelve a la misma fila desde `sm:`. */}
+      <div className="flex flex-col gap-5 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+        <div className="min-w-0 sm:flex-1">
           {sobretitulo && (
             <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
               {sobretitulo}
@@ -162,9 +170,15 @@ const TONO_ETIQUETA: Record<TonoEtiqueta, string> = {
 
 /** Píldora de estado. Un solo lugar decide cómo se ve «Publicado» o «Pendiente». */
 export function Etiqueta({ tono = 'neutro', children }: { tono?: TonoEtiqueta; children: React.ReactNode }) {
+  // Bug responsive real, reportado con captura (8-nov-2026): una etiqueta
+  // con texto largo ("Obligatorio (toca para quitar)") con `whitespace-nowrap`
+  // no se encoge -- se desborda por encima del contenido vecino en vez de
+  // partirse en dos líneas (se veía superpuesta con el botón "Quitar" en
+  // rojo). Sin `nowrap`, el texto se parte solo cuando el contenedor no le
+  // alcanza; las etiquetas cortas (la mayoría) no cambian en nada.
   return (
     <span
-      className={`inline-flex items-center whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-bold ${TONO_ETIQUETA[tono]}`}
+      className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-bold ${TONO_ETIQUETA[tono]}`}
     >
       {children}
     </span>

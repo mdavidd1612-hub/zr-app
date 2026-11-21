@@ -1,8 +1,10 @@
 'use client'
 
+import { AvisoSinConexion } from '@/components/ui/AvisoSinConexion'
 import { BarraFlotante, type ItemBarra } from '@/components/ui/BarraFlotante'
 import { BarraLateral } from '@/components/ui/BarraLateral'
 import { Campanita } from '@/components/ui/Campanita'
+import { CalendarioFlotante } from '@/components/ui/CalendarioFlotante'
 
 interface Props {
   /** Las secciones visibles en la píldora del teléfono (máximo 5). */
@@ -44,15 +46,17 @@ export function Marco({
 }: Props) {
   return (
     <div className={`zr-app-shell${imprimible ? ' print:bg-white' : ''}`}>
+      <AvisoSinConexion conDescargas={items.some((i) => i.href === '/unidades')} />
       {!sinNavegacion && <BarraLateral items={todasLasSecciones ?? items} alTocarBloqueado={alTocarBloqueado} />}
 
       {!sinNavegacion && campanita && (
         <div
-          className={`fixed right-3 z-40 rounded-full border border-white/15 bg-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-2xl lg:absolute lg:right-8 lg:top-8${
+          className={`fixed right-3 z-40 flex items-center rounded-full border border-white/15 bg-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-md lg:absolute lg:right-8 lg:top-8${
             imprimible ? ' print:hidden' : ''
           }`}
           style={{ top: 'calc(0.75rem + env(safe-area-inset-top))' }}
         >
+          <CalendarioFlotante />
           <Campanita />
         </div>
       )}

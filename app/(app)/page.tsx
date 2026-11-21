@@ -1,13 +1,16 @@
 'use client'
 
+import { ELECTUDE_HABILITADO } from '@/lib/flags'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Seccion, Regla } from '@/components/ui/Editorial'
+import { TarjetaHero } from '@/components/ui/TarjetaHero'
 import { CASOS, diaSemanaISO, lunesDeLaSemana, fechaISO } from '@/lib/casos-fase0'
 import { leerSimulacionSabado } from '@/lib/demo-sabado'
 import { CASOS_HABILITADO } from '@/lib/flags'
-import { IconoCarnet, IconoCheck, IconoTaza } from '@/components/ui/Iconos'
+import { IconoCarnet, IconoCheck, IconoTaza, IconoCalendario, IconoDocumento } from '@/components/ui/Iconos'
 import { esAdmin } from '@/lib/auth-helpers'
 import { leerCohorteVistaRecorridoCookie, leerModuloVistaRecorridoCookie } from '@/lib/vista-recorrido'
 import type { UserRole } from '@/lib/types'
@@ -37,6 +40,8 @@ export default function Inicio() {
   const [nombre, setNombre] = useState('')
   const [proximo, setProximo] = useState<ProximoSabado | null>(null)
   const [modulo, setModulo] = useState<Modulo | null>(null)
+  // Módulo virtual que cursa en paralelo (migración 223), p. ej. Inglés Técnico.
+  const [virtual, setVirtual] = useState<{ id: string; nombre: string } | null>(null)
   const [cargando, setCargando] = useState(true)
   const [validado, setValidado] = useState(true)
   const [hechos, setHechos] = useState<Set<string>>(new Set())
@@ -66,6 +71,15 @@ export default function Inicio() {
   // todavía no lo respondió, se lo avisa aquí — si no, nunca se enteraría de
   // que existe.
   const [feedbackPendiente, setFeedbackPendiente] = useState<string | null>(null)
+  // Insignia de calendario (pendiente de la reunión 7-nov-2026, §8.12): un
+  // punto de color en "Calendario" y en "Revisar el material del módulo"
+  // cuando hay algo (examen, tarea) con fecha dentro de las próximas 48h.
+  const [hayPendienteCalendario, setHayPendienteCalendario] = useState(false)
+  // "Lo que sigue": el próximo examen/tarea con fecha (tarjeta destacada).
+  const [siguienteEvento, setSiguienteEvento] = useState<{ titulo: string; fecha: string; tipo: string } | null>(null)
+  // "Lo próximo" (19-nov-2026, propuesta C): exámenes y entregas por venir de
+  // todos sus módulos (presencial y virtual), en una sola lista.
+  const [proximos, setProximos] = useState<{ id: string; titulo: string; fecha: string; tipo: string; modulo: string; moduloId: string }[]>([])
 
   const hoy = new Date()
   const diaHoy = simulado ? 6 : diaSemanaISO(hoy)
@@ -210,6 +224,7 @@ export default function Inicio() {
         }
       }
 
+      let modulosVista: string[] = []
       if (moduloId) {
         const { data: mod } = await supabase
           .from('modules')
@@ -217,6 +232,23 @@ export default function Inicio() {
           .eq('id', moduloId)
           .single()
         if (mod) setModulo({ nombre: mod.name, descripcion: mod.description, competencias: mod.competencias })
+      }
+
+      {
+        const hoyISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' })
+        // En vista de recorrido (staff) RLS deja ver todos los cortes: se acota
+        // al corte elegido en el panel para que se vea igual que lo ve ese corte.
+        const corteVista = filaEst?.cohort_id ?? leerCohorteVistaRecorridoCookie()
+        let consulta = supabase
+          .from('cohort_module_calendar')
+          .select('module_id, modalidad, start_date, end_date, modules(name)' as 'start_date, end_date')
+          .lte('start_date', hoyISO).gte('end_date', hoyISO)
+        if (corteVista) consulta = consulta.eq('cohort_id', corteVista)
+        const { data: cal } = await consulta
+        const v = ((cal ?? []) as unknown as { module_id: string; modalidad?: string; modules: { name: string } | null }[])
+          .find((k) => k.modalidad === 'virtual')
+        setVirtual(v ? { id: v.module_id, nombre: v.modules?.name ?? 'Módulo virtual' } : null)
+        modulosVista = [moduloId, v?.module_id].filter(Boolean) as string[]
       }
 
       // Qué días de esta semana ya se trabajaron. Fase 0 (Sprint 2) los
@@ -234,6 +266,35 @@ export default function Inicio() {
         .lte('case_date', finSemana)
 
       setHechos(new Set((completados ?? []).map((c) => c.case_date)))
+
+      // Insignia de calendario: ¿hay algo (examen, tarea) con fecha en las
+      // próximas 48h? RLS ya acota a su propio módulo (my_module_id()).
+      const en48h = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+      const { data: proximoEvento } = await supabase
+        .from('calendar_events')
+        .select('id')
+        .gte('event_at', new Date().toISOString())
+        .lte('event_at', en48h)
+        .limit(1)
+      setHayPendienteCalendario((proximoEvento ?? []).length > 0)
+
+      let consultaSigs = supabase
+        .from('calendar_events')
+        .select('source_id, module_id, title, event_at, source_type, modules(name)')
+        .in('source_type', ['exam', 'assignment'])
+        .gte('event_at', new Date().toISOString())
+        .order('event_at', { ascending: true })
+        .limit(5)
+      // Staff en vista de recorrido: solo los módulos del corte que está mirando.
+      if (!filaEst?.cohort_id && modulosVista.length) consultaSigs = consultaSigs.in('module_id', modulosVista)
+      const { data: sigs } = await consultaSigs
+      const filas = (sigs ?? []) as unknown as { source_id: string; module_id: string; title: string; event_at: string; source_type: string; modules: { name: string } | null }[]
+      const sig = filas[0]
+      setSiguienteEvento(sig ? { titulo: sig.title, fecha: sig.event_at, tipo: sig.source_type } : null)
+      setProximos(filas.map((f) => ({
+        id: f.source_id, titulo: f.title, fecha: f.event_at, tipo: f.source_type,
+        modulo: f.modules?.name ?? '', moduloId: f.module_id,
+      })))
 
       setCargando(false)
     }
@@ -298,13 +359,55 @@ export default function Inicio() {
   })
 
   return (
-    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-14">
+    <div className="min-h-dvh bg-zr-bg px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <div className="space-y-11">
+        {/* Lo único importante: qué sigue. Una sola tarjeta destacada; el
+            resto de la pantalla es apoyo (decisión del coordinador, 17-nov-2026). */}
         <header className="animate-rise" style={{ animationDelay: '0ms' }}>
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
-            Panel del estudiante
-          </p>
-          <h1 className="zr-display mt-3 text-4xl text-zr-text">{primerNombre}</h1>
+          <h1 className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
+            Hola, {primerNombre}
+          </h1>
+          <div className="mt-3">
+            {esSabado ? (
+              <TarjetaHero
+                sobretitulo="Hoy toca clase"
+                titulo={asistenciaHoy ? 'Ya estás registrado' : 'Marca tu asistencia'}
+                texto={asistenciaHoy ? 'Disfruta la clase. Más abajo está tu refrigerio.' : 'Escanea el código que se muestra en pantalla al llegar.'}
+                icono={<IconoCarnet size={24} />}
+              />
+            ) : siguienteEvento ? (
+              <TarjetaHero
+                sobretitulo={siguienteEvento.tipo === 'exam' ? 'Tu próximo examen' : 'Tu próxima entrega'}
+                titulo={siguienteEvento.titulo}
+                texto={new Date(siguienteEvento.fecha).toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'long' })}
+                accion="Ver mi calendario"
+                onAccion={() => router.push('/calendario')}
+                icono={<IconoCalendario size={24} />}
+              />
+            ) : (
+              <TarjetaHero
+                sobretitulo="Sigue aprendiendo"
+                titulo={modulo?.nombre ?? 'Tu módulo'}
+                texto="Entra a tus unidades para ver el material, las tareas y los exámenes."
+                accion="Ir a mis unidades"
+                onAccion={() => router.push('/unidades')}
+                icono={<IconoDocumento size={24} />}
+              />
+            )}
+            {virtual && (
+              <button
+                onClick={() => router.push(`/unidades?modulo=${virtual.id}`)}
+                className="zr-card mt-3 flex w-full items-center gap-3 p-4 text-left"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue-mid"><IconoDocumento size={20} /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-zr-blue-mid">También cursas · virtual</span>
+                  <span className="block truncate text-sm font-bold text-zr-text">{virtual.nombre}</span>
+                </span>
+                <span className="text-zr-text-muted">›</span>
+              </button>
+            )}
+          </div>
         </header>
 
         {avisoAsistencia && (
@@ -437,7 +540,9 @@ export default function Inicio() {
                 </button>
               </div>
             </div>
-          ) : modulo ? (
+          ) : modulo && siguienteEvento ? (
+            // Si no hay examen ni tarea próximos, la tarjeta destacada de
+            // arriba ya muestra el módulo: no se repite aquí (17-nov-2026).
             // Con "Casos" apagado (lib/flags.ts), este espacio no se deja
             // vacío: a pedido explícito del coordinador, va el resumen corto
             // y las competencias del módulo que está cursando — nada que
@@ -471,14 +576,17 @@ export default function Inicio() {
                   </p>
                 </div>
               </button>
-              {/* Material del módulo. El Aula Virtual está solo en staging por
-                  ahora (hotfix 7-nov-2026, ver app/(app)/layout.tsx): en
-                  producción este botón vuelve a /contenido. */}
+              {/* "Material" se retira (reunión 31-oct-2026): ahora el material
+                  se revisa desde Aula Virtual, organizado por unidad. */}
               <button
-                onClick={() => router.push('/contenido')}
-                className="flex min-h-14 w-full items-center justify-center gap-2 border-t border-zr-border text-sm font-bold text-zr-text active:bg-zr-border/30"
+                onClick={() => router.push('/unidades')}
+                className="relative flex min-h-14 w-full items-center justify-center gap-2 border-t border-zr-border text-sm font-bold text-zr-text active:bg-zr-border/30"
               >
-                📁 Revisar el material del módulo
+                <IconoDocumento size={18} className="text-zr-blue-mid" />
+                Revisar el material del módulo
+                {hayPendienteCalendario && (
+                  <span aria-hidden className="h-2 w-2 rounded-full bg-zr-warning" />
+                )}
               </button>
             </div>
           ) : null}
@@ -512,28 +620,81 @@ export default function Inicio() {
           </Seccion>
         )}
 
+        {proximos.length > 1 && (
+          <section className="animate-rise space-y-3">
+            <p className="zr-eyebrow">Lo próximo</p>
+            <div className="space-y-2">
+              {proximos.map((p) => (
+                <button
+                  key={p.tipo + p.id}
+                  onClick={() => router.push(p.tipo === 'exam' ? `/examenes/${p.id}` : `/unidades?modulo=${p.moduloId}`)}
+                  className="zr-card flex w-full items-center gap-3 p-4 text-left"
+                >
+                  <span className="w-12 shrink-0 text-center">
+                    <span className="block text-lg font-bold leading-none text-zr-text">{new Date(p.fecha).getDate()}</span>
+                    <span className="block text-[10px] font-bold uppercase text-zr-text-muted">
+                      {new Date(p.fecha).toLocaleDateString('es-VE', { month: 'short' })}
+                    </span>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold text-zr-text">{p.titulo}</span>
+                    <span className="block truncate text-xs text-zr-text-muted">
+                      {p.tipo === 'exam' ? 'Examen' : 'Entrega'}{p.modulo ? ` · ${p.modulo}` : ''}
+                    </span>
+                  </span>
+                  <span className="text-zr-text-muted">›</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* 03 — ACCESOS */}
-        <Seccion numero={3} titulo="Accesos" delay={280}>
+        <Seccion numero={modulo && CASOS_HABILITADO ? 3 : 2} titulo="Accesos" delay={280}>
           <div id="tour-accesos" className="space-y-3">
+            {/* Identidad: el carnet digital, acción destacada. */}
             <button
               onClick={() => router.push('/perfil')}
-              className="w-full overflow-hidden rounded-lg bg-gradient-to-r from-zr-blue-deep to-zr-blue px-6 py-5 text-left transition-all hover:shadow-lg hover:shadow-zr-blue/25"
+              className="zr-hero flex w-full items-center justify-between gap-3 px-6 py-5 text-left"
             >
-              <p className="text-base font-bold text-white">Mi carnet</p>
+              <span>
+                <span className="block text-base font-bold text-white">Mi carnet</span>
+                <span className="mt-0.5 block text-xs text-white/70">Tu identidad y tu QR</span>
+              </span>
+              <IconoCarnet size={22} className="shrink-0 text-white/80" />
             </button>
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* Lo que NO está a un toque en la barra de abajo (Aula, Notas,
+                Dudas ya están ahí): el calendario y el repositorio de material.
+                Tiles livianos con icono, sin el borde de tarjeta. */}
+            <div className="grid grid-cols-2 gap-2">
               {[
-                { href: '/contenido', titulo: 'Material', sub: 'Guías y PDFs' },
-                { href: '/dudas',     titulo: 'Dudas',    sub: 'Pregúntale al profesor' },
-              ].map((a) => (
+                { href: '/calendario', titulo: 'Calendario', sub: 'Fechas y entregas', Icono: IconoCalendario, insignia: hayPendienteCalendario },
+                // Bug real reportado en vivo (8-nov-2026): este acceso seguía
+                // apuntando a /contenido (el explorador viejo, con material
+                // de antes de Aula Virtual) -- Material se retiró del menú
+                // en la reunión del 31-oct-2026 (§8.2); ahora todo vive en
+                // Unidades, igual que "Revisar el material del módulo" de
+                // arriba.
+                // "Material" repetía Unidades; en su lugar "Mi módulo" (avance,
+                // malla y progreso), que sale de la barra (19-nov-2026).
+                { href: '/clases',    titulo: 'Mi avance',   sub: 'Módulo, malla y progreso',    Icono: IconoDocumento, insignia: false },
+              ].map(({ href, titulo, sub, Icono, insignia }) => (
                 <button
-                  key={a.href}
-                  onClick={() => router.push(a.href)}
-                  className="zr-card zr-card-interactive px-4 py-4 text-left"
+                  key={href}
+                  onClick={() => router.push(href)}
+                  className="flex items-start gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-zr-surface/60"
                 >
-                  <p className="text-sm font-bold text-zr-text">{a.titulo}</p>
-                  <p className="mt-0.5 text-xs text-zr-text-muted">{a.sub}</p>
+                  <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zr-blue/12 text-zr-blue-mid">
+                    <Icono size={20} />
+                    {insignia && (
+                      <span aria-hidden className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-zr-bg bg-zr-warning" />
+                    )}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold text-zr-text">{titulo}</span>
+                    <span className="mt-0.5 block text-xs text-zr-text-muted">{sub}</span>
+                  </span>
                 </button>
               ))}
             </div>
@@ -542,13 +703,25 @@ export default function Inicio() {
       </div>
 
       {avisoBloqueado && (
-        <div className="fixed inset-x-5 bottom-24 z-50 animate-fade-in rounded-lg bg-zr-error px-5 py-4 text-center shadow-lg">
+        <div className="fixed inset-x-5 bottom-[calc(7rem+env(safe-area-inset-bottom))] z-[60] animate-fade-in rounded-2xl bg-zr-error px-5 py-4 text-center shadow-lg">
           <p className="text-sm font-bold text-white">Bloqueado</p>
           <p className="mt-1 text-sm text-white/90">
             No estás solvente con los pagos de tu mensualidad, por favor conversar con la
             administradora.
           </p>
         </div>
+      )}
+      {ELECTUDE_HABILITADO && (
+        <Link
+          href="/electude"
+          className="zr-card mt-6 flex items-center justify-between gap-3 p-4"
+        >
+          <span>
+            <span className="block text-sm font-bold text-zr-text">Simulador Electude</span>
+            <span className="block text-xs text-zr-text-muted">Practica diagnóstico antes de la clase, gratis.</span>
+          </span>
+          <span className="text-sm font-bold text-zr-blue">Abrir ›</span>
+        </Link>
       )}
     </div>
   )

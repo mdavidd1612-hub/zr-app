@@ -3,9 +3,6 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import QRCode from 'qrcode'
-import { generateTOTP } from '@/lib/totp'
-import { getQRSecret } from '@/lib/qr-secret'
 import { Seccion, Regla } from '@/components/ui/Editorial'
 import { BloqueCuenta } from '@/components/ui/BloqueCuenta'
 import { BotonActivarPush } from '@/components/ui/BotonActivarPush'
@@ -34,8 +31,6 @@ const TURNO = 'Sábado · 8:00 am'
 export default function PerfilEstudiante() {
   const router = useRouter()
   const [perfil, setPerfil] = useState<Perfil | null>(null)
-  const [qrUrl, setQrUrl] = useState('')
-  const [totp, setTotp] = useState('')
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
@@ -74,20 +69,6 @@ export default function PerfilEstudiante() {
           avatarPath: prof.avatar_url,
           rol: prof.role,
         })
-
-        // El QR se genera del secreto TOTP del propio estudiante. El código
-        // rota solo cada 30s; el navegador nunca decide si es válido.
-        const secret = await getQRSecret(prof.cedula ?? '')
-        if (secret) {
-          const codigo = generateTOTP(secret.secret, secret.label)
-          setTotp(codigo)
-          const url = await QRCode.toDataURL(`ZR1|${prof.cedula}|${codigo}`, {
-            width: 200,
-            margin: 1,
-            color: { dark: '#0F1419', light: '#FFFFFF' },
-          })
-          setQrUrl(url)
-        }
       }
 
       setCargando(false)
@@ -104,7 +85,7 @@ export default function PerfilEstudiante() {
   }
 
   return (
-    <div className="space-y-11 px-5 pt-14">
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <header className="animate-rise">
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-zr-blue-mid">
           Mi carnet
@@ -116,7 +97,7 @@ export default function PerfilEstudiante() {
 
       {/* 01 — CARNET */}
       <Seccion numero={1} titulo="Carnet digital" delay={120}>
-        <div id="tour-carnet" className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-zr-navy via-zr-navy to-zr-blue-deep p-4 shadow-md">
+        <div id="tour-carnet" className="zr-hero p-4">
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/50">ZR Mecademy</p>
             <span className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[10px] font-bold text-white/70">
@@ -129,11 +110,6 @@ export default function PerfilEstudiante() {
               <p className="truncate text-base font-bold text-white">{perfil.fullName}</p>
               <p className="mt-0.5 text-xs tabular-nums text-white/60">{perfil.cedula}</p>
             </div>
-            {qrUrl && (
-              <div className="shrink-0 rounded-md bg-white p-1">
-                <img src={qrUrl} alt="Código QR de asistencia" className="h-16 w-16" />
-              </div>
-            )}
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2.5 border-t border-white/10 pt-3">
@@ -150,16 +126,12 @@ export default function PerfilEstudiante() {
             ))}
           </div>
 
-          {totp && (
-            <div className="mt-3 border-t border-white/10 pt-2.5 text-[11px] text-white/50">
-              Código de asistencia:{' '}
-              <span className="font-mono tabular-nums text-white/80">{totp}</span>
-            </div>
-          )}
         </div>
 
+        {/* El carnet no lleva QR (decisión del coordinador, 21-nov-2026): la asistencia
+            se marca escaneando el QR que muestra administración en pantalla. */}
         <p className="text-sm text-zr-text-muted">
-          Muéstrale este código a tu profesor al llegar. Cambia solo, no hace falta refrescar.
+          Al llegar, marca tu asistencia escaneando el código que muestra administración en pantalla (Inicio → Tomar asistencia).
         </p>
       </Seccion>
 

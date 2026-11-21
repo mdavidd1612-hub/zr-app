@@ -89,7 +89,7 @@ export default function NuevoEstudiante() {
   const individualCompleto = Boolean(nombre.trim() && cedula.trim() && fechaNacimiento && correo.trim() && cohorteId)
 
   return (
-    <div className="space-y-11 px-5 pt-14 pb-10">
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-10">
       <BotonVolver href="/estudiantes" />
 
       <Encabezado sobretitulo="Administración · Estudiantes" titulo="Nuevo estudiante" />

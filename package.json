@@ -17,6 +17,9 @@
     "verify": "npm run typecheck && npm run lint && npm run test && npm run test:rls"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@fontsource-variable/raleway": "^5.3.0",
     "@fontsource-variable/roboto": "^5.3.0",
     "@supabase/ssr": "^0.12.4",
@@ -27,6 +30,7 @@
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "jszip": "^3.10.1",
+    "mammoth": "^1.13.0",
     "next": "16.2.12",
     "otpauth": "^9.5.1",
     "pdf-lib": "^1.17.1",
@@ -36,7 +40,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "server-only": "^0.0.1",
-    "zod": "^4.4.3"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-latest/xlsx-latest.tgz"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

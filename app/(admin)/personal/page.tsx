@@ -96,6 +96,7 @@ export default function Personal() {
   const [equipo, setEquipo] = useState<Miembro[]>([])
   const [cargando, setCargando] = useState(true)
   const [version, setVersion] = useState(0)
+  const [filtroRol, setFiltroRol] = useState<UserRole | ''>('')
 
   const [cohortes, setCohortes] = useState<Cohorte[]>([])
   const [modulos, setModulos] = useState<Modulo[]>([])
@@ -175,13 +176,14 @@ export default function Personal() {
       // Un admin normal solo ve (y da de alta) otras cuentas de
       // Administración — nada de profesores, dirección académica, super
       // admin o vendedor, eso lo sigue gestionando Dirección Académica.
+      // 20-nov-2026 (pedido del coordinador): Dirección Académica ve solo
+      // profesores; Administración ve el resto del equipo (admin, vendedor,
+      // ZR Coffee); super_admin ve todo y puede filtrar por rol.
       const rolesVisibles: UserRole[] = rolActual === 'admin'
-        ? ['admin']
-        // zr_coffee incluido (migración 095): si no, Cecilia desaparecería
-        // de esta lista mientras su rol activo sea ZR Coffee en vez de
-        // admin -- Personal necesita verla igual para poder gestionarle
-        // sus roles.
-        : ['profesor', 'admin', 'super_admin', 'direccion_academica', 'vendedor', 'zr_coffee']
+        ? ['admin', 'vendedor', 'zr_coffee']
+        : rolActual === 'direccion_academica'
+          ? ['profesor']
+          : ['profesor', 'admin', 'super_admin', 'direccion_academica', 'vendedor', 'zr_coffee']
 
       const [{ data }, { data: cohs }, { data: mods }, { data: calendarios }, { data: asigs }, { data: rolesExtraData }, { data: sedesData }, { data: adminSedesData }] = await Promise.all([
         supabase
@@ -582,15 +584,15 @@ export default function Personal() {
   }
 
   return (
-    <div className="space-y-11 px-5 pt-14 pb-10">
+    <div className="space-y-11 px-5 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-10">
       <BotonVolver href="/panel" />
 
       <Encabezado
-        sobretitulo="Administración"
+        sobretitulo="Gestión académica"
         titulo="Personal"
         descripcion={
           miRol === 'admin'
-            ? `${equipo.length} cuenta${equipo.length === 1 ? '' : 's'} de Administración.`
+            ? `${equipo.length} cuenta${equipo.length === 1 ? '' : 's'} del equipo (Administración, ventas y ZR Coffee).`
             : `${equipo.length} en total. Un profesor nunca se registra solo — así se crea su cuenta.`
         }
         accion={
@@ -784,6 +786,22 @@ export default function Personal() {
         </div>
       )}
 
+      {new Set(equipo.map((m) => m.rol)).size > 1 && (
+        <div className="-mt-4 flex gap-2 overflow-x-auto pb-1 zr-scroll-x">
+          {[{ valor: '' as UserRole | '', texto: 'Todos' }, ...[...new Set(equipo.map((m) => m.rol))].map((r) => ({ valor: r as UserRole | '', texto: ETIQUETA_ROL[r]?.texto ?? r }))].map((o) => (
+            <button
+              key={o.valor}
+              onClick={() => setFiltroRol(o.valor)}
+              className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                filtroRol === o.valor ? 'border-zr-blue bg-zr-blue/15 text-zr-blue' : 'border-zr-border text-zr-text-muted'
+              }`}
+            >
+              {o.texto}
+            </button>
+          ))}
+        </div>
+      )}
+
       {equipo.length === 0 ? (
         <div className="zr-card p-8 text-center">
           <p className="text-base font-semibold text-zr-text">Todavía no hay personal registrado</p>
@@ -791,7 +809,7 @@ export default function Personal() {
       ) : (
         <Seccion numero={1} titulo="Equipo" delay={120}>
           <div className="space-y-3">
-            {equipo.map((m) => {
+            {equipo.filter((m) => !filtroRol || m.rol === filtroRol).map((m) => {
               const misModulos = asignaciones.get(m.id) ?? new Set<string>()
               return (
               <div key={m.id} className="zr-card space-y-3 p-5">

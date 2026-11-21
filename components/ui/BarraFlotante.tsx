@@ -30,6 +30,9 @@ export interface ItemBarra {
    * botones seguidos en el menú de super_admin) "no se explica para qué".
    */
   grupo?: string
+  /** Otras rutas en las que esta sección cuenta como activa (p. ej. "Mi módulo"
+   *  del profesor también en Notas, Dudas y Feedback, que son sus pestañas). */
+  tambienEn?: string[]
 }
 
 interface Props {
@@ -99,8 +102,11 @@ export function BarraFlotante({ items, todasLasSecciones, deslizable = true, alT
     }
   }, [pathname, items, router, deslizable, alTocarBloqueado])
 
-  const activo = (href: string) =>
-    href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/')
+  const coincide = (h: string) => (h === '/' ? pathname === '/' : pathname === h || pathname.startsWith(h + '/'))
+  const activo = (href: string) => {
+    const extra = [...items, ...(todasLasSecciones ?? [])].find((i) => i.href === href)?.tambienEn ?? []
+    return [href, ...extra].some(coincide)
+  }
 
   // ¿La pantalla actual es una de las 4 visibles en la píldora? Si no, el
   // botón de menú se marca activo para no dejar la navegación "en blanco".
@@ -121,7 +127,7 @@ export function BarraFlotante({ items, todasLasSecciones, deslizable = true, alT
               <button
                 onClick={() => setMenuAbierto(false)}
                 aria-label="Cerrar menú"
-                className="flex h-9 w-9 items-center justify-center rounded-full text-zr-text-muted active:bg-zr-border/50"
+                className="flex h-11 w-11 items-center justify-center rounded-full text-zr-text-muted active:bg-zr-border/50"
               >
                 <IconoCerrar size={18} />
               </button>
@@ -170,7 +176,7 @@ export function BarraFlotante({ items, todasLasSecciones, deslizable = true, alT
             iguales (`flex-1 min-w-0`) en vez de un ancho fijo, así nunca se
             desborda sin importar cuántas secciones tenga cada rol ni qué tan
             angosto sea el teléfono. */}
-        <div className="mx-auto w-fit max-w-full rounded-[28px] border border-white/15 bg-white/10 px-2 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+        <div className="mx-auto w-fit max-w-full rounded-[28px] border border-white/15 bg-white/10 px-2 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-md">
           <div className="flex w-full gap-0.5">
             {items.map((item) => {
               const on = activo(item.href)
@@ -189,7 +195,7 @@ export function BarraFlotante({ items, todasLasSecciones, deslizable = true, alT
                   }`}
                 >
                   <item.Icono size={21} />
-                  <span className="max-w-full truncate text-[10px] font-semibold leading-none">
+                  <span className="max-w-full truncate text-[11px] font-semibold leading-none">
                     {item.label}
                   </span>
                 </button>

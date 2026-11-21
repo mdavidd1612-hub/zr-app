@@ -15,7 +15,7 @@ const TIPOS: Record<Tipo, { clases: string; simbolo: string; etiqueta: string; r
   exito: {
     clases: 'glass border-zr-success text-zr-text',
     simbolo: '✓',
-    etiqueta: 'Listo',
+    etiqueta: 'Verificado',
     rol: 'status',
   },
   advertencia: {

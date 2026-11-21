@@ -3,9 +3,13 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Encabezado, Regla, Etiqueta } from '@/components/ui/Editorial'
+import { Etiqueta } from '@/components/ui/Editorial'
+import { TarjetaHero } from '@/components/ui/TarjetaHero'
+import { EstadoVacio } from '@/components/ui/EstadoVacio'
+import { Recorrido, Paso, type EstadoPaso } from '@/components/ui/Recorrido'
 import { BotonVolver } from '@/components/ui/BotonVolver'
-import { IconoCheck } from '@/components/ui/Iconos'
+import { PestanasMiModulo } from '@/components/ui/PestanasMiModulo'
+import { IconoCheck, IconoCarpeta } from '@/components/ui/Iconos'
 import { PantallaEsqueleto } from '@/components/ui/Esqueleto'
 import { esAdmin } from '@/lib/auth-helpers'
 import { leerCohorteVistaRecorridoCookie, leerModuloVistaRecorridoCookie } from '@/lib/vista-recorrido'
@@ -236,94 +240,112 @@ export default function MallaCurricular() {
     )
   }
 
+  const cursados = modulos.filter((m) => m.estado === 'cursado').length
+  const actual = modulos.find((m) => m.estado === 'actual')
+  const avance = modulos.length ? Math.round((cursados / modulos.length) * 100) : 0
+
   return (
-    <div className="space-y-9 px-5 pt-14 pb-28">
+    <div className="space-y-7 px-5 pb-28 pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <BotonVolver />
-
-      <Encabezado
-        sobretitulo={programa ?? 'Todos los programas'}
-        titulo="Malla curricular"
-        descripcion={
-          programa
-            ? 'Todos los módulos del programa, en el orden en que se cursan.'
-            : 'Los 13 módulos del plan de estudio — el contenido es el mismo en PTMA y PFTA.'
-        }
-      />
-
-      <Regla delay={60} />
+      <PestanasMiModulo />
 
       {modulos.length === 0 ? (
-        <p className="text-sm text-zr-text-muted">
-          Todavía no tienes un programa asignado. Cuando administración te lo
-          asigne, aquí verás la malla completa.
-        </p>
+        <EstadoVacio
+          Icono={IconoCarpeta}
+          titulo="Todavía no tienes programa asignado"
+          explicacion="Cuando administración te lo asigne, aquí verás la malla completa."
+        />
       ) : (
-        <ol className="space-y-3">
-          {modulos.map((m, i) => (
-            <li
-              key={m.id}
-              // Bug real de producción (reportado por el coordinador, oct.
-              // 2026): el tour resaltaba la lista ENTERA (los 14 módulos),
-              // mucho más alta que cualquier pantalla de teléfono --
-              // scrollIntoView la centraba, el rectángulo visible quedaba del
-              // tamaño de la pantalla completa, y el tour se rendía sin
-              // dibujar ningún cuadro (solo el fondo oscuro con el texto).
-              // Se resalta solo la primera tarjeta -- representa a las demás
-              // sin salirse nunca de la pantalla.
-              id={i === 0 ? 'tour-malla' : undefined}
-              className={`zr-card p-5 ${m.estado === 'actual' ? 'border-zr-blue' : ''}`}
-            >
-              <div className="flex items-start gap-4">
-                <span
-                  className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums ${
-                    m.estado === 'cursado'
-                      ? 'bg-zr-success/15 text-zr-success'
-                      : m.estado === 'actual'
-                        ? 'bg-zr-blue text-white'
-                        : 'bg-zr-surface text-zr-text-muted'
-                  }`}
-                >
-                  {m.orden}
-                </span>
+        <>
+        <div className="animate-rise">
+          <TarjetaHero
+            sobretitulo={programa ?? 'Todos los programas'}
+            titulo="Malla curricular"
+            texto={
+              programa
+                ? actual
+                  ? `Vas por el módulo ${actual.orden}: ${actual.nombre}.`
+                  : 'Todos los módulos del programa, en el orden en que se cursan.'
+                : 'El plan de estudio completo — el contenido es el mismo en PTMA y PFTA.'
+            }
+            icono={<IconoCarpeta size={24} />}
+          >
+            {programa && (
+              <div className="mt-5">
+                <div className="h-2 overflow-hidden rounded-full bg-white/20" role="progressbar" aria-valuenow={avance} aria-valuemin={0} aria-valuemax={100}>
+                  <div className="h-full rounded-full bg-white transition-all" style={{ width: `${avance}%` }} />
+                </div>
+                <p className="mt-2 text-xs font-semibold text-white/75">
+                  {cursados} de {modulos.length} módulos cursados
+                </p>
+              </div>
+            )}
+          </TarjetaHero>
+        </div>
 
-                <div className="min-w-0 flex-1 space-y-2.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-base font-bold text-zr-text">{m.nombre}</p>
+        <div className="zr-card p-5 pb-2">
+        <Recorrido>
+          {modulos.map((m, i) => {
+            const estadoPaso: EstadoPaso =
+              m.estado === 'cursado' ? 'completado' : m.estado === 'actual' ? 'activo' : 'disponible'
+            return (
+              <Paso
+                key={m.id}
+                // Bug real de producción (reportado por el coordinador, oct.
+                // 2026): el tour resaltaba la lista ENTERA (los 14 módulos),
+                // mucho más alta que cualquier pantalla de teléfono --
+                // scrollIntoView la centraba, el rectángulo visible quedaba
+                // del tamaño de la pantalla completa, y el tour se rendía
+                // sin dibujar nada (solo el fondo oscuro con el texto). Se
+                // resalta solo el primer paso -- representa a los demás sin
+                // salirse nunca de la pantalla.
+                id={i === 0 ? 'tour-malla' : undefined}
+                estado={estadoPaso}
+                indice={m.orden}
+                titulo={m.nombre}
+                ultimo={i === modulos.length - 1}
+                delay={80 + i * 40}
+                meta={
+                  <>
                     {m.estado === 'actual' && <Etiqueta tono="info">Cursando ahora</Etiqueta>}
                     {m.estado === 'cursado' && <Etiqueta tono="exito">Cursado</Etiqueta>}
                     {m.homologado && <Etiqueta tono="neutro">Homologado INCES</Etiqueta>}
-                  </div>
-
+                  </>
+                }
+              >
+                <span className="space-y-2.5">
                   {m.descripcion && (
-                    <p className="text-sm leading-relaxed text-zr-text-muted">{m.descripcion}</p>
+                    <span className="block text-sm leading-relaxed text-zr-text-muted">{m.descripcion}</span>
                   )}
 
                   {/* Lista completa, sin recortar (a pedido explícito del
                       coordinador, sept. 2026 — revierte el límite de 3 +
                       "+N más" que él mismo había pedido antes). */}
                   {m.competencias && m.competencias.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 pt-0.5">
-                      {m.competencias.map((c, i) => (
+                    <span className="flex flex-wrap gap-1.5">
+                      {m.competencias.map((c, j) => (
                         <span
-                          key={i}
+                          key={j}
                           className="inline-flex items-center gap-1 rounded-full border border-zr-blue/20 bg-zr-blue/8 px-2.5 py-1 text-xs font-medium text-zr-text"
                         >
                           <IconoCheck size={12} className="shrink-0 text-zr-blue-mid" />
                           {c}
                         </span>
                       ))}
-                    </div>
+                    </span>
                   )}
 
-                  <p className="pt-0.5 text-xs font-bold uppercase tracking-wide text-zr-blue-mid">
+                  <span className="block text-xs font-bold uppercase tracking-wide text-zr-blue-mid">
                     {m.semanas * horasPorSabado} horas académicas · {m.semanas} {m.semanas === 1 ? 'sábado' : 'sábados'}
                     {m.fechas ? ` · ${m.fechas}` : ''}
-                  </p>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ol>
+                  </span>
+                </span>
+              </Paso>
+            )
+          })}
+        </Recorrido>
+        </div>
+        </>
       )}
     </div>
   )

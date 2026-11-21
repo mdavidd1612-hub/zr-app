@@ -1732,7 +1732,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
-- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.91**.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.92**.
 
 ### 12.5 Al cierre de cada sprint
 
@@ -1894,6 +1894,7 @@ Es porque este documento se escribió sin auditar línea por línea las 131 migr
 | 2026-11-20 | v1.89: cursos cortos (migr. 236) en Planificación. | `supabase/migrations/236_cursos_cortos.sql` |
 | 2026-11-20 | v1.88: vista Planificación (tipo hoja de Dirección) dentro del calendario general. | — |
 | 2026-11-20 | v1.87: calendario general parte 3 — arrastrar una clase en la semana abre Mover con el destino puesto y el resumen calculado. | — |
+| 2026-11-20 | **Investigación v2 del paso a producción (solo lectura, nada aplicado):** comparación objeto por objeto de `zr-prod` vs `zr-staging` (tablas, funciones, políticas, disparadores, crons, buckets), orden real de 66 migraciones + 3 sin registro (027 que producción nunca aplicó, 204 y 206 aplicadas a mano), traslado de Material a Unidades probado como estudiante de cada corte (con transacción que se deshace), error vigente de `enviar_notas` en producción, staging llamando a producción en `fn_generar_caso_del_dia`. v1.92. | `docs/reportes/plan_paso_a_produccion_2026-11-20.md` |
 
 ---
 

@@ -161,7 +161,7 @@ const ESTUDIANTE: PasoTour[] = [
     texto: 'Aquí ves los días de la semana. El sábado marcas tu asistencia; entre semana avanzas en tus Unidades.' },
   { id: 'estudiante-accesos', ruta: '/', targetId: 'tour-accesos',
     titulo: 'Tu carnet, calendario y módulo',
-    texto: 'Desde aquí muestras tu carnet para la asistencia y entras a tu calendario o a Mi avance, donde ves tu módulo, la malla y tu progreso.' },
+    texto: 'Desde aquí ves tu carnet y entras a tu calendario o a Mi avance, donde ves tu módulo, la malla y tu progreso.' },
   { id: 'estudiante-lo-proximo', ruta: '/', targetId: null,
     titulo: 'Lo próximo y tus cursos virtuales',
     texto: 'En Inicio ves los próximos exámenes y entregas de todos tus módulos. Si cursas uno virtual al mismo tiempo (por ejemplo Inglés Técnico), aparece como «También cursas · virtual» y en Unidades lo eliges arriba.' },
@@ -180,7 +180,7 @@ const ESTUDIANTE: PasoTour[] = [
     texto: 'Si algo no te quedó claro, escríbelo aquí como pregunta. Tu profesor las responde el sábado.' },
   { id: 'estudiante-carnet', ruta: '/perfil', targetId: 'tour-carnet',
     titulo: 'Tu carnet',
-    texto: 'Y aquí tu carnet digital con tu código QR — el profesor lo escanea para marcar tu asistencia.' },
+    texto: 'Y aquí tu carnet digital. La asistencia la marcas escaneando el código que muestra administración en pantalla.' },
 ]
 
 

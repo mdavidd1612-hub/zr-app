@@ -53,8 +53,9 @@ Redirecciones vistas y correctas:
    - Arreglo: sin código, el texto ahora explica el flujo real: el estudiante escanea el QR de
      administración desde Inicio → Tomar asistencia. La asistencia nunca dependió de ese código.
    - Archivo: `app/(app)/perfil/page.tsx`.
-   - **Decisión pendiente:** si se quiere el QR en el carnet de verdad, hay que conectar
-     `provision-qr` al primer inicio de sesión. Si no, conviene quitar ese bloque.
+   - **Decisión del coordinador (v1.98):** se quitó el QR del carnet. La asistencia se marca solo
+     escaneando el QR de administración. También se corrigieron los 2 pasos del tutorial que
+     prometían el QR en el carnet.
 2. **Botón de foto de perfil sin nombre** para lectores de pantalla. Se agregó
    `aria-label="Cambiar foto de perfil"` en `components/ui/FotoPerfil.tsx`.
 3. **Calendario general en el teléfono: "Año" quedaba solo en una segunda línea** del selector de

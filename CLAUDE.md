@@ -1738,7 +1738,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
-- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.97**.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.98**.
 
 ### 12.5 Al cierre de cada sprint
 
@@ -1931,6 +1931,7 @@ Cuando el coordinador pide un **"chequeo total"** se refiere exactamente a esto:
 | 2026-11-21 | **Ensayo del paso a producción en copia local de `zr-prod`** (Docker, borrada al terminar): las 64 migraciones entran sin errores, conteos y notas idénticos, traslado del material 3 unidades/10 enlaces, PTMA-III ya puede registrar % en Introducción. Hallado roto hoy en producción: aviso de refrigerio (41 fallos) y "Devolver notas" (`'push'` sin cast a `notification_channel`). v1.95. | `docs/reportes/ensayo_paso_a_produccion_2026-11-21.md` |
 | 2026-11-21 | v1.96: unidades por corte (migr. 241, cada corte ve solo sus unidades y su material) y arreglo del aviso de refrigerio y "Devolver notas" (migr. 240), solo en staging; traslado del material por corte en el plan. Ver §8.29bis. | `supabase/migrations/240_fix_canal_push_refrigerio_y_devolver_notas.sql`, `241_unidades_por_corte.sql` |
 | 2026-11-21 | v1.97: **primer chequeo total de staging** (regla §12.10, agregada hoy): 4 perfiles × teléfono y PC, 96 cargas de pantalla sin desbordes ni errores de consola; corregidos el texto del carnet sin QR (el secreto del QR del carnet nunca se guarda, también en producción), el nombre accesible de la foto de perfil y el selector de rango del calendario general en el teléfono. | `docs/reportes/chequeo_total_staging_2026-11-21.md` |
+| 2026-11-21 | v1.98: el carnet del estudiante deja de tener QR (decisión del coordinador): la asistencia se marca solo escaneando el QR de administración. Tutorial del carnet actualizado. | — |
 
 ---
 

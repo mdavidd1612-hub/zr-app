@@ -7,20 +7,19 @@ import { createClient } from '@/lib/supabase/client'
 /**
  * Planificación (20-nov-2026, pedido del coordinador): la misma vista que la
  * hoja de cálculo de Dirección Académica. Una fila por corte, una columna por
- * semana, y una barra por cada módulo con su profesor. Se ve por mes,
- * trimestre, semestre o año. Sale del calendario de módulos de cada corte
- * (`cohort_module_calendar`) y de la cobertura (`teacher_module_assignments`).
+ * semana, y una barra por cada módulo con su profesor. Sale del calendario de
+ * módulos de cada corte (`cohort_module_calendar`) y de la cobertura
+ * (`teacher_module_assignments`).
+ *
+ * El rango (trimestre/semestre/año) y el punto de partida los controla la
+ * pantalla que la usa (`/calendario-general`, selector único Semana · Mes ·
+ * Trimestre · Semestre · Año) — este componente solo dibuja con lo que le
+ * pasan, para compartir el mismo ‹ › y el mismo "Hoy" con las otras vistas.
  */
 
 interface Corte { id: string; name: string; sede: string | null; turno: string | null; status: string; programs?: { tipo: string | null } | null }
 interface Tramo { cohort_id: string; module_id: string; start_date: string; end_date: string; modalidad: string | null }
 
-const RANGOS = [
-  { meses: 1, etiqueta: 'Mes' },
-  { meses: 3, etiqueta: 'Trimestre' },
-  { meses: 6, etiqueta: 'Semestre' },
-  { meses: 12, etiqueta: 'Año' },
-] as const
 const COLORES = ['#3869B1', '#16A34A', '#9333EA', '#EA580C', '#0891B2', '#DB2777', '#CA8A04', '#4F46E5']
 const ANCHO = 'minmax(34px, 1fr)'
 
@@ -28,9 +27,12 @@ const deISO = (s: string) => new Date(`${s}T12:00:00`)
 const aISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 function lunesDe(d: Date) { const x = new Date(d); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x }
 
-export function PlanificacionCortes() {
-  const [meses, setMeses] = useState<number>(3)
-  const [inicio, setInicio] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1, 12) })
+interface Props {
+  meses: number
+  inicio: Date
+}
+
+export function PlanificacionCortes({ meses, inicio }: Props) {
   const [cortes, setCortes] = useState<Corte[]>([])
   const [tramos, setTramos] = useState<Tramo[]>([])
   const [modulos, setModulos] = useState<Record<string, string>>({})
@@ -81,28 +83,15 @@ export function PlanificacionCortes() {
   const filas = cortes.filter((c) => verTerminados || c.status === 'activa')
   const colorModulo = (id: string) => COLORES[Object.keys(modulos).indexOf(id) % COLORES.length]
 
-  const mover = (k: number) => { const d = new Date(inicio); d.setMonth(d.getMonth() + k * meses); setInicio(d) }
-  const titulo = `${primera.toLocaleDateString('es-VE', { month: 'short', year: 'numeric' })} – ${semanas[n - 1].toLocaleDateString('es-VE', { month: 'short', year: 'numeric' })}`
-
   if (cargando) return <p className="text-sm text-zr-text-muted">Cargando planificación…</p>
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-2">
-          <button onClick={() => mover(-1)} aria-label="Anterior" className="flex h-11 w-11 items-center justify-center rounded-full border border-zr-border text-zr-text">‹</button>
-          <p className="min-w-0 flex-1 text-center text-sm font-bold capitalize text-zr-text md:w-56 md:flex-none">{titulo}</p>
-          <button onClick={() => mover(1)} aria-label="Siguiente" className="flex h-11 w-11 items-center justify-center rounded-full border border-zr-border text-zr-text">›</button>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {RANGOS.map((r) => (
-            <button key={r.meses} onClick={() => setMeses(r.meses)} className={`min-h-10 rounded-full border px-4 text-xs font-bold ${meses === r.meses ? 'border-zr-blue bg-zr-blue text-white' : 'border-zr-border text-zr-text'}`}>{r.etiqueta}</button>
-          ))}
-          <label className="flex items-center gap-2 text-xs text-zr-text-muted">
-            <input type="checkbox" checked={verTerminados} onChange={(e) => setVerTerminados(e.target.checked)} className="h-4 w-4" />
-            Ver cortes terminados
-          </label>
-        </div>
+      <div className="flex justify-end">
+        <label className="flex items-center gap-2 text-xs text-zr-text-muted">
+          <input type="checkbox" checked={verTerminados} onChange={(e) => setVerTerminados(e.target.checked)} className="h-4 w-4" />
+          Ver cortes terminados
+        </label>
       </div>
 
       <div className="zr-scroll overflow-x-auto rounded-2xl border border-zr-border">

@@ -340,10 +340,10 @@ const ADMIN: PasoTour[] = [
     texto: 'Elige en qué salón tiene clase cada cohorte cada sábado. Estudiantes y profesores lo ven en su calendario. Si no cambias nada, se repite el de la semana anterior.' },
   { id: 'admin-calendario-general', ruta: '/calendario-general', targetId: null,
     titulo: 'Calendario general',
-    texto: 'Todas las clases de tus sedes en la semana, con hora, módulo, profesor y salón. Lo que choca (mismo salón o mismo profesor a la misma hora) sale en rojo.' },
+    texto: 'Todas las clases de tus sedes, con hora, módulo, profesor y salón. Arriba eliges Semana, Mes, Trimestre, Semestre o Año — las mismas flechas ‹ › mueven cualquiera. Lo que choca (mismo salón o mismo profesor a la misma hora) sale en rojo.' },
   { id: 'admin-mover-clase', ruta: '/calendario-general', targetId: null,
     titulo: 'Mover una clase',
-    texto: 'Toca una clase y elige la nueva fecha. Si pasa a otra semana, se corren también las siguientes; si es en la misma semana, solo esa. Antes de guardar ves qué cambia, y al confirmar se avisa a los estudiantes y al profesor.' },
+    texto: 'Toca una clase (en Semana o en Mes) y elige la nueva fecha. Si pasa a otra semana, se corren también las siguientes; si es en la misma semana, solo esa. Antes de guardar ves qué cambia, y al confirmar se avisa a los estudiantes y al profesor.' },
   { id: 'admin-ficha-corte', ruta: '/cohortes', targetId: null,
     titulo: 'Ficha de cada corte',
     texto: 'Toca el nombre de un corte para abrir su ficha: ahí armas su calendario de módulos (también un módulo virtual en paralelo, como Inglés) y llegas a sus profesores, salones, estudiantes y notas.' },
@@ -352,7 +352,7 @@ const ADMIN: PasoTour[] = [
     texto: 'Con "+ Curso corto" creas un curso suelto (motos, pintura…). Funciona igual que un programa pero con un solo módulo: le abres un corte con "+ Nueva", le pones profesor e inscribes a los estudiantes como siempre.' },
   { id: 'admin-planificacion', ruta: '/calendario-general', targetId: null,
     titulo: 'Planificación',
-    texto: 'En "Planificación" ves todos los cortes y cursos como en la hoja de Excel: una fila por corte, una columna por semana y cada módulo con su profesor. Puedes verlo por mes, trimestre, semestre o año.' },
+    texto: 'En "Trimestre", "Semestre" o "Año" ves todos los cortes y cursos como en la hoja de Excel: una fila por corte, una columna por semana y cada módulo con su profesor.' },
 ]
 
 const VENDEDOR: PasoTour[] = [

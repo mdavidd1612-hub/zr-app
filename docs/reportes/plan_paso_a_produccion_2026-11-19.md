@@ -1,3 +1,5 @@
+> **Reemplazado por `plan_paso_a_produccion_2026-11-20.md`** (más profundo y al día con v1.91 / migración 239).
+
 # Cómo pasar lo de `develop`/`zr-staging` a `main`/`zr-prod` — investigación (19-nov-2026)
 
 > Solo investigación. **No se aplicó ni se cambió nada** en producción ni en staging

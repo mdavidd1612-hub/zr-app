@@ -872,6 +872,16 @@ Pedido del coordinador: los estudiantes tocaban "Omitir" en el tutorial o lo pas
 - De paso: la red de seguridad del tutorial (si la pantalla de un paso no carga, salta o termina) pasó de 3,5 s a 6 s. Con el servidor lento cortaba el tutorial a la mitad al entrar a una unidad.
 - En staging, el estudiante de prueba V-90000001 quedó **sin** la clave, para que el coordinador vea la pantalla al entrar.
 
+### 8.29quater PASO A PRODUCCIÓN (21-nov-2026, v2.00)
+
+Todo lo de `develop` (Unidades/Aula Virtual, calendario general, cursos cortos, notas por corte, unidades por corte, etc.) **ya está en `zr-prod` y en `main`**. Informe: `docs/reportes/paso_a_produccion_2026-11-21.md`.
+- **Respaldo** completo de producción antes de tocar nada (roles, esquema y datos), fuera de OneDrive: `C:\Users\mdavi\zr-respaldos\prod_2026-11-21_1153\` (no borrar).
+- **Ensayo repetido** sobre ese respaldo con las 67 migraciones (incluidas 240, 241 y la nueva 242): sin errores, datos idénticos, y la app recorrida en la copia como estudiante de cada corte, profesor, Dirección y Administración (teléfono y PC), sin errores.
+- **Migración 242** (nueva): la política de escritura de material del profesor en staging se había cambiado a mano; se dejó igual en las dos bases (el profesor que dicta el módulo puede editar cualquier material de su módulo y corte).
+- **Producción**: 67 migraciones aplicadas en el orden del ensayo, traslado del material (4 unidades «Material del módulo», 10 enlaces, 0 sueltos), 5 Edge Functions redesplegadas con su misma configuración de `verify_jwt`. La estructura de producción quedó **idéntica** a la del ensayo (huella de tablas, columnas, políticas, restricciones, funciones, disparadores, índices, crons y unidades). Conteos y suma de notas iguales antes y después.
+- `main` quedó con el mismo contenido que `develop` (commit de unión con los dos padres): los 16 commits propios de `main` ya estaban en `develop`, salvo los 2 que sacaban Unidades de producción, que dejan de aplicar.
+- **Pendiente**: avisar a estudiantes y profesores; Dirección crea «Inglés técnico» si va; cambiar la clave de la base de producción (salió en fotos); `CLOUDCONVERT_API_KEY` en Vercel si se quiere PowerPoint dentro de la app.
+
 ### 8.30 COSAS POR HACER (anotado, no construido)
 
 - 🔴 **Modo sin conexión (offline):** poder descargar una unidad en el teléfono (lecturas, PDF, imágenes, instrucciones) y abrirla sin internet. Ya hay service worker (`public/sw.js`, red primero con caché de respaldo) pero no guarda unidades. Ideas: botón "Descargar para ver sin conexión" por unidad que guarda los archivos en el almacenamiento del navegador (Cache API / IndexedDB), con aviso de espacio usado y opción de borrar; las URL firmadas caducan, así que hay que guardar el archivo, no el enlace; el progreso de "material visto" se guarda localmente y se sincroniza al volver la conexión; las entregas de tareas y exámenes siguen exigiendo conexión. Definir antes: cuánto espacio permitir, qué tipos (PDF/imagen sí; video pesado probablemente no) y si el progreso offline cuenta como visto.
@@ -1749,7 +1759,7 @@ Checklist técnico que **debe** pasar antes de marcar una tarea como completada:
 - [ ] Funciona en 360px (teléfono real).
 - [ ] Actualizaste el estado en §8 del épico (🔴 → 🟡 → ✅).
 - [ ] Si cambió una dependencia, actualizaste §10.
-- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **1.99**.
+- [ ] **Subiste el número de versión** en `lib/version.ts` (`APP_VERSION`, se ve en la barra lateral y en la cinta del entorno de prueba). Regla del coordinador (17-nov-2026): se sube en CADA cambio -- commit, migración, ajuste, prueba que deja algo distinto -- para saber a simple vista que el teléfono o la computadora ya tiene lo último. Versión actual: **2.00**.
 
 ### 12.5 Al cierre de cada sprint
 
@@ -1944,6 +1954,7 @@ Cuando el coordinador pide un **"chequeo total"** se refiere exactamente a esto:
 | 2026-11-21 | v1.97: **primer chequeo total de staging** (regla §12.10, agregada hoy): 4 perfiles × teléfono y PC, 96 cargas de pantalla sin desbordes ni errores de consola; corregidos el texto del carnet sin QR (el secreto del QR del carnet nunca se guarda, también en producción), el nombre accesible de la foto de perfil y el selector de rango del calendario general en el teléfono. | `docs/reportes/chequeo_total_staging_2026-11-21.md` |
 | 2026-11-21 | v1.98: el carnet del estudiante deja de tener QR (decisión del coordinador): la asistencia se marca solo escaneando el QR de administración. Tutorial del carnet actualizado. | — |
 | 2026-11-21 | v1.99: pantalla de "actualización obligatoria" con animación antes del tutorial, y tutorial sin "Omitir" con lectura mínima por paso. Ver §8.29ter. | — |
+| 2026-11-21 | **v2.00: PASO A PRODUCCIÓN.** Respaldo completo, ensayo repetido sobre el respaldo (67 migraciones, app recorrida por perfil en la copia), comparación con staging (migr. 242 para alinear una política cambiada a mano), aplicación en `zr-prod`, traslado del material, 5 Edge Functions y `main` = `develop`. Producción quedó idéntica al ensayo. Ver §8.29quater. | `docs/reportes/paso_a_produccion_2026-11-21.md` |
 
 ---
 

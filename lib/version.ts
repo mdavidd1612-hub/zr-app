@@ -4,7 +4,7 @@
  * (commit, migracion, ajuste), para saber a simple vista que el telefono o la
  * computadora ya tiene lo ultimo. Esta es la unica fuente del numero.
  */
-export const APP_VERSION = '1.99'
+export const APP_VERSION = '2.00'
 
 /**
  * Pantalla de "actualización obligatoria" del estudiante (21-nov-2026, pedido

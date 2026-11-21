@@ -158,8 +158,14 @@ export default function PerfilEstudiante() {
           )}
         </div>
 
+        {/* Chequeo total 21-nov-2026: el secreto del QR del carnet nunca se
+            guarda en el teléfono (saveQRSecret no tiene quien lo llame), así que
+            el código casi nunca aparece. Sin código, el texto explica el flujo
+            real: el estudiante escanea el QR que muestra administración. */}
         <p className="text-sm text-zr-text-muted">
-          Muéstrale este código a tu profesor al llegar. Cambia solo, no hace falta refrescar.
+          {qrUrl
+            ? 'Muéstrale este código a tu profesor al llegar. Cambia solo, no hace falta refrescar.'
+            : 'Al llegar, marca tu asistencia escaneando el código que muestra administración en pantalla (Inicio → Tomar asistencia).'}
         </p>
       </Seccion>
 

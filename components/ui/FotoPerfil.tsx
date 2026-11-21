@@ -93,6 +93,7 @@ export function FotoPerfil({ uid, rutaInicial }: Props) {
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={subiendo}
+        aria-label="Cambiar foto de perfil"
         className="group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-zr-border bg-zr-surface text-zr-text-muted disabled:opacity-60"
       >
         {url ? (

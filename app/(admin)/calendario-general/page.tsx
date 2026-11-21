@@ -217,9 +217,11 @@ export default function CalendarioGeneral() {
 
       {/* Selector de rango */}
       <div className="flex justify-center">
-        <div className="inline-flex flex-wrap justify-center gap-1 rounded-full border border-zr-border bg-zr-surface p-1">
+        {/* Chequeo total 21-nov-2026: en el teléfono "Año" quedaba solo en una
+            segunda línea; ahora las 5 opciones reparten el ancho en una fila. */}
+        <div className="flex w-full max-w-lg gap-1 rounded-full border border-zr-border bg-zr-surface p-1 sm:w-auto">
           {VISTAS.map((v) => (
-            <button key={v.id} onClick={() => { setVista(v.id); setDiaAbierto(null) }} className={`min-h-10 rounded-full px-3 text-xs font-bold sm:px-4 sm:text-sm ${vista === v.id ? 'bg-zr-blue text-white' : 'text-zr-text-muted'}`}>
+            <button key={v.id} onClick={() => { setVista(v.id); setDiaAbierto(null) }} className={`min-h-10 flex-1 rounded-full px-1 text-[11px] font-bold sm:flex-none sm:px-4 sm:text-sm ${vista === v.id ? 'bg-zr-blue text-white' : 'text-zr-text-muted'}`}>
               {v.etiqueta}
             </button>
           ))}
